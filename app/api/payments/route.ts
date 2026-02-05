@@ -1,0 +1,141 @@
+/**
+ * API: Payments - Create Payment Intent
+ * POST /api/payments - Creare intent plată Stripe
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { createPaymentIntent, PromotionPackage, isValidPromotionPackage } from '@/lib/stripe';
+import { logger } from '@/lib/observability';
+import { checkRateLimit } from '@/lib/rateLimit';
+import { PaymentStatus } from '@prisma/client';
+
+export const runtime = 'nodejs';
+
+export async function POST(req: NextRequest) {
+  try {
+    // Rate limiting: 10 payment creations per hour per user
+    const rateLimitResult = await checkRateLimit('payment_creation', req);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many payment attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    // Verificare autentificare
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    // Parse body
+    const body = await req.json();
+    const { listingId, packageType } = body;
+
+    // Validare input
+    if (!listingId || !packageType) {
+      return NextResponse.json(
+        { error: 'Missing required fields: listingId, packageType' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidPromotionPackage(packageType)) {
+      return NextResponse.json(
+        { error: 'Invalid package type' },
+        { status: 400 }
+      );
+    }
+
+    // Verificare listing există și aparține user-ului
+    const listing = await prisma.listing.findUnique({
+      where: { id: listingId },
+    });
+
+    if (!listing) {
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
+    }
+
+    if (listing.userId !== decoded.userId) {
+      return NextResponse.json(
+        { error: 'You can only promote your own listings' },
+        { status: 403 }
+      );
+    }
+
+    // Verificare listing este aprobat
+    if (listing.status !== 'active') {
+      return NextResponse.json(
+        { error: 'Only active listings can be promoted' },
+        { status: 400 }
+      );
+    }
+
+    // Get user info pentru email
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { email: true, name: true },
+    });
+
+    // Creare PaymentIntent în Stripe
+    const paymentIntent = await createPaymentIntent({
+      userId: decoded.userId,
+      listingId,
+      packageType: packageType as PromotionPackage,
+      customerEmail: user?.email,
+      metadata: {
+        userName: user?.name || 'Unknown',
+        listingTitle: listing.title.substring(0, 100),
+      },
+    });
+
+    // Salvare Payment în DB
+    const payment = await prisma.payment.create({
+      data: {
+        userId: decoded.userId,
+        stripePaymentIntentId: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency.toUpperCase(),
+        status: PaymentStatus.pending,
+        purpose: 'promote_listing',
+        entityType: 'listing',
+        entityId: listingId,
+        metadata: {
+          packageType,
+          listingTitle: listing.title,
+        },
+      },
+    });
+
+    logger.info('Payment created', {
+      paymentId: payment.id,
+      userId: decoded.userId,
+      listingId,
+      amount: paymentIntent.amount,
+      packageType,
+    });
+
+    return NextResponse.json({
+      paymentId: payment.id,
+      clientSecret: paymentIntent.client_secret,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency,
+      packageType,
+    });
+  } catch (error: any) {
+    logger.error('Payment creation failed', { error });
+    return NextResponse.json(
+      { error: error.message || 'Failed to create payment' },
+      { status: 500 }
+    );
+  }
+}
+

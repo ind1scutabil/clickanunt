@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum UserRole {
+  user
+  dealer
+  admin
+  moderator
+  owner        // OWNER - control complet
+  support      // SUPPORT - răspunde întrebări
+  finance      // FINANCE - gestionare plăți
+}
+
+enum ListingStatus {
+  draft
+  pending      // În așteptare moderare
+  active
+  paused
+  expired
+  sold
+  deleted
+  rejected     // Respins de moderare
+  hidden       // Ascuns (shadowban)
+}
+
+enum ModerationStatus {
+  pending      // În așteptare review
+  approved     // Aprobat
+  rejected     // Respins
+  flagged      // Marcat pentru review
+}
+
+enum ReportStatus {
+  pending
+  investigating
+  resolved
+  dismissed
+}
+
+enum AppealStatus {
+  pending
+  under_review
+  approved
+  rejected
+}
+
+en
+  // Trust & Security
+  trustScore        Int      @default(50)  // 0-100
+  isBanned          Boolean  @default(false)
+  bannedAt          DateTime?
+  bannedBy          String?
+  banReason         String?
+  
+  // 2FA
+  twoFactorSecret   String?
+  twoFactorEnabled  Boolean  @default(false)
+  
+  // Login tracking & lockout
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  failedLoginAttempts Int    @default(0)
+  lockedUntil       DateTime?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  listings          Listing[]
+  reports           Report[]
+  appeals           Appeal[]
+  auditLogs         AuditLog[]
+  moderationActions ModerationQueue[] @relation("ModeratorActions")
+  
+  @@index([email])
+  @@index([role])
+  @@index([isBanned])
+  @@index([trustScor
+
+enum Transmission {
+  manual
+  automatic
+  semiautomatic
+  other
+}
+
+enum Condition {
+  new
+  used
+  refurbished
+  subcategory   String?
+  
+  // Generic fields for all listings
+  description   String?       @db.Text
+  priceAmount   Int
+  priceCurrency String        @default("RON")
+  condition     Condition?    @default(used)
+  photos        String[]      @default([])
+  
+  // Location
+  county        String?
+  city          String?
+  region        String?
+  
+  // Auto-specific fields (nullable for non-auto listings)
+  make          String?
+  model         String?
+  year          Int?
+  mileage       Int?
+  fuel          FuelType?
+  transmission  Transmission?
+  vin           String?
+  
+  // Generic attributes stored as JSON
+  attributes    Json?
+  
+  status        ListingStatus @default(pending)
+  views         Int           @default(0)
+  isFeatured    Boolean       @default(false)
+  
+  // Moderation fields
+  moderationStatus  ModerationStatus @default(pending)
+  moderatedAt       DateTime?
+  moderatedBy       String?
+  rejectionReason   String?
+  moderationScore   Float?           // 0-1 confidence score
+  moderationFlags   Json?            // Detalii moderare OpenAI
+  
+  // SEO and search optimization
+  slug          String?       @unique
+  searchVector  String?       @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Expiry
+  expiresAt     DateTime?
+
+  // Relations
+  reports       Report[]
+  moderationQueue ModerationQueue[]
+
+  // Composite indexes for efficient queries at scale
+  @@index([category, status, createdAt(sort: Desc)])
+  @@index([category, subcategory, status])
+  @@index([status, isFeatured, createdAt(sort: Desc)])
+  @@index([ownerUserId, status])
+  @@index([priceAmount, category])
+  @@index([county, city, category])
+  @@index([make, model, year])
+  @@index([moderationStatus])
+  @@index([createdAt(sort: Desc)])
+  @@index([slug])
+  @@map("listings")
+}
+
+// Audit Log - IMUABIL, tracking toate acțiunile
+model AuditLog {
+  id          String   @id @default(uuid())
+  
+  // Who
+  userId      String?
+  userEmail   String?
+  userRole    UserRole?
+  
+  // What
+  action      String             // 'user.ban', 'listing.approve', 'listing.reject', etc.
+  entityType  String             // 'user', 'listing', 'report', etc.
+  entityId    String?
+  
+  // Details
+  before      Json?              // State before
+  after       Json?              // State after
+  metadata    Json?              // Extra info (IP, user agent, etc.)
+  
+  // When
+  timestamp   DateTime @default(now())
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([timestamp(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// Report - Raportări utilizatori
+model Report {
+  id          String       @id @default(uuid())
+  
+  // Reporter
+  reporterId  String
+  reporter    User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  
+  // Reported entity
+  entityType  String       // 'listing', 'user', 'comment'
+  entityId    String
+  listing     Listing?     @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  
+  // Report details
+  reason      String       // 'spam', 'fraud', 'inappropriate', 'illegal', etc.
+  description String?      @db.Text
+  status      ReportStatus @default(pending)
+  
+  // Resolution
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  resolution  String?      @db.Text
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([status])
+  @@index([reporterId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("reports")
+}
+
+// Appeal - Contestații utilizatori
+model Appeal {
+  id          String       @id @default(uuid())
+  
+  // Appellant
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Appeal details
+  type        String       // 'listing_rejection', 'account_ban', 'content_removal'
+  entityType  String
+  entityId    String
+  reason      String       @db.Text
+  status      AppealStatus @default(pending)
+  
+  // Resolution
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  response    String?      @db.Text
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("appeals")
+}
+
+// ModerationQueue - Coadă moderare
+model ModerationQueue {
+  id          String           @id @default(uuid())
+  
+  // Entity to moderate
+  entityType  String           // 'listing', 'user', 'image'
+  entityId    String
+  listing     Listing?         @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  
+  // Moderation details
+  priority    Int              @default(0)  // Higher = urgent
+  status      ModerationStatus @default(pending)
+  flags       Json?            // AI/rule flags
+  
+  // Assignment
+  assignedTo  String?
+  assignedAt  DateTime?
+  moderator   User?            @relation("ModeratorActions", fields: [assignedTo], references: [id], onDelete: SetNull)
+  
+  // Resolution
+  reviewedAt  DateTime?
+  decision    String?          // 'approve', 'reject', 'escalate'
+  notes       String?          @db.Text
+  
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  @@index([status])
+  @@index([priority, createdAt(sort: Desc)])
+  @@index([assignedTo])
+  @@index([entityType, entityId])
+  @@map("moderation_queue")
+}
+
+// Settings - Configurări platformă
+model Settings {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  
+  @@map("set    String?
+  
+  // Generic attributes stored as JSON
+  attributes    Json?         // Flexible field for category-specific attributes
+  
+  status        ListingStatus @default(active)
+  views         Int           @default(0)
+  isFeatured    Boolean       @default(false)
+  
+  // SEO and search optimization
+  slug          String?       @unique
+  searchVector  String?       @db.Text  // For full-text search
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Composite indexes for efficient queries at scale
+  @@index([category, status, createdAt(sort: Desc)])
+  @@index([category, subcategory, status])
+  @@index([status, isFeatured, createdAt(sort: Desc)])
+  @@index([ownerUserId, status])
+  @@index([priceAmount, category])
+  @@index([county, city, category])
+  @@index([make, model, year])
+  @@index([createdAt(sort: Desc)])
+  @@index([slug])
+  @@map("listings")
+}
