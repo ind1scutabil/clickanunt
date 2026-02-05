@@ -268,7 +268,7 @@ export default function ListingsView() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {/* Make */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Marcă
                 </label>
                 <select
@@ -294,7 +294,7 @@ export default function ListingsView() {
 
               {/* Model */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Model
                 </label>
                 <select
@@ -314,7 +314,7 @@ export default function ListingsView() {
 
               {/* Fuel */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Combustibil
                 </label>
                 <select
@@ -337,7 +337,7 @@ export default function ListingsView() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Transmission */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   Transmisie
                 </label>
                 <select
@@ -354,7 +354,7 @@ export default function ListingsView() {
 
               {/* Year Min */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   An min
                 </label>
                 <input
@@ -368,7 +368,7 @@ export default function ListingsView() {
 
               {/* Year Max */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-2">
                   An max
                 </label>
                 <input
