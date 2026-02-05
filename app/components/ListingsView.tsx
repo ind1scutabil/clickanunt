@@ -128,17 +128,17 @@ export default function ListingsView() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Toate anunțurile</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-8">Toate anunțurile</h1>
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-xl font-semibold mb-4">Filtre</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Filtre</h2>
         
         {/* Main filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Categorie
             </label>
             <select
@@ -164,7 +164,7 @@ export default function ListingsView() {
 
           {/* Subcategory */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Subcategorie
             </label>
             <select
@@ -184,7 +184,7 @@ export default function ListingsView() {
 
           {/* County */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Județ
             </label>
             <select
@@ -213,7 +213,7 @@ export default function ListingsView() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           {/* City */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Oraș
             </label>
             <select
@@ -233,7 +233,7 @@ export default function ListingsView() {
 
           {/* Price Min */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Preț min (RON)
             </label>
             <input
@@ -247,7 +247,7 @@ export default function ListingsView() {
 
           {/* Price Max */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-900 mb-2">
               Preț max (RON)
             </label>
             <input
@@ -387,7 +387,7 @@ export default function ListingsView() {
         {!isAutoCategory && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-900 mb-2">
                 An min
               </label>
               <input
@@ -399,7 +399,7 @@ export default function ListingsView() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-900 mb-2">
                 An max
               </label>
               <input
@@ -415,7 +415,7 @@ export default function ListingsView() {
 
         {/* Sorting */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-900 mb-2">
             Sortare
           </label>
           <select
