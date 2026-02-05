@@ -151,7 +151,7 @@ export default function ListingsView() {
                 }));
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
             >
               <option value="">Toate categoriile</option>
               {ALL_CATEGORIES.map((cat) => (
@@ -171,7 +171,7 @@ export default function ListingsView() {
               value={filters.subcategory || ''}
               onChange={(e) => handleFilterChange('subcategory', e.target.value)}
               disabled={!filters.category}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Toate subcategoriile</option>
               {availableSubcategories.map((sub) => (
@@ -197,7 +197,7 @@ export default function ListingsView() {
                 }));
                 setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
             >
               <option value="">Toate județele</option>
               {ROMANIAN_COUNTIES.map((c) => (
@@ -220,7 +220,7 @@ export default function ListingsView() {
               value={filters.city || ''}
               onChange={(e) => handleFilterChange('city', e.target.value)}
               disabled={!filters.county}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Toate orașele</option>
               {availableCities.map((c) => (
@@ -241,7 +241,7 @@ export default function ListingsView() {
               value={filters.priceMin || ''}
               onChange={(e) => handleFilterChange('priceMin', e.target.value ? Number(e.target.value) : undefined)}
               placeholder="5000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
             />
           </div>
 
@@ -255,7 +255,7 @@ export default function ListingsView() {
               value={filters.priceMax || ''}
               onChange={(e) => handleFilterChange('priceMax', e.target.value ? Number(e.target.value) : undefined)}
               placeholder="50000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
             />
           </div>
         </div>
@@ -281,7 +281,7 @@ export default function ListingsView() {
                     }));
                     setPage(1);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                 >
                   <option value="">Toate mărcile</option>
                   {POPULAR_MAKES.map((m) => (
@@ -301,7 +301,7 @@ export default function ListingsView() {
                   value={filters.model || ''}
                   onChange={(e) => handleFilterChange('model', e.target.value)}
                   disabled={!filters.make}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Toate modelele</option>
                   {availableModels.map((m) => (
@@ -320,7 +320,7 @@ export default function ListingsView() {
                 <select
                   value={filters.fuel || ''}
                   onChange={(e) => handleFilterChange('fuel', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                 >
                   <option value="">Orice combustibil</option>
                   <option value="Benzină">Benzină</option>
@@ -343,7 +343,7 @@ export default function ListingsView() {
                 <select
                   value={filters.transmission || ''}
                   onChange={(e) => handleFilterChange('transmission', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                 >
                   <option value="">Orice transmisie</option>
                   <option value="Manuală">Manuală</option>
@@ -362,7 +362,7 @@ export default function ListingsView() {
                   value={filters.yearMin || ''}
                   onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2010"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                 />
               </div>
 
@@ -376,7 +376,7 @@ export default function ListingsView() {
                   value={filters.yearMax || ''}
                   onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2024"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                 />
               </div>
             </div>
@@ -395,7 +395,7 @@ export default function ListingsView() {
                 value={filters.yearMin || ''}
                 onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="2010"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
               />
             </div>
             <div>
@@ -407,7 +407,7 @@ export default function ListingsView() {
                 value={filters.yearMax || ''}
                 onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="2024"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
               />
             </div>
           </div>
@@ -424,7 +424,7 @@ export default function ListingsView() {
               const [sortBy, sortOrder] = e.target.value.split('-');
               setFilters(prev => ({ ...prev, sortBy, sortOrder }));
             }}
-            className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md bg-white"
+            className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
           >
             <option value="createdAt-desc">Cele mai noi</option>
             <option value="createdAt-asc">Cele mai vechi</option>
