@@ -91,7 +91,7 @@ export default function ListingsView() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Anunțuri Auto</h1>
+      <h1 className="text-3xl font-bold mb-8">Toate anunțurile</h1>
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">

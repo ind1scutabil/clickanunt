@@ -128,7 +128,7 @@ export default function SignupForm() {
               className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
             />
             <span className="ml-3 text-sm text-gray-700">
-              Utilizator - Cauta masini
+              Utilizator Particular - Cumpăr și vând ocazional
             </span>
           </label>
           <label className="flex items-center">
@@ -141,7 +141,7 @@ export default function SignupForm() {
               className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
             />
             <span className="ml-3 text-sm text-gray-700">
-              Dealer - Vinde masini
+              Profesionist/Firmă - Vând în mod regulat
             </span>
           </label>
         </div>

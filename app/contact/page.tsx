@@ -131,20 +131,20 @@ export default function ContactPage() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold text-[#39FF14] mb-2">📧 Email General</h3>
-                    <p className="text-gray-300">contact@autoplatform.ro</p>
+                    <p className="text-gray-300">contact@clickanunt.ro</p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-[#1E90FF] mb-2">🔐 GDPR / Protecția Datelor</h3>
-                    <p className="text-gray-300">dpo@autoplatform.ro</p>
+                    <p className="text-gray-300">dpo@clickanunt.ro</p>
                     <p className="text-sm text-gray-500">Responsabil Protecția Datelor (DPO)</p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-[#FF7900] mb-2">🚨 Raportare Abuzuri</h3>
-                    <p className="text-gray-300">abuse@autoplatform.ro</p>
+                    <p className="text-gray-300">abuse@clickanunt.ro</p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-[#B537F2] mb-2">💼 Parteneriate</h3>
-                    <p className="text-gray-300">business@autoplatform.ro</p>
+                    <p className="text-gray-300">business@clickanunt.ro</p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white mb-2">📱 Telefon</h3>
@@ -161,7 +161,7 @@ export default function ContactPage() {
                   <p><strong>CUI:</strong> [CUI]</p>
                   <p><strong>Reg. Com.:</strong> [J__/___/____]</p>
                   <p><strong>Sediu:</strong> [Adresă completă]</p>
-                  <p><strong>Email:</strong> contact@autoplatform.ro</p>
+                  <p><strong>Email:</strong> contact@clickanunt.ro</p>
                 </div>
               </div>
 

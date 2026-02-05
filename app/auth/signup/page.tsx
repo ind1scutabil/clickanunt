@@ -27,7 +27,7 @@ export default function SignupPage() {
         </div>
 
         <div className="mt-8 text-center text-gray-600 text-sm">
-          <p>Tipul de cont: utilizator obișnuit sau dealer auto</p>
+          <p>Alege tipul de cont potrivit pentru tine: particular sau profesionist</p>
         </div>
       </div>
     </div>

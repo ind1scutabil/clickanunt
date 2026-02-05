@@ -8,9 +8,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-xl font-bold text-[#FF7900] mb-4">AutoPlatform</h3>
+            <h3 className="text-xl font-bold text-[#FF7900] mb-4">ClickAnunț</h3>
             <p className="text-sm text-gray-400 mb-4">
-              Platforma ta de încredere pentru anunțuri auto și multe altele.
+              Platforma ta de încredere pentru toate tipurile de anunțuri.
             </p>
             <div className="flex gap-4">
               <a href="https://facebook.com" target="_blank" rel="noopener" className="text-gray-400 hover:text-[#1E90FF] transition">
@@ -85,13 +85,13 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Contact</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="mailto:contact@autoplatform.ro" className="hover:text-[#39FF14] transition">
-                  📧 contact@autoplatform.ro
+                <a href="mailto:contact@clickanunt.ro" className="hover:text-[#39FF14] transition">
+                  📧 contact@clickanunt.ro
                 </a>
               </li>
               <li>
-                <a href="mailto:dpo@autoplatform.ro" className="hover:text-[#1E90FF] transition">
-                  🔐 dpo@autoplatform.ro (GDPR)
+                <a href="mailto:dpo@clickanunt.ro" className="hover:text-[#1E90FF] transition">
+                  🔐 dpo@clickanunt.ro (GDPR)
                 </a>
               </li>
               <li>
@@ -112,7 +112,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
             <div>
-              <p>&copy; {new Date().getFullYear()} AutoPlatform. Toate drepturile rezervate.</p>
+              <p>&copy; {new Date().getFullYear()} ClickAnunț. Toate drepturile rezervate.</p>
               <p className="text-xs mt-1">
                 [NUME COMPANIE] S.R.L. | CUI: [CUI] | Reg. Com.: [J__/___/____]
               </p>
@@ -148,8 +148,8 @@ export default function Footer() {
               Legii 190/2018
             </Link>.
             Pentru exercitarea drepturilor GDPR, contactați{" "}
-            <a href="mailto:dpo@autoplatform.ro" className="text-[#39FF14] hover:underline">
-              dpo@autoplatform.ro
+            <a href="mailto:dpo@clickanunt.ro" className="text-[#39FF14] hover:underline">
+              dpo@clickanunt.ro
             </a>.
           </p>
         </div>
