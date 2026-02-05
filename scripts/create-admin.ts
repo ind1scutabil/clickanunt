@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
+import validator from 'validator';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({
@@ -12,18 +13,22 @@ async function main() {
   const adminEmail = 'daniel.enoiu29@gmail.com';
   const adminPassword = 'Gz082306gz082306@';
   
+  // Normalize email (same as sanitizeEmail in lib/sanitize.ts)
+  const normalizedEmail = validator.normalizeEmail(adminEmail) || adminEmail;
+  console.log(`Email normalized: ${adminEmail} => ${normalizedEmail}`);
+  
   // Hash the password
   const hashedPassword = await bcrypt.hash(adminPassword, 10);
   
   // Check if user exists
   const existing = await prisma.user.findUnique({
-    where: { email: adminEmail }
+    where: { email: normalizedEmail }
   });
 
   if (existing) {
     console.log('User already exists. Updating role to admin and password...');
     const updated = await prisma.user.update({
-      where: { email: adminEmail },
+      where: { email: normalizedEmail },
       data: { 
         role: 'admin',
         password: hashedPassword
@@ -38,7 +43,7 @@ async function main() {
     console.log('Creating new admin user...');
     const user = await prisma.user.create({
       data: {
-        email: adminEmail,
+        email: normalizedEmail,
         password: hashedPassword,
         role: 'admin'
       }
