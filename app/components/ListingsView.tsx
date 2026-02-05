@@ -1,6 +1,14 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { 
+  CAR_MAKES_AND_MODELS, 
+  POPULAR_MAKES, 
+  ALL_CATEGORIES, 
+  CATEGORIES,
+  ROMANIAN_COUNTIES, 
+  CITIES_BY_COUNTY 
+} from "@/lib/carData";
 
 interface Listing {
   id: string;
@@ -15,11 +23,23 @@ interface Listing {
   photos?: string[];
   status: string;
   createdAt: string;
+  category?: string;
+  subcategory?: string;
+  fuel?: string;
+  transmission?: string;
+  county?: string;
+  city?: string;
 }
 
 interface Filters {
+  category?: string;
+  subcategory?: string;
   make?: string;
   model?: string;
+  fuel?: string;
+  transmission?: string;
+  county?: string;
+  city?: string;
   yearMin?: number;
   yearMax?: number;
   priceMin?: number;
@@ -40,6 +60,23 @@ export default function ListingsView() {
   });
 
   const limit = 12;
+
+  // Get available subcategories for selected category
+  const availableSubcategories = useMemo(() => {
+    return filters.category ? CATEGORIES[filters.category] || [] : [];
+  }, [filters.category]);
+
+  // Get available models for selected make
+  const availableModels = useMemo(() => {
+    return filters.make ? CAR_MAKES_AND_MODELS[filters.make] || [] : [];
+  }, [filters.make]);
+
+  // Get available cities for selected county
+  const availableCities = useMemo(() => {
+    return filters.county ? CITIES_BY_COUNTY[filters.county] || [] : [];
+  }, [filters.county]);
+
+  const isAutoCategory = filters.category === "Auto, moto și ambarcațiuni";
 
   useEffect(() => {
     loadListings();
@@ -97,57 +134,258 @@ export default function ListingsView() {
       <div className="bg-white p-6 rounded-lg shadow-md mb-8">
         <h2 className="text-xl font-semibold mb-4">Filtre</h2>
         
+        {/* Main filters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Marcă
-            </label>
-            <input
-              type="text"
-              value={filters.make || ''}
-              onChange={(e) => handleFilterChange('make', e.target.value)}
-              placeholder="ex: BMW"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Model
-            </label>
-            <input
-              type="text"
-              value={filters.model || ''}
-              onChange={(e) => handleFilterChange('model', e.target.value)}
-              placeholder="ex: X5"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sortare
+              Categorie
             </label>
             <select
-              value={`${filters.sortBy}-${filters.sortOrder}`}
+              value={filters.category || ''}
               onChange={(e) => {
-                const [sortBy, sortOrder] = e.target.value.split('-');
-                setFilters(prev => ({ ...prev, sortBy, sortOrder }));
+                setFilters(prev => ({ 
+                  ...prev, 
+                  category: e.target.value,
+                  subcategory: '', // Reset subcategory when category changes
+                }));
+                setPage(1);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
             >
-              <option value="createdAt-desc">Cele mai noi</option>
-              <option value="createdAt-asc">Cele mai vechi</option>
-              <option value="price-asc">Preț crescător</option>
-              <option value="price-desc">Preț descrescător</option>
-              <option value="year-desc">An fabricație descrescător</option>
-              <option value="year-asc">An fabricație crescător</option>
+              <option value="">Toate categoriile</option>
+              {ALL_CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Subcategory */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Subcategorie
+            </label>
+            <select
+              value={filters.subcategory || ''}
+              onChange={(e) => handleFilterChange('subcategory', e.target.value)}
+              disabled={!filters.category}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Toate subcategoriile</option>
+              {availableSubcategories.map((sub) => (
+                <option key={sub} value={sub}>
+                  {sub}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* County */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Județ
+            </label>
+            <select
+              value={filters.county || ''}
+              onChange={(e) => {
+                setFilters(prev => ({ 
+                  ...prev, 
+                  county: e.target.value,
+                  city: '', // Reset city when county changes
+                }));
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+            >
+              <option value="">Toate județele</option>
+              {ROMANIAN_COUNTIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div className="grid grid-cols-2 gap-2">
+        {/* Second row of filters */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* City */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Oraș
+            </label>
+            <select
+              value={filters.city || ''}
+              onChange={(e) => handleFilterChange('city', e.target.value)}
+              disabled={!filters.county}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Toate orașele</option>
+              {availableCities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Price Min */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Preț min (RON)
+            </label>
+            <input
+              type="number"
+              value={filters.priceMin || ''}
+              onChange={(e) => handleFilterChange('priceMin', e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="5000"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+
+          {/* Price Max */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Preț max (RON)
+            </label>
+            <input
+              type="number"
+              value={filters.priceMax || ''}
+              onChange={(e) => handleFilterChange('priceMax', e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="50000"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            />
+          </div>
+        </div>
+
+        {/* Auto-specific filters (shown only for Auto category) */}
+        {isAutoCategory && (
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Filtre Auto</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* Make */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Marcă
+                </label>
+                <select
+                  value={filters.make || ''}
+                  onChange={(e) => {
+                    setFilters(prev => ({ 
+                      ...prev, 
+                      make: e.target.value,
+                      model: '', // Reset model when make changes
+                    }));
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                >
+                  <option value="">Toate mărcile</option>
+                  {POPULAR_MAKES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Model */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Model
+                </label>
+                <select
+                  value={filters.model || ''}
+                  onChange={(e) => handleFilterChange('model', e.target.value)}
+                  disabled={!filters.make}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Toate modelele</option>
+                  {availableModels.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fuel */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Combustibil
+                </label>
+                <select
+                  value={filters.fuel || ''}
+                  onChange={(e) => handleFilterChange('fuel', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                >
+                  <option value="">Orice combustibil</option>
+                  <option value="Benzină">Benzină</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="Hibrid">Hibrid</option>
+                  <option value="Electric">Electric</option>
+                  <option value="GPL">GPL</option>
+                  <option value="Benzină+GPL">Benzină+GPL</option>
+                  <option value="Plug-in Hybrid">Plug-in Hybrid</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Transmission */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Transmisie
+                </label>
+                <select
+                  value={filters.transmission || ''}
+                  onChange={(e) => handleFilterChange('transmission', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white"
+                >
+                  <option value="">Orice transmisie</option>
+                  <option value="Manuală">Manuală</option>
+                  <option value="Automată">Automată</option>
+                  <option value="Semi-automată">Semi-automată</option>
+                </select>
+              </div>
+
+              {/* Year Min */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  An min
+                </label>
+                <input
+                  type="number"
+                  value={filters.yearMin || ''}
+                  onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="2010"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+
+              {/* Year Max */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  An max
+                </label>
+                <input
+                  type="number"
+                  value={filters.yearMax || ''}
+                  onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="2024"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Non-auto year filters */}
+        {!isAutoCategory && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 An min
@@ -173,33 +411,28 @@ export default function ListingsView() {
               />
             </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Preț min (RON)
-              </label>
-              <input
-                type="number"
-                value={filters.priceMin || ''}
-                onChange={(e) => handleFilterChange('priceMin', e.target.value ? Number(e.target.value) : undefined)}
-                placeholder="5000"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Preț max (RON)
-              </label>
-              <input
-                type="number"
-                value={filters.priceMax || ''}
-                onChange={(e) => handleFilterChange('priceMax', e.target.value ? Number(e.target.value) : undefined)}
-                placeholder="50000"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              />
-            </div>
-          </div>
+        {/* Sorting */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Sortare
+          </label>
+          <select
+            value={`${filters.sortBy}-${filters.sortOrder}`}
+            onChange={(e) => {
+              const [sortBy, sortOrder] = e.target.value.split('-');
+              setFilters(prev => ({ ...prev, sortBy, sortOrder }));
+            }}
+            className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md bg-white"
+          >
+            <option value="createdAt-desc">Cele mai noi</option>
+            <option value="createdAt-asc">Cele mai vechi</option>
+            <option value="price-asc">Preț crescător</option>
+            <option value="price-desc">Preț descrescător</option>
+            <option value="year-desc">An fabricație descrescător</option>
+            <option value="year-asc">An fabricație crescător</option>
+          </select>
         </div>
 
         <div className="flex gap-2">
