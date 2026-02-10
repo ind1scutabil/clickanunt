@@ -1,4 +1,6 @@
 "use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import Link from "next/link";
@@ -10,8 +12,29 @@ import {
 } from "@/lib/seo";
 
 export default function HomePage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  
+  // Check if user is authenticated and redirect if needed
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const user = localStorage.getItem('user');
+    
+    // If authenticated, redirect to dashboard or admin based on role
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        if (userData.role === 'admin' || userData.role === 'owner') {
+          router.push('/admin/dashboard');
+        } else {
+          router.push('/dashboard');
+        }
+      } catch (e) {
+        // Continue to homepage if user data is invalid
+      }
+    }
+  }, [router]);
   
   // SEO structured data
   const structuredData = [

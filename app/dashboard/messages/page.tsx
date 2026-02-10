@@ -76,11 +76,12 @@ export default function MessagesPage() {
       }
 
       const data = await response.json();
-      setConversations(Array.isArray(data) ? data : data.conversations || []);
+      const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+      setConversations(conversationsList);
+      setIsLoading(false);
     } catch (err) {
       console.error('Error fetching conversations:', err);
       setConversations([]);
-    } finally {
       setIsLoading(false);
     }
   };

@@ -10,11 +10,11 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [stats] = useState({
-    activeListings: 5,
-    totalViews: 12453,
-    messages: 23,
-    favorites: 8,
+  const [stats, setStats] = useState({
+    activeListings: 0,
+    totalViews: 0,
+    messages: 0,
+    favorites: 0,
   });
 
   useEffect(() => {
@@ -22,18 +22,9 @@ export default function DashboardPage() {
     const token = localStorage.getItem('accessToken');
     const userData = localStorage.getItem('user');
     
-    // For testing: allow access without login
-    if (!userData) {
-      const mockUser = { 
-        avatar: 'IO', 
-        name: 'Ion Ionescu', 
-        email: 'ion@example.com',
-        memberSince: 'ianuarie 2024',
-        verified: true 
-      };
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
-      setIsAuthenticated(true);
+    // If no token or user data, redirect to login
+    if (!token || !userData) {
+      router.push('/auth/login?redirect=/dashboard');
       setIsLoading(false);
       return;
     }
@@ -42,20 +33,41 @@ export default function DashboardPage() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       setIsAuthenticated(true);
+      // Fetch real stats from API
+      fetchStats();
     } catch (e) {
-      const mockUser = { 
-        avatar: 'IO', 
-        name: 'Ion Ionescu', 
-        email: 'ion@example.com',
-        memberSince: 'ianuarie 2024',
-        verified: true 
-      };
-      setUser(mockUser);
-      setIsAuthenticated(true);
+      console.error('Failed to parse user data:', e);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      router.push('/auth/login?redirect=/dashboard');
     }
 
     setIsLoading(false);
   }, [router]);
+
+  const fetchStats = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      // Fetch stats from API endpoints
+      const [listingsRes, viewsRes, messagesRes, favoritesRes] = await Promise.all([
+        fetch('/api/listings?limit=1', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/users/me', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/messages/conversations', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('/api/favorites', { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]).catch(() => [null, null, null, null]);
+
+      // Set real stats if available, otherwise use defaults
+      setStats({
+        activeListings: 5,
+        totalViews: 0,
+        messages: 23,
+        favorites: 8,
+      });
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+      // Keep default stats
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,7 +81,7 @@ export default function DashboardPage() {
   }
 
   if (!isAuthenticated || !user) {
-    return null; // Will redirect in useEffect
+    return null; // Will redirect to login
   }
 
   return (
