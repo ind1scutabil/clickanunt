@@ -12,6 +12,23 @@ export default function ContactPage() {
   });
   const [submitted, setSubmitted] = useState(false);
 
+  const subjectToEmail: Record<string, { label: string; email: string; note?: string }> = {
+    general: { label: "Contact general", email: "contact@clickanunt.ro" },
+    admin: { label: "Administrare platformă", email: "admin@clickanunt.ro" },
+    support: { label: "Suport clienți", email: "support@clickanunt.ro" },
+    billing: { label: "Facturare & plăți", email: "billing@clickanunt.ro" },
+    technical: { label: "Suport tehnic", email: "support@clickanunt.ro" },
+    "gdpr-access": { label: "GDPR - Acces date", email: "dpo@clickanunt.ro" },
+    "gdpr-delete": { label: "GDPR - Ștergere date", email: "dpo@clickanunt.ro" },
+    "gdpr-rectify": { label: "GDPR - Rectificare", email: "dpo@clickanunt.ro" },
+    "gdpr-portability": { label: "GDPR - Portabilitate", email: "dpo@clickanunt.ro" },
+    "gdpr-oppose": { label: "GDPR - Opoziție", email: "dpo@clickanunt.ro" },
+    abuse: { label: "Raportare abuz", email: "support@clickanunt.ro" },
+    business: { label: "Parteneriate", email: "contact@clickanunt.ro" },
+  };
+
+  const selectedEmail = subjectToEmail[formData.subject] || subjectToEmail.general;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Form submitted:", formData);
@@ -84,6 +101,9 @@ export default function ContactPage() {
                     className="w-full p-3 bg-[#0A0A0A] border border-gray-700 rounded focus:border-[#39FF14] focus:outline-none text-white"
                   >
                     <option value="general">Întrebare generală</option>
+                    <option value="admin">Administrare / Cont admin</option>
+                    <option value="support">Suport clienți</option>
+                    <option value="billing">Facturare & plăți</option>
                     <option value="gdpr-access">GDPR - Solicitare acces date</option>
                     <option value="gdpr-delete">GDPR - Ștergere date</option>
                     <option value="gdpr-rectify">GDPR - Rectificare date</option>
@@ -93,6 +113,17 @@ export default function ContactPage() {
                     <option value="technical">Suport tehnic</option>
                     <option value="business">Colaborare/Parteneriat</option>
                   </select>
+                </div>
+
+                <div className="bg-gray-800/60 border border-gray-700 rounded p-4 text-sm">
+                  <div className="text-gray-400 mb-1">Email dedicat pentru acest subiect</div>
+                  <a
+                    href={`mailto:${selectedEmail.email}`}
+                    className="text-[#39FF14] hover:underline font-bold"
+                  >
+                    {selectedEmail.email}
+                  </a>
+                  <div className="text-gray-500 mt-1">{selectedEmail.label}</div>
                 </div>
 
                 <div>
@@ -131,20 +162,29 @@ export default function ContactPage() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-semibold text-[#39FF14] mb-2">📧 Email General</h3>
-                    <p className="text-gray-300">contact@clickanunt.ro</p>
+                    <a className="text-gray-300 hover:underline" href="mailto:contact@clickanunt.ro">contact@clickanunt.ro</a>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#9B5CFF] mb-2">🛡️ Admin</h3>
+                    <a className="text-gray-300 hover:underline" href="mailto:admin@clickanunt.ro">admin@clickanunt.ro</a>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#00D4FF] mb-2">🆘 Suport</h3>
+                    <a className="text-gray-300 hover:underline" href="mailto:support@clickanunt.ro">support@clickanunt.ro</a>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#FFD24C] mb-2">💳 Billing</h3>
+                    <a className="text-gray-300 hover:underline" href="mailto:billing@clickanunt.ro">billing@clickanunt.ro</a>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-[#1E90FF] mb-2">🔐 GDPR / Protecția Datelor</h3>
-                    <p className="text-gray-300">dpo@clickanunt.ro</p>
+                    <a className="text-gray-300 hover:underline" href="mailto:dpo@clickanunt.ro">dpo@clickanunt.ro</a>
                     <p className="text-sm text-gray-500">Responsabil Protecția Datelor (DPO)</p>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-[#FF7900] mb-2">🚨 Raportare Abuzuri</h3>
-                    <p className="text-gray-300">abuse@clickanunt.ro</p>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#B537F2] mb-2">💼 Parteneriate</h3>
-                    <p className="text-gray-300">business@clickanunt.ro</p>
+                    <h3 className="text-lg font-semibold text-[#B537F2] mb-2">📨 No-reply (automat)</h3>
+                    <p className="text-gray-300">noreply@clickanunt.ro</p>
+                    <p className="text-sm text-gray-500">Adresa folosită pentru notificări automate</p>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white mb-2">📱 Telefon</h3>
@@ -157,11 +197,18 @@ export default function ContactPage() {
               <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                 <h2 className="text-2xl font-semibold mb-4 text-white">🏢 Date Societate</h2>
                 <div className="space-y-2 text-gray-300">
-                  <p><strong>Denumire:</strong> [NUME COMPANIE] S.R.L.</p>
-                  <p><strong>CUI:</strong> [CUI]</p>
-                  <p><strong>Reg. Com.:</strong> [J__/___/____]</p>
-                  <p><strong>Sediu:</strong> [Adresă completă]</p>
-                  <p><strong>Email:</strong> contact@clickanunt.ro</p>
+                  <p><strong>Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
+                  <p><strong>CUI/Cod fiscal:</strong> RO46062613</p>
+                  <p><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
+                  <p><strong>Reg. Com.:</strong> J20220000480181</p>
+                  <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+                  <p><strong>Email principal:</strong> contact@clickanunt.ro</p>
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <p className="text-sm text-gray-400 mb-2"><strong>Detalii Bancară:</strong></p>
+                    <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
+                    <p><strong>Banca:</strong> ING</p>
+                    <p><strong>Valută:</strong> RON</p>
+                  </div>
                 </div>
               </div>
 

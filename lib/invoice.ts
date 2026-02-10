@@ -5,7 +5,8 @@
 
 import { prisma } from './prisma';
 import { logger } from './observability';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, type InvoiceStatus as InvoiceStatusType } from '@prisma/client';
+import { COMPANY_CONFIG, formatCompanyInfo, formatVatInfo, formatBankInfo } from './company-config';
 
 // Tipuri pentru items factură
 export interface InvoiceItem {
@@ -139,17 +140,29 @@ export async function createInvoice(options: CreateInvoiceOptions): Promise<{
         status: InvoiceStatus.issued,
         amount: total,
         currency: 'RON',
-        companyName: companyName || 'Auto Platform SRL',
-        companyCui: companyCui || 'RO12345678',
-        companyAddress: companyAddress || 'București, România',
-        clientName,
-        clientEmail,
-        clientAddress,
-        clientCui,
         items: items as any, // JSON field
-        subtotal,
-        vatAmount,
-        vatRate,
+        metadata: {
+          // Informații furnizor (Compania)
+          companyName: companyName || COMPANY_CONFIG.name,
+          companyCui: companyCui || COMPANY_CONFIG.cui,
+          companyVatNumber: COMPANY_CONFIG.vatNumber,
+          companyRegistrationNumber: COMPANY_CONFIG.registrationNumber,
+          companyAddress: companyAddress || COMPANY_CONFIG.address,
+          companyIban: COMPANY_CONFIG.iban,
+          companyBank: COMPANY_CONFIG.bank,
+          
+          // Informații client
+          clientName,
+          clientEmail,
+          clientAddress,
+          clientCui,
+          
+          // Informații TVA
+          subtotal,
+          vatAmount,
+          vatRate,
+          isTaxPayer: COMPANY_CONFIG.isTaxPayer,
+        },
         issuedAt,
         dueAt,
       },
@@ -159,7 +172,11 @@ export async function createInvoice(options: CreateInvoiceOptions): Promise<{
     if (paymentId) {
       await prisma.payment.update({
         where: { id: paymentId },
-        data: { invoiceId: invoice.id },
+        data: { 
+          invoices: {
+            connect: { id: invoice.id }
+          }
+        },
       });
     }
 
@@ -181,7 +198,7 @@ export async function createInvoice(options: CreateInvoiceOptions): Promise<{
       id: invoice.id,
       invoiceNumber,
       total,
-      pdfUrl: invoice.pdfUrl,
+      pdfUrl: null, // PDF generation not implemented yet
     };
   } catch (error) {
     logger.error('Failed to create invoice', { error, userId });

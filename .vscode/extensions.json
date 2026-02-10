@@ -1,0 +1,40 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "ms-vscode.vscode-typescript-next",
+    "Prisma.prisma",
+    "streetsidesoftware.code-spell-checker",
+    "GitHub.copilot"
+  ],
+  "unwantedRecommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-vscode-remote.remote-ssh",
+    "ms-vscode-remote.remote-ssh-edit",
+    "ms-vscode-remote.remote-containers",
+    "ms-vscode-remote.remote-wsl",
+    "ms-vscode.remote-explorer",
+    "ms-kubernetes-tools.vscode-kubernetes-tools",
+    "ms-vscode.makefile-tools",
+    "ms-vscode-remote.vscode-remote-extensionpack",
+    "redhat.vscode-yaml",
+    "hashicorp.terraform",
+    "golang.go",
+    "rust-lang.rust-analyzer",
+    "ms-vscode.cpptools",
+    "oracle.mysql-shell-for-vs-code",
+    "mongodb.mongodb-vscode",
+    "ms-azuretools.vscode-docker",
+    "redhat.ansible",
+    "eamodio.gitlens",
+    "GitHub.gh-notebooks",
+    "ms-vscode.powershell",
+    "ms-dotnettools.csharp",
+    "Duikemeier.sendtodebug",
+    "ms-vsliveshare.vsliveshare",
+    "atlassian.bitbucket",
+    "humao.rest-client"
+  ]
+}

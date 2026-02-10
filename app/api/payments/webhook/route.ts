@@ -8,18 +8,13 @@ import { verifyWebhookSignature, stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/observability';
 import { createInvoice, markInvoiceAsPaid, generateInvoiceItemsFromPayment } from '@/lib/invoice';
+import { sendInvoiceEmail, sendPaymentConfirmationEmail } from '@/lib/invoice-mailer';
 import { createAuditLog } from '@/lib/audit';
+import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
-
-// Disable body parsing pentru Stripe webhooks
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
 
 // Helper: Read raw body
 async function getRawBody(req: NextRequest): Promise<string> {
@@ -162,12 +157,29 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
 
     const items = generateInvoiceItemsFromPayment(description, amount, 19);
 
+    // Extrage date legale din user profile pentru facturare
+    let invoiceMetadata = {
+      clientName: payment.user.name || 'Unknown',
+      clientEmail: payment.user.email,
+    };
+
+    try {
+      const userBillingData = await formatUserInvoiceMetadata(payment.userId);
+      invoiceMetadata = {
+        ...userBillingData,
+      };
+    } catch (error) {
+      logger.warn('Could not get user billing profile, using defaults', { userId: payment.userId, error });
+    }
+
     const invoice = await createInvoice({
       userId: payment.userId,
       paymentId: payment.id,
       items,
-      clientName: payment.user.name || 'Unknown',
-      clientEmail: payment.user.email,
+      clientName: invoiceMetadata.clientName,
+      clientEmail: invoiceMetadata.clientEmail,
+      clientAddress: (invoiceMetadata as any).clientAddress,
+      clientCui: (invoiceMetadata as any).clientCui,
     });
 
     // Marcare factură ca plătită
@@ -178,48 +190,130 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
       invoiceNumber: invoice.invoiceNumber,
       paymentId: payment.id,
     });
+
+    // Fetch invoice data for email
+    const invoiceData = await prisma.invoice.findUnique({
+      where: { id: invoice.id },
+    });
+
+    // Send invoice email
+    if (invoiceData && payment.user.email) {
+      const { subtotal, vatAmount, vatRate } = invoiceData.metadata as any;
+      const invoiceResult = await sendInvoiceEmail({
+        to: payment.user.email,
+        invoiceNumber: invoice.invoiceNumber,
+        clientName: invoiceMetadata.clientName,
+        amount: invoiceData.amount,
+        currency: invoiceData.currency,
+        issuedAt: invoiceData.issuedAt || new Date(),
+        dueAt: invoiceData.dueAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        items: items,
+        subtotal: subtotal || invoiceData.amount,
+        vatAmount: vatAmount || 0,
+        metadata: (invoiceData.metadata || {}) as Record<string, unknown>,
+      });
+
+      if (invoiceResult.success) {
+        logger.info('Invoice email sent', {
+          invoiceNumber: invoice.invoiceNumber,
+          to: payment.user.email,
+        });
+      } else {
+        logger.warn('Failed to send invoice email', {
+          invoiceNumber: invoice.invoiceNumber,
+          error: invoiceResult.error,
+        });
+      }
+    }
+
+    // Send payment confirmation email
+    if (payment.user.email) {
+      const confirmationResult = await sendPaymentConfirmationEmail({
+        to: payment.user.email,
+        clientName: invoiceMetadata.clientName,
+        amount: amount,
+        currency: payment.currency.toUpperCase(),
+        invoiceNumber: invoice.invoiceNumber,
+        paymentMethod: paymentMethod,
+        transactionId: payment.id,
+      });
+
+      if (confirmationResult.success) {
+        logger.info('Payment confirmation email sent', {
+          paymentId: payment.id,
+          to: payment.user.email,
+        });
+      }
+    }
   } catch (error) {
-    logger.error('Failed to create invoice', { error, paymentId: payment.id });
+    logger.error('Failed to create invoice or send emails', { error, paymentId: payment.id });
   }
 
   // Update listing promotion status (dacă există)
-  if (payment.entityType === 'listing' && payment.entityId) {
+  const listingId = payment.metadata && typeof payment.metadata === 'object' && 'listingId' in payment.metadata 
+    ? payment.metadata.listingId as string 
+    : null;
+  
+  if (listingId) {
     try {
+      // TODO: Implement promotion tracking when Promotion model is added to schema
+      // For now, just update listing promotion status
+      await prisma.listing.update({
+        where: { id: listingId },
+        data: {
+          isPromoted: true,
+          promotionStartedAt: new Date()
+        }
+      });
+
       const packageType = (payment.metadata as any)?.packageType;
       let promotionEnd: Date | undefined;
 
       // Calcul dată expirare promovare
-      if (packageType?.includes('7_days')) {
+      if (packageType?.includes('7_days') || packageType?.includes('7days')) {
         promotionEnd = new Date();
         promotionEnd.setDate(promotionEnd.getDate() + 7);
-      } else if (packageType?.includes('30_days')) {
+      } else if (packageType?.includes('30_days') || packageType?.includes('30days')) {
         promotionEnd = new Date();
         promotionEnd.setDate(promotionEnd.getDate() + 30);
-      } else if (packageType?.includes('1_day')) {
+      } else if (packageType?.includes('1_day') || packageType?.includes('24h')) {
         promotionEnd = new Date();
         promotionEnd.setDate(promotionEnd.getDate() + 1);
       }
 
-      // Update listing cu promovare (presupunem că există câmpuri isFeatured, featuredUntil)
-      // Dacă nu există, se pot adăuga în viitor
+      // Update listing cu promovare 
       logger.info('Listing promotion activated', {
-        listingId: payment.entityId,
+        listingId,
         packageType,
         promotionEnd,
       });
 
-      // TODO: Update listing cu promovare când se adaugă câmpurile în schema
-      // await prisma.listing.update({
-      //   where: { id: payment.entityId },
-      //   data: {
-      //     isFeatured: true,
-      //     featuredUntil: promotionEnd,
-      //   },
-      // });
+      if (promotionEnd) {
+        await prisma.listing.update({
+          where: { id: listingId },
+          data: {
+            promotionExpiresAt: promotionEnd,
+          },
+        });
+      }
+
+        // Audit log
+        await createAuditLog({
+          userId: payment.userId,
+          action: 'promotion_activated',
+          resource: 'listing',
+          resourceId: listingId,
+          details: {
+            paymentId: payment.id,
+            packageType: payment.metadata && typeof payment.metadata === 'object' && 'packageType' in payment.metadata 
+              ? payment.metadata.packageType 
+              : null
+          }
+        });
     } catch (error) {
       logger.error('Failed to update listing promotion', {
         error,
-        listingId: payment.entityId,
+        listingId,
       });
     }
   }
@@ -227,15 +321,15 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   // Audit log
   await createAuditLog({
     action: 'payment_succeeded',
-    entityType: 'payment',
-    entityId: payment.id,
+    resource: 'payment',
+    resourceId: payment.id,
     userId: payment.userId,
-    metadata: {
+    details: {
       paymentId: payment.id,
       amount,
       currency,
       method: paymentMethod,
-      listingId: payment.entityId,
+      listingId: listingId,
     },
   });
 }
@@ -264,16 +358,19 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     where: { id: payment.id },
     data: {
       status: PaymentStatus.failed,
-      errorMessage: last_payment_error?.message || 'Payment failed',
+      metadata: {
+        ...(payment.metadata as object || {}),
+        errorMessage: last_payment_error?.message || 'Payment failed',
+      }
     },
   });
 
   await createAuditLog({
     action: 'payment_failed',
-    entityType: 'payment',
-    entityId: payment.id,
+    resource: 'payment',
+    resourceId: payment.id,
     userId: payment.userId,
-    metadata: {
+    details: {
       paymentId: payment.id,
       error: last_payment_error?.message,
     },
@@ -301,10 +398,10 @@ async function handlePaymentCanceled(paymentIntent: Stripe.PaymentIntent) {
 
   await createAuditLog({
     action: 'payment_cancelled',
-    entityType: 'payment',
-    entityId: payment.id,
+    resource: 'payment',
+    resourceId: payment.id,
     userId: payment.userId,
-    metadata: { paymentId: payment.id },
+    details: { paymentId: payment.id },
   });
 }
 
@@ -331,16 +428,19 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     where: { id: payment.id },
     data: {
       status: PaymentStatus.refunded,
-      refundedAt: new Date(),
+      metadata: {
+        ...(payment.metadata as object || {}),
+        refundedAt: new Date().toISOString(),
+      }
     },
   });
 
   await createAuditLog({
     action: 'payment_refunded',
-    entityType: 'payment',
-    entityId: payment.id,
+    resource: 'payment',
+    resourceId: payment.id,
     userId: payment.userId,
-    metadata: {
+    details: {
       paymentId: payment.id,
       amountRefunded: amount_refunded,
     },

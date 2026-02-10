@@ -7,7 +7,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
-import { auditActions } from "@/lib/audit";
 import type { UserRole } from "@prisma/client";
 
 export async function GET(request: Request) {
@@ -23,13 +22,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const entityType = searchParams.get('entityType');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     const where: any = {};
     if (status) where.status = status;
-    if (entityType) where.entityType = entityType;
 
     const [reports, total] = await Promise.all([
       prisma.report.findMany({
@@ -42,11 +39,12 @@ export async function GET(request: Request) {
               role: true,
             },
           },
-          resolvedByUser: {
+          listing: {
             select: {
               id: true,
-              email: true,
-              role: true,
+              title: true,
+              category: true,
+              ownerUserId: true,
             },
           },
         },

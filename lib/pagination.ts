@@ -3,7 +3,7 @@
  * More efficient than offset pagination for large datasets
  */
 
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
 export interface PaginationParams {
   limit?: number;
@@ -67,8 +67,7 @@ export function buildCursorWhere(
  */
 export function buildPagination<T extends { id: string }>(
   data: T[],
-  limit: number,
-  requestedDirection: "next" | "prev" = "next"
+  limit: number
 ): PaginationResult<T> {
   const hasMore = data.length > limit;
   const items = hasMore ? data.slice(0, limit) : data;

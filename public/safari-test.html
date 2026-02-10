@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safari Connection Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .test-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .test-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-badge.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .browser-info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .browser-info strong {
+            color: #1976D2;
+        }
+
+        .cookie-list {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
+        .cookie-item {
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cookie-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Safari Connection Test</h1>
+        <p class="subtitle">Test pentru verificare CORS, Cookie-uri și conectivitate</p>
+
+        <div class="browser-info" id="browserInfo">
+            <strong>Browser:</strong> <span id="browserName">Detectare...</span><br>
+            <strong>User Agent:</strong> <span id="userAgent"></span>
+        </div>
+
+        <!-- Test 1: CORS & Health -->
+        <div class="test-section">
+            <div class="test-title">
+                <span>1️⃣ Test API Health & CORS</span>
+                <span class="status-badge pending" id="status1">Pending</span>
+            </div>
+            <button onclick="testHealth()">Run Test</button>
+            <div id="result1"></div>
+        </div>
+
+        <!-- Test 2: OPTIONS Preflight -->
+        <div class="test-section">
+            <div class="test-title">
+                <span>2️⃣ Test OPTIONS (Preflight)</span>
+                <span class="status-badge pending" id="status2">Pending</span>
+            </div>
+            <button onclick="testOptions()">Run Test</button>
+            <div id="result2"></div>
+        </div>
+
+        <!-- Test 3: Login & Cookies -->
+        <div class="test-section">
+            <div class="test-title">
+                <span>3️⃣ Test Login & Cookies</span>
+                <span class="status-badge pending" id="status3">Pending</span>
+            </div>
+            <button onclick="testLogin()">Run Test</button>
+            <button onclick="checkCookies()">Check Cookies</button>
+            <div id="result3"></div>
+        </div>
+
+        <!-- Test 4: Listings API -->
+        <div class="test-section">
+            <div class="test-title">
+                <span>4️⃣ Test Listings API</span>
+                <span class="status-badge pending" id="status4">Pending</span>
+            </div>
+            <button onclick="testListings()">Run Test</button>
+            <div id="result4"></div>
+        </div>
+
+        <!-- Run All Tests -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="runAllTests()" style="background: #28a745; font-size: 16px; padding: 15px 40px;">
+                🚀 Run All Tests
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+
+        // Detect browser
+        function detectBrowser() {
+            const ua = navigator.userAgent;
+            document.getElementById('userAgent').textContent = ua;
+            
+            let browserName = 'Unknown';
+            if (ua.includes('Safari') && !ua.includes('Chrome')) {
+                browserName = '🧭 Safari';
+                if (ua.includes('Mobile')) browserName += ' (iOS)';
+            } else if (ua.includes('Chrome')) {
+                browserName = '🌐 Chrome';
+            } else if (ua.includes('Firefox')) {
+                browserName = '🦊 Firefox';
+            }
+            
+            document.getElementById('browserName').textContent = browserName;
+        }
+
+        // Test 1: Health & CORS
+        async function testHealth() {
+            const resultDiv = document.getElementById('result1');
+            const statusBadge = document.getElementById('status1');
+            
+            resultDiv.innerHTML = '<div class="result info">⏳ Testing...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/health`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                };
+                
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ SUCCESS<br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        Health Status: ${data.status}<br>
+                        <br>
+                        <strong>CORS Headers:</strong><br>
+                        ${JSON.stringify(corsHeaders, null, 2)}
+                        <br><br>
+                        <strong>Response:</strong><br>
+                        ${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+                statusBadge.className = 'status-badge pass';
+                statusBadge.textContent = 'PASS';
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ ERROR<br>
+                        ${error.message}<br>
+                        <br>
+                        Possible causes:<br>
+                        • CORS not configured<br>
+                        • Server not running<br>
+                        • Cookie policy blocking<br>
+                    </div>
+                `;
+                statusBadge.className = 'status-badge fail';
+                statusBadge.textContent = 'FAIL';
+            }
+        }
+
+        // Test 2: OPTIONS
+        async function testOptions() {
+            const resultDiv = document.getElementById('result2');
+            const statusBadge = document.getElementById('status2');
+            
+            resultDiv.innerHTML = '<div class="result info">⏳ Testing OPTIONS preflight...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/listings`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': window.location.origin,
+                        'Access-Control-Request-Method': 'POST',
+                    }
+                });
+                
+                const headers = {
+                    'Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                    'Max-Age': response.headers.get('Access-Control-Max-Age'),
+                };
+                
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ OPTIONS PASS<br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        <br>
+                        <strong>Preflight Headers:</strong><br>
+                        ${JSON.stringify(headers, null, 2)}
+                    </div>
+                `;
+                statusBadge.className = 'status-badge pass';
+                statusBadge.textContent = 'PASS';
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ OPTIONS FAIL<br>
+                        ${error.message}
+                    </div>
+                `;
+                statusBadge.className = 'status-badge fail';
+                statusBadge.textContent = 'FAIL';
+            }
+        }
+
+        // Test 3: Login
+        async function testLogin() {
+            const resultDiv = document.getElementById('result3');
+            const statusBadge = document.getElementById('status3');
+            
+            resultDiv.innerHTML = '<div class="result info">⏳ Logging in...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'owner@autoplatform.ro',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="result success">
+                            ✅ LOGIN SUCCESS<br>
+                            User: ${data.user?.email}<br>
+                            Role: ${data.user?.role}<br>
+                            <br>
+                            <strong>Cookies should be set!</strong><br>
+                            Check Storage tab in DevTools
+                        </div>
+                    `;
+                    statusBadge.className = 'status-badge pass';
+                    statusBadge.textContent = 'PASS';
+                    
+                    // Auto check cookies
+                    setTimeout(checkCookies, 1000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ LOGIN FAIL<br>
+                        ${error.message}
+                    </div>
+                `;
+                statusBadge.className = 'status-badge fail';
+                statusBadge.textContent = 'FAIL';
+            }
+        }
+
+        // Check Cookies
+        function checkCookies() {
+            const resultDiv = document.getElementById('result3');
+            const cookies = document.cookie;
+            
+            if (cookies) {
+                const cookieArray = cookies.split(';').map(c => c.trim());
+                const cookieList = cookieArray.map(c => 
+                    `<div class="cookie-item">🍪 ${c}</div>`
+                ).join('');
+                
+                resultDiv.innerHTML += `
+                    <div class="result success">
+                        ✅ Cookies Found:<br>
+                        <div class="cookie-list">
+                            ${cookieList}
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML += `
+                    <div class="result error">
+                        ❌ No cookies found!<br>
+                        <br>
+                        Safari may be blocking cookies.<br>
+                        Check: Safari → Preferences → Privacy → Cookies
+                    </div>
+                `;
+            }
+        }
+
+        // Test 4: Listings
+        async function testListings() {
+            const resultDiv = document.getElementById('result4');
+            const statusBadge = document.getElementById('status4');
+            
+            resultDiv.innerHTML = '<div class="result info">⏳ Fetching listings...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/listings?limit=3`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="result success">
+                        ✅ LISTINGS API SUCCESS<br>
+                        Status: ${response.status}<br>
+                        Found: ${data.listings?.length || 0} listings<br>
+                        Total: ${data.total || 0}<br>
+                        <br>
+                        <strong>Response:</strong><br>
+                        ${JSON.stringify(data, null, 2).substring(0, 500)}...
+                    </div>
+                `;
+                statusBadge.className = 'status-badge pass';
+                statusBadge.textContent = 'PASS';
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ LISTINGS FAIL<br>
+                        ${error.message}
+                    </div>
+                `;
+                statusBadge.className = 'status-badge fail';
+                statusBadge.textContent = 'FAIL';
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            await testHealth();
+            await new Promise(r => setTimeout(r, 500));
+            await testOptions();
+            await new Promise(r => setTimeout(r, 500));
+            await testLogin();
+            await new Promise(r => setTimeout(r, 1000));
+            await testListings();
+        }
+
+        // Initialize
+        detectBrowser();
+    </script>
+</body>
+</html>

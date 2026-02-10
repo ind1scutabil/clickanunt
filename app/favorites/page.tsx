@@ -42,87 +42,113 @@ export default function FavoritesPage() {
   ]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0A0B14] relative overflow-hidden">
+      {/* Animated gradient orbs background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '2s'}}></div>
+      </div>
+      
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-black mb-4">
-            <span className="text-white">Anunțurile mele </span>
-            <span className="neon-text bg-clip-text text-transparent bg-gradient-to-r from-[#FF7900] to-[#FFB84D]">
+      <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
+        {/* Header with 3D effect */}
+        <div className="mb-12">
+          <h1 className="text-6xl font-black mb-4 relative">
+            <span className="text-white drop-shadow-2xl">Anunțurile mele </span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-x drop-shadow-2xl">
               favorite
             </span>
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 opacity-20 blur-3xl -z-10"></div>
           </h1>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-lg font-medium">
             Aici găsești toate anunțurile salvate pentru mai târziu
           </p>
         </div>
 
-        {/* Stats */}
+        {/* Stats with 3D cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="glass-dark rounded-xl p-6 border-2 border-[#2A2A2A]">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#FF7900] to-[#E66D00] rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fillRule="evenodd"
-                    d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div>
-                <div className="text-3xl font-black text-white">{favorites.length}</div>
-                <div className="text-sm text-gray-400 font-medium">Favorite totale</div>
+          <div className="group relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-orange-500/50 transition-all duration-300 hover:transform hover:scale-105">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl blur-lg opacity-50"></div>
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-orange-500 to-pink-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
+                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-4xl font-black text-white drop-shadow-lg">{favorites.length}</div>
+                  <div className="text-sm text-gray-400 font-semibold">Favorite totale</div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="glass-dark rounded-xl p-6 border-2 border-[#2A2A2A]">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#1E90FF] to-[#4DA6FF] rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <div className="text-3xl font-black text-white">
-                  {favorites.reduce((sum, f) => sum + f.views, 0).toLocaleString()}
+          <div className="group relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:transform hover:scale-105">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-lg opacity-50"></div>
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400 font-medium">Vizualizări totale</div>
+                <div>
+                  <div className="text-4xl font-black text-white drop-shadow-lg">
+                    {favorites.reduce((sum, f) => sum + f.views, 0).toLocaleString()}
+                  </div>
+                  <div className="text-sm text-gray-400 font-semibold">Vizualizări totale</div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="glass-dark rounded-xl p-6 border-2 border-[#2A2A2A]">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#39FF14] to-[#00FF00] rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                  />
-                </svg>
-              </div>
-              <div>
-                <div className="text-3xl font-black text-white">
-                  {favorites.filter((f) => f.featured).length}
+          <div className="group relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 hover:transform hover:scale-105">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl blur-lg opacity-50"></div>
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
+                      />
+                    </svg>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400 font-medium">Anunțuri premium</div>
+                <div>
+                  <div className="text-4xl font-black text-white drop-shadow-lg">
+                    {favorites.filter((f) => f.featured).length}
+                  </div>
+                  <div className="text-sm text-gray-400 font-semibold">Anunțuri premium</div>
+                </div>
               </div>
             </div>
           </div>
@@ -131,7 +157,7 @@ export default function FavoritesPage() {
         {/* Favorites List */}
         {favorites.length === 0 ? (
           <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#FF7900] to-[#E66D00] rounded-full mb-6">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#6366F1] to-[#7C3AED] rounded-full mb-6">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -147,7 +173,7 @@ export default function FavoritesPage() {
             </p>
             <Link
               href="/listings"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-[#FF7900] to-[#E66D00] hover:from-[#E66D00] hover:to-[#FF7900] text-white px-8 py-4 rounded-xl font-black text-lg transition-all shadow-[0_0_30px_rgba(255,121,0,0.5)]"
+              className="inline-flex items-center gap-3 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] hover:from-[#7C3AED] hover:to-[#6366F1] text-white px-8 py-4 rounded-xl font-black text-lg transition-all shadow-[0_0_30px_rgba(255,121,0,0.5)]"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -166,7 +192,7 @@ export default function FavoritesPage() {
               <Link
                 key={listing.id}
                 href={`/listings/${listing.id}`}
-                className="card-3d group cursor-pointer relative overflow-hidden rounded-2xl border-2 border-[#2A2A2A] hover:border-[#FF7900] transition-all duration-500"
+                className="card-3d group cursor-pointer relative overflow-hidden rounded-2xl border-2 border-[#2A2A2A] hover:border-[#6366F1] transition-all duration-500"
               >
                 {/* Image */}
                 <div className="relative h-64 overflow-hidden">
@@ -176,10 +202,10 @@ export default function FavoritesPage() {
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#FF7900]/40 via-transparent to-[#B537F2]/40 mix-blend-color" />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#6366F1]/40 via-transparent to-[#B537F2]/40 mix-blend-color" />
 
                   {/* Remove from favorites button */}
-                  <button className="absolute top-4 right-4 w-12 h-12 bg-[#FF7900] hover:bg-red-600 rounded-full flex items-center justify-center transition-all shadow-lg z-10">
+                  <button className="absolute top-4 right-4 w-12 h-12 bg-[#6366F1] hover:bg-red-600 rounded-full flex items-center justify-center transition-all shadow-lg z-10">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
@@ -190,7 +216,7 @@ export default function FavoritesPage() {
                   </button>
 
                   {listing.featured && (
-                    <div className="absolute top-4 left-4 px-4 py-2 bg-gradient-to-r from-[#FFB84D] via-[#FF7900] to-[#E66D00] text-white text-xs font-black rounded-full shadow-[0_0_20px_rgba(255,121,0,0.8)] animate-pulse">
+                    <div className="absolute top-4 left-4 px-4 py-2 bg-gradient-to-r from-[#8B5CF6] via-[#6366F1] to-[#7C3AED] text-white text-xs font-black rounded-full shadow-[0_0_20px_rgba(255,121,0,0.8)] animate-pulse">
                       ⭐ TOP ANUNȚ
                     </div>
                   )}
@@ -217,12 +243,12 @@ export default function FavoritesPage() {
                 {/* Content */}
                 <div className="glass-dark p-6 border-t border-[#2A2A2A]">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 bg-[#FF7900]/20 text-[#FF7900] text-xs font-black rounded-full border border-[#FF7900]/30">
+                    <span className="px-3 py-1 bg-[#6366F1]/20 text-[#6366F1] text-xs font-black rounded-full border border-[#6366F1]/30">
                       {listing.category}
                     </span>
                   </div>
 
-                  <h3 className="font-black text-xl text-white mb-3 group-hover:text-[#FF7900] transition line-clamp-2 leading-tight">
+                  <h3 className="font-black text-xl text-white mb-3 group-hover:text-[#6366F1] transition line-clamp-2 leading-tight">
                     {listing.title}
                   </h3>
 
@@ -231,7 +257,7 @@ export default function FavoritesPage() {
                   </p>
 
                   <div className="mb-4">
-                    <div className="text-3xl font-black bg-gradient-to-r from-[#FF7900] to-[#FFB84D] bg-clip-text text-transparent">
+                    <div className="text-3xl font-black bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] bg-clip-text text-transparent">
                       {listing.price}
                     </div>
                   </div>
@@ -271,7 +297,7 @@ export default function FavoritesPage() {
                       </svg>
                       Sună
                     </button>
-                    <button className="flex-1 bg-gradient-to-r from-[#FF7900] to-[#E66D00] hover:from-[#E66D00] hover:to-[#FF7900] text-white py-3 px-4 rounded-xl font-black text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,121,0,0.5)]">
+                    <button className="flex-1 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] hover:from-[#7C3AED] hover:to-[#6366F1] text-white py-3 px-4 rounded-xl font-black text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,121,0,0.5)]">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"

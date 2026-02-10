@@ -142,7 +142,7 @@ export function isValidPassword(password: string): boolean {
 /**
  * Sanitizează obiect JSON (recurent)
  */
-export function sanitizeObject(obj: any): any {
+export function sanitizeObject(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return obj;
   }
@@ -156,10 +156,10 @@ export function sanitizeObject(obj: any): any {
   }
   
   if (typeof obj === 'object') {
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        sanitized[key] = sanitizeObject(obj[key]);
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        sanitized[key] = sanitizeObject((obj as Record<string, unknown>)[key]);
       }
     }
     return sanitized;
@@ -209,7 +209,7 @@ export function isDangerousInput(input: string): boolean {
 /**
  * Sanitizează complet input utilizator
  */
-export function sanitizeUserInput(input: any): any {
+export function sanitizeUserInput(input: unknown): unknown {
   if (typeof input === 'string') {
     // Verifică pentru SQL injection și XSS
     if (isDangerousInput(input)) {

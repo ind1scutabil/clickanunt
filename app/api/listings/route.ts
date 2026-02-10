@@ -1,20 +1,35 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
+import { memoryStorage } from "@/lib/memory-storage";
 import {
   parsePaginationParams,
   buildCursorWhere,
   buildPagination,
 } from "@/lib/pagination";
 import { fullModeration, logModeration } from "@/lib/moderation";
-import { canAutoApprove, requiresManualReview, updateTrustScore } from "@/lib/trustScore";
-import { isFeatureEnabled, FeatureFlags } from "@/lib/featureFlags";
+import { updateUserTrustScore, getRateLimit, canPerformAction, TRUST_LEVELS } from "@/lib/trustScore";
+import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
 
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const q = url.searchParams;
+
+    // ✅ IN-MEMORY MODE: Return listings from memory storage
+    if (process.env.USE_IN_MEMORY_DB === 'true') {
+      const allListings = memoryStorage.getAll();
+      
+      return NextResponse.json({
+        listings: allListings,
+        pagination: {
+          hasMore: false,
+          total: allListings.length
+        }
+      });
+    }
 
     // Parse pagination parameters (cursor-based for millions of listings)
     const { limit, cursor, direction } = parsePaginationParams(q);
@@ -77,17 +92,20 @@ export async function GET(request: Request) {
             email: true,
             role: true,
             createdAt: true,
+            subscriptionTier: true,
+            trustScore: true,
           },
         },
       },
       orderBy: [
         { isFeatured: "desc" },
+        { isPromoted: "desc" },  // Promoted listings first
         { createdAt: "desc" },
       ],
     });
 
     // Build pagination response
-    const result = buildPagination(listings, limit || 20, direction);
+    const result = buildPagination(listings, limit || 20);
 
     return NextResponse.json(result);
   } catch (error: any) {
@@ -109,13 +127,120 @@ export async function POST(request: Request) {
     logger.setContext({ userId, action: 'create_listing' });
     logger.info('Creating listing', { title: body.title });
 
-    // Check trust score for auto-approve
-    const userCanAutoApprove = await canAutoApprove(userId);
-    const needsManualReview = await requiresManualReview(userId);
+    // ✅ IN-MEMORY MODE: Skip DB operations for development
+    if (process.env.USE_IN_MEMORY_DB === 'true') {
+      const mockListing = {
+        id: 'listing-' + Date.now(),
+        ...body,
+        status: 'active',
+        moderationStatus: 'approved',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        owner: {
+          id: userId || 'owner-1',
+          email: 'owner@autoplatform.ro',
+          name: 'Owner Account',
+          role: 'OWNER'
+        }
+      };
+      
+      logger.info('✅ Listing created (in-memory mode)', { id: mockListing.id });
+      
+      // Save to memory storage
+      memoryStorage.set(mockListing.id, mockListing);
+      
+      return NextResponse.json({ 
+        success: true, 
+        listing: mockListing,
+        message: 'Anunț publicat cu succes!' 
+      }, { status: 201 });
+    }
+
+    // ✅ FETCH USER AND CHECK TRUST SCORE
+    const user = await db.findUserById(userId);
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const trustScore = user.trustScore || 50;
+
+    // Check if user can publish listings
+    if (!canPerformAction(trustScore, 'publish')) {
+      logger.warn('User cannot publish', { userId, trustScore });
+      return NextResponse.json(
+        { 
+          error: 'Scor de încredere insuficient',
+          message: 'Contul tău are restricții. Te rugăm să contactezi suportul.'
+        },
+        { status: 403 }
+      );
+    }
+
+    // Check rate limits
+    const rateLimit = getRateLimit(trustScore);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const listingsToday = await prisma.listing.count({
+      where: {
+        ownerUserId: userId,
+        createdAt: { gte: today }
+      }
+    });
+
+    if (listingsToday >= rateLimit.listingsPerDay) {
+      logger.warn('Rate limit exceeded', { userId, trustScore, listingsToday, limit: rateLimit.listingsPerDay });
+      return NextResponse.json(
+        { 
+          error: 'Limită zilnică atinsă',
+          message: `Poți publica maxim ${rateLimit.listingsPerDay} anunțuri pe zi. Crește-ți scorul de încredere pentru mai multe!`,
+          currentTrust: trustScore,
+          nextLevel: trustScore < TRUST_LEVELS.VERIFIED ? TRUST_LEVELS.VERIFIED : 100
+        },
+        { status: 429 }
+      );
+    }
+
+    // ✅ SCAM DETECTION - Run BEFORE moderation
+    logger.info('Running scam detection');
+    const scamResult = detectScam({
+      title: body.title,
+      description: body.description,
+      priceAmount: body.priceAmount,
+      category: body.category,
+      photos: body.photos || []
+    });
+
+    // Auto-reject critical scams
+    if (scamResult.isScam && scamResult.confidence >= 0.8) {
+      logger.warn('Listing auto-rejected - scam detected', { 
+        userId, 
+        confidence: scamResult.confidence, 
+        flags: scamResult.flags 
+      });
+
+      return NextResponse.json(
+        {
+          error: 'Anunț respins automat',
+          reason: 'Conținutul a fost identificat ca potențial fraudulos',
+          flags: scamResult.flags.map(f => f.description),
+          suggestions: [
+            'Verifică dacă prețul este realist',
+            'Evită cuvinte suspicioase (Western Union, gift card, urgent)',
+            'Nu include date de contact în descriere'
+          ]
+        },
+        { status: 400 }
+      );
+    }
     
-    // Check feature flags
-    const autoModerationEnabled = await isFeatureEnabled(FeatureFlags.AUTO_MODERATION);
-    const strictModerationEnabled = await isFeatureEnabled(FeatureFlags.STRICT_MODERATION);
+    // Auto-moderation enabled by default
+    const autoModerationEnabled = true;
+    const strictModerationEnabled = false;
 
     // ✅ MODERARE AUTOMATĂ cu OpenAI
     logger.info('Running moderation', { autoModerationEnabled, strictModerationEnabled });
@@ -130,6 +255,17 @@ export async function POST(request: Request) {
     let moderationStatus: 'pending' | 'approved' | 'rejected' = 'approved';
     let moderationScore = 1.0;
     const flags: any[] = [];
+
+    // Add scam detection flags
+    if (scamResult.isScam) {
+      flags.push({ 
+        type: 'scam_detection', 
+        confidence: scamResult.confidence,
+        score: scamResult.score,
+        flags: scamResult.flags 
+      });
+      moderationScore -= scamResult.confidence * 0.5; // Reduce score based on scam confidence
+    }
 
     if (moderationResult.textModeration.flagged) {
       flags.push({ type: 'text', categories: moderationResult.textModeration.categories });
@@ -150,13 +286,15 @@ export async function POST(request: Request) {
 
     moderationScore = Math.max(0, moderationScore);
 
-    // Trust score influence
-    if (userCanAutoApprove && moderationScore >= 0.7) {
+    // Trust score influence - auto-approve for verified users
+    if (trustScore >= TRUST_LEVELS.VERIFIED && moderationScore >= 0.7 && !scamResult.isScam) {
       moderationStatus = 'approved';
       logger.info('Auto-approved due to high trust score');
-    } else if (needsManualReview || moderationScore < 0.6 || strictModerationEnabled) {
+    } else if (trustScore < TRUST_LEVELS.NEUTRAL || moderationScore < 0.6 || strictModerationEnabled || scamResult.isScam) {
       moderationStatus = 'pending';
-      logger.info('Manual review required', { reason: needsManualReview ? 'low_trust' : 'low_mod_score' });
+      logger.info('Manual review required', { 
+        reason: trustScore < TRUST_LEVELS.NEUTRAL ? 'low_trust' : scamResult.isScam ? 'scam_detected' : 'low_mod_score' 
+      });
     }
 
     // Dacă anunțul este respins complet (score 0), returnează eroare
@@ -220,6 +358,10 @@ export async function POST(request: Request) {
       moderationStatus,
       moderationScore,
       moderationFlags: flags.length > 0 ? flags : null,
+      
+      // Scam detection results (store for admin review)
+      scamScore: scamResult.score,
+      scamFlags: scamResult.flags.length > 0 ? scamResult.flags : null,
     };
 
     const listing = await prisma.listing.create({ data });
@@ -228,11 +370,10 @@ export async function POST(request: Request) {
     if (moderationStatus === 'pending') {
       await prisma.moderationQueue.create({
         data: {
-          entityType: 'listing',
-          entityId: listing.id,
+          listingId: listing.id,
           priority: moderationScore < 0.3 ? 1 : 0, // Higher priority for very low scores
           status: 'pending',
-          flags: flags,
+          notes: flags.length > 0 ? `Flags: ${flags.join(', ')}` : undefined,
         },
       });
       logger.info('Added to moderation queue', { listingId: listing.id, priority: moderationScore < 0.3 ? 1 : 0 });
@@ -247,9 +388,12 @@ export async function POST(request: Request) {
     );
 
     // Update trust score based on result
-    if (moderationStatus === 'approved') {
-      await updateTrustScore(userId);
+    if (moderationStatus === 'approved' && !scamResult.isScam) {
+      await updateUserTrustScore(userId, 'listing_created_successfully');
       logger.info('Trust score updated', { userId });
+    } else if (scamResult.isScam) {
+      // Don't update trust score positively for flagged listings
+      logger.warn('Trust score not updated - scam detected', { userId });
     }
 
     tracker.end();

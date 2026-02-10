@@ -1,0 +1,28 @@
+{
+  "files.watcherExclude": {
+    "**/.next": true,
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/.cache": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.prisma": true,
+    "**/prisma/client": true,
+    "**/.vscode-server": true,
+    "**/*.lock": true,
+    "**/.vercel": true,
+    "**/logs": true,
+    "**/tmp": true,
+    "**/.env": true,
+    "**/.env.*": true,
+    "**/*.log": true,
+    "**/tsconfig.tsbuildinfo": true,
+    "**/.next/cache": true,
+    "**/.next/static": true,
+    "**/migrations": true,
+    "**/.DS_Store": true,
+    "**/.turboignore": true
+  }
+}

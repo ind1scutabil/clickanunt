@@ -14,16 +14,20 @@ export async function POST(request: Request) {
 
     if (user) {
       // Audit log
-      await auditActions.userLogout(user.userId, user.email);
+      await auditActions.userLogout(user.id, user.email);
     }
 
-    // În JWT, logout-ul e client-side (ștergere token)
-    // Aici doar confirmăm și logăm acțiunea
-
-    return NextResponse.json({
+    // Crează response și șterge cookie-urile
+    const response = NextResponse.json({
       success: true,
       message: "Deconectat cu succes",
     });
+
+    // Șterge cookie-urile de autentificare
+    response.cookies.delete('accessToken');
+    response.cookies.delete('refreshToken');
+
+    return response;
   } catch (error) {
     return NextResponse.json(
       { error: "Eroare la logout" },

@@ -10,7 +10,7 @@ export interface LogContext {
   userId?: string;
   userEmail?: string;
   action?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -29,14 +29,17 @@ class Logger {
     this.context = {};
   }
 
-  private log(level: LogLevel, message: string, data?: any): void {
-    const logEntry = {
+  private log(level: LogLevel, message: string, data?: unknown): void {
+    const logEntry: Record<string, unknown> = {
       timestamp: new Date().toISOString(),
       level,
       message,
       ...this.context,
-      ...(data && { data }),
     };
+    
+    if (data) {
+      logEntry.data = data;
+    }
 
     // JSON format pentru production (parsabil de log aggregators)
     if (process.env.NODE_ENV === 'production') {
@@ -58,23 +61,23 @@ class Logger {
     }
   }
 
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     this.log('debug', message, data);
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     this.log('info', message, data);
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     this.log('warn', message, data);
   }
 
-  error(message: string, error?: any): void {
-    this.log('error', message, {
-      error: error?.message || error,
-      stack: error?.stack,
-    });
+  error(message: string, error?: unknown): void {
+    const errorData = error instanceof Error 
+      ? { error: error.message, stack: error.stack }
+      : { error: error };
+    this.log('error', message, errorData);
   }
 }
 

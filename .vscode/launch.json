@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Next.js",
+      "type": "node",
+      "request": "launch",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/.bin/next",
+      "args": ["dev"],
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=6144 --expose-gc"
+      }
+    },
+    {
+      "name": "Build Project",
+      "type": "node",
+      "request": "launch",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/node_modules/.bin/next",
+      "args": ["build"],
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=6144 --expose-gc"
+      }
+    }
+  ]
+}

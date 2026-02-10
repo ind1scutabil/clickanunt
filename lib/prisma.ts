@@ -1,22 +1,40 @@
+// Check if we should use in-memory DB BEFORE importing Prisma
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
+
+const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
-  pool?: Pool;
 };
 
-const pool = globalForPrisma.pool ?? new Pool({ connectionString: process.env.DATABASE_URL });
+// Create a stub prisma client for in-memory mode
+const createStubPrisma = (): PrismaClient => {
+  const handler = {
+    get: (_target: Record<string, unknown>, prop: string) => {
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') {
+        return undefined; // Not a promise
+      }
+      // Return another proxy for chaining (e.g., prisma.user.findUnique)
+      return new Proxy(() => Promise.resolve(null), {
+        get: () => createStubPrisma(),
+        apply: () => Promise.resolve(null)
+      });
+    }
+  };
+  return new Proxy({}, handler) as unknown as PrismaClient;
+};
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter: new PrismaPg(pool),
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  });
+if (useInMemory) {
+  console.log('⚠️  In-memory DB mode - Prisma client bypassed');
+}
 
-if (process.env.NODE_ENV !== "production") {
+export const prisma: PrismaClient = useInMemory 
+  ? (createStubPrisma())
+  : (globalForPrisma.prisma ??
+     new PrismaClient({
+       log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+     }));
+
+if (process.env.NODE_ENV !== "production" && !useInMemory) {
   globalForPrisma.prisma = prisma;
-  globalForPrisma.pool = pool;
 }

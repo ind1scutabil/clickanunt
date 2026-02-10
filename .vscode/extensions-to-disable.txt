@@ -1,0 +1,20 @@
+EXTENSII DE DEZACTIVAT PENTRU PERFORMANCE:
+
+DEZACTIVĂ ACESTEA (consumă mult RAM):
+- GitHub Copilot (github.copilot) - consume 200-300MB RAM
+- GitHub Copilot Chat (github.copilot-chat) - consume 100-200MB RAM
+- Tailwind CSS IntelliSense (bradlc.vscode-tailwindcss) - slow linter
+- ESLint (dbaeumer.vscode-eslint) - runs on every file change
+- Prettier (esbenp.prettier-vscode) - optional formatter
+
+CUM DEZACTIVA:
+1. Command Palette (Cmd+Shift+P)
+2. Tastează: "Extensions: Disable (Workspace)"
+3. Selectează extensiile de mai sus
+
+OU MANUAL:
+- Click dreapta pe extensie în Extensions panel
+- Choose "Disable (Workspace)"
+
+PASUL FINAL:
+- Reload VS Code (Cmd+Shift+P -> "Developer: Reload Window")

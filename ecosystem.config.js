@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'clickanunt',
-    script: 'npm',
+    script: './node_modules/.bin/next',
     args: 'start',
     cwd: '/var/www/clickanunt',
     instances: 1,
@@ -17,9 +17,9 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     merge_logs: true,
     autorestart: true,
-    max_restarts: 10,
-    min_uptime: '10s',
-    listen_timeout: 3000,
-    kill_timeout: 5000
+    max_restarts: 3,
+    min_uptime: '20s',
+    restart_delay: 15000,
+    kill_timeout: 10000
   }]
 };

@@ -1,0 +1,124 @@
+import { NextResponse } from 'next/server';
+import { verifyTOTPLogin, useBackupCode } from '@/lib/2fa';
+import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
+import crypto from 'crypto';
+
+export const runtime = 'nodejs';
+
+export async function POST(request: Request) {
+  try {
+    const { sessionToken, code, backupCode } = await request.json();
+    const ip = getClientIp(request);
+    const userAgent = request.headers.get('user-agent') || '';
+
+    if (!sessionToken || (!code && !backupCode)) {
+      return NextResponse.json(
+        { error: 'Session token și cod sunt necesare' },
+        { status: 400 }
+      );
+    }
+
+    const session = await getSession(sessionToken);
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Session expired' },
+        { status: 401 }
+      );
+    }
+
+    // Type guard for session data
+    if (typeof session !== 'object' || !session || !('userId' in session)) {
+      return NextResponse.json(
+        { error: 'Invalid session data' },
+        { status: 500 }
+      );
+    }
+
+    const userId = (session as { userId: string }).userId;
+
+    if (backupCode) {
+      const isValid = await useBackupCode(userId, backupCode, ip, userAgent);
+      if (!isValid) {
+        return NextResponse.json(
+          { error: 'Backup code invalid' },
+          { status: 401 }
+        );
+      }
+    } else if (code) {
+      const isValid = await verifyTOTPLogin(userId, code, ip, userAgent);
+      if (!isValid) {
+        return NextResponse.json(
+          { error: 'Cod invalid' },
+          { status: 401 }
+        );
+      }
+    }
+
+    const { db } = await import('@/lib/db');
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, role: true, name: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const accessToken = generateToken();
+    const refreshToken = generateToken();
+    await deleteSession(sessionToken);
+
+    const response = NextResponse.json(
+      {
+        user,
+        accessToken,
+        refreshToken,
+        message: '2FA verification successful',
+      },
+      { status: 200 }
+    );
+
+    response.cookies.set('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+
+    response.cookies.set('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+    });
+
+    return response;
+  } catch (error) {
+    if (error instanceof RedisUnavailableError) {
+      return NextResponse.json(
+        { error: '2FA temporar indisponibil (Redis offline)' },
+        { status: 503 }
+      );
+    }
+
+    console.error('Error during 2FA verification:', error);
+    return NextResponse.json(
+      { error: 'Failed to verify 2FA' },
+      { status: 500 }
+    );
+  }
+}
+
+function generateToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0] ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+  );
+}

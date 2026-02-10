@@ -42,7 +42,7 @@ export default function CreateListingForm() {
     setLoading(true);
     setMessage(null);
     try {
-      let photos: string[] = [];
+      const photos: string[] = [];
       if (files && files.length > 0) {
         const arr = Array.from(files);
         for (const f of arr) {

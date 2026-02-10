@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       );
     }
 
-    await setFeatureFlag(key, enabled, description, user.userId);
+    await setFeatureFlag(key, enabled, description, user.id);
 
     return NextResponse.json({
       success: true,
@@ -86,7 +86,7 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
 
-    clearFeatureFlagCache(key || undefined);
+    clearFeatureFlagCache();
 
     return NextResponse.json({
       success: true,

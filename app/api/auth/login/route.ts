@@ -4,9 +4,13 @@ import { authenticateUser } from "@/lib/auth";
 import { rateLimitPresets, getClientIp } from "@/lib/rateLimit";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
+import { db } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
+    // Test database connection
+    await db.testConnection();
+
     const body = await request.json();
     const { email, password } = body;
 
@@ -56,9 +60,30 @@ export async function POST(request: Request) {
     }
 
     // Audit log
-    await auditActions.userLogin(result.user!.id, result.user!.email, ip);
+    if (result.user && typeof result.user.id === 'string' && typeof result.user.email === 'string') {
+      await auditActions.userLogin(result.user.id, result.user.email, ip);
+    }
 
-    return NextResponse.json(
+    // Check if user is admin and require 2FA
+    const isAdmin = result.user?.role === 'admin' || result.user?.email === 'admin@clickanunt.ro';
+    if (isAdmin && process.env.ADMIN_2FA_ENABLED === 'true') {
+      // Create temporary session token
+      const sessionToken = require('crypto').randomBytes(32).toString('hex');
+      // Store in temporary cache with 5 minute expiry
+      // In production, use Redis
+      
+      return NextResponse.json(
+        {
+          requiresTwoFactor: true,
+          sessionToken: sessionToken,
+          message: "2FA verification required for admin access",
+        },
+        { status: 206 } // 206 Partial Content - needs additional auth
+      );
+    }
+
+    // Setează cookie-uri HTTP-only pentru securitate
+    const response = NextResponse.json(
       {
         success: true,
         user: result.user,
@@ -68,10 +93,48 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     );
+
+    // Set access token cookie (7 zile) - Safari compatible
+    response.cookies.set('accessToken', result.accessToken!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 zile
+      path: '/',
+      priority: 'high',
+    });
+
+    // Set refresh token cookie (30 zile) - Safari compatible
+    response.cookies.set('refreshToken', result.refreshToken!, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      maxAge: 60 * 60 * 24 * 30, // 30 zile
+      path: '/',
+      priority: 'high',
+    });
+    
+    // Adaugă header-e CORS pentru Safari
+    const origin = request.headers.get('origin');
+    if (origin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
+
+    return response;
   } catch (err: any) {
-    console.error('Login error:', err);
+    console.error('❌ Login error details:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
     return NextResponse.json(
-      { error: "Eroare la autentificare" },
+      { 
+        error: "Eroare la autentificare",
+        ...(process.env.NODE_ENV === 'development' && { debug: err.message })
+      },
       { status: 500 }
     );
   }

@@ -4,6 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ==================== ENUMS ====================
@@ -13,28 +14,28 @@ enum UserRole {
   dealer
   admin
   moderator
-  owner        // OWNER - control complet
-  support      // SUPPORT - răspunde întrebări
-  finance      // FINANCE - gestionare plăți
+  owner
+  support
+  finance
 }
 
 enum ListingStatus {
   draft
-  pending      // În așteptare moderare
+  pending
   active
   paused
   expired
   sold
   deleted
-  rejected     // Respins de moderare
-  hidden       // Ascuns (shadowban)
+  rejected
+  hidden
 }
 
 enum ModerationStatus {
-  pending      // În așteptare review
-  approved     // Aprobat
-  rejected     // Respins
-  flagged      // Marcat pentru review
+  pending
+  approved
+  rejected
+  flagged
 }
 
 enum ReportStatus {
@@ -96,6 +97,32 @@ enum InvoiceStatus {
   cancelled
 }
 
+enum PromotionType {
+  boost_24h
+  boost_72h
+  boost_7days
+  highlight
+  featured
+}
+
+enum SubscriptionTier {
+  free
+  business
+  premium
+}
+
+enum AccountType {
+  private
+  business
+}
+
+enum VerificationLevel {
+  none
+  email
+  phone
+  business
+}
+
 // ==================== MODELS ====================
 
 model User {
@@ -104,12 +131,43 @@ model User {
   password  String
   role      UserRole @default(user)
   
+  // Account Type & Profile
+  accountType         AccountType @default(private)
+  verificationLevel   VerificationLevel @default(none)
+  
+  // Personal profile
+  name                String?
+  phone               String?
+  phoneVerified       Boolean @default(false)
+  emailVerified       Boolean @default(false)
+  avatar              String?
+  
+  // Business profile (doar pentru accountType = business)
+  businessName        String?
+  businessLogo        String?
+  businessDescription String?  @db.Text
+  businessLocation    String?
+  businessPhone       String?
+  businessWebsite     String?
+  businessEmail       String?
+  businessCUI         String?
+  businessRegCom      String?
+  
   // Trust & Security
-  trustScore          Int      @default(50)  // 0-100
+  trustScore          Int      @default(50)
   isBanned            Boolean  @default(false)
   bannedAt            DateTime?
   bannedBy            String?
   banReason           String?
+  
+  // Subscription & Monetization
+  subscriptionTier    SubscriptionTier @default(free)
+  subscriptionExpiresAt DateTime?
+  subscriptionRenewsAt  DateTime?
+  freeBoostsRemaining Int      @default(0)
+  creditsBalance       Int      @default(0)
+  promotionDiscountPercent Int  @default(0)
+  promotionBenefits    Json?
   
   // 2FA
   twoFactorSecret     String?
@@ -134,13 +192,51 @@ model User {
   staffNotes          StaffNote[]
   payments            Payment[]
   invoices            Invoice[]
+  verificationRequests VerificationRequest[]
+  notifications       UserNotification[]
+  createdBroadcasts   AdminBroadcast[] @relation("BroadcastCreator")
   
   @@index([email])
   @@index([role])
   @@index([isBanned])
   @@index([trustScore])
   @@index([createdAt])
+  @@index([accountType])
+  @@index([verificationLevel])
+  @@index([businessName])
   @@map("users")
+}
+
+// 2FA Backup Codes - one-time use recovery codes
+model TwoFactorBackupCode {
+  id        String   @id @default(uuid())
+  userId    String
+  code      String
+  used      Boolean  @default(false)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, code])
+  @@index([userId])
+  @@index([used])
+  @@map("two_factor_backup_codes")
+}
+
+// 2FA Verification History - audit trail
+model TwoFactorLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String // "enabled", "disabled", "verified", "backup_used", "failed_attempt"
+  success   Boolean  @default(true)
+  ipAddress String?
+  userAgent String?
+  details   Json?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("two_factor_logs")
 }
 
 model Listing {
@@ -173,6 +269,12 @@ model Listing {
   transmission  Transmission?
   vin           String?
   
+  // Dealer-specific fields (doar pentru business accounts în categoria AUTO)
+  isDealer      Boolean       @default(false)
+  dealerBrands  String[]      @default([])
+  dealerPriceMin Int?
+  dealerPriceMax Int?
+  
   // Generic attributes stored as JSON
   attributes    Json?
   
@@ -180,120 +282,78 @@ model Listing {
   views         Int           @default(0)
   isFeatured    Boolean       @default(false)
   
-  // Moderation fields
+  // Promotion fields
+  isPromoted        Boolean       @default(false)
+  promotionType     PromotionType?
+  promotionExpiresAt DateTime?
+  promotionStartedAt DateTime?
+  
+  // Scam detection
+  scamScore         Int           @default(0)
+  scamFlags         String[]      @default([])
+  isScamSuspected   Boolean       @default(false)
+  isDuplicate       Boolean       @default(false)
+  duplicateOfId     String?
+  
+  // Moderation
   moderationStatus  ModerationStatus @default(pending)
   moderatedAt       DateTime?
   moderatedBy       String?
-  rejectionReason   String?
-  moderationScore   Float?           // 0-1 confidence score
-  moderationFlags   Json?            // Detalii moderare OpenAI
+  moderationNotes   String?
   
-  // SEO and search optimization
-  slug          String?       @unique
-  searchVector  String?       @db.Text
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Expiry
-  expiresAt     DateTime?
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  publishedAt       DateTime?
+  expiresAt         DateTime?
 
   // Relations
-  reports       Report[]
-  moderationQueue ModerationQueue[]
-
-  // Composite indexes for efficient queries at scale
-  @@index([category, status, createdAt(sort: Desc)])
-  @@index([category, subcategory, status])
-  @@index([status, isFeatured, createdAt(sort: Desc)])
-  @@index([ownerUserId, status])
-  @@index([priceAmount, category])
-  @@index([county, city, category])
-  @@index([make, model, year])
+  reports           Report[]
+  moderationQueue   ModerationQueue[]
+  
+  @@index([ownerUserId])
+  @@index([category])
+  @@index([status])
+  @@index([createdAt])
+  @@index([isPromoted])
+  @@index([scamScore])
   @@index([moderationStatus])
-  @@index([createdAt(sort: Desc)])
-  @@index([slug])
   @@map("listings")
 }
 
-// Audit Log - IMUABIL, tracking toate acțiunile
-model AuditLog {
-  id          String   @id @default(uuid())
-  
-  // Who
-  userId      String?
-  userEmail   String?
-  userRole    UserRole?
-  
-  // What
-  action      String             // 'user.ban', 'listing.approve', 'listing.reject', etc.
-  entityType  String             // 'user', 'listing', 'report', etc.
-  entityId    String?
-  
-  // Details
-  before      Json?              // State before
-  after       Json?              // State after
-  metadata    Json?              // Extra info (IP, user agent, etc.)
-  
-  // When
-  timestamp   DateTime @default(now())
-  
-  // Relations
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([userId])
-  @@index([action])
-  @@index([entityType, entityId])
-  @@index([timestamp(sort: Desc)])
-  @@map("audit_logs")
-}
-
-// Report - Raportări utilizatori
 model Report {
   id          String       @id @default(uuid())
-  
-  // Reporter
   reporterId  String
   reporter    User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   
-  // Reported entity
-  entityType  String       // 'listing', 'user', 'comment'
-  entityId    String
-  listing     Listing?     @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  listingId   String
+  listing     Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
   
-  // Report details
-  reason      String       // 'spam', 'fraud', 'inappropriate', 'illegal', etc.
+  reason      String
   description String?      @db.Text
   status      ReportStatus @default(pending)
   
   // Resolution
   resolvedAt  DateTime?
   resolvedBy  String?
-  resolution  String?      @db.Text
+  resolution  String?
   
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   
-  @@index([status])
+  @@index([listingId])
   @@index([reporterId])
-  @@index([entityType, entityId])
-  @@index([createdAt(sort: Desc)])
+  @@index([status])
   @@map("reports")
 }
 
-// Appeal - Contestații utilizatori
 model Appeal {
   id          String       @id @default(uuid())
-  
-  // Appellant
   userId      String
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Appeal details
-  type        String       // 'listing_rejection', 'account_ban', 'content_removal'
-  entityType  String
-  entityId    String
   reason      String       @db.Text
+  evidence    String[]     @default([])
   status      AppealStatus @default(pending)
   
   // Resolution
@@ -306,176 +366,201 @@ model Appeal {
   
   @@index([userId])
   @@index([status])
-  @@index([createdAt(sort: Desc)])
   @@map("appeals")
 }
 
-// ModerationQueue - Coadă moderare
 model ModerationQueue {
   id          String           @id @default(uuid())
+  listingId   String
+  listing     Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
   
-  // Entity to moderate
-  entityType  String           // 'listing', 'user', 'image'
-  entityId    String
-  listing     Listing?         @relation(fields: [entityId], references: [id], onDelete: Cascade)
-  
-  // Moderation details
-  priority    Int              @default(0)  // Higher = urgent
-  status      ModerationStatus @default(pending)
-  flags       Json?            // AI/rule flags
-  
-  // Assignment
+  priority    Int              @default(0)
   assignedTo  String?
-  assignedAt  DateTime?
-  moderator   User?            @relation("ModeratorActions", fields: [assignedTo], references: [id], onDelete: SetNull)
+  moderator   User?            @relation("ModeratorActions", fields: [assignedTo], references: [id])
   
-  // Resolution
-  reviewedAt  DateTime?
-  decision    String?          // 'approve', 'reject', 'escalate'
+  status      ModerationStatus @default(pending)
   notes       String?          @db.Text
   
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   
+  @@index([listingId])
   @@index([status])
-  @@index([priority, createdAt(sort: Desc)])
-  @@index([assignedTo])
-  @@index([entityType, entityId])
+  @@index([priority])
   @@map("moderation_queue")
 }
 
-// Settings - Configurări platformă
-model Settings {
+model AuditLog {
   id          String   @id @default(uuid())
-  key         String   @unique
-  value       Json
-  description String?
-  updatedBy   String?
-  updatedAt   DateTime @updatedAt
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  
   createdAt   DateTime @default(now())
   
-  @@map("settings")
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
-// Feature Flags - Control feature-uri
+model StaffNote {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  authorId    String
+  content     String   @db.Text
+  isInternal  Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([authorId])
+  @@map("staff_notes")
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  amount      Int
+  currency    String        @default("RON")
+  status      PaymentStatus @default(pending)
+  method      PaymentMethod?
+  
+  // Stripe
+  stripePaymentIntentId String? @unique
+  stripeCustomerId      String?
+  
+  // Purpose
+  purpose     String
+  description String?
+  metadata    Json?
+  
+  // Timestamps
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  paidAt      DateTime?
+  
+  // Relations
+  invoices    Invoice[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+  @@map("payments")
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  paymentId   String?
+  payment     Payment?      @relation(fields: [paymentId], references: [id])
+  
+  invoiceNumber String      @unique
+  amount      Int
+  currency    String        @default("RON")
+  status      InvoiceStatus @default(draft)
+  
+  items       Json
+  metadata    Json?
+  
+  // Dates
+  issuedAt    DateTime?
+  dueAt       DateTime?
+  paidAt      DateTime?
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([userId])
+  @@index([paymentId])
+  @@index([invoiceNumber])
+  @@index([status])
+  @@map("invoices")
+}
+
+// Verification Requests
+model VerificationRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   // 'email', 'phone', 'business'
+  status    String   @default("pending") // 'pending', 'approved', 'rejected'
+  data      Json     // Request data (business info, documents, etc.)
+  
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewNote String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("verification_requests")
+}
+
+// Feature Flags
 model FeatureFlag {
   id          String   @id @default(uuid())
   key         String   @unique
   enabled     Boolean  @default(false)
   description String?
-  metadata    Json?    // Rollout percentage, user segments, etc.
-  updatedBy   String?
-  updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
   @@map("feature_flags")
 }
 
-// Staff Notes - Note interne pentru moderatori/admin
-model StaffNote {
+// Admin Broadcasts
+model AdminBroadcast {
   id          String   @id @default(uuid())
-  entityType  String   // 'user', 'listing', 'report'
-  entityId    String
-  note        String   @db.Text
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  isInternal  Boolean  @default(true) // Vizibil doar pentru staff
+  title       String
+  message     String   @db.Text
+  channels    Json
+  segment     String   @default("all")
+  status      String   @default("sent") // sent | scheduled
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdBy   String
+  createdByUser User @relation("BroadcastCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  notifications UserNotification[]
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([entityType, entityId])
-  @@index([authorId])
-  @@map("staff_notes")
+
+  @@index([createdBy])
+  @@index([status])
+  @@map("admin_broadcasts")
 }
 
-// Payments - Plăți cu card/Apple Pay/Google Pay
-model Payment {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Stripe fields
-  stripePaymentIntentId String?  @unique
-  stripeCustomerId      String?
-  
-  // Payment details
-  amount          Int           // În bani (RON * 100, ex: 10 RON = 1000)
-  currency        String        @default("RON")
-  status          PaymentStatus @default(pending)
-  method          PaymentMethod?
-  
-  // Purpose
-  purpose         String        // 'promote_listing', 'premium_account', 'featured'
-  entityType      String?       // 'listing'
-  entityId        String?       // listing ID
-  
-  // Metadata
-  metadata        Json?
-  errorMessage    String?
-  
-  // Facturare
-  invoiceId       String?       @unique
-  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
-  
-  // Timestamps
-  paidAt          DateTime?
-  refundedAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  @@index([userId])
-  @@index([status])
-  @@index([stripePaymentIntentId])
-  @@index([entityType, entityId])
-  @@map("payments")
-}
+// User Notifications
+model UserNotification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broadcastId String?
+  broadcast   AdminBroadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
+  title       String
+  message     String   @db.Text
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
 
-// Invoices - Facturi automate
-model Invoice {
-  id              String        @id @default(uuid())
-  invoiceNumber   String        @unique // ex: INV-2026-00001
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Invoice details
-  status          InvoiceStatus @default(draft)
-  amount          Int           // Total în bani
-  currency        String        @default("RON")
-  
-  // Company info (din user sau Settings)
-  companyName     String?
-  companyCui      String?
-  companyAddress  String?
-  
-  // Client info
-  clientName      String
-  clientEmail     String
-  clientAddress   String?
-  clientCui       String?       // Pentru facturi către firme
-  
-  // Items (JSON array)
-  items           Json          // [{ description, quantity, price, vat }]
-  
-  // VAT
-  subtotal        Int           // Fără TVA
-  vatAmount       Int           // TVA
-  vatRate         Float         @default(19) // 19% în România
-  
-  // PDF
-  pdfUrl          String?       // S3 URL către PDF generat
-  
-  // Linked payment
-  payment         Payment?
-  
-  // Timestamps
-  issuedAt        DateTime?
-  paidAt          DateTime?
-  dueAt           DateTime?     // Scadență (default: issuedAt + 30 zile)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
   @@index([userId])
-  @@index([invoiceNumber])
-  @@index([status])
-  @@map("invoices")
+  @@index([broadcastId])
+  @@map("user_notifications")
 }

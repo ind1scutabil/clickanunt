@@ -12,9 +12,11 @@ export const runtime = 'nodejs';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+    
     // Verificare autentificare
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -27,11 +29,9 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    const invoiceId = params.id;
-
     // Get factură
     const invoice = await prisma.invoice.findUnique({
-      where: { id: invoiceId },
+      where: { id },
       include: {
         payment: {
           select: {
@@ -58,7 +58,7 @@ export async function GET(
     }
 
     logger.info('Invoice retrieved', {
-      invoiceId,
+      invoiceId: id,
       userId: decoded.userId,
     });
 
@@ -68,18 +68,8 @@ export async function GET(
       status: invoice.status,
       amount: invoice.amount,
       currency: invoice.currency,
-      subtotal: invoice.subtotal,
-      vatAmount: invoice.vatAmount,
-      vatRate: invoice.vatRate,
       items: invoice.items,
-      companyName: invoice.companyName,
-      companyCui: invoice.companyCui,
-      companyAddress: invoice.companyAddress,
-      clientName: invoice.clientName,
-      clientEmail: invoice.clientEmail,
-      clientAddress: invoice.clientAddress,
-      clientCui: invoice.clientCui,
-      pdfUrl: invoice.pdfUrl,
+      metadata: invoice.metadata,
       issuedAt: invoice.issuedAt,
       paidAt: invoice.paidAt,
       dueAt: invoice.dueAt,

@@ -61,7 +61,7 @@ export async function POST(
       data: {
         isBanned: true,
         bannedAt: new Date(),
-        bannedBy: user.userId,
+        bannedBy: user.id,
         banReason: reason,
       },
     });

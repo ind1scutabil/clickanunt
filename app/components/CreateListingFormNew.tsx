@@ -84,7 +84,7 @@ export default function CreateListingFormNew() {
     setLoading(true);
     setMessage(null);
     try {
-      let photos: string[] = [];
+      const photos: string[] = [];
       if (files && files.length > 0) {
         const arr = Array.from(files);
         for (const f of arr) {
@@ -99,7 +99,7 @@ export default function CreateListingFormNew() {
         }
       }
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         ownerUserId,
         title,
         category,
@@ -148,8 +148,8 @@ export default function CreateListingFormNew() {
       setFuel("");
       setTransmission("");
       setFiles(null);
-    } catch (err: any) {
-      setMessage(err.message || String(err));
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

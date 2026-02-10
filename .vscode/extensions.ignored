@@ -1,0 +1,4 @@
+# Extensions that might cause crashes - disable if issues persist
+# - ms-python.python (if not needed)
+# - ms-vscode.cpptools (if not needed)
+# - Large memory-intensive extensions

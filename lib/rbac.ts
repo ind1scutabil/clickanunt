@@ -3,8 +3,17 @@
  * Sistemul de permisiuni pentru owner control
  */
 
-import { UserRole } from '@prisma/client';
+import { UserRole, type UserRole as UserRoleType } from '@prisma/client';
 import { TokenPayload } from './auth';
+
+// Helper type for user with role
+type UserWithRole = { role: UserRoleType } | TokenPayload;
+
+// Helper to extract role from user
+function getUserRole(user: UserWithRole): UserRoleType {
+  const roleValue = 'role' in user ? user.role : null;
+  return (roleValue || 'user') as UserRoleType;
+}
 
 // Definim toate acțiunile posibile în sistem
 export enum Permission {
@@ -202,32 +211,32 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
 /**
  * Verifică dacă un user (din token) are o permisiune
  */
-export function userHasPermission(user: TokenPayload | null, permission: Permission): boolean {
+export function userHasPermission(user: UserWithRole | null, permission: Permission): boolean {
   if (!user) return false;
-  return hasPermission(user.role as UserRole, permission);
+  return hasPermission(getUserRole(user) as UserRole, permission);
 }
 
 /**
  * Verifică dacă un user are oricare din permisiunile date
  */
-export function userHasAnyPermission(user: TokenPayload | null, permissions: Permission[]): boolean {
+export function userHasAnyPermission(user: UserWithRole | null, permissions: Permission[]): boolean {
   if (!user) return false;
-  return permissions.some(p => hasPermission(user.role as UserRole, p));
+  return permissions.some(p => hasPermission(getUserRole(user) as UserRole, p));
 }
 
 /**
  * Verifică dacă un user are toate permisiunile date
  */
-export function userHasAllPermissions(user: TokenPayload | null, permissions: Permission[]): boolean {
+export function userHasAllPermissions(user: UserWithRole | null, permissions: Permission[]): boolean {
   if (!user) return false;
-  return permissions.every(p => hasPermission(user.role as UserRole, p));
+  return permissions.every(p => hasPermission(getUserRole(user) as UserRole, p));
 }
 
 /**
  * Middleware helper pentru verificare permisiune
  * Aruncă eroare dacă user-ul nu are permisiunea
  */
-export function requirePermission(user: TokenPayload | null, permission: Permission): void {
+export function requirePermission(user: UserWithRole | null, permission: Permission): void {
   if (!userHasPermission(user, permission)) {
     throw new Error(`Permisiune lipsă: ${permission}`);
   }
@@ -236,7 +245,7 @@ export function requirePermission(user: TokenPayload | null, permission: Permiss
 /**
  * Middleware helper pentru verificare rol minim
  */
-export function requireRole(user: TokenPayload | null, minRole: UserRole): void {
+export function requireRole(user: UserWithRole | null, minRole: UserRole): void {
   if (!user) {
     throw new Error('Neautentificat');
   }
@@ -251,7 +260,7 @@ export function requireRole(user: TokenPayload | null, minRole: UserRole): void 
     UserRole.owner,
   ];
 
-  const userRoleIndex = roleHierarchy.indexOf(user.role as UserRole);
+  const userRoleIndex = roleHierarchy.indexOf(getUserRole(user) as UserRole);
   const requiredRoleIndex = roleHierarchy.indexOf(minRole);
 
   if (userRoleIndex < requiredRoleIndex) {
@@ -262,14 +271,14 @@ export function requireRole(user: TokenPayload | null, minRole: UserRole): void 
 /**
  * Verifică dacă user-ul este OWNER
  */
-export function isOwner(user: TokenPayload | null): boolean {
+export function isOwner(user: UserWithRole | null): boolean {
   return user?.role === UserRole.owner;
 }
 
 /**
  * Verifică dacă user-ul este ADMIN sau OWNER
  */
-export function isAdminOrOwner(user: TokenPayload | null): boolean {
+export function isAdminOrOwner(user: UserWithRole | null): boolean {
   return user?.role === UserRole.admin || user?.role === UserRole.owner;
 }
 
@@ -300,14 +309,14 @@ export function canModifyUser(actorRole: UserRole, targetRole: UserRole): boolea
 /**
  * Verifică dacă un user poate seta un anumit rol
  */
-export function canSetRole(actor: TokenPayload, newRole: UserRole): boolean {
+export function canSetRole(actor: UserWithRole, newRole: UserRole): boolean {
   // Doar OWNER poate seta rol de OWNER
-  if (newRole === UserRole.owner && actor.role !== UserRole.owner) {
+  if (newRole === UserRole.owner && getUserRole(actor) !== UserRole.owner) {
     return false;
   }
 
   // Doar OWNER și ADMIN pot seta rol de ADMIN
-  if (newRole === UserRole.admin && actor.role !== UserRole.owner && actor.role !== UserRole.admin) {
+  if (newRole === UserRole.admin && getUserRole(actor) !== UserRole.owner && getUserRole(actor) !== UserRole.admin) {
     return false;
   }
 

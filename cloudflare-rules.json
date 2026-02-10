@@ -1,0 +1,306 @@
+{
+  "version": "1.0",
+  "name": "ClickAnunt Production Rules",
+  "description": "Complete Cloudflare WAF, rate limiting, and optimization rules",
+  
+  "waf_rules": [
+    {
+      "id": "sql-injection-protection",
+      "name": "SQL Injection Protection",
+      "enabled": true,
+      "mode": "block",
+      "rules": [
+        {
+          "name": "SQL UNION SELECT",
+          "expression": "(cf.threat_score > 10) or (http.request.uri.query contains \"union select\") or (http.request.uri.query contains \"union all select\")",
+          "action": "block"
+        },
+        {
+          "name": "SQL OR 1=1",
+          "expression": "http.request.uri.query contains \"or 1=1\" or http.request.uri.query contains \"or '1'='1'\"",
+          "action": "block"
+        },
+        {
+          "name": "SQL Comment Patterns",
+          "expression": "http.request.uri.query contains \"--\" or http.request.uri.query contains \"/**/\" or http.request.uri.query contains \"#\"",
+          "action": "challenge"
+        }
+      ]
+    },
+    {
+      "id": "xss-protection",
+      "name": "XSS Protection",
+      "enabled": true,
+      "mode": "block",
+      "rules": [
+        {
+          "name": "Script Tags",
+          "expression": "(http.request.body contains \"<script\") or (http.request.uri.query contains \"<script\")",
+          "action": "block"
+        },
+        {
+          "name": "Event Handlers",
+          "expression": "(http.request.body contains \"onload=\") or (http.request.body contains \"onerror=\") or (http.request.body contains \"onclick=\")",
+          "action": "challenge"
+        },
+        {
+          "name": "JavaScript Protocol",
+          "expression": "(http.request.uri.query contains \"javascript:\") or (http.request.body contains \"javascript:\")",
+          "action": "block"
+        }
+      ]
+    },
+    {
+      "id": "path-traversal-protection",
+      "name": "Path Traversal Protection",
+      "enabled": true,
+      "mode": "block",
+      "rules": [
+        {
+          "name": "Directory Traversal",
+          "expression": "(http.request.uri.path contains \"../\") or (http.request.uri.path contains \"..\\\\\")",
+          "action": "block"
+        },
+        {
+          "name": "Access Sensitive Files",
+          "expression": "(http.request.uri.path contains \".env\") or (http.request.uri.path contains \".git\") or (http.request.uri.path contains \".config\")",
+          "action": "block"
+        }
+      ]
+    },
+    {
+      "id": "bot-protection",
+      "name": "Bot Protection",
+      "enabled": true,
+      "mode": "challenge",
+      "rules": [
+        {
+          "name": "Super Bot Fight Mode",
+          "expression": "(cf.verified_bot_category == \"Search Engine Crawler\") or (cf.bot_management.score < 30)",
+          "action": "challenge"
+        },
+        {
+          "name": "Definitely Automated",
+          "expression": "cf.bot_management.score < 10",
+          "action": "block"
+        }
+      ]
+    }
+  ],
+
+  "rate_limiting": [
+    {
+      "id": "rate-limit-login",
+      "name": "Login Rate Limit",
+      "expression": "http.request.uri.path == \"/api/auth/login\"",
+      "threshold": 10,
+      "period": 300,
+      "action": "challenge",
+      "mitigation_timeout": 3600
+    },
+    {
+      "id": "rate-limit-api",
+      "name": "API General Rate Limit",
+      "expression": "http.request.uri.path starts_with \"/api/\" and http.request.uri.path != \"/api/health\"",
+      "threshold": 100,
+      "period": 60,
+      "action": "block",
+      "mitigation_timeout": 60
+    },
+    {
+      "id": "rate-limit-search",
+      "name": "Search Rate Limit",
+      "expression": "http.request.uri.path == \"/api/search\"",
+      "threshold": 50,
+      "period": 60,
+      "action": "challenge",
+      "mitigation_timeout": 300
+    },
+    {
+      "id": "rate-limit-upload",
+      "name": "Upload Rate Limit",
+      "expression": "http.request.uri.path == \"/api/uploads\" and http.request.method == \"POST\"",
+      "threshold": 20,
+      "period": 3600,
+      "action": "block",
+      "mitigation_timeout": 3600
+    },
+    {
+      "id": "rate-limit-admin",
+      "name": "Admin API Rate Limit",
+      "expression": "http.request.uri.path starts_with \"/api/admin/\"",
+      "threshold": 30,
+      "period": 60,
+      "action": "block",
+      "mitigation_timeout": 300
+    }
+  ],
+
+  "page_rules": [
+    {
+      "id": "cache-static",
+      "url_pattern": "*.clickanunt.ro/static/*",
+      "actions": {
+        "cache_level": "cache_everything",
+        "browser_cache_ttl": 2592000,
+        "edge_cache_ttl": 31536000,
+        "minify": "js,css,html"
+      }
+    },
+    {
+      "id": "cache-images",
+      "url_pattern": "*.clickanunt.ro/images/*",
+      "actions": {
+        "cache_level": "cache_everything",
+        "browser_cache_ttl": 2592000,
+        "edge_cache_ttl": 604800
+      }
+    },
+    {
+      "id": "no-cache-admin",
+      "url_pattern": "*.clickanunt.ro/admin/*",
+      "actions": {
+        "cache_level": "bypass"
+      }
+    },
+    {
+      "id": "no-cache-api",
+      "url_pattern": "*.clickanunt.ro/api/*",
+      "actions": {
+        "cache_level": "bypass"
+      }
+    },
+    {
+      "id": "security-headers",
+      "url_pattern": "*.clickanunt.ro/*",
+      "actions": {
+        "security_headers": {
+          "strict_transport_security": "max-age=31536000; includeSubDomains; preload",
+          "x_frame_options": "DENY",
+          "x_content_type_options": "nosniff",
+          "referrer_policy": "strict-origin-when-cross-origin"
+        }
+      }
+    }
+  ],
+
+  "bot_management": {
+    "enabled": true,
+    "fight_mode": "super",
+    "sensitivity_level": "high",
+    "verified_bot_category": "allow",
+    "challenge_javascript_detections": true,
+    "challenge_suspicious_traffic": true,
+    "super_bot_fight_mode": {
+      "definitely_automated": "block",
+      "likely_automated": "challenge",
+      "verified_bots": "allow",
+      "challenge_on_empty_user_agent": true
+    }
+  },
+
+  "turnstile_protection": [
+    {
+      "name": "Turnstile on Login",
+      "expression": "http.request.uri.path == \"/api/auth/login\" and http.request.method == \"POST\" and cf.threat_score > 50",
+      "mode": "mandatory"
+    },
+    {
+      "name": "Turnstile on Register",
+      "expression": "http.request.uri.path == \"/api/auth/register\" and http.request.method == \"POST\"",
+      "mode": "mandatory"
+    },
+    {
+      "name": "Turnstile on Admin Login",
+      "expression": "http.request.uri.path == \"/api/admin/login\" and http.request.method == \"POST\"",
+      "mode": "mandatory"
+    }
+  ],
+
+  "firewall_rules": [
+    {
+      "id": "allow-health-check",
+      "name": "Allow Health Check",
+      "expression": "http.request.uri.path == \"/api/health\"",
+      "action": "allow"
+    },
+    {
+      "id": "block-empty-user-agent",
+      "name": "Block Empty User Agent",
+      "expression": "http.user_agent == \"\"",
+      "action": "challenge"
+    },
+    {
+      "id": "block-high-threat-score",
+      "name": "Block High Threat Score",
+      "expression": "cf.threat_score > 80",
+      "action": "block"
+    },
+    {
+      "id": "block-suspended-ip",
+      "name": "Block Suspended IPs (from IP list)",
+      "expression": "ip.src in $suspended_ips",
+      "action": "block"
+    },
+    {
+      "id": "require-2fa-admin",
+      "name": "Require 2FA for Admin",
+      "expression": "http.request.uri.path starts_with \"/admin/\" and not cf.verified_bot_category",
+      "action": "require_auth"
+    }
+  ],
+
+  "caching_rules": [
+    {
+      "id": "cache-api-by-key",
+      "name": "Cache API by Custom Key",
+      "expression": "http.request.uri.path starts_with \"/api/listings\" and http.request.method == \"GET\"",
+      "cache_key": {
+        "custom_key": "http.request.uri.query"
+      },
+      "cache_ttl": 300,
+      "browser_cache_ttl": 60
+    },
+    {
+      "id": "cache-html-pages",
+      "name": "Cache HTML Pages",
+      "expression": "(http.request.uri.path ends_with \".html\") or (http.response.content_type contains \"text/html\")",
+      "cache_ttl": 3600,
+      "browser_cache_ttl": 600
+    }
+  ],
+
+  "security_headers": {
+    "content_security_policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'",
+    "x_frame_options": "DENY",
+    "x_content_type_options": "nosniff",
+    "x_xss_protection": "1; mode=block",
+    "referrer_policy": "strict-origin-when-cross-origin",
+    "permissions_policy": "geolocation=(), microphone=(), camera=(), payment=()"
+  },
+
+  "ip_reputation": {
+    "block_lists": [
+      "malware",
+      "phishing",
+      "spyware",
+      "tor_exit_nodes"
+    ],
+    "challenge_lists": [
+      "proxy",
+      "vpn"
+    ]
+  },
+
+  "ddos_protection": {
+    "enabled": true,
+    "level": "high",
+    "sensitivity": "high",
+    "prefetch_preload": true
+  },
+
+  "email_routing": {
+    "enabled": true,
+    "spam_filtering": "all"
+  }
+}

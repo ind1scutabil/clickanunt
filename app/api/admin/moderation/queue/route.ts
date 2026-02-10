@@ -22,24 +22,29 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'pending';
-    const entityType = searchParams.get('entityType');
     const assignedTo = searchParams.get('assignedTo');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
     const where: any = { status };
-    if (entityType) where.entityType = entityType;
     if (assignedTo) where.assignedTo = assignedTo;
 
     const [items, total] = await Promise.all([
       prisma.moderationQueue.findMany({
         where,
         include: {
-          assignedToUser: {
+          moderator: {
             select: {
               id: true,
               email: true,
               role: true,
+            },
+          },
+          listing: {
+            select: {
+              id: true,
+              title: true,
+              category: true,
             },
           },
         },

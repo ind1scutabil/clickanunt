@@ -1,0 +1,18 @@
+
+> auto-platform@1.0.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.134:3000
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  · optimizePackageImports
+
+✓ Starting...
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 696ms
+✅ Using in-memory database (USE_IN_MEMORY_DB=true)
+🗄️  Initialized memory storage
+✅ Added sample BMW 7 listing: listing-sample-bmw7
+ GET /listings/listing-1770591843576 200 in 488ms (compile: 322ms, proxy.ts: 64ms, render: 102ms)

@@ -49,7 +49,7 @@ export async function POST(
         status,
         resolution,
         resolvedAt: new Date(),
-        resolvedBy: user.userId,
+        resolvedBy: user.id,
       },
       include: {
         reporter: true,

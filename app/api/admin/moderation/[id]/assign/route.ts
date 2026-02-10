@@ -46,15 +46,20 @@ export async function POST(
       where: { id },
       data: {
         assignedTo: moderatorId || null,
-        assignedAt: moderatorId ? new Date() : null,
-        status: moderatorId ? 'in_review' : 'pending',
       },
       include: {
-        assignedToUser: {
+        moderator: {
           select: {
             id: true,
             email: true,
             role: true,
+          },
+        },
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            category: true,
           },
         },
       },

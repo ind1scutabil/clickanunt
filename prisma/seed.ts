@@ -1,4 +1,4 @@
-import { prisma } from "./lib/prisma";
+import { prisma } from "../lib/prisma";
 
 async function main() {
   console.log("Seeding database...");
@@ -10,11 +10,15 @@ async function main() {
   const alice = await prisma.user.create({
     data: {
       email: "alice@example.com",
+      password: "$2b$10$example.hashed.password.alice",
       role: "user",
+      accountType: "private",
+      verificationLevel: "none",
       listings: {
         create: [
           {
             title: "Dacia Logan 2018 - impecabila",
+            category: "Auto, moto și ambarcațiuni",
             make: "Dacia",
             model: "Logan",
             year: 2018,
@@ -42,11 +46,15 @@ async function main() {
   const bob = await prisma.user.create({
     data: {
       email: "bob@dealer.example",
+      password: "$2b$10$example.hashed.password.bob",
       role: "dealer",
+      accountType: "business",
+      verificationLevel: "business",
       listings: {
         create: [
           {
             title: "BMW Seria 3, 2015, km reduși",
+            category: "Auto, moto și ambarcațiuni",
             make: "BMW",
             model: "Seria 3",
             year: 2015,
@@ -65,6 +73,7 @@ async function main() {
           },
           {
             title: "Ford Focus 2012 - project",
+            category: "Auto, moto și ambarcațiuni",
             make: "Ford",
             model: "Focus",
             year: 2012,

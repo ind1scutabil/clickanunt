@@ -8,21 +8,21 @@ import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createPaymentIntent, PromotionPackage, isValidPromotionPackage } from '@/lib/stripe';
 import { logger } from '@/lib/observability';
-import { checkRateLimit } from '@/lib/rateLimit';
+// import { checkRateLimit } from '@/lib/rateLimit'; // Not implemented yet
 import { PaymentStatus } from '@prisma/client';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    // Rate limiting: 10 payment creations per hour per user
-    const rateLimitResult = await checkRateLimit('payment_creation', req);
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        { error: 'Too many payment attempts. Please try again later.' },
-        { status: 429 }
-      );
-    }
+    // Rate limiting: TODO - implement rate limiting
+    // const rateLimitResult = await checkRateLimit('payment_creation', req);
+    // if (!rateLimitResult.success) {
+    //   return NextResponse.json(
+    //     { error: 'Too many payment attempts. Please try again later.' },
+    //     { status: 429 }
+    //   );
+    // }
 
     // Verificare autentificare
     const authHeader = req.headers.get('authorization');
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    if (listing.userId !== decoded.userId) {
+    if (listing.ownerUserId !== decoded.userId) {
       return NextResponse.json(
         { error: 'You can only promote your own listings' },
         { status: 403 }
@@ -106,11 +106,11 @@ export async function POST(req: NextRequest) {
         currency: paymentIntent.currency.toUpperCase(),
         status: PaymentStatus.pending,
         purpose: 'promote_listing',
-        entityType: 'listing',
-        entityId: listingId,
+        description: `Promotion for listing ${listingId}`,
         metadata: {
           packageType,
           listingTitle: listing.title,
+          listingId,
         },
       },
     });

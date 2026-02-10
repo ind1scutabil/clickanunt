@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "NEXT_PUBLIC_SITE_URL": "https://clickanunturi.ro",
+    "NEXT_PUBLIC_APP_URL": "https://clickanunturi.ro"
+  }
+}

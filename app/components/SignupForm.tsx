@@ -54,16 +54,27 @@ export default function SignupForm() {
         throw new Error(data?.error || "Eroare la crearea contului");
       }
 
-      setMessageType("success");
-      setMessage("Cont creat cu succes! Redirecționare...");
-
-      // Redirect to login or dashboard
-      setTimeout(() => {
-        router.push("/auth/login");
-      }, 1500);
-    } catch (err: any) {
+      // Dacă suntem în development mode și avem cod de verificare
+      if (data.verificationCode) {
+        setMessageType("success");
+        setMessage(`✅ Cont creat! Codul tău de verificare este: ${data.verificationCode}`);
+        
+        // Redirect cu codul în URL pentru auto-fill
+        setTimeout(() => {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(email)}&code=${data.verificationCode}`);
+        }, 3000);
+      } else {
+        setMessageType("success");
+        setMessage("✅ Cont creat cu succes! Verifică-ți emailul pentru a activa contul...");
+        
+        // Redirect to verification page
+        setTimeout(() => {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+        }, 2000);
+      }
+    } catch (err: unknown) {
       setMessageType("error");
-      setMessage(err.message || "Eroare necunoscuta");
+      setMessage(err instanceof Error ? err.message : "Eroare necunoscuta");
     } finally {
       setLoading(false);
     }
@@ -72,49 +83,49 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           Email
         </label>
         <input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-gray-900"
           placeholder="exemplu@email.com"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           Parola
         </label>
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-gray-900"
           placeholder="Minim 8 caractere"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           Confirma Parola
         </label>
         <input
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition text-gray-900"
           placeholder="••••••••"
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-900 mb-2">
           Tip de Cont
         </label>
         <div className="space-y-2">
@@ -127,7 +138,7 @@ export default function SignupForm() {
               onChange={(e) => setRole(e.target.value as UserRole)}
               className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
             />
-            <span className="ml-3 text-sm text-gray-700">
+            <span className="ml-3 text-sm text-gray-900 font-medium">
               Utilizator Particular - Cumpăr și vând ocazional
             </span>
           </label>
@@ -140,7 +151,7 @@ export default function SignupForm() {
               onChange={(e) => setRole(e.target.value as UserRole)}
               className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
             />
-            <span className="ml-3 text-sm text-gray-700">
+            <span className="ml-3 text-sm text-gray-900 font-medium">
               Profesionist/Firmă - Vând în mod regulat
             </span>
           </label>

@@ -1,17 +1,12 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL!,
-  }),
-});
+const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = 'daniel.enoiu29@gmail.com';
-  const adminPassword = 'Gz082306gz082306@';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@clickanunt.ro';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
   
   // Normalize email (same as sanitizeEmail in lib/sanitize.ts)
   const normalizedEmail = validator.normalizeEmail(adminEmail) || adminEmail;

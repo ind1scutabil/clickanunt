@@ -1,10 +1,23 @@
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { memoryStorage } from "@/lib/memory-storage";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    
+    // ✅ IN-MEMORY MODE: Get listing from memory storage
+    if (process.env.USE_IN_MEMORY_DB === 'true') {
+      const listing = memoryStorage.get(id);
+      
+      if (!listing) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      
+      return NextResponse.json(listing);
+    }
+    
     const listing = await prisma.listing.findUnique({
       where: { id },
       include: { owner: true },

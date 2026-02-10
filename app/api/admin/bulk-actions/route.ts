@@ -8,7 +8,6 @@ import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { auditActions } from "@/lib/audit";
-import { isFeatureEnabled, FeatureFlags } from "@/lib/featureFlags";
 import type { UserRole } from "@prisma/client";
 
 export async function POST(request: Request) {
@@ -18,15 +17,6 @@ export async function POST(request: Request) {
     if (!user || !hasPermission(user.role as UserRole, Permission.USERS_BAN)) {
       return NextResponse.json(
         { error: "Acces interzis" },
-        { status: 403 }
-      );
-    }
-
-    // Check feature flag
-    const bulkActionsEnabled = await isFeatureEnabled(FeatureFlags.BULK_ACTIONS);
-    if (!bulkActionsEnabled) {
-      return NextResponse.json(
-        { error: "Bulk actions sunt dezactivate" },
         { status: 403 }
       );
     }
@@ -49,7 +39,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let results = { success: 0, failed: 0, errors: [] as string[] };
+    const results = { success: 0, failed: 0, errors: [] as string[] };
 
     // Bulk ban users
     if (action === 'ban_users' && entityType === 'user') {
@@ -70,7 +60,7 @@ export async function POST(request: Request) {
             data: {
               isBanned: true,
               bannedAt: new Date(),
-              bannedBy: user.userId,
+              bannedBy: user.id,
               banReason: reason,
             },
           });
@@ -93,7 +83,7 @@ export async function POST(request: Request) {
             data: {
               moderationStatus: 'approved',
               moderatedAt: new Date(),
-              moderatedBy: user.userId,
+              moderatedBy: user.id,
               status: 'active',
             },
           });
@@ -122,8 +112,8 @@ export async function POST(request: Request) {
             data: {
               moderationStatus: 'rejected',
               moderatedAt: new Date(),
-              moderatedBy: user.userId,
-              rejectionReason: reason,
+              moderatedBy: user.id,
+              moderationNotes: reason,
               status: 'rejected',
             },
           });

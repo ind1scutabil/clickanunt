@@ -1,0 +1,341 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
+import { 
+  PROMOTION_PRICING, 
+  calculatePromotionPrice, 
+  canPromoteListing 
+} from "@/lib/monetization";
+import { createAuditLog } from "@/lib/audit";
+import { logger } from "@/lib/observability";
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { listingId, userId, promotionType } = body;
+
+    // Validate inputs
+    if (!listingId || !userId || !promotionType) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (!PROMOTION_PRICING[promotionType as keyof typeof PROMOTION_PRICING]) {
+      return NextResponse.json(
+        { error: "Invalid promotion type" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch listing and user
+    const [listing, user] = await Promise.all([
+      prisma.listing.findUnique({
+        where: { id: listingId },
+        select: {
+          id: true,
+          ownerUserId: true,
+          title: true,
+          views: true,
+          createdAt: true,
+          isPromoted: true,
+          promotionExpiresAt: true,
+          status: true
+        }
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          subscriptionTier: true,
+          trustScore: true
+        }
+      })
+    ]);
+
+    if (!listing) {
+      return NextResponse.json(
+        { error: "Listing not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify ownership
+    if (listing.ownerUserId !== userId) {
+      return NextResponse.json(
+        { error: "You don't own this listing" },
+        { status: 403 }
+      );
+    }
+
+    // Check if listing is approved
+    if (listing.status !== "active") {
+      return NextResponse.json(
+        { error: "Anunțul trebuie să fie activ pentru promovare" },
+        { status: 400 }
+      );
+    }
+
+    // Check if already promoted
+    if (listing.isPromoted && listing.promotionExpiresAt && listing.promotionExpiresAt > new Date()) {
+      return NextResponse.json(
+        { 
+          error: "Anunțul este deja promovat",
+          expiresAt: listing.promotionExpiresAt
+        },
+        { status: 400 }
+      );
+    }
+
+    // Count previous promotions
+    const promotionCount = await prisma.promotion.count({
+      where: { listingId }
+    });
+
+    // Check if promotion is allowed
+    const canPromote = canPromoteListing({
+      createdAt: listing.createdAt,
+      views: listing.views,
+      promotionCount
+    });
+
+    if (!canPromote.allowed) {
+      return NextResponse.json(
+        { error: canPromote.reason },
+        { status: 400 }
+      );
+    }
+
+    // Calculate price with subscription discount
+    const finalPrice = calculatePromotionPrice(
+      promotionType as keyof typeof PROMOTION_PRICING,
+      user.subscriptionTier
+    );
+
+    // Check if user has free promotions (Premium plan)
+    const hasFreePromotions = user.subscriptionTier === "premium";
+    const freePromotionsUsed = await prisma.promotion.count({
+      where: {
+        userId,
+        priceAmount: 0,
+        createdAt: {
+          gte: new Date(new Date().setDate(1)) // This month
+        }
+      }
+    });
+
+    const isFree = hasFreePromotions && freePromotionsUsed < 5;
+
+    if (isFree) {
+      // Free promotion for Premium users
+      const promotionConfig = PROMOTION_PRICING[promotionType as keyof typeof PROMOTION_PRICING];
+      const expiresAt = new Date(Date.now() + promotionConfig.duration * 60 * 60 * 1000);
+
+      // Create promotion
+      const promotion = await prisma.promotion.create({
+        data: {
+          listingId,
+          userId,
+          type: promotionType,
+          expiresAt,
+          priceAmount: 0,
+          paymentStatus: "succeeded",
+          viewsBefore: listing.views
+        }
+      });
+
+      // Update listing
+      await prisma.listing.update({
+        where: { id: listingId },
+        data: {
+          isPromoted: true,
+          promotionType,
+          promotionExpiresAt: expiresAt,
+          promotionStartedAt: new Date()
+        }
+      });
+
+      // Audit log
+      await createAuditLog({
+        userId,
+        userEmail: user.email,
+        userRole: user.role,
+        action: "promotion_activated",
+        entityType: "listing",
+        entityId: listingId,
+        metadata: {
+          promotionId: promotion.id,
+          type: promotionType,
+          price: 0,
+          subscription: user.subscriptionTier
+        }
+      });
+
+      logger.info("Free promotion activated", {
+        userId,
+        listingId,
+        promotionType
+      });
+
+      return NextResponse.json({
+        success: true,
+        promotion,
+        message: "Promovare activată gratuit (Premium)"
+      });
+    }
+
+    // Paid promotion - create Stripe payment intent
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: finalPrice,
+        currency: "ron",
+        metadata: {
+          userId,
+          listingId,
+          promotionType,
+          listingTitle: listing.title
+        },
+        description: `${PROMOTION_PRICING[promotionType as keyof typeof PROMOTION_PRICING].label} pentru "${listing.title}"`,
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      // Create promotion record (pending payment)
+      const promotionConfig = PROMOTION_PRICING[promotionType as keyof typeof PROMOTION_PRICING];
+      const expiresAt = new Date(Date.now() + promotionConfig.duration * 60 * 60 * 1000);
+
+      const promotion = await prisma.promotion.create({
+        data: {
+          listingId,
+          userId,
+          type: promotionType,
+          expiresAt,
+          priceAmount: finalPrice,
+          paymentId: paymentIntent.id,
+          paymentStatus: "pending",
+          viewsBefore: listing.views,
+          isActive: false // Will be activated after payment
+        }
+      });
+
+      logger.info("Promotion payment intent created", {
+        userId,
+        listingId,
+        promotionType,
+        amount: finalPrice
+      });
+
+      return NextResponse.json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        promotion,
+        priceInfo: {
+          original: PROMOTION_PRICING[promotionType as keyof typeof PROMOTION_PRICING].price,
+          final: finalPrice,
+          discount: user.subscriptionTier === "business" ? 50 : 0,
+          currency: "RON"
+        }
+      });
+
+    } catch (stripeError: any) {
+      logger.error("Stripe error creating payment intent", stripeError);
+      return NextResponse.json(
+        { error: "Failed to create payment", details: stripeError.message },
+        { status: 500 }
+      );
+    }
+
+  } catch (error: any) {
+    logger.error("Error creating promotion", error);
+    return NextResponse.json(
+      { error: "Failed to create promotion", details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// Get promotion status
+export async function GET(request: Request) {
+  try {
+    const url = new URL(request.url);
+    const listingId = url.searchParams.get("listingId");
+    const userId = url.searchParams.get("userId");
+
+    if (!listingId) {
+      return NextResponse.json(
+        { error: "Missing listingId" },
+        { status: 400 }
+      );
+    }
+
+    const listing = await prisma.listing.findUnique({
+      where: { id: listingId },
+      select: {
+        isPromoted: true,
+        promotionType: true,
+        promotionExpiresAt: true,
+        promotionStartedAt: true,
+        promotedViews: true,
+        views: true
+      }
+    });
+
+    if (!listing) {
+      return NextResponse.json(
+        { error: "Listing not found" },
+        { status: 404 }
+      );
+    }
+
+    // Get active promotion
+    const activePromotion = await prisma.promotion.findFirst({
+      where: {
+        listingId,
+        isActive: true,
+        expiresAt: { gt: new Date() }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Get user subscription if userId provided
+    let subscriptionInfo = null;
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { subscriptionTier: true }
+      });
+      subscriptionInfo = user?.subscriptionTier;
+    }
+
+    return NextResponse.json({
+      listing: {
+        isPromoted: listing.isPromoted,
+        promotionType: listing.promotionType,
+        expiresAt: listing.promotionExpiresAt,
+        startedAt: listing.promotionStartedAt,
+        views: listing.views,
+        promotedViews: listing.promotedViews
+      },
+      activePromotion,
+      subscriptionTier: subscriptionInfo
+    });
+
+  } catch (error: any) {
+    logger.error("Error fetching promotion status", error);
+    return NextResponse.json(
+      { error: "Failed to fetch promotion status", details: error.message },
+      { status: 500 }
+    );
+  }
+}

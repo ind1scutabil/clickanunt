@@ -20,7 +20,7 @@ export interface HealthCheck {
   status: 'up' | 'down';
   latency?: number;
   error?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -36,10 +36,11 @@ async function checkDatabase(): Promise<HealthCheck> {
       status: 'up',
       latency: Date.now() - start,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown database error';
     return {
       status: 'down',
-      error: error.message,
+      error: message,
     };
   }
 }
@@ -75,18 +76,20 @@ async function checkStorage(): Promise<HealthCheck> {
         bucket: process.env.S3_BUCKET,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown storage error';
     return {
       status: 'down',
-      error: error.message,
+      error: message,
     };
   }
 }
 
 /**
- * Check Redis connectivity (optional)
+ * Check Redis connectivity (optional) - Not currently used
  */
-async function checkRedis(): Promise<HealthCheck> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _checkRedis(): Promise<HealthCheck> {
   // TODO: Implement actual Redis check when integrated
   if (!process.env.REDIS_URL) {
     return {

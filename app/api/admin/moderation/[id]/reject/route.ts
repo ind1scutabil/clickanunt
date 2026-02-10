@@ -48,33 +48,29 @@ export async function POST(
     }
 
     // Update listing status
-    if (item.entityType === 'listing') {
-      await prisma.listing.update({
-        where: { id: item.entityId },
-        data: {
-          moderationStatus: 'rejected',
-          moderatedAt: new Date(),
-          moderatedBy: user.userId,
-          rejectionReason: reason,
-          status: 'rejected',
-        },
-      });
+    await prisma.listing.update({
+      where: { id: item.listingId },
+      data: {
+        moderationStatus: 'rejected',
+        moderatedAt: new Date(),
+        moderatedBy: user.id,
+        moderationNotes: reason,
+        status: 'rejected',
+      },
+    });
 
-      // Audit log
-      const listing = await prisma.listing.findUnique({ where: { id: item.entityId } });
-      if (listing) {
-        await auditActions.listingRejected(user, listing, reason);
-      }
+    // Audit log
+    const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
+    if (listing) {
+      await auditActions.listingRejected(user, listing, reason);
     }
 
     // Update moderation queue
     const updatedItem = await prisma.moderationQueue.update({
       where: { id },
       data: {
-        status: 'resolved',
-        decision: 'rejected',
+        status: 'rejected',
         notes: reason,
-        reviewedAt: new Date(),
       },
     });
 

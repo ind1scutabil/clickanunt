@@ -38,31 +38,28 @@ export async function POST(
     }
 
     // Update listing status
-    if (item.entityType === 'listing') {
-      await prisma.listing.update({
-        where: { id: item.entityId },
-        data: {
-          moderationStatus: 'approved',
-          moderatedAt: new Date(),
-          moderatedBy: user.userId,
-          status: 'active',
-        },
-      });
+    await prisma.listing.update({
+      where: { id: item.listingId },
+      data: {
+        moderationStatus: 'approved',
+        moderatedAt: new Date(),
+        moderatedBy: user.id,
+        status: 'active',
+      },
+    });
 
-      // Audit log
-      const listing = await prisma.listing.findUnique({ where: { id: item.entityId } });
-      if (listing) {
-        await auditActions.listingApproved(user, listing);
-      }
+    // Audit log
+    const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
+    if (listing) {
+      await auditActions.listingApproved(user, listing);
     }
 
-    // Update moderation queue
+    // Update moderation queue - setează status la approved
     const updatedItem = await prisma.moderationQueue.update({
       where: { id },
       data: {
-        status: 'resolved',
-        decision: 'approved',
-        reviewedAt: new Date(),
+        status: 'approved',
+        notes: 'Approved by moderator',
       },
     });
 

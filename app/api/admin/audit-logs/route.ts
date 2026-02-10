@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         );
       }
 
-      const filters: any = {};
+      const filters: Record<string, unknown> = {};
       if (userId) filters.userId = userId;
       if (action) filters.action = action;
       if (entityType) filters.entityType = entityType;
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       if (from) filters.from = new Date(from);
       if (to) filters.to = new Date(to);
 
-      const csv = await exportAuditLogsToCSV(filters);
+      const csv = await exportAuditLogsToCSV(filters as any);
 
       return new NextResponse(csv, {
         headers: {
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     // Regular GET
-    const filters: any = {};
+    const filters: Record<string, unknown> = {};
     if (userId) filters.userId = userId;
     if (action) filters.action = action;
     if (entityType) filters.entityType = entityType;

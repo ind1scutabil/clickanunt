@@ -48,7 +48,7 @@ export async function PUT(
     }
 
     // Verifică dacă poate seta acest rol
-    if (!canSetRole(user.role as UserRole, role as UserRole)) {
+    if (!canSetRole({ userId: user.id, email: user.email, role: user.role, type: 'access' } as any, role as UserRole)) {
       return NextResponse.json(
         { error: "Nu poți seta acest rol" },
         { status: 403 }
@@ -64,7 +64,7 @@ export async function PUT(
     });
 
     // Audit log
-    await auditActions.userRoleChanged(user, updatedUser, oldRole, role);
+    await auditActions.userRoleChanged(user, targetUser, oldRole, role);
 
     return NextResponse.json({
       success: true,

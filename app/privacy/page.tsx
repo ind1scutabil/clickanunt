@@ -18,11 +18,14 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-white">1. Operator de Date</h2>
             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 mb-4">
-              <p className="mb-2"><strong>Denumire:</strong> [NUME COMPANIE] S.R.L.</p>
-              <p className="mb-2"><strong>Sediu social:</strong> [Adresă completă]</p>
-              <p className="mb-2"><strong>CUI:</strong> [CUI]</p>
-              <p className="mb-2"><strong>Email contact GDPR:</strong> dpo@autoplatform.ro</p>
-              <p className="mb-2"><strong>Responsabil Protecția Datelor (DPO):</strong> [Nume DPO]</p>
+              <p className="mb-2"><strong>Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
+              <p className="mb-2"><strong>Sediu social:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+              <p className="mb-2"><strong>CUI/Cod fiscal:</strong> RO46062613</p>
+              <p className="mb-2"><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
+              <p className="mb-2"><strong>Reg. Com.:</strong> J20220000480181</p>
+              <p className="mb-2"><strong>Email contact general:</strong> contact@clickanunt.ro</p>
+              <p className="mb-2"><strong>Email contact GDPR:</strong> dpo@clickanunt.ro</p>
+              <p className="mb-2"><strong>Responsabil Protecția Datelor (DPO):</strong> dpo@clickanunt.ro</p>
             </div>
             <p className="text-sm text-gray-400">
               În cazul în care aveți întrebări sau solicitări legate de datele personale, ne puteți contacta
@@ -80,7 +83,7 @@ export default function PrivacyPage() {
             </div>
             <h3 className="text-xl font-semibold mb-3 text-[#1E90FF]">📧 Cum să vă exercitați drepturile</h3>
             <p className="mb-4">
-              Trimiteți o solicitare la <strong className="text-white">dpo@autoplatform.ro</strong> sau folosiți
+              Trimiteți o solicitare la <strong className="text-white">dpo@clickanunt.ro</strong> sau folosiți
               formularul de <a href="/contact" className="text-[#1E90FF] hover:underline">contact</a>.
               Vom răspunde în termen de 30 zile (conform art. 12 GDPR).
             </p>
@@ -128,7 +131,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-white">7. Contact</h2>
             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-              <p className="mb-2"><strong>📧 Email GDPR:</strong> dpo@autoplatform.ro</p>
+              <p className="mb-2"><strong>📧 Email GDPR:</strong> dpo@clickanunt.ro</p>
               <p className="mb-2"><strong>📝 Formular:</strong> <a href="/contact" className="text-[#1E90FF] hover:underline">Contact</a></p>
               <p className="text-sm text-gray-400 mt-4">
                 Vom răspunde solicitărilor în termen de 30 zile calendaristice conform art. 12(3) GDPR.

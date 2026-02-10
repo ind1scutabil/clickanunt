@@ -4,7 +4,7 @@
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
-import { prisma } from './prisma';
+import { db } from './db';
 import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
 
@@ -26,7 +26,7 @@ export interface TokenPayload extends JWTPayload {
 
 export interface AuthResult {
   success: boolean;
-  user?: any;
+  user?: Record<string, unknown>;
   accessToken?: string;
   refreshToken?: string;
   error?: string;
@@ -103,18 +103,35 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
 }
 
 /**
- * Verifică user din request
+ * Verifică user din request - returnează payload sau user complet
  */
-export async function getUserFromRequest(request: NextRequest): Promise<TokenPayload | null> {
-  const token = extractTokenFromRequest(request);
+export async function getUserFromRequest(request: NextRequest) {
+  const cookieToken = request.cookies.get('accessToken')?.value;
+  const authHeader = request.headers.get('authorization');
+  const headerToken = authHeader?.startsWith('Bearer ') 
+    ? authHeader.substring(7) 
+    : null;
+  
+  const token = cookieToken || headerToken;
+  
   if (!token) {
     return null;
   }
-  return await verifyToken(token);
+
+  const payload = await verifyToken(token);
+  
+  if (!payload) {
+    return null;
+  }
+
+  // Return user with full data from DB
+  const user = await db.findUserById(payload.userId);
+
+  return user;
 }
 
 /**
- * Login cu protecție bruteforce
+ * Login cu protecție bruteforce - Enterprise Level
  */
 export async function authenticateUser(
   email: string,
@@ -122,10 +139,11 @@ export async function authenticateUser(
   ip?: string
 ): Promise<AuthResult> {
   try {
+    // Test database connection
+    await db.testConnection();
+
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const user = await db.findUserByEmail(email);
 
     if (!user) {
       return {
@@ -157,10 +175,10 @@ export async function authenticateUser(
 
     if (!isValid) {
       // Increment failed attempts
-      const newAttempts = user.failedLoginAttempts + 1;
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
       const maxAttempts = 5;
 
-      let updateData: any = {
+      const updateData: Record<string, unknown> = {
         failedLoginAttempts: newAttempts,
       };
 
@@ -169,16 +187,13 @@ export async function authenticateUser(
         updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
       }
 
-      await prisma.user.update({
-        where: { id: user.id },
-        data: updateData,
-      });
+      await db.updateUser(user.id, updateData);
 
       if (newAttempts >= maxAttempts) {
         return {
           success: false,
           locked: true,
-          lockedUntil: updateData.lockedUntil,
+          lockedUntil: updateData.lockedUntil as Date | undefined,
           error: `Prea multe încercări. Contul este blocat pentru 30 de minute.`,
         };
       }
@@ -190,14 +205,11 @@ export async function authenticateUser(
     }
 
     // Success! Reset failed attempts and update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: new Date(),
-        lastLoginIp: ip || null,
-      },
+    await db.updateUser(user.id, {
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLoginAt: new Date(),
+      lastLoginIp: ip || null,
     });
 
     // Generate tokens
@@ -205,7 +217,7 @@ export async function authenticateUser(
     const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
 
     // Remove password from user object
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: userPassword, ...userWithoutPassword } = user;
 
     return {
       success: true,
@@ -213,7 +225,7 @@ export async function authenticateUser(
       accessToken,
       refreshToken,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Authentication error:', error);
     return {
       success: false,
@@ -237,9 +249,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
     }
 
     // Verifică dacă user-ul mai există și nu e banat
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-    });
+    const user = await db.findUserById(payload.userId);
 
     if (!user) {
       return {
@@ -258,14 +268,14 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
     // Generează token nou
     const newAccessToken = await generateAccessToken(user.id, user.email, user.role);
 
-    const { password: _, ...userWithoutPassword } = user;
+    const { password: _password, ...userWithoutPassword } = user;
 
     return {
       success: true,
       user: userWithoutPassword,
       accessToken: newAccessToken,
     };
-  } catch (error) {
+  } catch (_error: unknown) {
     return {
       success: false,
       error: 'Eroare la refresh token',
@@ -283,11 +293,8 @@ export async function hashPassword(password: string): Promise<string> {
 /**
  * Verifică 2FA code (dacă e activat)
  */
-export async function verify2FACode(userId: string, code: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { twoFactorSecret: true, twoFactorEnabled: true },
-  });
+export async function verify2FACode(_userId: string, _code: string): Promise<boolean> {
+  const user = await db.findUserById(_userId);
 
   if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
     return false;
