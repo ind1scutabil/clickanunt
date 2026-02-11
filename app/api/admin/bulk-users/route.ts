@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 
 type PromotionBenefits = {
@@ -41,7 +42,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
     }
 
-    const body = await request.json();
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const body = security.data as any;
     const { segment, action, percent, freePromos, promotionType, expiryDays } = body;
 
     if (!segment || !action) {

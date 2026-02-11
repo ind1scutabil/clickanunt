@@ -1,7 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import Link from 'next/link';
+import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
 
 interface Invoice {
   id: string;
@@ -27,6 +29,8 @@ interface FilterOptions {
 }
 
 export default function AdminInvoicesPage() {
+  const router = useRouter();
+  const { isAuthorized, isLoading } = useAdminAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,7 +57,7 @@ export default function AdminInvoicesPage() {
 
       const res = await fetch(`/api/admin/invoices?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
         },
       });
 
@@ -70,9 +74,15 @@ export default function AdminInvoicesPage() {
 
   // Load invoices
   useEffect(() => {
-    loadInvoices();
+    if (!isLoading && !isAuthorized) {
+      router.push('/');
+      return;
+    }
+    if (!isLoading && isAuthorized) {
+      loadInvoices();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.status, filters.dateRange, filters.searchQuery]);
+  }, [filters.status, filters.dateRange, filters.searchQuery, isAuthorized, isLoading]);
 
   const handleSelectInvoice = (invoiceId: string) => {
     const newSelected = new Set(selectedInvoices);
@@ -233,6 +243,30 @@ export default function AdminInvoicesPage() {
 
   const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0);
   const totalVAT = filteredInvoices.reduce((sum, inv) => sum + (((inv.metadata as Record<string, unknown> | null)?.vatAmount as number) || 0), 0);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
+            <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
+          </div>
+          <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 text-center">
+          <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
+          <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi această pagină.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

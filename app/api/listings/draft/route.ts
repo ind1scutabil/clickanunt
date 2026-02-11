@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { draftCreateSchema } from '@/lib/security/validation-schemas';
 
 // Create or update draft
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, ...draftData } = body;
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'listings',
+      schema: draftCreateSchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { userId, ...draftData } = security.data as any;
 
     if (!userId) {
       return NextResponse.json(
@@ -52,8 +70,24 @@ export async function POST(req: NextRequest) {
 // Update existing draft
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { id, userId, ...draftData } = body;
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'listings',
+      schema: draftCreateSchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { id, userId, ...draftData } = security.data as any;
 
     if (!id || !userId) {
       return NextResponse.json(

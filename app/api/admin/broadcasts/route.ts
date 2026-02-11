@@ -9,6 +9,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
 import { sendBulkEmail } from "@/lib/mailer";
+import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 
 type BroadcastUser = { id: string; email: string | null };
@@ -71,8 +72,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
     }
 
-    const body = await request.json();
-    const { title, message, channels, segment, schedule, scheduledAt } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { title, message, channels, segment, schedule, scheduledAt } = security.data as any;
 
     if (!title || !message) {
       return NextResponse.json({ error: "Titlu și mesaj sunt necesare" }, { status: 400 });

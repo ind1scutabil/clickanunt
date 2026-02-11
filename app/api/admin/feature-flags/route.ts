@@ -3,13 +3,21 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { getAllFeatureFlags, setFeatureFlag, clearFeatureFlagCache } from "@/lib/featureFlags";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
-export async function GET(request: Request) {
+const featureFlagSchema = z.object({
+  key: z.string().min(1),
+  enabled: z.boolean(),
+  description: z.string().optional(),
+});
+
+export async function GET(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request as any);
 
@@ -35,7 +43,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request as any);
 
@@ -47,15 +55,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { key, enabled, description } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: featureFlagSchema,
+    });
 
-    if (!key || typeof enabled !== 'boolean') {
-      return NextResponse.json(
-        { error: "Key și enabled sunt necesare" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { key, enabled, description } = security.data as {
+      key: string;
+      enabled: boolean;
+      description?: string;
+    };
 
     await setFeatureFlag(key, enabled, description, user.id);
 
@@ -72,15 +86,24 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request as any);
 
     if (user?.role !== 'owner') {
       return NextResponse.json(
-        { error: "Doar OWNER poate șterge cache-ul" },
+        { error: "Doar OWNER poate șterge feature flags" },
         { status: 403 }
       );
+    }
+
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
 
     const { searchParams } = new URL(request.url);

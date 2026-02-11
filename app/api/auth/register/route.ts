@@ -3,28 +3,43 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword, generateAccessToken, generateRefreshToken } from "@/lib/auth";
-import { sanitizeEmail, isValidPassword } from "@/lib/sanitize";
-import { rateLimitPresets, getClientIp } from "@/lib/rateLimit";
+import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { registerSchema } from "@/lib/security/validation-schemas";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Test database connection
     await db.testConnection();
 
-    const body = await request.json();
-    const { email, password, name } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'register',
+      schema: registerSchema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
 
-    // Validare input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email și parola sunt necesare" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { email, password, name } = security.data as {
+      email: string;
+      password: string;
+      name: string;
+    };
 
     // Sanitizare email
     const sanitizedEmail = sanitizeEmail(email);
@@ -32,30 +47,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Email invalid" },
         { status: 400 }
-      );
-    }
-
-    // Validare parolă
-    if (!isValidPassword(password)) {
-      return NextResponse.json(
-        {
-          error: "Parola trebuie să aibă minimum 8 caractere, cel puțin o literă și o cifră",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Rate limiting: 3 înregistrări per oră
-    const ip = getClientIp(request);
-    const rateLimit = rateLimitPresets.register(ip);
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: `Prea multe înregistrări. Te rugăm să aștepți ${rateLimit.retryAfter} secunde.`,
-          retryAfter: rateLimit.retryAfter,
-        },
-        { status: 429 }
       );
     }
 

@@ -3,14 +3,23 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { auditActions } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
-export async function POST(request: Request) {
+const bulkActionSchema = z.object({
+  action: z.string().min(1),
+  entityType: z.string().min(1),
+  entityIds: z.array(z.string()).min(1).max(100),
+  data: z.record(z.string(), z.any()).optional(),
+});
+
+export async function POST(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request as any);
 
@@ -21,23 +30,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { action, entityType, entityIds, data } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: bulkActionSchema,
+    });
 
-    if (!action || !entityType || !Array.isArray(entityIds) || entityIds.length === 0) {
-      return NextResponse.json(
-        { error: "Action, entityType și entityIds sunt necesare" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
 
-    // Limit bulk operations
-    if (entityIds.length > 100) {
-      return NextResponse.json(
-        { error: "Maximum 100 items per bulk operation" },
-        { status: 400 }
-      );
-    }
+    const { action, entityType, entityIds, data } = security.data as {
+      action: string;
+      entityType: string;
+      entityIds: string[];
+      data?: Record<string, any>;
+    };
 
     const results = { success: 0, failed: 0, errors: [] as string[] };
 

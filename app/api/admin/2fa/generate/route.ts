@@ -1,20 +1,28 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generate2FASecret } from '@/lib/2fa';
 import { RedisUnavailableError } from '@/lib/redis';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const userId = body.userId;
+const generate2FASchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+});
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
-      );
+export async function POST(request: NextRequest) {
+  try {
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: generate2FASchema,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { userId } = security.data as { userId: string };
 
     const { secret, otpauthUrl, backupCodes } = await generate2FASecret(userId);
 

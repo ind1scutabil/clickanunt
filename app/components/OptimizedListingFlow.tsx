@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
+import TurnstileWidget from "@/app/components/TurnstileWidget";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 // Types
 interface DraftListing {
@@ -47,6 +49,7 @@ export default function OptimizedListingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   
   // Form data with draft support
   const [draft, setDraft] = useState<DraftListing>({
@@ -245,13 +248,17 @@ export default function OptimizedListingFlow() {
     // Dacă utilizatorul e autentificat, folosește ID-ul lui
     if (userStr && token) {
       try {
+        if (!turnstileToken) {
+          throw new Error("Verificarea bot este necesară");
+        }
+        const csrfToken = await getCsrfToken();
         const user = JSON.parse(userStr);
         if (user.id) {
           userId = user.id;
           console.log('✅ Utilizator autentificat:', { userId, email: user.email });
         }
       } catch (e) {
-        console.warn('⚠️ Eroare la parsare user data:', e);
+        console.error('❌ Eroare la parsarea datelor utilizator:', e);
       }
     } else {
       console.warn('⚠️ Utilizator neautentificat - se folosește ID anonim pentru development');
@@ -285,12 +292,22 @@ export default function OptimizedListingFlow() {
         payload.fuel = draft.fuel || null;
         payload.transmission = draft.transmission || null;
       }
+      if (!turnstileToken) {
+        alert('Verificarea bot este necesară');
+        return;
+      }
+    
+      const csrfToken = await getCsrfToken();
 
       console.log('📤 Trimis payload la API:', payload);
 
       const res = await fetch("/api/listings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+          "x-turnstile-token": turnstileToken,
+        },
         credentials: "include",
         body: JSON.stringify(payload),
       });
@@ -894,6 +911,9 @@ export default function OptimizedListingFlow() {
 
             {/* Publish Button */}
             <div className="card p-8">
+              <div className="mb-4">
+                <TurnstileWidget onVerify={setTurnstileToken} action="create_listing" />
+              </div>
               <button
                 onClick={handleSubmit}
                 disabled={loading}

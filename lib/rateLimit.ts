@@ -136,6 +136,55 @@ export const rateLimitPresets = {
       windowMs: 60 * 60 * 1000,
       maxRequests: 200,
     }),
+
+  // Mesaje: 10 per oră per IP / user
+  messages: (identifier: string, scope: 'ip' | 'user' = 'ip') =>
+    rateLimit(`messages:${scope}:${identifier}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 10,
+    }),
+
+  // Rapoarte: 5 per oră per IP
+  reports: (ip: string) =>
+    rateLimit(`reports:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 5,
+    }),
+
+  // Incărcare fișiere: 50 per oră per IP
+  upload: (ip: string) =>
+    rateLimit(`upload:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 50,
+    }),
+
+  // Contact/Formular: 5 per oră per IP
+  contact: (ip: string) =>
+    rateLimit(`contact:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 5,
+    }),
+
+  // Promovare listing: 20 per oră per IP
+  promote: (ip: string) =>
+    rateLimit(`promote:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 20,
+    }),
+
+  // Acțiuni de moderare: 100 per oră per IP
+  moderateAction: (ip: string) =>
+    rateLimit(`moderate:action:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 100,
+    }),
+
+  // Payment actions: 20 per oră per IP
+  payment: (ip: string) =>
+    rateLimit(`payment:${ip}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: 20,
+    }),
 };
 
 /**

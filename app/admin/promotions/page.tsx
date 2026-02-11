@@ -3,29 +3,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
-
-type StoredUser = {
-  email?: string;
-  role?: string;
-};
-
-const getStoredUser = (): StoredUser | null => {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('user');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as StoredUser;
-  } catch {
-    return null;
-  }
-};
+import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
 
 export default function AdminPromotionsPage() {
   const router = useRouter();
+  const { isAuthorized, isLoading } = useAdminAuth();
   const [activeTab, setActiveTab] = useState('packages');
-  const storedUser = getStoredUser();
-  const isAdmin =
-    !!storedUser && (storedUser.email === 'owner@autoplatform.ro' || storedUser.role === 'admin');
   
   // Pachetele de promovare
   const [packages, setPackages] = useState([
@@ -35,36 +18,25 @@ export default function AdminPromotionsPage() {
     { id: 'refresh', name: 'Reîmprospătare', price: 9, duration: 0, enabled: true, discount: 0 }
   ]);
 
-  // Promoții active
-  const [promotions, setPromotions] = useState([
-    { id: 1, code: 'PRIMA10', type: 'percent', value: 10, enabled: true, usageCount: 45 },
-    { id: 2, code: 'TOP50', type: 'fixed', value: 50, packageId: 'top', enabled: true, usageCount: 12 },
-    { id: 3, code: 'GRATUIT', type: 'free', value: 100, packageId: 'refresh', enabled: true, usageCount: 234 }
-  ]);
+  // Clean database - no promotions
+  const [promotions, setPromotions] = useState<any[]>([]);
 
-  // Statistici
+  // Clean stats
   const stats = {
-    totalRevenue: 15478,
-    totalPromotions: 342,
-    activePromotions: 87,
-    topPackageCount: 145,
-    urgentPackageCount: 98,
-    featuredPackageCount: 76,
-    refreshCount: 23
+    totalRevenue: 0,
+    totalPromotions: 0,
+    activePromotions: 0,
+    topPackageCount: 0,
+    urgentPackageCount: 0,
+    featuredPackageCount: 0,
+    refreshCount: 0
   };
 
   useEffect(() => {
-    if (!storedUser) {
-      alert('🔒 Trebuie să fii autentificat ca administrator pentru a accesa această pagină.');
-      router.push('/auth/login');
-      return;
+    if (!isLoading && !isAuthorized) {
+      router.push('/');
     }
-
-    if (!isAdmin) {
-      alert('⛔ Acces interzis! Această secțiune este rezervată doar administratorilor.');
-      router.push('/dashboard');
-    }
-  }, [router, storedUser, isAdmin]);
+  }, [router, isAuthorized, isLoading]);
 
   const updatePackagePrice = (id: string, newPrice: number) => {
     setPackages(packages.map(pkg => 
@@ -118,8 +90,28 @@ export default function AdminPromotionsPage() {
     }
   };
 
-  if (!storedUser || !isAdmin) {
-    return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
+            <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
+          </div>
+          <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 text-center">
+          <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
+          <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi această pagină.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -11,15 +11,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { processImageMultipleSizes, validateImage, stripExifData } from "@/lib/imageProcessing";
 import { uploadImage, generateImageKey } from "@/lib/storage";
 import { moderateImage } from "@/lib/moderation";
+import { validateCSRFToken, CSRFValidationError } from "@/lib/security/csrf";
+import { rateLimitPresets, getClientIp } from "@/lib/rateLimit";
+import { verifyTurnstileToken } from "@/lib/bot-protection";
+import { imageDeleteSchema } from "@/lib/security/validation-schemas";
 
 const MAX_FILES = 20; // Max images per listing
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB per file
 
 export async function POST(request: NextRequest) {
   try {
+    await validateCSRFToken(request);
+    const ip = getClientIp(request);
+    const rateLimit = rateLimitPresets.upload(ip);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Too many uploads. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const listingId = formData.get("listingId") as string;
+    const turnstileToken = formData.get("turnstileToken") as string | null;
+
+    if (!turnstileToken) {
+      return NextResponse.json({ error: "Bot protection token required" }, { status: 400 });
+    }
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken, ip);
+    if (!turnstileResult.success) {
+      return NextResponse.json({ error: "Bot verification failed" }, { status: 400 });
+    }
 
     // Validation
     if (!listingId) {
@@ -144,6 +168,9 @@ export async function POST(request: NextRequest) {
       message: `Successfully uploaded ${successful.length}/${files.length} images`,
     });
   } catch (error: any) {
+    if (error instanceof CSRFValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("Upload error:", error);
     return NextResponse.json(
       { error: "Failed to upload images", details: error.message },
@@ -155,11 +182,22 @@ export async function POST(request: NextRequest) {
 // Delete images endpoint
 export async function DELETE(request: NextRequest) {
   try {
-    const { urls } = await request.json();
-
-    if (!urls || !Array.isArray(urls)) {
-      return NextResponse.json({ error: "URLs array required" }, { status: 400 });
+    await validateCSRFToken(request);
+    const ip = getClientIp(request);
+    const rateLimit = rateLimitPresets.upload(ip);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Too many delete requests. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
     }
+
+    const body = await request.json();
+    const parsed = imageDeleteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
+    const { urls } = parsed.data;
 
     // Extract keys and delete from storage
     const { extractKeyFromUrl, deleteImages } = await import("@/lib/storage");
@@ -176,6 +214,9 @@ export async function DELETE(request: NextRequest) {
       message: `Successfully deleted ${keys.length} images`,
     });
   } catch (error: any) {
+    if (error instanceof CSRFValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("Delete error:", error);
     return NextResponse.json(
       { error: "Failed to delete images", details: error.message },

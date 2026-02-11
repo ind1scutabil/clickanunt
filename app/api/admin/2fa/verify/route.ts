@@ -1,18 +1,28 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifyTOTPRFC } from '@/lib/totp';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
-  try {
-    const { secret, code } = await request.json();
+const verify2FASchema = z.object({
+  secret: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/, 'Code must be 6 digits'),
+});
 
-    if (!secret || !code) {
-      return NextResponse.json(
-        { error: 'Secret și code sunt necesare' },
-        { status: 400 }
-      );
+export async function POST(request: NextRequest) {
+  try {
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: verify2FASchema,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { secret, code } = security.data as { secret: string; code: string };
 
     // Verify TOTP code
     const isValid = verifyTOTPRFC(secret, code);

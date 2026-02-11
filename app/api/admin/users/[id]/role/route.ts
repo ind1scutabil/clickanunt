@@ -3,15 +3,21 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission, canSetRole } from "@/lib/rbac";
 import { auditActions } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
+const changeRoleSchema = z.object({
+  role: z.string().min(1, "Rolul este necesar"),
+});
+
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -25,15 +31,17 @@ export async function PUT(
       );
     }
 
-    const body = await request.json();
-    const { role } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: changeRoleSchema,
+    });
 
-    if (!role) {
-      return NextResponse.json(
-        { error: "Rolul este necesar" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { role } = security.data as { role: string };
 
     // Verifică dacă user există
     const targetUser = await prisma.user.findUnique({

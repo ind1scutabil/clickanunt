@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { changePasswordSchema } from "@/lib/security/validation-schemas";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,23 +17,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      rateLimit: 'api',
+      schema: changePasswordSchema,
+    });
 
-    if (!currentPassword || !newPassword) {
-      return NextResponse.json(
-        { error: "Campurile sunt obligatorii" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
 
-    // Validare parola nouă
-    if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "Parola trebuie să aibă cel puțin 8 caractere" },
-        { status: 400 }
-      );
-    }
+    const { currentPassword, newPassword } = security.data as {
+      currentPassword: string;
+      newPassword: string;
+    };
 
     // Get user din DB
     const dbUser = await prisma.user.findUnique({

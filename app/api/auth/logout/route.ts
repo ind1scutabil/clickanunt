@@ -3,12 +3,26 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { auditActions } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      rateLimit: 'api',
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
     // Obține user din token
     const user = await getUserFromRequest(request as any);
 

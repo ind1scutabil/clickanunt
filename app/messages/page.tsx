@@ -7,39 +7,8 @@ import { useState } from "react";
 export default function MessagesPage() {
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "sent">("all");
 
-  // Mock messages data
-  const messages = [
-    {
-      id: 1,
-      sender: "Ion Popescu",
-      subject: "Întrebare despre BMW Seria 3",
-      preview: "Bună ziua, sunt interesat de mașină. Este disponibilă pentru o probă?",
-      time: "2 ore în urmă",
-      unread: true,
-      avatar: "IP",
-      listingTitle: "BMW Seria 3 320d xDrive",
-    },
-    {
-      id: 2,
-      sender: "Maria Ionescu",
-      subject: "Ofertă pentru apartament",
-      preview: "Am văzut anunțul dumneavoastră pentru apartamentul de 2 camere...",
-      time: "5 ore în urmă",
-      unread: true,
-      avatar: "MI",
-      listingTitle: "Apartament 2 camere decomandat",
-    },
-    {
-      id: 3,
-      sender: "Andrei Dumitrescu",
-      subject: "Negociere preț iPhone",
-      preview: "Sunt interesat să cumpăr telefonul. Acceptați 4000 RON?",
-      time: "1 zi în urmă",
-      unread: false,
-      avatar: "AD",
-      listingTitle: "iPhone 14 Pro Max 256GB",
-    },
-  ];
+  // No messages - clean database
+  const messages: any[] = [];
 
   const filteredMessages = messages.filter((msg) => {
     if (activeTab === "unread") return msg.unread;

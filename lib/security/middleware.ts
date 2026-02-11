@@ -1,0 +1,363 @@
+/**
+ * SECURITY MIDDLEWARE - Unified
+ * Combines: CSRF validation, input validation, rate limiting, Turnstile
+ * 
+ * Usage in endpoints:
+ * const validation = await validateRequest(req, loginSchema);
+ * if (!validation.success) return NextResponse.json({ error: validation.error }, { status: 400 });
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { validateCSRFToken, CSRFValidationError } from '@/lib/security/csrf';
+import { rateLimitPresets, getClientIp, RateLimitResult } from '@/lib/rateLimit';
+import { parseAndValidate } from '@/lib/security/validation-schemas';
+import { verifyTurnstileToken } from '@/lib/bot-protection';
+import { logger } from '@/lib/observability';
+import { verifyAccessToken } from '@/lib/security/tokens';
+import crypto from 'crypto';
+
+export interface SecurityValidationResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  csrfError?: boolean;
+  validationError?: boolean;
+  rateLimitError?: boolean;
+  turnstileError?: boolean;
+}
+
+export interface ValidationOptions {
+  requireCSRF?: boolean;
+  requireTurnstile?: boolean;
+  rateLimit?: 'login' | 'register' | 'listings' | 'messages' | 'reports' | 'upload' | 'contact' | 'api' | 'payment' | 'moderation' | null;
+  schema?: z.ZodSchema;
+  extractTurnstileToken?: (data: any) => string | null;
+}
+
+/**
+ * Comprehensive request validation with all security checks
+ */
+export async function validateSecureRequest(
+  request: NextRequest,
+  options: ValidationOptions = {}
+): Promise<SecurityValidationResult> {
+  const {
+    requireCSRF = true,
+    requireTurnstile = false,
+    rateLimit = null,
+    schema = null,
+    extractTurnstileToken = null,
+  } = options;
+
+  try {
+    // Get client IP for rate limiting and logging
+    const clientIp = getClientIp(request);
+    const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+
+    // Attempt to identify user from access token
+    const authHeader = request.headers.get('authorization');
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const cookieToken = request.cookies.get('accessToken')?.value || null;
+    const accessToken = bearer || cookieToken;
+    const tokenPayload = accessToken ? verifyAccessToken(accessToken) : null;
+    const userId = tokenPayload?.userId || null;
+    
+    // ===== 1. CSRF VALIDATION (for state-changing operations) =====
+    if (requireCSRF && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+      try {
+        await validateCSRFToken(request);
+      } catch (error) {
+        logger.warn('CSRF validation failed', {
+          metadata: {
+            method: request.method,
+            path: request.nextUrl.pathname,
+            ip: clientIp,
+            requestId,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+
+        return {
+          success: false,
+          error: 'CSRF token invalid or missing - request rejected',
+          csrfError: true,
+        };
+      }
+    }
+
+    // ===== 2. PARSE AND VALIDATE INPUT =====
+    let validatedData: any = {};
+    if (schema) {
+      const parseResult = await parseAndValidate(request.clone(), schema);
+      if (!parseResult.success) {
+        logger.debug('Input validation failed', {
+          metadata: {
+            path: request.nextUrl.pathname,
+            requestId,
+            error: parseResult.error,
+          },
+        });
+
+        return {
+          success: false,
+          error: parseResult.error || 'Invalid input',
+          validationError: true,
+        };
+      }
+      validatedData = parseResult.data || {};
+    }
+
+    // ===== 3. TURNSTILE VERIFICATION (if enabled) =====
+    if (requireTurnstile) {
+      const turnstileToken = extractTurnstileToken?.(validatedData) || null;
+      
+      if (!turnstileToken) {
+        return {
+          success: false,
+          error: 'Bot protection token required',
+          turnstileError: true,
+        };
+      }
+
+      const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp);
+      
+      if (!turnstileResult.success) {
+        logger.warn('Turnstile verification failed', {
+          metadata: {
+            ip: clientIp,
+            path: request.nextUrl.pathname,
+            requestId,
+            errorCodes: turnstileResult.error_codes,
+          },
+        });
+
+        return {
+          success: false,
+          error: 'Bot protection verification failed',
+          turnstileError: true,
+        };
+      }
+
+      // Optional: Check score (for Turnstile Managed Challenge)
+      if (turnstileResult.score !== undefined && turnstileResult.score < 0.3) {
+        logger.warn('Low Turnstile score detected', {
+          metadata: {
+            ip: clientIp,
+            score: turnstileResult.score,
+            path: request.nextUrl.pathname,
+            requestId,
+          },
+        });
+
+        return {
+          success: false,
+          error: 'Verification failed - please try again',
+          turnstileError: true,
+        };
+      }
+    }
+
+    // ===== 4. RATE LIMITING =====
+    if (rateLimit) {
+      let rateLimitResult: RateLimitResult;
+      
+      switch (rateLimit) {
+        case 'login':
+          rateLimitResult = rateLimitPresets.login(clientIp);
+          break;
+        case 'register':
+          rateLimitResult = rateLimitPresets.register(clientIp);
+          break;
+        case 'listings':
+          rateLimitResult = userId
+            ? rateLimitPresets.createListing(userId)
+            : rateLimitPresets.api(clientIp);
+          break;
+        case 'messages':
+          rateLimitResult = userId
+            ? rateLimitPresets.messages(userId, 'user')
+            : rateLimitPresets.messages(clientIp, 'ip');
+          break;
+        case 'reports':
+          rateLimitResult = userId
+            ? rateLimitPresets.createReport(userId)
+            : rateLimitPresets.reports(clientIp);
+          break;
+        case 'upload':
+          rateLimitResult = userId
+            ? rateLimitPresets.uploadImage(userId)
+            : rateLimitPresets.upload(clientIp);
+          break;
+        case 'contact':
+          rateLimitResult = rateLimitPresets.contact(clientIp);
+          break;
+        case 'api':
+          rateLimitResult = rateLimitPresets.api(clientIp);
+          break;
+        case 'payment':
+          rateLimitResult = rateLimitPresets.payment(clientIp);
+          break;
+        case 'moderation':
+          rateLimitResult = userId
+            ? rateLimitPresets.moderation(userId)
+            : rateLimitPresets.api(clientIp);
+          break;
+        default:
+          rateLimitResult = { allowed: true, remaining: 0, resetTime: 0 };
+      }
+
+      if (!rateLimitResult.allowed) {
+        logger.warn('Rate limit exceeded', {
+          metadata: {
+            ip: clientIp,
+            type: rateLimit,
+            retryAfter: rateLimitResult.retryAfter,
+            path: request.nextUrl.pathname,
+            requestId,
+          },
+        });
+
+        return {
+          success: false,
+          error: `Too many requests. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+          rateLimitError: true,
+        };
+      }
+    }
+
+    // ===== ALL CHECKS PASSED =====
+    return {
+      success: true,
+      data: validatedData,
+    };
+  } catch (error) {
+    logger.error('Security validation error', {
+      metadata: {
+        error: error instanceof Error ? error.message : String(error),
+        path: request.nextUrl.pathname,
+        method: request.method,
+      },
+    });
+
+    return {
+      success: false,
+      error: 'Internal validation error',
+    };
+  }
+}
+
+/**
+ * Helper: Return standardized error response
+ */
+export function securityErrorResponse(validation: SecurityValidationResult) {
+  const statusCode = validation.rateLimitError ? 429 : 400;
+  return NextResponse.json(
+    {
+      error: validation.error,
+      ...(process.env.NODE_ENV !== 'production' && { details: validation }),
+    },
+    { status: statusCode }
+  );
+}
+
+/**
+ * Predefined validator factories for common endpoints
+ */
+
+export const validators = {
+  // Login endpoint validator
+  login: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'login',
+      schema,
+      extractTurnstileToken: (data) => data.turnstileToken,
+    }),
+
+  // Register endpoint validator
+  register: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'register',
+      schema,
+      extractTurnstileToken: (data) => data.turnstileToken,
+    }),
+
+  // Create listing validator
+  createListing: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: false, // Only if brand new user
+      rateLimit: 'listings',
+      schema,
+    }),
+
+  // Edit listing validator
+  editListing: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: false,
+      rateLimit: null,
+      schema,
+    }),
+
+  // Delete listing validator
+  deleteListing: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: false,
+      rateLimit: null,
+      schema,
+    }),
+
+  // Send message validator
+  sendMessage: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'messages',
+      schema,
+      extractTurnstileToken: (data) => data.turnstileToken,
+    }),
+
+  // Create report validator
+  createReport: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'reports',
+      schema,
+      extractTurnstileToken: (data) => data.turnstileToken,
+    }),
+
+  // Admin action validator (no Turnstile needed, already authenticated)
+  adminAction: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: false,
+      rateLimit: null,
+      schema,
+    }),
+
+  // File upload validator
+  upload: async (request: NextRequest, schema?: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: false,
+      rateLimit: 'upload',
+      schema,
+    }),
+
+  // Contact form validator
+  contact: async (request: NextRequest, schema: z.ZodSchema) =>
+    validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'contact',
+      schema,
+      extractTurnstileToken: (data) => data.turnstileToken,
+    }),
+};

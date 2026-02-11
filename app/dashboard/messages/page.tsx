@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
+import TurnstileWidget from "@/app/components/TurnstileWidget";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 interface Message {
   id: string;
@@ -50,6 +52,7 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication
@@ -115,17 +118,20 @@ export default function MessagesPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConversation) return;
+    if (!turnstileToken) return;
 
     setIsSending(true);
     try {
       const token = localStorage.getItem('accessToken');
+      const csrfToken = await getCsrfToken();
       const response = await fetch(`/api/messages/${selectedConversation.id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
         },
-        body: JSON.stringify({ content: newMessage }),
+        body: JSON.stringify({ content: newMessage, turnstileToken }),
       });
 
       if (!response.ok) {
@@ -295,6 +301,9 @@ export default function MessagesPage() {
                   onSubmit={handleSendMessage}
                   className="p-6 border-t border-[#2A2A2A] flex gap-3"
                 >
+                  <div className="self-center">
+                    <TurnstileWidget onVerify={setTurnstileToken} action="message" />
+                  </div>
                   <input
                     type="text"
                     value={newMessage}

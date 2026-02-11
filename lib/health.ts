@@ -46,13 +46,13 @@ async function checkDatabase(): Promise<HealthCheck> {
 }
 
 /**
- * Check storage (S3/R2) connectivity
+ * Check storage (S3/R2 or local fallback) connectivity
  */
 async function checkStorage(): Promise<HealthCheck> {
   const start = Date.now();
   
   try {
-    // Basic check - just verify env vars exist
+    // Check if S3 is configured
     const hasS3Config = !!(
       process.env.S3_ENDPOINT &&
       process.env.S3_ACCESS_KEY &&
@@ -60,20 +60,26 @@ async function checkStorage(): Promise<HealthCheck> {
       process.env.S3_BUCKET
     );
 
+    // If S3 not configured, local storage is valid
     if (!hasS3Config) {
       return {
-        status: 'down',
-        error: 'S3 configuration missing',
+        status: 'up',
+        latency: Date.now() - start,
+        details: {
+          mode: 'local',
+          message: 'Using local file storage',
+        },
       };
     }
 
-    // TODO: Actual S3 ping test
+    // If S3 is configured, report it
     return {
       status: 'up',
       latency: Date.now() - start,
       details: {
         endpoint: process.env.S3_ENDPOINT,
         bucket: process.env.S3_BUCKET,
+        mode: 's3',
       },
     };
   } catch (error: unknown) {
@@ -115,7 +121,7 @@ export async function performHealthCheck(): Promise<HealthStatus> {
     checkStorage(),
   ]);
 
-  // Determine overall status
+  // Determine overall status: healthy only if database AND storage are up
   let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
   
   if (database.status === 'down') {
@@ -123,6 +129,7 @@ export async function performHealthCheck(): Promise<HealthStatus> {
   } else if (storage.status === 'down') {
     status = 'degraded';
   }
+  // Storage being "local" (up) doesn't degrade the status
 
   return {
     status,

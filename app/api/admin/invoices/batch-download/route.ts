@@ -7,8 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/observability';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
+
+const batchDownloadSchema = z.object({
+  invoiceIds: z.array(z.string()).min(1),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,15 +42,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body = await req.json();
-    const { invoiceIds } = body;
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      schema: batchDownloadSchema,
+    });
 
-    if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
-      return NextResponse.json(
-        { error: 'No invoices specified' },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { invoiceIds } = security.data as { invoiceIds: string[] };
 
     // Fetch invoices
     const invoices = await prisma.invoice.findMany({

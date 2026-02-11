@@ -1,0 +1,19 @@
+# ClickAnunt.ro Robot Rules
+User-agent: *
+Allow: /
+Allow: /listings
+Allow: /auth/login
+Disallow: /admin/
+Disallow: /api/
+Disallow: /dashboard/
+Disallow: /auth/signup
+
+# Specific crawl delays
+User-agent: Googlebot
+Crawl-delay: 1
+
+User-agent: Bingbot
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://www.clickanunt.ro/api/sitemap.xml

@@ -3,15 +3,21 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission, canModifyUser } from "@/lib/rbac";
 import { auditActions } from "@/lib/audit";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
+const banUserSchema = z.object({
+  reason: z.string().min(1, "Motivul este necesar"),
+});
+
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -25,8 +31,17 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
-    const { reason } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: banUserSchema,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { reason } = security.data as { reason: string };
 
     if (!reason) {
       return NextResponse.json(

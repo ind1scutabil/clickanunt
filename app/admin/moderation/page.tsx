@@ -4,11 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
-
-type StoredUser = {
-  email?: string;
-  role?: string;
-};
+import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
 
 type UserRole = 'admin' | 'user';
 type UserStatus = 'active' | 'banned';
@@ -25,81 +21,20 @@ type ModerationUser = {
   discount: number;
 };
 
-const getStoredUser = (): StoredUser | null => {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem('user');
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as StoredUser;
-  } catch {
-    return null;
-  }
-};
-
 export default function AdminModerationPage() {
   const router = useRouter();
+  const { isAuthorized, isLoading } = useAdminAuth();
   const [activeTab, setActiveTab] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
-  const storedUser = getStoredUser();
-  const isAdmin =
-    !!storedUser && (storedUser.email === 'owner@autoplatform.ro' || storedUser.role === 'admin');
   
-  // Mock data pentru demonstrație
-  const [pendingListings, setPendingListings] = useState([
-    {
-      id: 'listing-1',
-      title: 'Mercedes-Benz S-Class 2021',
-      price: 85000,
-      owner: 'ionpopescu@email.com',
-      status: 'pending',
-      submittedAt: '2026-02-08 14:23',
-      photos: 5,
-      flagged: false
-    },
-    {
-      id: 'listing-2',
-      title: 'Audi A8 Quattro',
-      price: 65000,
-      owner: 'maria.ionescu@email.com',
-      status: 'pending',
-      submittedAt: '2026-02-08 13:45',
-      photos: 8,
-      flagged: true,
-      flagReason: 'Preț suspect de mic'
-    }
-  ]);
+  // Clean database - no mock data
+  const [pendingListings, setPendingListings] = useState<any[]>([]);
 
-  const [approvedListings, setApprovedListings] = useState([
-    {
-      id: 'listing-sample-bmw7',
-      title: 'BMW Seria 7',
-      price: 70000,
-      owner: 'owner@autoplatform.ro',
-      status: 'approved',
-      approvedAt: '2026-02-07 10:15',
-      views: 234,
-      favorites: 45
-    }
-  ]);
+  const [approvedListings, setApprovedListings] = useState<any[]>([]);
 
-  const [rejectedListings, setRejectedListings] = useState([
-    {
-      id: 'listing-3',
-      title: 'BMW X5 IEFTIN!!!',
-      price: 5000,
-      owner: 'scammer@fake.com',
-      status: 'rejected',
-      rejectedAt: '2026-02-07 16:30',
-      reason: 'Conținut suspect, preț nerealist'
-    }
-  ]);
+  const [rejectedListings, setRejectedListings] = useState<any[]>([]);
 
-  const [users, setUsers] = useState<ModerationUser[]>([
-    { id: 1, email: 'owner@autoplatform.ro', role: 'admin', status: 'active', listings: 1, credits: 0, freePromotions: 0, discount: 0 },
-    { id: 2, email: 'ionpopescu@email.com', role: 'user', status: 'active', listings: 3, credits: 0, freePromotions: 0, discount: 0 },
-    { id: 3, email: 'maria.ionescu@email.com', role: 'user', status: 'active', listings: 2, credits: 0, freePromotions: 0, discount: 0 },
-    { id: 4, email: 'scammer@fake.com', role: 'user', status: 'banned', listings: 5, credits: 0, freePromotions: 0, discount: 0 }
-  ]);
+  const [users, setUsers] = useState<ModerationUser[]>([]);
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ModerationUser | null>(null);
@@ -114,27 +49,20 @@ export default function AdminModerationPage() {
   });
 
   const stats = {
-    totalListings: 156,
-    pendingReview: 12,
-    approvedToday: 8,
-    rejectedToday: 2,
-    totalUsers: 342,
-    bannedUsers: 5,
-    reportedListings: 3
+    totalListings: 0,
+    pendingReview: 0,
+    approvedToday: 0,
+    rejectedToday: 0,
+    totalUsers: 0,
+    bannedUsers: 0,
+    reportedListings: 0
   };
 
   useEffect(() => {
-    if (!storedUser) {
-      alert('🔒 Trebuie să fii autentificat ca administrator pentru a accesa această pagină.');
-      router.push('/auth/login');
-      return;
+    if (!isLoading && !isAuthorized) {
+      router.push('/');
     }
-
-    if (!isAdmin) {
-      alert('⛔ Acces interzis! Această secțiune este rezervată doar administratorilor.');
-      router.push('/dashboard');
-    }
-  }, [router, storedUser, isAdmin]);
+  }, [router, isAuthorized, isLoading]);
 
   const approveListing = (id: string) => {
     const listing = pendingListings.find(l => l.id === id);
@@ -246,12 +174,28 @@ export default function AdminModerationPage() {
     }, 3000);
   };
 
-  if (!storedUser || !isAdmin) {
-    return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
+            <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
+          </div>
+          <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!isAdmin) {
-    return null;
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 text-center">
+          <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
+          <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi această pagină.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -1,13 +1,36 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { verifyTOTPLogin, useBackupCode } from '@/lib/2fa';
 import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
 import crypto from 'crypto';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { verify2FASchema } from '@/lib/security/validation-schemas';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { sessionToken, code, backupCode } = await request.json();
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      rateLimit: 'login',
+      schema: verify2FASchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { sessionToken, code, backupCode } = security.data as {
+      sessionToken: string;
+      code?: string;
+      backupCode?: string;
+    };
     const ip = getClientIp(request);
     const userAgent = request.headers.get('user-agent') || '';
 

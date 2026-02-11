@@ -1,26 +1,38 @@
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { authenticateUser } from "@/lib/auth";
-import { rateLimitPresets, getClientIp } from "@/lib/rateLimit";
+import { getClientIp } from "@/lib/rateLimit";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { loginSchema } from "@/lib/security/validation-schemas";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Test database connection
     await db.testConnection();
 
-    const body = await request.json();
-    const { email, password } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'login',
+      schema: loginSchema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
 
-    // Validare input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Email și parola sunt necesare" },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { email, password } = security.data as { email: string; password: string };
 
     // Sanitizare email
     const sanitizedEmail = sanitizeEmail(email);
@@ -31,19 +43,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Rate limiting: 5 încercări per 15 minute
     const ip = getClientIp(request);
-    const rateLimit = rateLimitPresets.login(ip);
-
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        {
-          error: `Prea multe încercări de login. Te rugăm să aștepți ${rateLimit.retryAfter} secunde.`,
-          retryAfter: rateLimit.retryAfter,
-        },
-        { status: 429 }
-      );
-    }
 
     // Autentificare cu protecție bruteforce
     const result = await authenticateUser(sanitizedEmail, password, ip);

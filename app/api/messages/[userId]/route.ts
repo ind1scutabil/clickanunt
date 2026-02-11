@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/security/tokens";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 
 /**
  * GET /api/messages/[userId]
@@ -13,6 +15,10 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
+    const idCheck = uuidSchema.safeParse(params.userId);
+    if (!idCheck.success) {
+      return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+    }
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     
     if (!token) {
@@ -53,6 +59,11 @@ export async function POST(
   { params }: { params: { userId: string } }
 ) {
   try {
+    const idCheck = uuidSchema.safeParse(params.userId);
+    if (!idCheck.success) {
+      return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+    }
+
     const token = request.headers.get("authorization")?.replace("Bearer ", "");
     
     if (!token) {
@@ -70,8 +81,26 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
-    const { content } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'messages',
+      schema: messageSendSchema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { content } = security.data as { content: string };
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(

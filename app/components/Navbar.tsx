@@ -15,16 +15,18 @@ export default function Navbar() {
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
-    if (userStr) {
+    const token = localStorage.getItem("accessToken");
+    if (userStr && token) {
       const user = JSON.parse(userStr);
       setIsLoggedIn(true);
       setUserEmail(user.email || null);
       setUserRole(user.role || 'user');
       setUserName(user.name || null);
-      if (user.email === "owner@autoplatform.ro" || user.role === "admin") {
+      if (user.role === "admin" || user.role === "owner") {
         setIsAdmin(true);
       }
     } else {
+      localStorage.removeItem('user');
       setIsLoggedIn(false);
       setUserEmail(null);
       setUserRole(null);
@@ -34,7 +36,7 @@ export default function Navbar() {
 
   const getAccountBadge = () => {
     if (!isLoggedIn) return 'DELOGAT';
-    if (isAdmin || userRole === 'owner') return 'ADMIN';
+    if (isAdmin) return 'ADMIN';
     
     // Show initials or name for regular users
     if (userName) {
@@ -61,7 +63,12 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      const { getCsrfToken } = await import('@/lib/security/csrf-client');
+      const csrfToken = await getCsrfToken();
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'x-csrf-token': csrfToken },
+      });
     } catch (error) {
       // Ignore network errors for logout
     } finally {
@@ -215,13 +222,13 @@ export default function Navbar() {
               <Link
                 href="/messages"
                 className="relative flex items-center gap-2 px-5 py-3 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
-                aria-label="Mesaje (3 necitite)"
+                aria-label="Mesaje"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
                 <span className="hidden lg:inline">Mesaje</span>
-                <span className="absolute -top-1 -right-1 w-6 h-6 bg-[#6D5BFF] text-white text-xs rounded-full flex items-center justify-center font-black shadow-lg">3</span>
+                {/* Badge will be dynamic when messaging system is implemented */}
               </Link>
 
               <Link
@@ -433,7 +440,7 @@ export default function Navbar() {
               <Link href="/messages" className="relative flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition font-semibold text-gray-700 hover:text-blue-600">
                 <span className="text-xl">💬</span>
                 <span>Mesaje</span>
-                <span className="ml-auto w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">3</span>
+                {/* Badge will be dynamic when messaging system is implemented */}
               </Link>
               <Link href="/favorites" className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-xl transition font-semibold text-gray-700 hover:text-pink-600">
                 <span className="text-xl">❤️</span>

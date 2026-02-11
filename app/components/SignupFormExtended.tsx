@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import TurnstileWidget from "@/app/components/TurnstileWidget";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
 
 type AccountType = "personal" | "business";
@@ -50,6 +52,7 @@ export default function SignupFormExtended() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [errors, setErrors] = useState<ValidationError>({});
   const [currentStep, setCurrentStep] = useState<"type" | "basic" | "details">("type");
   const router = useRouter();
@@ -143,10 +146,16 @@ export default function SignupFormExtended() {
       }
 
       // Prepare registration data
+      if (!turnstileToken) {
+        throw new Error("Verificarea bot este necesară");
+      }
+
       const registerData = {
         email: formData.email,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
         accountType,
+        turnstileToken,
         // Personal fields
         name: accountType === "personal" 
           ? `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim()
@@ -164,9 +173,13 @@ export default function SignupFormExtended() {
       };
 
       // Register user
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/register-extended", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         body: JSON.stringify(registerData),
       });
 
@@ -236,6 +249,10 @@ export default function SignupFormExtended() {
                 </div>
               </label>
             </div>
+          </div>
+
+          <div className="pt-2">
+            <TurnstileWidget onVerify={setTurnstileToken} action="register" />
           </div>
 
           {message && (

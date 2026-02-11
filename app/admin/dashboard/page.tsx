@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 
@@ -21,6 +22,12 @@ type FeatureFlag = {
   enabled: boolean;
 };
 
+type User = {
+  id: string;
+  email: string;
+  role: string;
+};
+
 const SYSTEM_FLAG_KEYS = {
   registrations: 'registrations_enabled',
   newListings: 'listings_enabled',
@@ -30,6 +37,8 @@ const SYSTEM_FLAG_KEYS = {
 } as const;
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [controlTab, setControlTab] = useState<'broadcast' | 'benefits' | 'system' | 'bulk'>('broadcast');
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -65,44 +74,78 @@ export default function AdminDashboard() {
   });
   const [lastAction, setLastAction] = useState('Nicio acțiune recentă');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  // SECURITY: Check authentication and authorization
   useEffect(() => {
-    const loadAdminData = async () => {
+    const checkAuth = async () => {
       try {
         setIsLoading(true);
-        setErrorMessage('');
+        
+        // Check if user is authenticated
+        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+        if (!userStr) {
+          router.push('/auth/login?redirect=/admin/dashboard');
+          return;
+        }
 
-        const [flagsRes, broadcastsRes] = await Promise.all([
-          fetch('/api/admin/feature-flags'),
-          fetch('/api/admin/broadcasts'),
-        ]);
-
-        if (flagsRes.ok) {
-          const flagsData = await flagsRes.json();
-          const flags = (flagsData.flags || []) as FeatureFlag[];
-          const flagMap = new Map(flags.map((flag) => [flag.key, flag.enabled]));
-          setSystemToggles({
-            registrations: (flagMap.get(SYSTEM_FLAG_KEYS.registrations) as boolean) ?? true,
-            newListings: (flagMap.get(SYSTEM_FLAG_KEYS.newListings) as boolean) ?? true,
-            payments: (flagMap.get(SYSTEM_FLAG_KEYS.payments) as boolean) ?? true,
-            promotions: (flagMap.get(SYSTEM_FLAG_KEYS.promotions) as boolean) ?? true,
-            maintenanceMode: (flagMap.get(SYSTEM_FLAG_KEYS.maintenanceMode) as boolean) ?? false,
+        const user = JSON.parse(userStr);
+        
+        // CRITICAL: Only allow admin/owner role
+        if (user.role !== 'admin' && user.role !== 'owner') {
+          console.error('❌ SECURITY: Unauthorized admin access attempt!', {
+            email: user.email,
+            role: user.role,
+            timestamp: new Date().toISOString()
           });
+          router.push('/');
+          return;
         }
 
-        if (broadcastsRes.ok) {
-          const broadcastsData = await broadcastsRes.json();
-          setBroadcasts(broadcastsData.broadcasts || []);
-        }
-      } catch (error: unknown) {
-        setErrorMessage(error instanceof Error ? error.message : 'Eroare la încărcarea datelor');
+        setCurrentUser(user);
+        setIsAuthorized(true);
+        
+        // Load admin data
+        await loadAdminData();
+      } catch (error) {
+        console.error('Auth check error:', error);
+        router.push('/auth/login');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadAdminData();
-  }, []);
+    checkAuth();
+  }, [router]);
+
+  const loadAdminData = async () => {
+    try {
+      const [flagsRes, broadcastsRes] = await Promise.all([
+        fetch('/api/admin/feature-flags'),
+        fetch('/api/admin/broadcasts'),
+      ]);
+
+      if (flagsRes.ok) {
+        const flagsData = await flagsRes.json();
+        const flags = (flagsData.flags || []) as FeatureFlag[];
+        const flagMap = new Map(flags.map((flag) => [flag.key, flag.enabled]));
+        setSystemToggles({
+          registrations: (flagMap.get(SYSTEM_FLAG_KEYS.registrations) as boolean) ?? true,
+          newListings: (flagMap.get(SYSTEM_FLAG_KEYS.newListings) as boolean) ?? true,
+          payments: (flagMap.get(SYSTEM_FLAG_KEYS.payments) as boolean) ?? true,
+          promotions: (flagMap.get(SYSTEM_FLAG_KEYS.promotions) as boolean) ?? true,
+          maintenanceMode: (flagMap.get(SYSTEM_FLAG_KEYS.maintenanceMode) as boolean) ?? false,
+        });
+      }
+
+      if (broadcastsRes.ok) {
+        const broadcastsData = await broadcastsRes.json();
+        setBroadcasts(broadcastsData.broadcasts || []);
+      }
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'Eroare la încărcarea datelor');
+    }
+  };
 
   const handleBroadcast = async () => {
     try {
@@ -222,12 +265,31 @@ export default function AdminDashboard() {
     <>
       <Navbar />
       <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
+        {/* SECURITY: Loading state while checking authentication */}
+        {isLoading && !isAuthorized && (
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-center min-h-96">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
+                  <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
+                </div>
+                <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECURITY: Only render admin panel if authorized */}
+        {isAuthorized && !isLoading && (
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="mb-8">
             <h1 className="text-5xl font-black mb-4 bg-gradient-to-r from-[#6D5BFF] via-[#00D4FF] to-[#4E3CFF] bg-clip-text text-transparent">
               📊 Admin Dashboard
             </h1>
             <p className="text-gray-400 text-lg">Gestionare platformă și control total</p>
+            <div className="mt-4 p-4 bg-green-900/30 border border-green-500/50 rounded-lg">
+              <p className="text-green-400 text-sm">✅ Autentificat ca: <strong>{currentUser?.email}</strong></p>
+            </div>
           </div>
 
           {/* Quick Actions */}
@@ -261,25 +323,25 @@ export default function AdminDashboard() {
           <div className="grid md:grid-cols-4 gap-4 mb-8">
             <div className="bg-gradient-to-br from-green-500/20 to-emerald-600/20 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30">
               <div className="text-3xl mb-2">✅</div>
-              <div className="text-2xl font-black text-white">156</div>
+              <div className="text-2xl font-black text-white">0</div>
               <div className="text-green-400 text-sm">Anunțuri Active</div>
             </div>
             
             <div className="bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/30">
               <div className="text-3xl mb-2">⏳</div>
-              <div className="text-2xl font-black text-white">12</div>
+              <div className="text-2xl font-black text-white">0</div>
               <div className="text-yellow-400 text-sm">În Așteptare</div>
             </div>
             
             <div className="bg-gradient-to-br from-blue-500/20 to-cyan-600/20 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30">
               <div className="text-3xl mb-2">👥</div>
-              <div className="text-2xl font-black text-white">342</div>
+              <div className="text-2xl font-black text-white">1</div>
               <div className="text-blue-400 text-sm">Utilizatori</div>
             </div>
             
             <div className="bg-gradient-to-br from-red-500/20 to-pink-600/20 backdrop-blur-xl rounded-2xl p-6 border border-red-500/30">
               <div className="text-3xl mb-2">📊</div>
-              <div className="text-2xl font-black text-white">8</div>
+              <div className="text-2xl font-black text-white">0</div>
               <div className="text-red-400 text-sm">Raportări</div>
             </div>
           </div>
@@ -701,6 +763,19 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+        )}
+
+        {/* SECURITY: Unauthorized state */}
+        {!isAuthorized && !isLoading && (
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="text-center min-h-96 flex items-center justify-center">
+              <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8">
+                <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
+                <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi admin dashboard.</p>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

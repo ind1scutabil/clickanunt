@@ -1,12 +1,38 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import { logger } from "@/lib/observability";
+import { verifyAccessToken } from "@/lib/security/tokens";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { reportCreateSchema } from "@/lib/security/validation-schemas";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { reporterId, listingId, reason, description } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'reports',
+      schema: reportCreateSchema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { reporterId, listingId, reason, description } = security.data as {
+      reporterId: string;
+      listingId: string;
+      reason: string;
+      description: string;
+    };
 
     // Validation
     if (!reporterId || !reason || !description) {
@@ -121,13 +147,37 @@ export async function POST(request: Request) {
 // Get reports (admin only)
 export async function GET(request: Request) {
   try {
+    // Admin authentication check
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: "Unauthorized - Authentication required" },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyAccessToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is admin or owner
+    if (payload.role !== 'admin' && payload.role !== 'owner') {
+      return NextResponse.json(
+        { error: "Forbidden - Admin access required" },
+        { status: 403 }
+      );
+    }
+
     const url = new URL(request.url);
     const status = url.searchParams.get("status") || "pending";
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
-
-    // TODO: Add admin authentication check here
-    // For now, anyone can view reports (should be restricted)
 
     const reports = await prisma.report.findMany({
       where: {

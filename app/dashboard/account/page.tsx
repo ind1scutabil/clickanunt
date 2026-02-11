@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
@@ -92,15 +93,18 @@ export default function AccountPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
+        const csrfToken = await getCsrfToken();
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+            'x-csrf-token': csrfToken,
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
+            confirmPassword: passwordData.confirmPassword,
         }),
       });
 

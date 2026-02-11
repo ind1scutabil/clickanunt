@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { uploadImage, generateImageKey } from "@/lib/storage";
 import { validateImage, stripExifData } from "@/lib/imageProcessing";
 import { v4 as uuidv4 } from "uuid";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { uploadBase64Schema } from "@/lib/security/validation-schemas";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
@@ -18,8 +20,31 @@ const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { filename, data, listingId, type } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'upload',
+      schema: uploadBase64Schema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { filename, data, listingId, type } = security.data as {
+      filename: string;
+      data: string;
+      listingId?: string;
+      type?: "image" | "video";
+    };
 
     // Validate input
     if (!data) {

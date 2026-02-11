@@ -110,7 +110,44 @@ export function requiresCsrfProtection(request: NextRequest): boolean {
 }
 
 /**
- * CSRF middleware
+ * Custom error class for CSRF validation failures
+ */
+export class CSRFValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CSRFValidationError';
+  }
+}
+
+/**
+ * Comprehensive CSRF validation - throws on failure (for middleware)
+ */
+export async function validateCSRFToken(request: NextRequest): Promise<void> {
+  // Skip for safe methods
+  if (!requiresCsrfProtection(request)) {
+    return;
+  }
+
+  // Validate origin first
+  if (!validateOrigin(request)) {
+    throw new CSRFValidationError('Invalid origin or referer');
+  }
+
+  // Require CSRF token match for all state-changing requests
+  const token = extractCsrfToken(request);
+  const storedHash = request.cookies.get('csrf-token-hash')?.value;
+
+  if (!token || !storedHash) {
+    throw new CSRFValidationError('CSRF token missing from request');
+  }
+
+  if (!validateCsrfToken(token, storedHash)) {
+    throw new CSRFValidationError('CSRF token validation failed - token mismatch');
+  }
+}
+
+/**
+ * CSRF middleware (legacy wrapper - returns object)
  */
 export async function csrfProtection(request: NextRequest): Promise<{
   valid: boolean;
@@ -129,17 +166,7 @@ export async function csrfProtection(request: NextRequest): Promise<{
     };
   }
   
-  // For API routes with JSON, rely on SameSite cookies + Origin check
-  const contentType = request.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    // Additional check: ensure it's an AJAX request
-    const requestedWith = request.headers.get('x-requested-with');
-    if (requestedWith === 'XMLHttpRequest' || request.headers.get('x-csrf-token')) {
-      return { valid: true };
-    }
-  }
-  
-  // For form submissions, require CSRF token
+  // Require CSRF token for all state-changing requests
   const token = extractCsrfToken(request);
   const storedHash = request.cookies.get('csrf-token-hash')?.value;
   

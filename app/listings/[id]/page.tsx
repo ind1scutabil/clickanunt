@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { memoryStorage } from "@/lib/memory-storage";
 
@@ -207,10 +208,14 @@ export default function Page() {
           )}
           
           <div className="max-w-7xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
-            <img 
+            <Image 
               src={(listing.photos && listing.photos[selectedImageIndex]) || getCategoryImage(listing.category)}
               alt={listing.title}
+              width={1920}
+              height={1080}
               className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              priority
+              unoptimized={listing.photos && listing.photos[selectedImageIndex] ? true : false}
             />
             {listing.photos && listing.photos.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full px-4 py-2 text-white text-sm font-medium">
@@ -232,10 +237,13 @@ export default function Page() {
                   className="relative aspect-video bg-gray-900/50 overflow-hidden cursor-pointer group"
                   onClick={() => setShowImageModal(true)}
                 >
-                  <img 
+                  <Image 
                     src={(listing.photos && listing.photos[selectedImageIndex]) || getCategoryImage(listing.category)}
                     alt={listing.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    priority
+                    unoptimized={listing.photos && listing.photos[selectedImageIndex] ? true : false}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-md rounded-full p-4">
@@ -251,18 +259,21 @@ export default function Page() {
                       <div 
                         key={i} 
                         onClick={() => setSelectedImageIndex(i)}
-                        className={`w-20 h-20 rounded-lg flex-shrink-0 overflow-hidden bg-gray-800 border-2 transition-all cursor-pointer ${
+                        className={`relative w-20 h-20 rounded-lg flex-shrink-0 overflow-hidden bg-gray-800 border-2 transition-all cursor-pointer ${
                           selectedImageIndex === i 
                             ? 'border-[#6366F1] ring-2 ring-[#6366F1]/50 shadow-lg shadow-[#6366F1]/30' 
                             : 'border-gray-700/50 hover:border-[#6366F1]/70'
                         }`}
                       >
-                        <img 
+                        <Image 
                           src={photo}
                           alt={`${listing.title} ${i + 1}`}
-                          className={`w-full h-full object-cover transition ${
+                          fill
+                          className={`object-cover transition ${
                             selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
                           }`}
+                          sizes="80px"
+                          unoptimized
                         />
                       </div>
                     ))}

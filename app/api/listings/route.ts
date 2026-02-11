@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { memoryStorage } from "@/lib/memory-storage";
@@ -12,11 +12,19 @@ import { fullModeration, logModeration } from "@/lib/moderation";
 import { updateUserTrustScore, getRateLimit, canPerformAction, TRUST_LEVELS } from "@/lib/trustScore";
 import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery } from "@/lib/security/validation-schemas";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
     const q = url.searchParams;
+
+    const parsedQuery = parseAndValidateQuery(q, searchListingsSchema);
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: parsedQuery.error }, { status: 400 });
+    }
+    const query = parsedQuery.data as any;
 
     // ✅ IN-MEMORY MODE: Return listings from memory storage
     if (process.env.USE_IN_MEMORY_DB === 'true') {
@@ -37,25 +45,25 @@ export async function GET(request: Request) {
     const where: any = {};
 
     // Status filter (only active by default)
-    where.status = q.get("status") || "active";
+    where.status = query.status || q.get("status") || "active";
 
     // Category filters
-    if (q.get("category")) where.category = { equals: q.get("category") };
-    if (q.get("subcategory")) where.subcategory = { equals: q.get("subcategory") };
+    if (query.category) where.category = { equals: query.category };
+    if (query.subcategory) where.subcategory = { equals: query.subcategory };
     
     // Location filters
-    if (q.get("county")) where.county = { equals: q.get("county") };
-    if (q.get("city")) where.city = { equals: q.get("city") };
+    if (query.county) where.county = { equals: query.county };
+    if (query.city) where.city = { equals: query.city };
     
     // Auto-specific filters
-    if (q.get("make")) where.make = { equals: q.get("make") };
-    if (q.get("model")) where.model = { equals: q.get("model") };
-    if (q.get("fuel")) where.fuel = { equals: q.get("fuel") };
-    if (q.get("transmission")) where.transmission = { equals: q.get("transmission") };
+    if (query.make) where.make = { equals: query.make };
+    if (query.model) where.model = { equals: query.model };
+    if (query.fuel) where.fuel = { equals: query.fuel };
+    if (query.transmission) where.transmission = { equals: query.transmission };
 
     // Price filters
-    const minPrice = q.get("minPrice");
-    const maxPrice = q.get("maxPrice");
+    const minPrice = query.minPrice ?? q.get("minPrice");
+    const maxPrice = query.maxPrice ?? q.get("maxPrice");
     if (minPrice || maxPrice) {
       where.priceAmount = {};
       if (minPrice) where.priceAmount.gte = Number(minPrice);
@@ -63,14 +71,14 @@ export async function GET(request: Request) {
     }
 
     // Year filter
-    const year = q.get("year");
+    const year = query.year ?? q.get("year");
     if (year) where.year = Number(year);
     
     // Condition filter
-    if (q.get("condition")) where.condition = { equals: q.get("condition") };
+    if (query.condition) where.condition = { equals: query.condition };
 
     // Search query
-    const search = q.get("q");
+    const search = query.q || q.get("q");
     if (search) {
       where.OR = [
         { title: { contains: search, mode: "insensitive" } },
@@ -121,7 +129,26 @@ export async function POST(request: Request) {
   const tracker = new PerformanceTracker('create_listing');
   
   try {
-    const body = await request.json();
+    const security = await validateSecureRequest(request as NextRequest, {
+      requireCSRF: true,
+      requireTurnstile: true,
+      rateLimit: 'listings',
+      schema: listingCreateSchema,
+      extractTurnstileToken: (data) => data.turnstileToken || null,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError || security.turnstileError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const body = security.data as any;
     const userId = body.ownerUserId;
 
     logger.setContext({ userId, action: 'create_listing' });

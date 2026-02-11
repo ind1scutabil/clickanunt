@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { deductTrustPoints, awardTrustPoints } from "@/lib/trustScore";
 import { createAuditLog } from "@/lib/audit";
 import { logger } from "@/lib/observability";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { reportResolveSchema } from "@/lib/security/validation-schemas";
+import { verifyAccessToken } from "@/lib/security/tokens";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -12,8 +15,32 @@ interface RouteContext {
 export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
-    const body = await request.json();
-    const { action, moderatorId, resolution } = body;
+    const security = await validateSecureRequest(request as NextRequest, {
+      requireCSRF: true,
+      rateLimit: 'moderation',
+      schema: reportResolveSchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : security.validationError
+        ? 400
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { action, resolution } = security.data as { action: 'approve' | 'dismiss'; resolution?: string };
+
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "") || null;
+    const payload = token ? verifyAccessToken(token) : null;
+    if (!payload || (payload.role !== 'admin' && payload.role !== 'owner' && payload.role !== 'moderator')) {
+      return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
+    }
+    const moderatorId = payload.userId;
 
     // Validate action
     if (!["approve", "dismiss"].includes(action)) {
@@ -22,8 +49,6 @@ export async function POST(request: Request, context: RouteContext) {
         { status: 400 }
       );
     }
-
-    // TODO: Verify moderatorId has admin/moderator role
 
     // Fetch report
     const report = await prisma.report.findUnique({

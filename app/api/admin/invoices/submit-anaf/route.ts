@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/observability';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +19,11 @@ interface ANAFRequest {
   invoiceIds: string[];
   format?: 'e-invoice' | 'xml';
 }
+
+const anafSubmitSchema = z.object({
+  invoiceIds: z.array(z.string()).min(1),
+  format: z.enum(['e-invoice', 'xml']).optional(),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,15 +51,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const body: ANAFRequest = await req.json();
-    const { invoiceIds, format = 'e-invoice' } = body;
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      schema: anafSubmitSchema,
+    });
 
-    if (!invoiceIds || !Array.isArray(invoiceIds) || invoiceIds.length === 0) {
-      return NextResponse.json(
-        { error: 'No invoices specified' },
-        { status: 400 }
-      );
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
+
+    const { invoiceIds, format = 'e-invoice' } = security.data as ANAFRequest;
 
     // Fetch invoices
     const invoices = await prisma.invoice.findMany({

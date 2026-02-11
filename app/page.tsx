@@ -16,25 +16,12 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   
-  // Check if user is authenticated and redirect if needed
+  // Don't auto-redirect - let users stay on homepage
+  // They can navigate to dashboard/admin from navbar
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const user = localStorage.getItem('user');
-    
-    // If authenticated, redirect to dashboard or admin based on role
-    if (token && user) {
-      try {
-        const userData = JSON.parse(user);
-        if (userData.role === 'admin' || userData.role === 'owner') {
-          router.push('/admin/dashboard');
-        } else {
-          router.push('/dashboard');
-        }
-      } catch (e) {
-        // Continue to homepage if user data is invalid
-      }
-    }
-  }, [router]);
+    // Optional: could implement selective redirect logic here
+    // But for now, homepage is public to all users
+  }, []);
   
   // SEO structured data
   const structuredData = [

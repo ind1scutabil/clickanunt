@@ -160,6 +160,13 @@ model User {
   bannedBy            String?
   banReason           String?
   
+  // Seller Reputation & Activity
+  lastActiveAt        DateTime @default(now())
+  responseRate        Int      @default(0) // 0-100 percentage
+  totalSales          Int      @default(0)
+  totalListings       Int      @default(0)
+  averageRating       Float    @default(0.0) // 0-5 stars (for future reviews)
+  
   // Subscription & Monetization
   subscriptionTier    SubscriptionTier @default(free)
   subscriptionExpiresAt DateTime?
@@ -318,6 +325,13 @@ model Listing {
   @@index([isPromoted])
   @@index([scamScore])
   @@index([moderationStatus])
+  // Search performance indexes
+  @@index([city])
+  @@index([year])
+  @@index([priceAmount])
+  @@index([category, city])
+  @@index([status, priceAmount])
+  @@index([status, createdAt])
   @@map("listings")
 }
 

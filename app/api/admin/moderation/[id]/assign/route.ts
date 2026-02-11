@@ -3,14 +3,20 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
+const assignSchema = z.object({
+  moderatorId: z.string().optional(),
+});
+
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -24,8 +30,17 @@ export async function POST(
       );
     }
 
-    const body = await request.json();
-    const { moderatorId } = body;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      schema: assignSchema,
+    });
+
+    if (!security.success) {
+      const status = security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { moderatorId } = security.data as { moderatorId?: string };
 
     // Verifică dacă moderator există
     if (moderatorId) {

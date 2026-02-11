@@ -1,4 +1,7 @@
 "use client";
+
+import TurnstileWidget from "@/app/components/TurnstileWidget";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -11,6 +14,7 @@ export default function LoginForm() {
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [requiresTwoFA, setRequiresTwoFA] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   // Router can be used for navigation if needed
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,8 +30,18 @@ export default function LoginForm() {
     console.log('[LOGIN] Starting login process...');
 
     try {
+      // Clear any existing session first
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      console.log('[LOGIN] Cleared existing session');
+
       if (!email || !password) {
         throw new Error("Email și parola sunt necesare");
+      }
+
+      if (!turnstileToken) {
+        throw new Error("Verificarea bot este necesară");
       }
 
       if (!email.includes("@")) {
@@ -36,10 +50,14 @@ export default function LoginForm() {
 
       console.log('[LOGIN] Making API call...');
 
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ email, password, turnstileToken }),
       });
 
       console.log('[LOGIN] API response status:', res.status);
@@ -193,6 +211,12 @@ export default function LoginForm() {
             disabled={loading}
             autoFocus
           />
+        </div>
+      )}
+
+      {!requiresTwoFA && (
+        <div className="pt-2">
+          <TurnstileWidget onVerify={setTurnstileToken} action="login" />
         </div>
       )}
 
