@@ -5,10 +5,8 @@
  * Usage: tsx scripts/init-owner.ts
  */
 
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import * as bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
 
 async function main() {
   const ownerEmail = process.env.OWNER_EMAIL;

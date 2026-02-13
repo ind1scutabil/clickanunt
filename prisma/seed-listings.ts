@@ -1,7 +1,6 @@
-import { PrismaClient, Condition, FuelType, Transmission } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { Condition, FuelType, Transmission } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting seed...');

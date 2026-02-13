@@ -5,9 +5,7 @@
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma.ts');
 
 async function testPromotionInvoice() {
   try {

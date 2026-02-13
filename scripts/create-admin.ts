@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
 import validator from 'validator';
-
-const prisma = new PrismaClient();
 
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@clickanunt.ro';

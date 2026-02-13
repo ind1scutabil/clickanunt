@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { verifyTOTPRFC, base32Encode, base32Decode } from '@/lib/totp';
 import {
   getRedisClient,
@@ -9,8 +9,6 @@ import {
   RedisUnavailableError,
 } from '@/lib/redis';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
 
 export async function generate2FASecret(userId: string) {
   const secretBuffer = crypto.randomBytes(32);

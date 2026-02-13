@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const { prisma } = require('../lib/prisma.ts');
 
 async function main() {
   try {

@@ -1,12 +1,5 @@
 require('dotenv/config');
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
-  }),
-});
+const { prisma } = require('../lib/prisma');
 
 async function main() {
   console.log('Seeding database with test listings for all categories...');
