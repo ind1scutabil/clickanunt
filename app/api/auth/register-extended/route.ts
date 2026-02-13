@@ -12,6 +12,7 @@ import { auditActions } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { registerExtendedSchema } from "@/lib/security/validation-schemas";
+import type { AccountType } from "@prisma/client";
 
 interface RegisterRequest {
   email: string;
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
         email: sanitizedEmail,
         password: hashedPassword,
         name: name?.trim() || null,
-        accountType,
+        accountType: accountType as AccountType,
         role: "user",
         trustScore: accountType === "business" ? 40 : 50, // Business starts lower
         emailVerified: false,

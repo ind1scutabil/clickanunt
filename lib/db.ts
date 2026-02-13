@@ -1,27 +1,15 @@
 /**
- * Database Layer - PostgreSQL with Prisma
+ * Database Layer - Wrapper around canonical Prisma singleton
+ * Provides helper methods for common operations
  * Falls back to in-memory DB when DATABASE_URL is missing (local/dev)
  */
 
+import { prisma } from './prisma';
 import { db as memoryDb, DB as MemoryDB } from './db-fallback';
 
 const useMemory = process.env.USE_IN_MEMORY_DB === 'true' || !process.env.DATABASE_URL;
 
-let prisma: any = null;
-let PrismaClient: any = null;
-
-if (!useMemory) {
-  // Only load Prisma if we actually need it
-  PrismaClient = require('@prisma/client').PrismaClient;
-  const globalForPrisma = global as unknown as { prisma: any | undefined };
-  prisma = globalForPrisma.prisma || new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = prisma;
-  }
-} else {
+if (useMemory) {
   console.log('✅ Using in-memory database (USE_IN_MEMORY_DB=true)');
 }
 

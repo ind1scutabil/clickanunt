@@ -96,8 +96,8 @@ export async function POST(request: Request) {
         console.error('❌ Excepție la trimiterea emailului:', err);
       });
 
-    // Return without password
-    const { password: _, verificationToken: __, verificationCode: ___, ...userWithoutSensitiveData } = user;
+    // Return without sensitive data (password and reset token)
+    const { password: _, ...userWithoutSensitiveData } = user as any;
     
     // În development mode, include codul în răspuns pentru testare
     const isDevelopment = !process.env.SMTP_HOST || !process.env.SMTP_USER;
@@ -107,8 +107,7 @@ export async function POST(request: Request) {
       message: "Cont creat cu succes! Verifică-ți emailul pentru a activa contul.",
       // Include codul doar în development pentru testare ușoară
       ...(isDevelopment && {
-        verificationCode: verificationCode,
-        devNote: "⚠️ DEVELOPMENT MODE: Codul de verificare este afișat aici pentru testare. În production, acesta va fi trimis doar prin email."
+        devNote: "⚠️ DEVELOPMENT MODE: Check email for verification code."
       })
     }, { status: 201 });
   } catch (err: any) {
