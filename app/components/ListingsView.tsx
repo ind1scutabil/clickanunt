@@ -171,33 +171,28 @@ export default function ListingsView() {
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Toate anunțurile</h1>
+    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+      <h1 className="text-4xl font-bold tracking-tight text-white mb-8">Toate anunțurile</h1>
 
       {/* Filters */}
-      <div className={`relative overflow-hidden bg-gradient-to-br from-slate-800/80 via-purple-900/50 to-slate-800/80 backdrop-blur-md p-8 rounded-2xl shadow-2xl mb-8 border border-slate-700/50 transition-all duration-300 ${
-        isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40 lg:shadow-[#6366F1]/20 lg:shadow-2xl' : ''
+      <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-300 ${
+        isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40' : ''
       }`}>
-        {/* Animated background elements */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-indigo-500/5 animate-gradient-xy"></div>
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-pink-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-indigo-500/20 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
         
         {/* Content */}
         <div className="relative">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6 flex items-center gap-2">
-            <svg className="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+            <svg className="w-7 h-7 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
             Filtre
           </h2>
 
           {/* Main filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Category */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-indigo-400">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Categorie
               </label>
               <select
@@ -210,7 +205,7 @@ export default function ListingsView() {
                     router.push('/listings');
                   }
                 }}
-                className="w-full px-4 py-3 border-2 border-slate-600/50 rounded-xl bg-slate-700/50 backdrop-blur-sm text-white shadow-sm hover:shadow-md hover:border-indigo-500/50 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
               >
                 <option value="">Toate categoriile</option>
                 {ALL_CATEGORIES.map((cat) => (
@@ -223,14 +218,14 @@ export default function ListingsView() {
 
             {/* Subcategory */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-purple-600">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Subcategorie
               </label>
               <select
                 value={filters.subcategory || ''}
                 onChange={(e) => handleFilterChange('subcategory', e.target.value)}
                 disabled={!filters.category}
-                className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200 disabled:bg-gray-100/80 disabled:cursor-not-allowed disabled:hover:shadow-sm"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
               >
                 <option value="">Toate subcategoriile</option>
                 {availableSubcategories.map((sub) => (
@@ -243,7 +238,7 @@ export default function ListingsView() {
 
             {/* County */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-pink-600">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Județ
               </label>
               <select
@@ -256,7 +251,7 @@ export default function ListingsView() {
                   }));
                   setPage(1);
                 }}
-                className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
               >
                 <option value="">Toate județele</option>
                 {ROMANIAN_COUNTIES.map((c) => (
@@ -268,18 +263,19 @@ export default function ListingsView() {
             </div>
           </div>
 
+          <div className="border-t border-white/5 my-6" />
+
           {/* Second row of filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* City */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-indigo-600">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Oraș
               </label>
               <select
                 value={filters.city || ''}
                 onChange={(e) => handleFilterChange('city', e.target.value)}
-                disabled={!filters.county}
-                className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 disabled:bg-gray-100/80 disabled:cursor-not-allowed disabled:hover:shadow-sm"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
               >
                 <option value="">Toate orașele</option>
                 {availableCities.map((c) => (
@@ -292,7 +288,7 @@ export default function ListingsView() {
 
             {/* Price Min */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-purple-600">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Preț min (RON)
               </label>
               <input
@@ -300,13 +296,13 @@ export default function ListingsView() {
                 value={filters.priceMin || ''}
                 onChange={(e) => handleFilterChange('priceMin', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="5000"
-                className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
               />
             </div>
 
             {/* Price Max */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-pink-600">
+              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                 Preț max (RON)
               </label>
               <input
@@ -314,27 +310,26 @@ export default function ListingsView() {
                 value={filters.priceMax || ''}
                 onChange={(e) => handleFilterChange('priceMax', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="50000"
-                className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-pink-300 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all duration-200"
+                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
               />
             </div>
           </div>
 
           {/* Auto-specific filters (shown only for Auto category) */}
           {isAutoCategory && (
-            <div className="relative bg-gradient-to-br from-blue-400/20 via-indigo-400/20 to-purple-400/20 backdrop-blur-md p-6 rounded-2xl border-2 border-white/30 shadow-xl mb-5">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 via-indigo-600/5 to-purple-600/5 rounded-2xl"></div>
+            <div className="relative bg-[#1C212B] p-6 rounded-2xl border border-white/5 shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-8">
               <div className="relative">
-                <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent mb-5 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   Filtre Auto
                 </h3>
             
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                   {/* Make */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-blue-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       Marcă
                     </label>
                     <select
@@ -347,7 +342,7 @@ export default function ListingsView() {
                         }));
                         setPage(1);
                       }}
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                     >
                       <option value="">Toate mărcile</option>
                       {POPULAR_MAKES.map((m) => (
@@ -360,14 +355,14 @@ export default function ListingsView() {
 
                   {/* Model */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-indigo-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       Model
                     </label>
                     <select
                       value={filters.model || ''}
                       onChange={(e) => handleFilterChange('model', e.target.value)}
                       disabled={!filters.make}
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 disabled:bg-gray-100/80 disabled:cursor-not-allowed disabled:hover:shadow-sm"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
                     >
                       <option value="">Toate modelele</option>
                       {availableModels.map((m) => (
@@ -380,13 +375,13 @@ export default function ListingsView() {
 
                   {/* Fuel */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-purple-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       Combustibil
                     </label>
                     <select
                       value={filters.fuel || ''}
                       onChange={(e) => handleFilterChange('fuel', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                     >
                       <option value="">Orice combustibil</option>
                       <option value="Benzină">Benzină</option>
@@ -400,16 +395,16 @@ export default function ListingsView() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Transmission */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-blue-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       Transmisie
                     </label>
                     <select
                       value={filters.transmission || ''}
                       onChange={(e) => handleFilterChange('transmission', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                     >
                       <option value="">Orice transmisie</option>
                       <option value="Manuală">Manuală</option>
@@ -420,7 +415,7 @@ export default function ListingsView() {
 
                   {/* Year Min */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-indigo-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       An min
                     </label>
                     <input
@@ -428,13 +423,13 @@ export default function ListingsView() {
                       value={filters.yearMin || ''}
                       onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="2010"
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                     />
                   </div>
 
                   {/* Year Max */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-purple-600">
+                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                       An max
                     </label>
                     <input
@@ -442,7 +437,7 @@ export default function ListingsView() {
                       value={filters.yearMax || ''}
                       onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="2024"
-                      className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/90 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
+                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -452,9 +447,9 @@ export default function ListingsView() {
 
           {/* Non-auto year filters */}
           {!isAutoCategory && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="group">
-                <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-indigo-600">
+                <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                   An min
                 </label>
                 <input
@@ -462,11 +457,11 @@ export default function ListingsView() {
                   value={filters.yearMin || ''}
                   onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2010"
-                  className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+                  className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                 />
               </div>
               <div className="group">
-                <label className="block text-sm font-semibold text-gray-800 mb-2 transition-colors group-hover:text-purple-600">
+                <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
                   An max
                 </label>
                 <input
@@ -474,15 +469,17 @@ export default function ListingsView() {
                   value={filters.yearMax || ''}
                   onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2024"
-                  className="w-full px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-purple-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all duration-200"
+                  className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
                 />
               </div>
             </div>
           )}
 
+          <div className="border-t border-white/5 my-6" />
+
           {/* Sorting */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-800 mb-2">
+            <label className="block text-sm font-semibold text-gray-200 mb-2">
               Sortare
             </label>
             <select
@@ -491,7 +488,7 @@ export default function ListingsView() {
                 const [sortBy, sortOrder] = e.target.value.split('-');
                 setFilters(prev => ({ ...prev, sortBy, sortOrder }));
               }}
-              className="w-full md:w-80 px-4 py-3 border-2 border-white/50 rounded-xl bg-white/80 backdrop-blur-sm text-gray-900 shadow-sm hover:shadow-md hover:border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
+              className="w-full md:w-80 px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
             >
               <option value="createdAt-desc">Cele mai noi</option>
               <option value="createdAt-asc">Cele mai vechi</option>
@@ -502,10 +499,10 @@ export default function ListingsView() {
             </select>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => loadListings()}
-              className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 flex items-center gap-2"
+              className="h-11 px-6 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -514,7 +511,7 @@ export default function ListingsView() {
             </button>
             <button
               onClick={clearFilters}
-              className="bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 hover:text-gray-900 px-8 py-3 rounded-xl font-semibold border-2 border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md transform hover:scale-[1.02] transition-all duration-200 flex items-center gap-2"
+              className="h-11 px-6 rounded-[12px] bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -551,7 +548,7 @@ export default function ListingsView() {
               <button
                 key={key}
                 onClick={() => handleFilterChange(key as keyof Filters, undefined)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#6366F1] hover:bg-[#7C3AED] text-white text-sm font-medium rounded-full transition-all duration-200 group"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1C212B] border border-white/10 text-white/80 text-sm font-medium rounded-full transition-all duration-200 group hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
                 aria-label={`Remove ${filterLabels[key]} filter`}
               >
                 <span>{filterLabels[key]}: {value}</span>
@@ -573,7 +570,7 @@ export default function ListingsView() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md mb-6">
+        <div className="bg-[#1A1D24] border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-6">
           {error}
         </div>
       )}
@@ -584,21 +581,21 @@ export default function ListingsView() {
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
-              className="bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-slate-700/60 overflow-hidden animate-pulse"
+              className="bg-[#1A1D24] rounded-2xl border border-white/5 overflow-hidden animate-pulse"
               role="status"
               aria-label="Se încarcă anunț"
             >
               {/* Image skeleton */}
-              <div className="aspect-[16/9] bg-slate-800"></div>
+              <div className="aspect-[16/9] bg-[#111827]"></div>
               {/* Content skeleton */}
               <div className="p-5">
-                <div className="h-7 bg-slate-800 rounded mb-2 w-3/4"></div>
-                <div className="h-7 bg-slate-800 rounded mb-4 w-1/2"></div>
-                <div className="h-5 bg-slate-800 rounded mb-2 w-full"></div>
-                <div className="h-8 bg-slate-800 rounded mb-4 w-1/3"></div>
-                <div className="h-4 bg-slate-800 rounded mb-2 w-full"></div>
-                <div className="h-4 bg-slate-800 rounded mb-4 w-3/4"></div>
-                <div className="h-10 bg-slate-800 rounded w-full"></div>
+                <div className="h-7 bg-[#111827] rounded mb-2 w-3/4"></div>
+                <div className="h-7 bg-[#111827] rounded mb-4 w-1/2"></div>
+                <div className="h-5 bg-[#111827] rounded mb-2 w-full"></div>
+                <div className="h-8 bg-[#111827] rounded mb-4 w-1/3"></div>
+                <div className="h-4 bg-[#111827] rounded mb-2 w-full"></div>
+                <div className="h-4 bg-[#111827] rounded mb-4 w-3/4"></div>
+                <div className="h-10 bg-[#111827] rounded w-full"></div>
               </div>
             </div>
           ))}
@@ -616,11 +613,11 @@ export default function ListingsView() {
             {listings.map((listing, index) => (
               <article
                 key={listing.id}
-                className="group bg-slate-900/70 backdrop-blur-xl rounded-2xl border border-slate-700/60 overflow-hidden hover:border-[#6366F1]/60 hover:shadow-2xl hover:shadow-[#6366F1]/20 transition-all duration-300"
+                className="group bg-[#161B22] rounded-2xl border border-white/5 overflow-hidden shadow-[0_18px_50px_rgba(0,0,0,0.35)] hover:border-white/10 hover:shadow-[0_16px_40px_rgba(0,0,0,0.40)] hover:-translate-y-0.5 transition-all duration-300"
                 aria-label={listing.title}
               >
                 {/* Image - Fixed 16:9 Aspect Ratio */}
-                <div className="relative aspect-[16/9] bg-slate-800 overflow-hidden">
+                <div className="relative aspect-[16/9] bg-[#111827] overflow-hidden">
                   {listing.photos && listing.photos.length > 0 ? (
                     <img
                       src={listing.photos[0]}
@@ -667,7 +664,7 @@ export default function ListingsView() {
                     )}
                   </div>
 
-                  <div className="text-2xl font-black bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] bg-clip-text text-transparent mb-4">
+                  <div className="text-2xl font-bold text-white mb-4">
                     {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: listing.priceCurrency, maximumFractionDigits: 0 }).format(listing.priceAmount)}
                   </div>
 
@@ -679,7 +676,7 @@ export default function ListingsView() {
 
                   <Link
                     href={`/listings/${listing.id}`}
-                    className="mt-auto block text-center bg-gradient-to-r from-[#6366F1] to-[#7C3AED] hover:from-[#7C3AED] hover:to-[#6366F1] text-white py-2.5 px-4 rounded-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2 focus:ring-offset-slate-900"
+                    className="mt-auto block text-center h-11 px-4 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold transition-all duration-300 shadow-[0_18px_50px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
                     aria-label={`View details for ${listing.title}`}
                   >
                     Vezi detalii
@@ -695,7 +692,7 @@ export default function ListingsView() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-4 py-2 bg-slate-900/70 border border-slate-700/60 rounded-md text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[#6366F1]/60 hover:text-white"
+                className="px-4 py-2 bg-[#1C212B] border border-white/10 rounded-[12px] text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
               >
                 « Înapoi
               </button>
@@ -717,10 +714,10 @@ export default function ListingsView() {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`px-4 py-2 rounded-md ${
+                      className={`px-4 py-2 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)] ${
                         page === pageNum
-                          ? 'bg-gradient-to-r from-[#6366F1] to-[#7C3AED] text-white'
-                          : 'bg-slate-900/70 border border-slate-700/60 text-gray-200 hover:border-[#6366F1]/60'
+                          ? 'bg-[#1C212B] border border-white/10 text-white'
+                          : 'bg-[#1C212B] border border-white/5 text-white/70 hover:border-white/20 hover:text-white'
                       }`}
                     >
                       {pageNum}
@@ -732,7 +729,7 @@ export default function ListingsView() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-4 py-2 bg-slate-900/70 border border-slate-700/60 rounded-md text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[#6366F1]/60 hover:text-white"
+                className="px-4 py-2 bg-[#1C212B] border border-white/10 rounded-[12px] text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
               >
                 Înainte »
               </button>

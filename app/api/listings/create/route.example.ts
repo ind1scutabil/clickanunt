@@ -15,6 +15,7 @@ import { listingValidationSchema } from '@/lib/security/input-validation';
 import { createRateLimiter, RATE_LIMITS } from '@/lib/security/rate-limit';
 import { verifyAccessToken } from '@/lib/security/tokens';
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 
 /**
  * POST /api/listings/create
@@ -97,12 +98,14 @@ export async function POST(request: NextRequest) {
     }
     
     // 5. Create listing
+    const createData = {
+      ...data,
+      ownerUserId: payload.userId,
+      status: 'pending', // Requires moderation
+    } as unknown as Prisma.ListingCreateInput;
+
     const listing = await prisma.listing.create({
-      data: {
-        ...data,
-        ownerUserId: payload.userId,
-        status: 'pending', // Requires moderation
-      } as any,
+      data: createData,
     });
     
     // 6. Audit log
@@ -192,7 +195,7 @@ export async function PUT(
     // 4. Update listing
     const updated = await prisma.listing.update({
       where: { id },
-      data: validation.data as any,
+      data: validation.data as Prisma.ListingUpdateInput,
     });
     
     // 5. Audit log

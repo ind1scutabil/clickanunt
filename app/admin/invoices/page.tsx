@@ -81,7 +81,6 @@ export default function AdminInvoicesPage() {
     if (!isLoading && isAuthorized) {
       loadInvoices();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.dateRange, filters.searchQuery, isAuthorized, isLoading]);
 
   const handleSelectInvoice = (invoiceId: string) => {

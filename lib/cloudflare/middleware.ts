@@ -5,7 +5,6 @@
  * - Real IP extraction
  * - CF Ray tracing
  * - Admin protection
- * - Turnstile verification
  * - Rate limit headers
  */
 
@@ -169,48 +168,6 @@ export async function withCloudflareMiddleware(
         'CF-Ray': cfContext.rayID,
       },
     });
-  }
-}
-
-/**
- * Verify Turnstile token (Cloudflare Challenge)
- */
-export async function verifyTurnstileToken(token: string): Promise<{
-  success: boolean;
-  score?: number;
-  errorCodes?: string[];
-}> {
-  const secretKey = process.env.TURNSTILE_SECRET_KEY;
-
-  if (!secretKey) {
-    console.warn('[TURNSTILE] Secret key not configured');
-    return { success: false, errorCodes: ['secret_not_configured'] };
-  }
-
-  try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        secret: secretKey,
-        response: token,
-      }),
-    });
-
-    return await response.json();
-  } catch (error) {
-    logger.error('Turnstile verification failed', {
-      metadata: {
-        error: error instanceof Error ? error.message : String(error),
-      },
-    });
-
-    return {
-      success: false,
-      errorCodes: ['verification_failed'],
-    };
   }
 }
 

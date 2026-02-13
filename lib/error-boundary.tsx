@@ -1,6 +1,5 @@
 'use client';
-import { ReactNode } from 'react';
-import { useEffect } from 'react';
+import React, { ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -62,9 +61,7 @@ export function useErrorHandler() {
   const handleError = (error: Error, context?: string) => {
     console.error(`Error ${context ? `in ${context}` : ''}:`, error);
     // Send to Sentry or error tracking service
-    if (window.__SENTRY__) {
-      window.__SENTRY__.captureException(error, { tags: { context } });
-    }
+    window.__SENTRY__?.captureException?.(error, { tags: { context } });
   };
 
   return { handleError };
@@ -72,6 +69,8 @@ export function useErrorHandler() {
 
 declare global {
   interface Window {
-    __SENTRY__?: any;
+    __SENTRY__?: {
+      captureException?: (error: Error, context?: { tags?: { context?: string } }) => void;
+    };
   }
 }

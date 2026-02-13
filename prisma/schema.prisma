@@ -180,6 +180,10 @@ model User {
   twoFactorSecret     String?
   twoFactorEnabled    Boolean  @default(false)
   
+  // Password Reset
+  resetPasswordToken  String?  @unique
+  resetPasswordExpires DateTime?
+  
   // Login tracking & lockout
   lastLoginAt         DateTime?
   lastLoginIp         String?

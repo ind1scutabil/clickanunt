@@ -15,6 +15,15 @@ type PromotionBenefits = {
   promotions?: Record<string, { count?: number; expiresAt?: string | null }>;
 };
 
+type BulkUsersRequest = {
+  segment?: string;
+  action?: string;
+  percent?: string | number;
+  freePromos?: string | number;
+  promotionType?: string;
+  expiryDays?: string | number;
+};
+
 function getSegmentWhere(segment: string) {
   const now = new Date();
   const days30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const body = security.data as any;
+    const body = security.data as BulkUsersRequest;
     const { segment, action, percent, freePromos, promotionType, expiryDays } = body;
 
     if (!segment || !action) {
@@ -65,7 +74,7 @@ export async function POST(request: NextRequest) {
     });
 
     let updated = 0;
-    const expiryValue = Math.max(1, parseInt(expiryDays ?? '30', 10));
+    const expiryValue = Math.max(1, parseInt(String(expiryDays ?? 30), 10));
     const expiresAt = new Date(Date.now() + expiryValue * 24 * 60 * 60 * 1000);
 
     if (action === 'deactivate') {
@@ -85,14 +94,14 @@ export async function POST(request: NextRequest) {
       });
       updated = result.count;
     } else if (action === 'grant_discount') {
-      const discountValue = Math.max(0, Math.min(100, parseInt(percent ?? '0', 10)));
+      const discountValue = Math.max(0, Math.min(100, parseInt(String(percent ?? 0), 10)));
       const result = await prisma.user.updateMany({
         where,
         data: { promotionDiscountPercent: discountValue },
       });
       updated = result.count;
     } else if (action === 'grant_free_promos') {
-      const count = Math.max(0, parseInt(freePromos ?? '0', 10));
+      const count = Math.max(0, parseInt(String(freePromos ?? 0), 10));
       const promoType = promotionType || 'top';
 
       for (const target of users) {

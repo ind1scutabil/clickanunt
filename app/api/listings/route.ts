@@ -14,6 +14,7 @@ import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery } from "@/lib/security/validation-schemas";
+import { verifyAccessToken } from "@/lib/security/tokens";
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,10 +27,30 @@ export async function GET(request: NextRequest) {
     }
     const query = parsedQuery.data as any;
 
+    const userIdParam = query.userId ?? q.get("userId");
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    const cookieToken = request.cookies.get("accessToken")?.value || null;
+    const accessToken = bearerToken || cookieToken;
+    const tokenPayload = accessToken ? verifyAccessToken(accessToken) : null;
+
     // ✅ IN-MEMORY MODE: Return listings from memory storage
     if (process.env.USE_IN_MEMORY_DB === 'true') {
-      const allListings = memoryStorage.getAll();
-      
+      let allListings = memoryStorage.getAll();
+
+      if (userIdParam) {
+        if (!tokenPayload) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const resolvedUserId = userIdParam === 'me' ? tokenPayload.userId : userIdParam;
+        if (resolvedUserId !== tokenPayload.userId && tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        allListings = allListings.filter((listing: any) =>
+          listing.ownerUserId === resolvedUserId || listing.owner?.id === resolvedUserId
+        );
+      }
+
       return NextResponse.json({
         listings: allListings,
         pagination: {
@@ -47,6 +68,18 @@ export async function GET(request: NextRequest) {
     // Status filter (only active by default)
     where.status = query.status || q.get("status") || "active";
 
+    // User filter (dashboard listings)
+    if (userIdParam) {
+      if (!tokenPayload) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const resolvedUserId = userIdParam === 'me' ? tokenPayload.userId : userIdParam;
+      if (resolvedUserId !== tokenPayload.userId && tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      where.ownerUserId = resolvedUserId;
+    }
+
     // Category filters
     if (query.category) where.category = { equals: query.category };
     if (query.subcategory) where.subcategory = { equals: query.subcategory };
@@ -62,8 +95,8 @@ export async function GET(request: NextRequest) {
     if (query.transmission) where.transmission = { equals: query.transmission };
 
     // Price filters
-    const minPrice = query.minPrice ?? q.get("minPrice");
-    const maxPrice = query.maxPrice ?? q.get("maxPrice");
+    const minPrice = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
+    const maxPrice = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
     if (minPrice || maxPrice) {
       where.priceAmount = {};
       if (minPrice) where.priceAmount.gte = Number(minPrice);
@@ -72,7 +105,14 @@ export async function GET(request: NextRequest) {
 
     // Year filter
     const year = query.year ?? q.get("year");
-    if (year) where.year = Number(year);
+    const yearMin = query.yearMin ?? q.get("yearMin");
+    const yearMax = query.yearMax ?? q.get("yearMax");
+    if (year || yearMin || yearMax) {
+      where.year = {};
+      if (year) where.year.equals = Number(year);
+      if (yearMin) where.year.gte = Number(yearMin);
+      if (yearMax) where.year.lte = Number(yearMax);
+    }
     
     // Condition filter
     if (query.condition) where.condition = { equals: query.condition };
@@ -131,10 +171,8 @@ export async function POST(request: Request) {
   try {
     const security = await validateSecureRequest(request as NextRequest, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'listings',
       schema: listingCreateSchema,
-      extractTurnstileToken: (data) => data.turnstileToken || null,
     });
 
     if (!security.success) {
@@ -142,7 +180,7 @@ export async function POST(request: Request) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError || security.turnstileError
+        : security.validationError
         ? 400
         : 400;
       return NextResponse.json({ error: security.error }, { status });

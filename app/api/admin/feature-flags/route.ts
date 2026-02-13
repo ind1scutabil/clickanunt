@@ -19,7 +19,7 @@ const featureFlagSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
 
     if (!user || !hasPermission(user.role as UserRole, Permission.SETTINGS_VIEW)) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
 
     // Doar OWNER poate modifica feature flags
     if (user?.role !== 'owner') {
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
 
     if (user?.role !== 'owner') {
       return NextResponse.json(

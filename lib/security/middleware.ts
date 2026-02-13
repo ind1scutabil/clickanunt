@@ -1,6 +1,6 @@
 /**
  * SECURITY MIDDLEWARE - Unified
- * Combines: CSRF validation, input validation, rate limiting, Turnstile
+ * Combines: CSRF validation, input validation, rate limiting
  * 
  * Usage in endpoints:
  * const validation = await validateRequest(req, loginSchema);
@@ -9,30 +9,26 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validateCSRFToken, CSRFValidationError } from '@/lib/security/csrf';
+import { validateCSRFToken } from '@/lib/security/csrf';
 import { rateLimitPresets, getClientIp, RateLimitResult } from '@/lib/rateLimit';
 import { parseAndValidate } from '@/lib/security/validation-schemas';
-import { verifyTurnstileToken } from '@/lib/bot-protection';
 import { logger } from '@/lib/observability';
 import { verifyAccessToken } from '@/lib/security/tokens';
 import crypto from 'crypto';
 
 export interface SecurityValidationResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   csrfError?: boolean;
   validationError?: boolean;
   rateLimitError?: boolean;
-  turnstileError?: boolean;
 }
 
 export interface ValidationOptions {
   requireCSRF?: boolean;
-  requireTurnstile?: boolean;
   rateLimit?: 'login' | 'register' | 'listings' | 'messages' | 'reports' | 'upload' | 'contact' | 'api' | 'payment' | 'moderation' | null;
   schema?: z.ZodSchema;
-  extractTurnstileToken?: (data: any) => string | null;
 }
 
 /**
@@ -44,10 +40,8 @@ export async function validateSecureRequest(
 ): Promise<SecurityValidationResult> {
   const {
     requireCSRF = true,
-    requireTurnstile = false,
     rateLimit = null,
     schema = null,
-    extractTurnstileToken = null,
   } = options;
 
   try {
@@ -87,7 +81,7 @@ export async function validateSecureRequest(
     }
 
     // ===== 2. PARSE AND VALIDATE INPUT =====
-    let validatedData: any = {};
+    let validatedData: unknown = {};
     if (schema) {
       const parseResult = await parseAndValidate(request.clone(), schema);
       if (!parseResult.success) {
@@ -108,57 +102,7 @@ export async function validateSecureRequest(
       validatedData = parseResult.data || {};
     }
 
-    // ===== 3. TURNSTILE VERIFICATION (if enabled) =====
-    if (requireTurnstile) {
-      const turnstileToken = extractTurnstileToken?.(validatedData) || null;
-      
-      if (!turnstileToken) {
-        return {
-          success: false,
-          error: 'Bot protection token required',
-          turnstileError: true,
-        };
-      }
-
-      const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp);
-      
-      if (!turnstileResult.success) {
-        logger.warn('Turnstile verification failed', {
-          metadata: {
-            ip: clientIp,
-            path: request.nextUrl.pathname,
-            requestId,
-            errorCodes: turnstileResult.error_codes,
-          },
-        });
-
-        return {
-          success: false,
-          error: 'Bot protection verification failed',
-          turnstileError: true,
-        };
-      }
-
-      // Optional: Check score (for Turnstile Managed Challenge)
-      if (turnstileResult.score !== undefined && turnstileResult.score < 0.3) {
-        logger.warn('Low Turnstile score detected', {
-          metadata: {
-            ip: clientIp,
-            score: turnstileResult.score,
-            path: request.nextUrl.pathname,
-            requestId,
-          },
-        });
-
-        return {
-          success: false,
-          error: 'Verification failed - please try again',
-          turnstileError: true,
-        };
-      }
-    }
-
-    // ===== 4. RATE LIMITING =====
+    // ===== 3. RATE LIMITING =====
     if (rateLimit) {
       let rateLimitResult: RateLimitResult;
       
@@ -270,27 +214,22 @@ export const validators = {
   login: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'login',
       schema,
-      extractTurnstileToken: (data) => data.turnstileToken,
     }),
 
   // Register endpoint validator
   register: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'register',
       schema,
-      extractTurnstileToken: (data) => data.turnstileToken,
     }),
 
   // Create listing validator
   createListing: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: false, // Only if brand new user
       rateLimit: 'listings',
       schema,
     }),
@@ -299,7 +238,6 @@ export const validators = {
   editListing: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: false,
       rateLimit: null,
       schema,
     }),
@@ -308,7 +246,6 @@ export const validators = {
   deleteListing: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: false,
       rateLimit: null,
       schema,
     }),
@@ -317,27 +254,22 @@ export const validators = {
   sendMessage: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'messages',
       schema,
-      extractTurnstileToken: (data) => data.turnstileToken,
     }),
 
   // Create report validator
   createReport: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'reports',
       schema,
-      extractTurnstileToken: (data) => data.turnstileToken,
     }),
 
-  // Admin action validator (no Turnstile needed, already authenticated)
+  // Admin action validator
   adminAction: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: false,
       rateLimit: null,
       schema,
     }),
@@ -346,7 +278,6 @@ export const validators = {
   upload: async (request: NextRequest, schema?: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: false,
       rateLimit: 'upload',
       schema,
     }),
@@ -355,9 +286,7 @@ export const validators = {
   contact: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'contact',
       schema,
-      extractTurnstileToken: (data) => data.turnstileToken,
     }),
 };

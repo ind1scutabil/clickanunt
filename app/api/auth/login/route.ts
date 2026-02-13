@@ -13,12 +13,19 @@ export async function POST(request: NextRequest) {
     // Test database connection
     await db.testConnection();
 
+    // A2: Log request details for debugging
+    const requestHost = request.headers.get('host') || 'unknown';
+    const requestOrigin = request.headers.get('origin') || 'unknown';
+    console.log('[LOGIN ROUTE] Incoming request:', {
+      host: requestHost,
+      origin: requestOrigin,
+      timestamp: new Date().toISOString()
+    });
+
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'login',
       schema: loginSchema,
-      extractTurnstileToken: (data) => data.turnstileToken || null,
     });
 
     if (!security.success) {
@@ -26,10 +33,17 @@ export async function POST(request: NextRequest) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError || security.turnstileError
+        : security.validationError
         ? 400
         : 400;
-      return NextResponse.json({ error: security.error }, { status });
+      
+      console.error('[LOGIN ROUTE] Security validation failed:', {
+        error: security.error
+      });
+      
+      return NextResponse.json({ 
+        error: security.error
+      }, { status });
     }
 
     const { email, password } = security.data as { email: string; password: string };

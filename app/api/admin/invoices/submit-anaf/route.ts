@@ -94,13 +94,14 @@ export async function POST(req: NextRequest) {
         }
 
         // Generate e-invoice XML format - cast items to proper type
-        generateEInvoiceXML({
+        const xmlPayload = {
           ...invoice,
-          items: invoice.items as { description: string; quantity: number; unitPrice: number; vatRate: number; }[],
+          items: invoice.items as { description: string; quantity: number; unitPrice: number; vatRate: number }[],
           issuedAt: invoice.issuedAt ? new Date(invoice.issuedAt).toISOString() : new Date().toISOString(),
           dueAt: invoice.dueAt ? new Date(invoice.dueAt).toISOString() : new Date().toISOString(),
           metadata: (invoice.metadata || {}) as Record<string, unknown>,
-        } as any);
+        } satisfies Parameters<typeof generateEInvoiceXML>[0];
+        generateEInvoiceXML(xmlPayload);
 
         // In production, this would:
         // 1. Validate XML against ANAF schema

@@ -15,6 +15,15 @@ type PromotionBenefits = {
   promotions?: Record<string, { count?: number; expiresAt?: string | null }>;
 };
 
+type BenefitsRequest = {
+  globalDiscount?: string | number;
+  freePromotions?: string | number;
+  promotionType?: string;
+  creditsBonus?: string | number;
+  applyTo?: string;
+  expiryDays?: string | number;
+};
+
 function getSegmentWhere(segment: string) {
   const now = new Date();
   const days30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const body = security.data as any;
+    const body = security.data as BenefitsRequest;
     const {
       globalDiscount,
       freePromotions,
@@ -61,10 +70,10 @@ export async function POST(request: NextRequest) {
       expiryDays,
     } = body;
 
-    const discountValue = Math.max(0, Math.min(100, parseInt(globalDiscount ?? '0', 10)));
-    const freeCount = Math.max(0, parseInt(freePromotions ?? '0', 10));
-    const creditsValue = Math.max(0, parseInt(creditsBonus ?? '0', 10));
-    const expiryValue = Math.max(1, parseInt(expiryDays ?? '30', 10));
+    const discountValue = Math.max(0, Math.min(100, parseInt(String(globalDiscount ?? 0), 10)));
+    const freeCount = Math.max(0, parseInt(String(freePromotions ?? 0), 10));
+    const creditsValue = Math.max(0, parseInt(String(creditsBonus ?? 0), 10));
+    const expiryValue = Math.max(1, parseInt(String(expiryDays ?? 30), 10));
 
     if (!promotionType) {
       return NextResponse.json({ error: "Tipul de promovare este necesar" }, { status: 400 });

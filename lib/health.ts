@@ -94,7 +94,6 @@ async function checkStorage(): Promise<HealthCheck> {
 /**
  * Check Redis connectivity (optional) - Not currently used
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function _checkRedis(): Promise<HealthCheck> {
   // TODO: Implement actual Redis check when integrated
   if (!process.env.REDIS_URL) {

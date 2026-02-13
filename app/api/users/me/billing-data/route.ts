@@ -10,6 +10,7 @@ import {
   getBillingProfileStatus, 
   validateUserBillingData
 } from '@/lib/invoice-user-profile';
+import type { AccountType } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
   try {
@@ -121,12 +122,19 @@ export async function PUT(req: NextRequest) {
         );
       }
     }
+    const accountType: AccountType =
+      body.accountType === 'business'
+        ? 'business'
+        : body.accountType === 'personal' || body.accountType === 'private'
+        ? 'private'
+        : user.accountType;
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         name: body.name || user.name,
-        accountType: (body.accountType || user.accountType) as any,
+        accountType,
         ...(body.accountType === 'business' && {
           businessName: body.businessName || user.businessName,
           businessCUI: body.businessCUI?.replace(/[^0-9]/g, '') || user.businessCUI,

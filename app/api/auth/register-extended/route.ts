@@ -35,10 +35,8 @@ export async function POST(request: NextRequest) {
 
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'register',
       schema: registerExtendedSchema,
-      extractTurnstileToken: (data) => data.turnstileToken || null,
     });
 
     if (!security.success) {
@@ -46,7 +44,7 @@ export async function POST(request: NextRequest) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError || security.turnstileError
+        : security.validationError
         ? 400
         : 400;
       return NextResponse.json({ error: security.error }, { status });
@@ -237,7 +235,7 @@ export async function POST(request: NextRequest) {
             : "Cont creat cu succes! Verifică-ți emailul pentru activare...",
         mode: db.isUsingInMemory() ? "development" : "production",
       },
-      { status: 201 }
+      { status: 200 }
     );
 
     // Set cookies pentru autentificare automată

@@ -150,31 +150,31 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex justify-between items-center gap-4">
-            <Link href="/" className="group flex items-center gap-3 hover:opacity-80 transition">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-xl flex items-center justify-center text-3xl shadow-lg group-hover:shadow-xl transition-all group-hover:scale-105">
+            <Link href="/" className="group flex items-center gap-3 hover:opacity-90 transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:rounded-xl">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:shadow-lg transition-smooth group-hover:scale-105">
                 📦
               </div>
               <div className="hidden sm:block">
-                <div className="text-2xl font-black text-[#0B1220] leading-none">ClickAnunț</div>
-                <div className="text-xs text-[#6D5BFF] font-bold uppercase tracking-wider -mt-0.5">Anunțuri gratuite</div>
+                <div className="text-xl font-black text-[#0B1220] leading-tight">ClickAnunț</div>
+                <div className="text-[10px] text-[#6D5BFF] font-bold uppercase tracking-wide">Anunțuri gratuite</div>
               </div>
             </Link>
 
             <div className="flex-1 max-w-2xl hidden md:block">
-              <div className="relative group">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="relative">
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
                   type="text"
                   placeholder="Ce cauți astăzi?"
                   aria-label="Caută anunțuri"
-                  className="w-full pl-12 pr-5 py-3.5 bg-gray-50 border-2 border-gray-200 rounded-lg focus:border-[#6D5BFF] focus:bg-white focus:shadow-lg focus:ring-2 focus:ring-[#6D5BFF]/30 outline-none transition-all text-gray-800 font-medium"
+                  className="w-full h-11 pl-12 pr-24 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#6D5BFF] focus:bg-white focus:shadow-md focus:ring-2 focus:ring-[#6D5BFF]/20 outline-none transition-smooth text-gray-900 text-sm placeholder:text-gray-500"
                 />
                 <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 mobile-orange-btn py-2 px-6 text-sm focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 px-4 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-semibold rounded-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-1"
                   aria-label="Caută"
                 >
                   Caută
@@ -182,26 +182,26 @@ export default function Navbar() {
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-3">
+            <nav className="hidden md:flex items-center gap-2">
               <div className="relative">
                 <button
                   onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
                   aria-label="Meniu categorii"
                   aria-expanded={isCategoriesOpen}
                   aria-haspopup="true"
-                  className="flex items-center gap-2 px-5 py-3 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition font-bold rounded-lg border-2 border-transparent hover:border-[#6D5BFF] focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                  className="hit-target flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl border border-transparent hover:border-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                   Categorii
-                  <svg className={`w-4 h-4 transition-transform ${isCategoriesOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 transition-transform duration-200 ${isCategoriesOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {isCategoriesOpen && (
                   <div
-                    className="absolute top-full left-0 mt-3 w-80 bg-white border-2 border-[#6D5BFF]/20 rounded-xl shadow-2xl max-h-96 overflow-y-auto z-50"
+                    className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg max-h-96 overflow-y-auto z-50 animate-fadeIn"
                     role="menu"
                     aria-label="Lista categorii"
                   >
@@ -209,7 +209,7 @@ export default function Navbar() {
                       <Link
                         key={cat}
                         href={`/listings?category=${encodeURIComponent(cat)}`}
-                        className="block px-6 py-3.5 hover:bg-[#6D5BFF] hover:text-white border-b border-gray-100 last:border-b-0 transition-all font-semibold text-[#0B1220]"
+                        className="block px-5 py-3 hover:bg-[#6D5BFF]/10 hover:text-[#6D5BFF] border-b border-gray-100 last:border-b-0 transition-smooth font-medium text-[#0B1220] first:rounded-t-xl last:rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#6D5BFF]"
                         onClick={() => setIsCategoriesOpen(false)}
                       >
                         {cat}
@@ -221,7 +221,7 @@ export default function Navbar() {
 
               <Link
                 href="/messages"
-                className="relative flex items-center gap-2 px-5 py-3 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                className="hit-target relative flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
                 aria-label="Mesaje"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,7 +233,7 @@ export default function Navbar() {
 
               <Link
                 href="/favorites"
-                className="flex items-center gap-2 px-5 py-3 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                className="hit-target flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
                 aria-label="Anunțuri favorite"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,9 +248,9 @@ export default function Navbar() {
                   aria-label="Meniu utilizator"
                   aria-expanded={isUserMenuOpen}
                   aria-haspopup="true"
-                  className="flex items-center gap-2 px-5 py-3 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                  className="hit-target flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <span className="hidden lg:inline">Cont</span>
@@ -263,13 +263,13 @@ export default function Navbar() {
                   }`}>
                     {accountBadge}
                   </span>
-                  <svg className={`w-4 h-4 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-4 h-4 transition-transform duration-200 ${isUserMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
                 {isUserMenuOpen && (
                   <div
-                    className="absolute top-full right-0 mt-3 w-64 bg-white border-2 border-[#6D5BFF]/20 rounded-xl shadow-2xl z-50 overflow-hidden"
+                    className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden animate-fadeIn"
                     role="menu"
                     aria-label="Meniu utilizator"
                   >
@@ -367,25 +367,25 @@ export default function Navbar() {
                 )}
               </div>
 
-              <Link href="/listings/new" className="mobile-orange-btn flex items-center gap-2 text-base shadow-xl">
+              <Link href="/listings/new" className="hit-target flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="hidden xl:inline font-black">ADAUGĂ ANUNȚ</span>
-                <span className="xl:hidden font-black">ADAUGĂ</span>
+                <span className="hidden xl:inline">ADAUGĂ ANUNȚ</span>
+                <span className="xl:hidden">ADAUGĂ</span>
               </Link>
             </nav>
 
             <button
-              className="md:hidden flex flex-col gap-1.5 p-2 hover:bg-gray-100 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+              className="hit-target md:hidden flex flex-col gap-1.5 p-2 hover:bg-gray-100 rounded-xl transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Deschide/închide meniu"
               aria-expanded={isMenuOpen}
               aria-controls="mobile-menu"
             >
-              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-300 rounded-full ${isMenuOpen ? "rotate-45 translate-y-2.5" : ""}`}></span>
-              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-300 rounded-full ${isMenuOpen ? "opacity-0" : ""}`}></span>
-              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-300 rounded-full ${isMenuOpen ? "-rotate-45 -translate-y-2.5" : ""}`}></span>
+              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-200 rounded-full ${isMenuOpen ? "rotate-45 translate-y-2.5" : ""}`}></span>
+              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-200 rounded-full ${isMenuOpen ? "opacity-0" : ""}`}></span>
+              <span className={`block w-7 h-1 bg-[#003D5C] transition-all duration-200 rounded-full ${isMenuOpen ? "-rotate-45 -translate-y-2.5" : ""}`}></span>
             </button>
           </div>
 

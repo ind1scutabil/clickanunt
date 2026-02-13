@@ -4,8 +4,7 @@
  * Features:
  * - WAF rule management
  * - Rate limiting
- * - Bot protection
- * - Turnstile integration
+ * - Bot protection (via Cloudflare)
  * - Real IP detection
  * - Edge caching
  */
@@ -25,15 +24,6 @@ export const CLOUDFLARE_CONFIG: CloudflareConfig = {
   accountId: process.env.CLOUDFLARE_ACCOUNT_ID || '',
   apiToken: process.env.CLOUDFLARE_API_TOKEN || '',
   accountEmail: process.env.CLOUDFLARE_EMAIL,
-};
-
-/**
- * Turnstile configuration
- */
-export const TURNSTILE_CONFIG = {
-  siteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '',
-  secretKey: process.env.TURNSTILE_SECRET_KEY || '',
-  enabled: !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
 };
 
 /**
@@ -147,7 +137,7 @@ export const THREAT_THRESHOLDS = {
 export const BOT_DETECTION = {
   enableManaged: true,          // Cloudflare Managed Bot Fighting
   enableSuperBot: true,         // Super Bot Fight Mode
-  enableChallenge: true,        // Show CAPTCHA
+  enableChallenge: false,       // Show CAPTCHA
   enableBlock: true,            // Block known bad bots
   sensitivity: 'high',          // 'low' | 'medium' | 'high'
 } as const;

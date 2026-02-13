@@ -16,80 +16,103 @@ export default function MessagesPage() {
     return true;
   });
 
-  return (
-    <div className="min-h-screen bg-[#0A0B14] relative overflow-hidden">
-      {/* Animated gradient orbs background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#6366F1]/20 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#7C3AED]/20 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 right-1/2 w-96 h-96 bg-[#8B5CF6]/10 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '2s'}}></div>
+  // Empty state component
+  const EmptyState = ({ tab }: { tab: string }) => (
+    <div className="flex flex-col items-center justify-center py-20 px-4">
+      <div className="w-32 h-32 mb-6 relative">
+        <svg viewBox="0 0 200 200" className="w-full h-full text-white/10">
+          <circle cx="100" cy="100" r="80" fill="currentColor" />
+          <path 
+            d="M60 80 L100 110 L140 80 M60 80 L60 130 L140 130 L140 80" 
+            stroke="currentColor" 
+            strokeWidth="8" 
+            fill="none" 
+            className="text-white/20"
+          />
+        </svg>
       </div>
+      <h3 className="text-2xl font-bold text-white mb-3">
+        {tab === "all" && "Niciun mesaj încă"}
+        {tab === "unread" && "Toate mesajele sunt citite"}
+        {tab === "sent" && "Nu ai trimis mesaje"}
+      </h3>
+      <p className="text-white/60 mb-8 max-w-md text-center leading-relaxed">
+        {tab === "all" && "Când cineva îți trimite un mesaj despre anunțurile tale, îl vei vedea aici."}
+        {tab === "unread" && "Bravo! Ai răspuns la toate mesajele primite."}
+        {tab === "sent" && "Când contactezi un vânzător, conversațiile vor apărea aici."}
+      </p>
+      <Link href="/listings">
+        <button className="px-6 py-3 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white font-bold rounded-xl hover:shadow-lg hover:shadow-[#6D5BFF]/30 transition-all">
+          Explorează Anunțuri
+        </button>
+      </Link>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0F1117]">
       
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
         {/* Header with 3D effect */}
-        <div className="mb-12">
-          <h1 className="text-6xl font-black mb-4 relative">
-            <span className="text-white drop-shadow-2xl">Mesajele </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] animate-gradient-x drop-shadow-2xl">
-              mele
-            </span>
-            <div className="absolute -inset-1 bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] opacity-20 blur-3xl -z-10"></div>
+        <div className="mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-3">
+            <span className="text-white">Mesajele</span>
+            <span className="text-white/80"> mele</span>
           </h1>
-          <p className="text-gray-400 text-lg font-medium">
+          <p className="text-white/70 text-lg leading-relaxed">
             Gestionează conversațiile tale cu cumpărătorii și vânzătorii
           </p>
         </div>
 
         {/* Tabs with glass effect */}
-        <div className="group relative mb-8">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#6366F1]/10 via-[#8B5CF6]/10 to-[#7C3AED]/10 rounded-2xl blur-xl"></div>
-          <div className="relative flex gap-2 bg-slate-800/80 backdrop-blur-xl rounded-2xl p-2 border border-slate-700/50 shadow-2xl">
+        <div className="mb-8">
+          <div className="flex gap-2 bg-[#161B22] border border-white/5 rounded-[14px] p-1.5">
             <button
               onClick={() => setActiveTab("all")}
-              className={`flex-1 px-6 py-4 font-bold text-lg transition-all rounded-xl ${
+              className={`flex-1 h-11 px-4 font-semibold text-base transition-all rounded-[12px] border ${
                 activeTab === "all"
-                  ? "bg-gradient-to-r from-[#6366F1]/20 to-[#7C3AED]/20 text-[#8B5CF6] shadow-lg border border-[#6366F1]/50"
-                  : "text-gray-400 hover:text-[#8B5CF6] hover:bg-slate-700/50"
+                  ? "bg-[#1C212B] border-white/10 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5"
               }`}
             >
               Toate
-              <span className="ml-2 px-2.5 py-1 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] text-white rounded-full text-xs font-bold shadow-lg">
+              <span className="ml-2 px-2.5 py-0.5 bg-white/10 border border-white/10 text-white/70 rounded-full text-xs font-semibold">
                 {messages.length}
-            </span>
-          </button>
+              </span>
+            </button>
             <button
               onClick={() => setActiveTab("unread")}
-              className={`flex-1 px-6 py-4 font-bold text-lg transition-all rounded-xl ${
+              className={`flex-1 h-11 px-4 font-semibold text-base transition-all rounded-[12px] border ${
                 activeTab === "unread"
-                  ? "bg-gradient-to-r from-[#7C3AED]/20 to-[#6366F1]/20 text-[#8B5CF6] shadow-lg border border-[#7C3AED]/50"
-                  : "text-gray-400 hover:text-[#8B5CF6] hover:bg-slate-700/50"
+                  ? "bg-[#1C212B] border-white/10 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5"
               }`}
             >
               Necitite
-              <span className="ml-2 px-2.5 py-1 bg-gradient-to-r from-[#7C3AED] to-[#6366F1] text-white rounded-full text-xs font-bold shadow-lg animate-pulse">
+              <span className="ml-2 px-2.5 py-0.5 bg-white/10 border border-white/10 text-white/70 rounded-full text-xs font-semibold">
                 {messages.filter((m) => m.unread).length}
               </span>
             </button>
             <button
               onClick={() => setActiveTab("sent")}
-              className={`flex-1 px-6 py-4 font-bold text-lg transition-all rounded-xl ${
+              className={`flex-1 h-11 px-4 font-semibold text-base transition-all rounded-[12px] border ${
                 activeTab === "sent"
-                  ? "bg-gradient-to-r from-[#6366F1]/20 to-[#8B5CF6]/20 text-[#8B5CF6] shadow-lg border border-[#6366F1]/50"
-                  : "text-gray-400 hover:text-[#8B5CF6] hover:bg-slate-700/50"
+                  ? "bg-[#1C212B] border-white/10 text-white"
+                  : "border-transparent text-white/70 hover:bg-white/5"
               }`}
             >
               Trimise
-              <span className="ml-2 px-2.5 py-1 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] text-white rounded-full text-xs font-bold shadow-lg">0</span>
+              <span className="ml-2 px-2.5 py-0.5 bg-white/10 border border-white/10 text-white/70 rounded-full text-xs font-semibold">0</span>
             </button>
           </div>
         </div>
 
         {/* Messages List */}
         {filteredMessages.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] rounded-full mb-6 shadow-2xl animate-pulse">
+          <div className="max-w-[520px] mx-auto mt-10 text-center bg-[#161B22] border border-white/5 rounded-2xl p-7 md:p-8 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 border border-white/10 rounded-2xl mb-5">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -102,14 +125,14 @@ export default function MessagesPage() {
             <h3 className="text-2xl font-black text-white mb-3">
               {activeTab === "sent" ? "Niciun mesaj trimis" : "Niciun mesaj"}
             </h3>
-            <p className="text-gray-400 text-lg mb-8">
+            <p className="text-white/70 text-base leading-relaxed mb-6">
               {activeTab === "sent"
                 ? "Trimite primul mesaj unui vânzător"
                 : "Când vei primi mesaje, le vei vedea aici"}
             </p>
             <Link
               href="/listings"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] hover:from-[#7C3AED] hover:via-[#8B5CF6] hover:to-[#6366F1] text-white px-8 py-4 rounded-xl font-black text-lg transition-all shadow-xl hover:shadow-2xl transform hover:scale-105"
+              className="inline-flex items-center gap-3 h-11 px-6 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -127,18 +150,13 @@ export default function MessagesPage() {
             {filteredMessages.map((message) => (
               <div
                 key={message.id}
-                className={`relative bg-slate-800/60 backdrop-blur-md rounded-2xl p-6 border-2 hover:border-[#6366F1]/50 hover:shadow-2xl hover:shadow-[#6366F1]/20 transition-all duration-300 cursor-pointer group overflow-hidden ${
-                  message.unread ? "border-[#6366F1]/30 shadow-lg shadow-[#6366F1]/10" : "border-slate-700/50 shadow-sm"
+                className={`relative bg-[#161B22] rounded-2xl p-6 border border-white/5 shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all duration-300 cursor-pointer group hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.40)] ${
+                  message.unread ? "border-white/10" : "border-white/5"
                 }`}
               >
-                {/* Animated background blob */}
-                {message.unread && (
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#6366F1]/30 to-[#8B5CF6]/30 rounded-full filter blur-3xl animate-pulse"></div>
-                )}
-                
                 <div className="relative flex items-start gap-5">
                   {/* Avatar */}
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] rounded-full flex items-center justify-center text-white font-black text-lg flex-shrink-0 shadow-lg">
+                  <div className="w-14 h-14 bg-[#1C212B] border border-white/10 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                     {message.avatar}
                   </div>
 
@@ -146,7 +164,7 @@ export default function MessagesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="font-black text-xl text-white mb-1 group-hover:bg-gradient-to-r group-hover:from-[#6366F1] group-hover:to-[#7C3AED] group-hover:bg-clip-text group-hover:text-transparent transition">
+                        <h3 className="font-semibold text-xl text-white mb-1">
                           {message.sender}
                         </h3>
                         <p className="text-sm text-gray-400 font-semibold">
@@ -158,7 +176,7 @@ export default function MessagesPage() {
                           {message.time}
                         </span>
                         {message.unread && (
-                          <span className="w-3 h-3 bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] rounded-full animate-pulse shadow-lg"></span>
+                          <span className="w-2.5 h-2.5 bg-white/70 rounded-full"></span>
                         )}
                       </div>
                     </div>
@@ -168,7 +186,7 @@ export default function MessagesPage() {
                     </p>
 
                     <div className="flex gap-3">
-                      <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] hover:from-[#7C3AED] hover:via-[#8B5CF6] hover:to-[#6366F1] text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
+                      <button className="flex items-center gap-2 h-11 px-5 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white rounded-[12px] font-semibold text-sm transition-all shadow-[0_18px_50px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
                             strokeLinecap="round"
@@ -179,7 +197,7 @@ export default function MessagesPage() {
                         </svg>
                         Răspunde
                       </button>
-                      <button className="flex items-center gap-2 px-6 py-3 bg-slate-700/50 hover:bg-slate-600/50 text-gray-300 hover:text-[#8B5CF6] rounded-xl font-bold text-sm transition-all border-2 border-slate-600/50 hover:border-[#6366F1]/50 shadow-sm hover:shadow-md">
+                      <button className="flex items-center gap-2 h-11 px-5 bg-[#1C212B] hover:bg-[#222836] text-white/80 hover:text-white rounded-[12px] font-semibold text-sm transition-all border border-white/5 hover:border-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path
                             strokeLinecap="round"
@@ -206,8 +224,8 @@ export default function MessagesPage() {
 
         {/* Empty State for Sent Messages */}
         {activeTab === "sent" && (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#6366F1] via-[#8B5CF6] to-[#7C3AED] rounded-full mb-6 shadow-2xl animate-pulse">
+          <div className="max-w-[520px] mx-auto mt-10 text-center bg-[#161B22] border border-white/5 rounded-2xl p-7 md:p-8 shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 border border-white/10 rounded-2xl mb-5">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -218,7 +236,7 @@ export default function MessagesPage() {
               </svg>
             </div>
             <h3 className="text-2xl font-black text-white mb-3">Niciun mesaj trimis</h3>
-            <p className="text-gray-400 text-lg">
+            <p className="text-white/70 text-base leading-relaxed">
               Mesajele pe care le trimiți vânzătorilor vor apărea aici
             </p>
           </div>

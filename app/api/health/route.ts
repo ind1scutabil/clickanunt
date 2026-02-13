@@ -1,67 +1,64 @@
 /**
  * API Route: Health Check - Enterprise Level
+ * Returns application health status including database connectivity
  */
 
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
-import { performHealthCheck, checkLiveness, checkReadiness } from "@/lib/health";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
+  const startTime = Date.now();
+  
+  let dbStatus = 'disconnected';
+  let dbError = null;
+  
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'full';
-
-    // Liveness probe (simple DB ping)
-    if (type === 'live') {
-      const isAlive = await checkLiveness();
-      return NextResponse.json(
-        { status: isAlive ? 'ok' : 'error', mode: db.isUsingInMemory() ? 'in-memory' : 'database' },
-        { status: isAlive ? 200 : 503 }
-      );
-    }
-
-    // Readiness probe (all systems operational)
-    if (type === 'ready') {
-      const isReady = await checkReadiness();
-      return NextResponse.json(
-        { status: isReady ? 'ready' : 'not_ready', mode: db.isUsingInMemory() ? 'in-memory' : 'database' },
-        { status: isReady ? 200 : 503 }
-      );
-    }
-
-    // Full health check
-    const health = await performHealthCheck();
-    
-    // Add database mode
-    const dbHealth = db.getHealthStatus();
-    (health as any).database = {
-      status: dbHealth.healthy ? 'up' : 'down',
-      mode: dbHealth.mode,
-      message: dbHealth.mode === 'in-memory' 
-        ? 'Using in-memory database (PostgreSQL not available)' 
-        : 'Connected to PostgreSQL',
-    };
-    
-    // Enterprise: healthy if at least one database mode works
-    if (health.status === 'unhealthy' && dbHealth.mode === 'in-memory') {
-      health.status = 'degraded';
-      (health as any).message = 'Running in development mode with in-memory database';
-    }
-    
-    const statusCode = health.status === 'healthy' ? 200 :
-                       health.status === 'degraded' ? 200 : 503;
-
-    return NextResponse.json(health, { status: statusCode });
-  } catch (error: any) {
+    // Test database connection with a simple query
+    await prisma.$queryRaw`SELECT 1`;
+    dbStatus = 'connected';
+  } catch (error) {
+    dbError = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[HEALTH CHECK] Database connection failed:', error);
+  }
+  
+  const responseTime = Date.now() - startTime;
+  
+  // Fail if database is not reachable
+  if (dbStatus !== 'connected') {
     return NextResponse.json(
       {
-        status: 'unhealthy',
-        error: error.message,
+        status: 'error',
+        db: dbStatus,
+        error: dbError,
+        version: process.env.APP_VERSION || 'unknown',
         timestamp: new Date().toISOString(),
-        mode: db.isUsingInMemory() ? 'in-memory' : 'database',
+        responseTime: `${responseTime}ms`,
       },
-      { status: 503 }
+      { status: 503 } // Service Unavailable
     );
   }
+  
+  return NextResponse.json(
+    {
+      status: 'ok',
+      db: dbStatus,
+      version: process.env.APP_VERSION || '1.0.0',
+      environment: process.env.NODE_ENV || 'development',
+      timestamp: new Date().toISOString(),
+      responseTime: `${responseTime}ms`,
+      checks: {
+        database: '✓',
+        server: '✓',
+      },
+    },
+    { 
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    }
+  );
 }

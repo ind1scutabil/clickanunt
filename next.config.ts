@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
   
   experimental: {
     optimizePackageImports: ['react', 'react-dom'],
+    instrumentationHook: true,
   },
   
   // Production optimizations
@@ -67,15 +68,26 @@ const nextConfig: NextConfig = {
         value: 'inline'
       },
       {
-        // CSP Security Policy
+        // CSP Security Policy - Enterprise Grade
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
+          // Script: allow self + inline (Next.js requires) + GTM
+          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net",
+          // Style: allow self + inline (styled-components/emotion require) + Google Fonts
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          // Fonts: Google Fonts + data URIs
           "font-src 'self' https://fonts.gstatic.com data:",
+          // Images: self + data + blob + https (for external images)
           "img-src 'self' data: blob: https:",
-          "connect-src 'self'",
+          // Connect: self + API endpoints
+          "connect-src 'self' https://www.clickanunt.ro https://clickanunt.ro",
+          // Frame ancestors: deny embedding
+          "frame-ancestors 'none'",
+          // Base URI: restrict to same origin
+          "base-uri 'self'",
+          // Form action: restrict to same origin
+          "form-action 'self'",
         ].join('; ')
       }
     ];

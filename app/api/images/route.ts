@@ -13,7 +13,6 @@ import { uploadImage, generateImageKey } from "@/lib/storage";
 import { moderateImage } from "@/lib/moderation";
 import { validateCSRFToken, CSRFValidationError } from "@/lib/security/csrf";
 import { rateLimitPresets, getClientIp } from "@/lib/rateLimit";
-import { verifyTurnstileToken } from "@/lib/bot-protection";
 import { imageDeleteSchema } from "@/lib/security/validation-schemas";
 
 const MAX_FILES = 20; // Max images per listing
@@ -34,16 +33,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const listingId = formData.get("listingId") as string;
-    const turnstileToken = formData.get("turnstileToken") as string | null;
-
-    if (!turnstileToken) {
-      return NextResponse.json({ error: "Bot protection token required" }, { status: 400 });
-    }
-
-    const turnstileResult = await verifyTurnstileToken(turnstileToken, ip);
-    if (!turnstileResult.success) {
-      return NextResponse.json({ error: "Bot verification failed" }, { status: 400 });
-    }
 
     // Validation
     if (!listingId) {

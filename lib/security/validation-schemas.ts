@@ -54,7 +54,6 @@ export const paginationSchema = z.object({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, 'Parola necesară'),
-  turnstileToken: z.string().min(1, 'Bot protection token required'),
   rememberMe: z.boolean().default(false).optional(),
 }).strict();
 
@@ -63,7 +62,6 @@ export const registerSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
   name: nameSchema,
-  turnstileToken: z.string().min(1, 'Bot protection token required'),
   acceptTerms: z.boolean().refine(v => v === true, 'Must accept terms'),
   acceptPrivacy: z.boolean().refine(v => v === true, 'Must accept privacy'),
 }).strict().refine(d => d.password === d.confirmPassword, {
@@ -77,7 +75,6 @@ export const registerExtendedSchema = z.object({
   confirmPassword: z.string(),
   accountType: z.enum(['personal', 'business']),
   name: nameSchema,
-  turnstileToken: z.string().min(1, 'Bot protection token required'),
   businessName: z.string().max(200).optional(),
   businessCUI: z.string().regex(/^\d{10}$/, 'CUI format invalid').optional(),
   businessRegCom: z.string().max(100).optional(),
@@ -136,7 +133,6 @@ export const listingCreateSchema = z.object({
   transmission: z.enum(['manual', 'automatic']).optional(),
   features: z.array(z.string()).default([]).optional(),
   tags: z.array(z.string().max(50)).max(10).default([]).optional(),
-  turnstileToken: z.string().min(1, 'Bot protection required'),
 }).strict();
 
 export const listingEditSchema = listingCreateSchema.partial().extend({
@@ -160,7 +156,6 @@ export const listingPromoteSchema = z.object({
 
 export const messageSendSchema = z.object({
   content: z.string().min(1, 'Message content required').max(5000),
-  turnstileToken: z.string().min(1, 'Bot protection required'),
 }).strict();
 
 /**
@@ -172,7 +167,6 @@ export const reportCreateSchema = z.object({
   reason: z.enum(['spam', 'fraud', 'illegal', 'copyright', 'inappropriate', 'other']),
   description: z.string().min(10).max(2000),
   evidence: z.array(z.string().url()).max(5).default([]).optional(),
-  turnstileToken: z.string().min(1, 'Bot protection required'),
 }).strict();
 
 export const reportResolveSchema = z.object({
@@ -284,7 +278,6 @@ export const uploadBase64Schema = z.object({
   data: z.string().min(1),
   listingId: uuidSchema.optional(),
   type: z.enum(['image', 'video']).optional(),
-  turnstileToken: z.string().min(1, 'Bot protection required'),
 }).strict();
 
 export const imageDeleteSchema = z.object({
@@ -296,6 +289,7 @@ export const imageDeleteSchema = z.object({
  */
 
 export const searchListingsSchema = z.object({
+  userId: z.string().max(50).optional(),
   q: z.string().min(2).max(200).optional(),
   category: z.string().max(100).optional(),
   subcategory: z.string().max(100).optional(),
@@ -305,7 +299,11 @@ export const searchListingsSchema = z.object({
   condition: z.string().max(50).optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
+  priceMin: z.coerce.number().min(0).optional(),
+  priceMax: z.coerce.number().min(0).optional(),
   year: z.coerce.number().int().optional(),
+  yearMin: z.coerce.number().int().optional(),
+  yearMax: z.coerce.number().int().optional(),
   make: z.string().max(100).optional(),
   model: z.string().max(100).optional(),
   fuel: z.string().max(50).optional(),
@@ -369,7 +367,7 @@ export async function parseAndValidate<T>(
     }
     
     return { success: true, data: result.data };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: 'Invalid JSON in request body',
@@ -396,7 +394,7 @@ export function parseAndValidateQuery<T>(
     }
     
     return { success: true, data: result.data };
-  } catch (error) {
+  } catch {
     return {
       success: false,
       error: 'Invalid query parameters',

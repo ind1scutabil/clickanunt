@@ -196,7 +196,6 @@ class AWSSecretsManager implements SecretManager {
     // Initialize AWS SDK if available
     if (process.env.AWS_REGION) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const AWS = require('aws-sdk');
         this.client = new AWS.SecretsManager({
           region: process.env.AWS_REGION,
@@ -319,7 +318,6 @@ export const MANAGED_SECRETS = {
 
   // Cloudflare
   CLOUDFLARE_API_TOKEN: 'cloudflare_api_token',
-  TURNSTILE_SECRET_KEY: 'turnstile_secret_key',
 
   // OAuth
   GOOGLE_CLIENT_SECRET: 'google_client_secret',

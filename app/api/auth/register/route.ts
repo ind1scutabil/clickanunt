@@ -18,10 +18,8 @@ export async function POST(request: NextRequest) {
 
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'register',
       schema: registerSchema,
-      extractTurnstileToken: (data) => data.turnstileToken || null,
     });
 
     if (!security.success) {
@@ -29,7 +27,7 @@ export async function POST(request: NextRequest) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError || security.turnstileError
+        : security.validationError
         ? 400
         : 400;
       return NextResponse.json({ error: security.error }, { status });
@@ -106,7 +104,7 @@ export async function POST(request: NextRequest) {
         message: "Cont creat cu succes! Bine ai venit!",
         mode: db.isUsingInMemory() ? 'development' : 'production',
       },
-      { status: 201 }
+      { status: 200 }
     );
 
     // Set access token cookie (7 zile) - Safari compatible

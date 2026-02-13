@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@clickanunt.ro';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@2026!';
   
   // Normalize email (same as sanitizeEmail in lib/sanitize.ts)
   const normalizedEmail = validator.normalizeEmail(adminEmail) || adminEmail;

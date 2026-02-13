@@ -21,6 +21,24 @@ type ModerationUser = {
   discount: number;
 };
 
+type ModerationListing = {
+  id: string;
+  title?: string;
+  price?: number;
+  photos?: number;
+  owner?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  reason?: string;
+  flagged?: boolean;
+  flagReason?: string;
+  views?: number;
+  favorites?: number;
+  status?: string;
+  [key: string]: string | number | boolean | undefined;
+};
+
 export default function AdminModerationPage() {
   const router = useRouter();
   const { isAuthorized, isLoading } = useAdminAuth();
@@ -28,11 +46,11 @@ export default function AdminModerationPage() {
   const [searchQuery, setSearchQuery] = useState('');
   
   // Clean database - no mock data
-  const [pendingListings, setPendingListings] = useState<any[]>([]);
+  const [pendingListings, setPendingListings] = useState<ModerationListing[]>([]);
 
-  const [approvedListings, setApprovedListings] = useState<any[]>([]);
+  const [approvedListings, setApprovedListings] = useState<ModerationListing[]>([]);
 
-  const [rejectedListings, setRejectedListings] = useState<any[]>([]);
+  const [rejectedListings, setRejectedListings] = useState<ModerationListing[]>([]);
 
   const [users, setUsers] = useState<ModerationUser[]>([]);
 
@@ -397,7 +415,9 @@ export default function AdminModerationPage() {
                         <h3 className="text-2xl font-black text-white mb-2">{listing.title}</h3>
                         <div className="flex items-center gap-4 mb-3">
                           <span className="text-2xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent">
-                            {listing.price.toLocaleString()} RON
+                            {listing.price != null
+                              ? `${listing.price.toLocaleString()} RON`
+                              : '—'}
                           </span>
                           <span className="text-gray-400">📸 {listing.photos} poze</span>
                         </div>
@@ -452,7 +472,9 @@ export default function AdminModerationPage() {
                       </div>
                       <div className="flex items-center gap-4 mb-3">
                         <span className="text-2xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent">
-                          {listing.price.toLocaleString()} RON
+                          {listing.price != null
+                            ? `${listing.price.toLocaleString()} RON`
+                            : '—'}
                         </span>
                         <span className="text-gray-400">👁️ {listing.views} vizualizări</span>
                         <span className="text-gray-400">❤️ {listing.favorites} favorite</span>

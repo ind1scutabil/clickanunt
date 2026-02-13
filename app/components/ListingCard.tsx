@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
@@ -30,6 +30,25 @@ interface ListingCardProps {
 export function ListingCard({ listing, showOwner = false }: ListingCardProps) {
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [formattedDate, setFormattedDate] = useState<string>('Recent');
+
+  // Move date formatting to useEffect to avoid hydration mismatch
+  useEffect(() => {
+    const date = new Date(listing.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    let result: string;
+    if (diffDays === 0) result = 'Astăzi';
+    else if (diffDays === 1) result = 'Ieri';
+    else if (diffDays < 7) result = `Acum ${diffDays} zile`;
+    else if (diffDays < 30) result = `Acum ${Math.floor(diffDays / 7)} săptămâni`;
+    else if (diffDays < 365) result = `Acum ${Math.floor(diffDays / 30)} luni`;
+    else result = date.toLocaleDateString('ro-RO');
+    
+    setFormattedDate(result);
+  }, [listing.createdAt]);
 
   const formatPrice = (amount: number, currency: string) => {
     if (amount === 0) return 'Negociabil';
@@ -39,20 +58,6 @@ export function ListingCard({ listing, showOwner = false }: ListingCardProps) {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Astăzi';
-    if (diffDays === 1) return 'Ieri';
-    if (diffDays < 7) return `Acum ${diffDays} zile`;
-    if (diffDays < 30) return `Acum ${Math.floor(diffDays / 7)} săptămâni`;
-    if (diffDays < 365) return `Acum ${Math.floor(diffDays / 30)} luni`;
-    return date.toLocaleDateString('ro-RO');
   };
 
   const mainPhoto = listing.photos && listing.photos.length > 0 
@@ -136,7 +141,7 @@ export function ListingCard({ listing, showOwner = false }: ListingCardProps) {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span>{formatDate(listing.createdAt)}</span>
+                <span>{formattedDate}</span>
               </div>
               
               {/* Views */}

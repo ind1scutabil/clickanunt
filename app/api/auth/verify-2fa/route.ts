@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyTOTPLogin, useBackupCode } from '@/lib/2fa';
+import { verifyTOTPLogin, useBackupCode as consumeBackupCode } from '@/lib/2fa';
 import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
 import crypto from 'crypto';
 import { validateSecureRequest } from '@/lib/security/middleware';
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const userId = (session as { userId: string }).userId;
 
     if (backupCode) {
-      const isValid = await useBackupCode(userId, backupCode, ip, userAgent);
+      const isValid = await consumeBackupCode(userId, backupCode, ip, userAgent);
       if (!isValid) {
         return NextResponse.json(
           { error: 'Backup code invalid' },

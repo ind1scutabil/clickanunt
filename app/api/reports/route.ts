@@ -10,10 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      requireTurnstile: true,
       rateLimit: 'reports',
       schema: reportCreateSchema,
-      extractTurnstileToken: (data) => data.turnstileToken || null,
     });
 
     if (!security.success) {
@@ -21,7 +19,7 @@ export async function POST(request: NextRequest) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError || security.turnstileError
+        : security.validationError
         ? 400
         : 400;
       return NextResponse.json({ error: security.error }, { status });

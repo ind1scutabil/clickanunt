@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import TurnstileWidget from "@/app/components/TurnstileWidget";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 
 interface ReportButtonProps {
@@ -23,7 +22,6 @@ export default function ReportButton({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,10 +29,6 @@ export default function ReportButton({
     setError("");
 
     try {
-      if (!turnstileToken) {
-        throw new Error("Verificarea bot este necesară");
-      }
-
       const csrfToken = await getCsrfToken();
       const res = await fetch("/api/reports", {
         method: "POST",
@@ -47,7 +41,6 @@ export default function ReportButton({
           listingId: reportedListingId,
           reason: category,
           description,
-          turnstileToken,
         })
       });
 
@@ -165,7 +158,6 @@ export default function ReportButton({
                   >
                     Anulează
                   </button>
-                  <TurnstileWidget onVerify={setTurnstileToken} action="report" />
 
                   <button
                     type="submit"

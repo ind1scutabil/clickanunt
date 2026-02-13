@@ -23,22 +23,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build WHERE clause
-    const where: any = {
-      status: 'active',
-    };
-
-    // Add filters
-    if (category) where.category = category;
-    if (city) where.city = city;
-    if (year) where.year = parseInt(year);
-    
-    if (minPrice || maxPrice) {
-      where.priceAmount = {};
-      if (minPrice) where.priceAmount.gte = parseInt(minPrice);
-      if (maxPrice) where.priceAmount.lte = parseInt(maxPrice);
-    }
-
     // Full-text search using PostgreSQL tsvector
     const searchQuery = query
       .trim()
@@ -47,7 +31,19 @@ export async function GET(request: NextRequest) {
       .join(' & ');
 
     // Execute search with raw SQL for performance
-    const listings = await prisma.$queryRawUnsafe(`
+    const listings = await prisma.$queryRawUnsafe<Array<{
+      id: string;
+      title: string;
+      category: string | null;
+      priceAmount: number | null;
+      priceCurrency: string | null;
+      city: string | null;
+      county: string | null;
+      photos: string[] | null;
+      createdAt: Date;
+      isPromoted: boolean | null;
+      rank: number;
+    }>>(`
       SELECT 
         id, title, category, "priceAmount", "priceCurrency", 
         city, county, photos, "createdAt", "isPromoted",
@@ -66,7 +62,7 @@ export async function GET(request: NextRequest) {
     `, searchQuery, limit, offset);
 
     // Count total results
-    const countResult: any = await prisma.$queryRawUnsafe(`
+    const countResult = await prisma.$queryRawUnsafe<Array<{ count: string }>>(`
       SELECT COUNT(*) as count
       FROM listings
       WHERE 
@@ -91,10 +87,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Search error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Search failed', details: error.message },
+      { error: 'Search failed', details: message },
       { status: 500 }
     );
   }

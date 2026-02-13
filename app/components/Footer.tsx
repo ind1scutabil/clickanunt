@@ -127,7 +127,7 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500">
             <div>
-              <p>&copy; {new Date().getFullYear()} ClickAnunț. Toate drepturile rezervate.</p>
+              <p>&copy; 2026 ClickAnunț. Toate drepturile rezervate.</p>
               <p className="text-xs mt-1">
                 ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181
               </p>

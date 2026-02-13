@@ -81,7 +81,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { title, message, channels, segment, schedule, scheduledAt } = security.data as any;
+    const { title, message, channels, segment, schedule, scheduledAt } =
+      security.data as {
+        title?: string;
+        message?: string;
+        channels?: { email?: boolean; inApp?: boolean; sms?: boolean };
+        segment?: string;
+        schedule?: string;
+        scheduledAt?: string | null;
+      };
 
     if (!title || !message) {
       return NextResponse.json({ error: "Titlu și mesaj sunt necesare" }, { status: 400 });

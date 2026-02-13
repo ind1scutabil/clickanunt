@@ -44,6 +44,38 @@ const createTransporter = () => {
 const transporter = createTransporter();
 
 /**
+ * Trimite email generic
+ */
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text
+}: {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}) {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || 'noreply@clickanunt.ro',
+    to,
+    subject,
+    html,
+    text: text || html.replace(/<[^>]*>/g, '') // Strip HTML if no text provided
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Email trimis:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('❌ Eroare trimitere email:', error);
+    throw error;
+  }
+}
+
+/**
  * Generare token de verificare (UUID simplu)
  */
 export function generateVerificationToken(): string {

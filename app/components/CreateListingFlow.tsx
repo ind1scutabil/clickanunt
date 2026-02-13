@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { CATEGORIES } from '@/lib/carData';
-import TurnstileWidget from '@/app/components/TurnstileWidget';
 import { getCsrfToken } from '@/lib/security/csrf-client';
 
 interface CreateListingFlowProps {
@@ -52,7 +51,6 @@ export function CreateListingFlow({ userId, userAccountType, userSubscriptionTie
   const [loading, setLoading] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // Steps configuration
   const steps: { id: Step; label: string; icon: string }[] = [
@@ -143,9 +141,6 @@ export function CreateListingFlow({ userId, userAccountType, userSubscriptionTie
   const submitListing = async () => {
     setLoading(true);
     try {
-      if (!turnstileToken) {
-        throw new Error('Verificarea bot este necesară');
-      }
       const csrfToken = await getCsrfToken();
       const res = await fetch('/api/listings', {
         method: 'POST',
@@ -154,7 +149,6 @@ export function CreateListingFlow({ userId, userAccountType, userSubscriptionTie
           ...draft,
           ownerUserId: userId,
           status: userSubscriptionTier === 'free' ? 'pending' : 'active',
-          turnstileToken,
         }),
       });
 
@@ -292,13 +286,11 @@ export function CreateListingFlow({ userId, userAccountType, userSubscriptionTie
               Continuă →
             </button>
           ) : (
-            <div className="flex items-center gap-4">
-              <TurnstileWidget onVerify={setTurnstileToken} action="create_listing" />
-              <button
-                onClick={submitListing}
-                disabled={loading}
-                className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
+            <button
+              onClick={submitListing}
+              disabled={loading}
+              className="px-8 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
                 {loading ? (
                   <>
                     <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
@@ -313,7 +305,6 @@ export function CreateListingFlow({ userId, userAccountType, userSubscriptionTie
                   </>
                 )}
               </button>
-            </div>
           )}
         </div>
       </div>
