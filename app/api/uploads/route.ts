@@ -13,10 +13,11 @@ const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 
 /**
  * POST /api/uploads
- * Legacy endpoint that accepts base64 encoded images and videos
- * Converts to FormData and delegates to cloud storage
+ * Image/Video upload endpoint
+ * Accepts base64 encoded files, validates, and stores to cloud storage
  * 
- * Body: { filename: string, data: string (base64), listingId?: string, type?: "image" | "video" }
+ * Body: { data: string (base64), filename?: string, listingId?: string, type?: "image" | "video" }
+ * Note: filename is optional and not used - server generates safe filename automatically
  */
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { filename, data, listingId, type } = security.data as {
-      filename: string;
+      filename?: string;
       data: string;
       listingId?: string;
       type?: "image" | "video";
