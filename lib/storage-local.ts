@@ -21,7 +21,7 @@ export async function ensureUploadDir(): Promise<void> {
 
 /**
  * Upload image to local public folder
- * Returns URL path relative to public folder
+ * Returns absolute URL (http://domain.com/uploads/...)
  */
 export async function uploadImageLocal(
   file: Buffer,
@@ -40,8 +40,11 @@ export async function uploadImageLocal(
     const fullPath = path.join(UPLOAD_DIR, key);
     await fs.writeFile(fullPath, file);
 
-    // Return URL (relative to public folder)
-    return `/uploads/${key}`;
+    // Return absolute URL using public domain
+    // This ensures URLs pass Zod's .url() validation
+    const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.clickanunt.ro';
+    const cleanPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
+    return `${cleanPublicUrl}/uploads/${key}`;
   } catch (error) {
     console.error('Error uploading image locally:', error);
     throw new Error('Failed to upload image locally');
