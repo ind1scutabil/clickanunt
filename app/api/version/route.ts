@@ -3,94 +3,127 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { execSync } from "child_process";
 
 /**
  * GET /api/version
  * 
- * Returns deployment version information to verify which version is deployed.
- * This is critical for confirming deployment success and debugging issues.
+ * CRITICAL: Returns the actual git commit hash from the production repository.
+ * This endpoint MUST NOT be cached and MUST fail if git is not available.
+ * 
+ * Production MUST run from a git repository.
+ * If this returns null or an error, deployment is broken.
  * 
  * Cache Headers:
- * - no-store: Always fetch fresh (never cached)
- * - no-cache: Revalidate before use  
- * - must-revalidate: Cannot use stale version
- * 
- * This prevents Cloudflare and browsers from caching deployment info.
+ * - no-store: Never cached by any CDN or browser
+ * - no-cache: Always revalidate
+ * - must-revalidate: Cannot use stale response
  */
 
 export async function GET() {
   try {
-    // Read git commit hash from environment or deployment metadata
-    let gitCommit =
-      process.env.GIT_COMMIT_SHA ||
-      process.env.VERCEL_GIT_COMMIT_SHA ||
-      process.env.GIT_COMMIT ||
-      null;
+    // CRITICAL: Get real commit hash from git repository
+    // If this fails, production is NOT running from git (deployment ERROR)
+    let gitCommit = null;
+    let gitError = null;
 
-    // Try to read from deployment metadata file (created by deploy script)
     try {
-      const deploymentInfoPath = join(process.cwd(), "deployment-info.json");
-      if (existsSync(deploymentInfoPath)) {
-        const deploymentInfo = JSON.parse(
-          readFileSync(deploymentInfoPath, "utf-8")
-        );
-        gitCommit = deploymentInfo.gitCommit || gitCommit;
+      const cwd = process.cwd();
+      const gitPath = join(cwd, ".git");
+
+      // FAIL LOUDLY if .git does not exist
+      if (!existsSync(gitPath)) {
+        gitError = `CRITICAL: .git folder not found at ${gitPath}. Production must run from git repository.`;
+        console.error(`❌ ${gitError}`);
+      } else {
+        // Read actual git commit hash
+        try {
+          gitCommit = execSync("git rev-parse HEAD", { cwd }).toString().trim();
+          console.log(`✅ Git commit resolved: ${gitCommit}`);
+        } catch (err) {
+          gitError = `CRITICAL: Cannot read git commit. git rev-parse HEAD failed: ${err}`;
+          console.error(`❌ ${gitError}`);
+        }
       }
     } catch (err) {
-      // Silently fail - deployment-info.json may not exist yet
+      gitError = `CRITICAL: Error checking git repository: ${err}`;
+      console.error(`❌ ${gitError}`);
+    }
+
+    // If we couldn't get git commit, return ERROR (not null)
+    if (!gitCommit) {
+      console.error("🚨 PRODUCTION DEPLOYMENT ERROR: Cannot retrieve git commit hash");
+      return NextResponse.json(
+        {
+          error: gitError || "Production not running from git repository",
+          status: "error",
+          gitCommit: null,
+          message:
+            "CRITICAL: Production environment is not properly deployed from git. This is a deployment failure.",
+        },
+        {
+          status: 503, // Service Unavailable - deployment is broken
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+          },
+        }
+      );
     }
 
     // Read Next.js build ID
-    let buildId = process.env.NEXT_PUBLIC_BUILD_ID || "dev";
+    let buildId = "unknown";
     try {
       const buildIdPath = join(process.cwd(), ".next", "BUILD_ID");
       if (existsSync(buildIdPath)) {
-        const nextBuildId = readFileSync(buildIdPath, "utf-8").trim();
-        buildId = nextBuildId;
+        buildId = readFileSync(buildIdPath, "utf-8").trim();
       }
     } catch (err) {
-      // Silently fail - BUILD_ID may not be available
+      console.warn("Could not read BUILD_ID");
     }
 
     // Read package.json version
-    let version = "1.0.0";
+    let version = "unknown";
     try {
       const packageJsonPath = join(process.cwd(), "package.json");
       if (existsSync(packageJsonPath)) {
         const packageJson = JSON.parse(
           readFileSync(packageJsonPath, "utf-8")
         );
-        version = packageJson.version || "1.0.0";
+        version = packageJson.version || "unknown";
       }
     } catch (err) {
-      // Silently fail - package.json should always exist
+      console.warn("Could not read version from package.json");
     }
 
     const response = {
       version,
       buildId,
-      gitCommit,
+      gitCommit, // REAL commit hash
       buildTime: new Date().toISOString(),
       environment: process.env.NODE_ENV || "production",
+      status: "deployed",
     };
 
-    // Return with strict no-cache headers to prevent caching of version info
+    // Return with STRICT no-cache headers
     return NextResponse.json(response, {
       status: 200,
       headers: {
         "Cache-Control":
-          "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+          "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0",
         "Pragma": "no-cache",
         "Expires": "0",
         "Content-Type": "application/json",
       },
     });
   } catch (error) {
-    console.error("Version endpoint error:", error);
+    console.error("🚨 CRITICAL VERSION ENDPOINT ERROR:", error);
     return NextResponse.json(
       {
-        error: "Failed to retrieve version information",
+        error: String(error),
         status: "error",
+        message: "Version endpoint crashed - deployment may be broken",
       },
       {
         status: 500,
