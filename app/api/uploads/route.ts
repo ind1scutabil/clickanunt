@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
 import { uploadImage, generateImageKey } from "@/lib/storage";
 import { validateImage, stripExifData } from "@/lib/imageProcessing";
 import { v4 as uuidv4 } from "uuid";
@@ -49,6 +50,15 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
+    const logUploadDebug = (message: string, meta: Record<string, unknown> = {}) => {
+      try {
+        const line = JSON.stringify({ ts: new Date().toISOString(), message, meta });
+        fs.appendFileSync("/tmp/uploads-debug.log", line + "\n");
+      } catch {
+        // no-op
+      }
+    };
+
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
       rateLimit: 'upload',
@@ -70,6 +80,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
     }
 
+    logUploadDebug("request_received", {
+      method: request.method,
+      hasBody: !!body,
+      bodyKeys: body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [],
+    });
+
     let parsed = uploadBase64Schema.safeParse(body);
     if (!parsed.success) {
       const onlyFilenameIssues = parsed.error.issues.every(issue => issue.path.join('.') === 'filename');
@@ -83,6 +99,10 @@ export async function POST(request: NextRequest) {
       const issues = parsed.error.issues;
       const bodyKeys = body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [];
       console.error('Upload validation failed', { issues, bodyKeys });
+      logUploadDebug("validation_failed", {
+        issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+        bodyKeys,
+      });
       const errors = issues
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('; ');
