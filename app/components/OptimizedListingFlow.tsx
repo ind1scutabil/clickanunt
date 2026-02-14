@@ -283,7 +283,7 @@ export default function OptimizedListingFlow() {
           
           const safeFilename = `photo_${Date.now()}_${i}.${safeExt}`;
 
-          console.log(`📤 Trimit la API: ${safeFilename}`);
+          console.log(`📤 Trimit la API (fără filename)`);
           const res = await fetch("/api/uploads", {
             method: "POST",
             headers: { 
@@ -291,7 +291,6 @@ export default function OptimizedListingFlow() {
               "x-csrf-token": csrfToken,
             },
             body: JSON.stringify({ 
-              filename: safeFilename, 
               data: b64,
               type: "image"
             }),
@@ -380,8 +379,6 @@ export default function OptimizedListingFlow() {
       else if (file.type === 'video/quicktime') safeExt = 'mov';
       else if (file.type === 'video/x-msvideo') safeExt = 'avi';
       
-      const safeFilename = `video_${Date.now()}.${safeExt}`;
-
       const res = await fetch("/api/uploads", {
         method: "POST",
         headers: { 
@@ -389,7 +386,6 @@ export default function OptimizedListingFlow() {
           "x-csrf-token": csrfToken,
         },
         body: JSON.stringify({ 
-          filename: safeFilename, 
           data: b64,
           type: "video"
         }),

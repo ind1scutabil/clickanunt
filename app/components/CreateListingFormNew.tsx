@@ -97,7 +97,7 @@ export default function CreateListingFormNew() {
               "Content-Type": "application/json",
               "x-csrf-token": csrfToken,
             },
-            body: JSON.stringify({ filename: f.name, data: b64 }),
+            body: JSON.stringify({ data: b64 }),
           });
           const jd = await res.json();
           if (res.ok && jd.url) photos.push(jd.url);

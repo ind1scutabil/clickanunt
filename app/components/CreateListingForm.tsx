@@ -144,7 +144,6 @@ export default function CreateListingForm() {
               "x-csrf-token": csrfToken,
             },
             body: JSON.stringify({ 
-              filename: media.file.name, 
               data: b64,
               type: media.type 
             }),
