@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!parsed.success) {
-      const errors = parsed.error.issues
+      const issues = parsed.error.issues;
+      const bodyKeys = body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [];
+      console.error('Upload validation failed', { issues, bodyKeys });
+      const errors = issues
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('; ');
       return NextResponse.json({ error: errors || 'Invalid input' }, { status: 400 });
