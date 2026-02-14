@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
         trustScore: true,
         emailVerified: true,
         phoneVerified: true,
+        creditsBalance: true,
+        promotionDiscountPercent: true,
+        promotionBenefits: true,
       },
     });
 

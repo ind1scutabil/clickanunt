@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
 import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
+import { getCsrfToken } from '@/lib/security/csrf-client';
 
 type UserRole = 'admin' | 'user';
 type UserStatus = 'active' | 'banned';
@@ -53,6 +54,8 @@ export default function AdminModerationPage() {
   const [rejectedListings, setRejectedListings] = useState<ModerationListing[]>([]);
 
   const [users, setUsers] = useState<ModerationUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState('');
 
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ModerationUser | null>(null);
@@ -71,9 +74,43 @@ export default function AdminModerationPage() {
     pendingReview: 0,
     approvedToday: 0,
     rejectedToday: 0,
-    totalUsers: 0,
-    bannedUsers: 0,
+    totalUsers: users.length,
+    bannedUsers: users.filter(u => u.status === 'banned').length,
     reportedListings: 0
+  };
+
+  // Fetch users from API
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
+      setUsersError('');
+      const response = await fetch('/api/admin/users');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.users) {
+        const mappedUsers = data.users.map((user: any) => ({
+          id: user.id,
+          email: user.email,
+          role: user.role as UserRole,
+          status: user.isBanned ? 'banned' : 'active' as UserStatus,
+          listings: user._count?.listings || 0,
+          credits: 0,
+          freePromotions: 0,
+          discount: 0,
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsersError('Failed to load users');
+    } finally {
+      setUsersLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -81,6 +118,13 @@ export default function AdminModerationPage() {
       router.push('/');
     }
   }, [router, isAuthorized, isLoading]);
+
+  // Fetch users on mount and when authorized
+  useEffect(() => {
+    if (!isLoading && isAuthorized) {
+      fetchUsers();
+    }
+  }, [isAuthorized, isLoading]);
 
   const approveListing = (id: string) => {
     const listing = pendingListings.find(l => l.id === id);
@@ -131,26 +175,112 @@ export default function AdminModerationPage() {
     memoryStorage.delete(id);
   };
 
-  const banUser = (userId: number) => {
+  const banUser = async (userId: number) => {
+    const reason = prompt('Motivul blocării (opcional):');
+    if (reason === null) return; // User cancelled
+    
     if (!confirm('Blochezi acest utilizator?')) return;
     
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, status: 'banned' } : u
-    ));
+    try {
+      const csrfToken = await getCsrfToken();
+      
+      const response = await fetch(`/api/admin/users/${userId}/ban`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: JSON.stringify({
+          reason: reason || 'Admin action',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to ban user');
+      }
+
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, status: 'banned' } : u
+      ));
+      
+      setNotificationMessage('✅ Utilizator blocat cu succes');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    } catch (error) {
+      console.error('Error banning user:', error);
+      setNotificationMessage('❌ Eroare la blocarea utilizatorului');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
   };
 
-  const unbanUser = (userId: number) => {
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, status: 'active' } : u
-    ));
+  const unbanUser = async (userId: number) => {
+    if (!confirm('Deblochezi acest utilizator?')) return;
+    
+    try {
+      const csrfToken = await getCsrfToken();
+      
+      const response = await fetch(`/api/admin/users/${userId}/unban`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to unban user');
+      }
+
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, status: 'active' } : u
+      ));
+      
+      setNotificationMessage('✅ Utilizator deblocat cu succes');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    } catch (error) {
+      console.error('Error unbanning user:', error);
+      setNotificationMessage('❌ Eroare la deblocarea utilizatorului');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
   };
 
-  const makeAdmin = (userId: number) => {
+  const makeAdmin = async (userId: number) => {
     if (!confirm('Faci acest utilizator administrator?')) return;
     
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, role: 'admin' } : u
-    ));
+    try {
+      const csrfToken = await getCsrfToken();
+      
+      const response = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: JSON.stringify({
+          role: 'admin',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to promote user');
+      }
+
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, role: 'admin' } : u
+      ));
+      
+      setNotificationMessage('✅ Utilizator promovat la admin');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    } catch (error) {
+      console.error('Error promoting user:', error);
+      setNotificationMessage('❌ Eroare la promovarea utilizatorului');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
   };
 
   const openCreditsModal = (user: ModerationUser) => {
@@ -165,31 +295,62 @@ export default function AdminModerationPage() {
     setShowCreditsModal(true);
   };
 
-  const handleSaveCredits = () => {
+  const handleSaveCredits = async () => {
     if (!selectedUser) return;
 
     const credits = creditsForm.credits ? parseInt(creditsForm.credits) : 0;
     const discount = creditsForm.discount ? parseInt(creditsForm.discount) : 0;
     const freePromotions = creditsForm.freePromotions ? parseInt(creditsForm.freePromotions) : 0;
 
-    setUsers(users.map(u => 
-      u.id === selectedUser.id 
-        ? { 
-            ...u, 
-            credits,
-            discount,
-            freePromotions
-          } 
-        : u
-    ));
+    try {
+      const csrfToken = await getCsrfToken();
+      
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: JSON.stringify({
+          creditsBonus: credits,
+          globalDiscount: discount,
+          freePromotions: freePromotions,
+          promotionType: creditsForm.promotionType,
+          expiryDays: creditsForm.expiryDays,
+        }),
+      });
 
-    setNotificationMessage(`✅ Beneficii actualizate pentru ${selectedUser.email}`);
-    setShowNotification(true);
-    setShowCreditsModal(false);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save benefits');
+      }
 
-    setTimeout(() => {
-      setShowNotification(false);
-    }, 3000);
+      const result = await response.json();
+
+      setUsers(users.map(u => 
+        u.id === selectedUser.id 
+          ? { 
+              ...u, 
+              credits,
+              discount,
+              freePromotions
+            } 
+          : u
+      ));
+
+      setNotificationMessage(`✅ Beneficii actualizate pentru ${selectedUser.email}`);
+      setShowNotification(true);
+      setShowCreditsModal(false);
+
+      setTimeout(() => {
+        setShowNotification(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error saving benefits:', error);
+      setNotificationMessage(`❌ ${error.message || 'Eroare la salvarea beneficiilor'}`);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
   };
 
   if (isLoading) {
@@ -545,73 +706,97 @@ export default function AdminModerationPage() {
           {/* Users Management */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              {users.map(user => (
-                <div
-                  key={user.id}
-                  className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border ${
-                    user.status === 'banned' ? 'border-red-500/50' : 'border-gray-700/50'
-                  }`}
-                >
-                  <div className="flex items-center gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-black text-white">{user.email}</h3>
-                        {user.role === 'admin' && (
-                          <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
-                            👑 ADMIN
+              {usersLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
+                    <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
+                  </div>
+                  <p className="text-gray-400 text-lg">Se încarcă utilizatorii...</p>
+                </div>
+              ) : usersError ? (
+                <div className="text-center py-12">
+                  <p className="text-red-400 text-lg">❌ {usersError}</p>
+                  <button
+                    onClick={fetchUsers}
+                    className="mt-4 px-6 py-2 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white rounded-lg font-bold hover:opacity-90"
+                  >
+                    🔄 Încearcă Din Nou
+                  </button>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">👥</div>
+                  <p className="text-gray-400 text-lg">Nu sunt utilizatori în sistem</p>
+                </div>
+              ) : (
+                users.map(user => (
+                  <div
+                    key={user.id}
+                    className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border ${
+                      user.status === 'banned' ? 'border-red-500/50' : 'border-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-xl font-black text-white">{user.email}</h3>
+                          {user.role === 'admin' && (
+                            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
+                              👑 ADMIN
+                            </span>
+                          )}
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            user.status === 'active' 
+                              ? 'bg-green-500/20 text-green-400' 
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {user.status === 'active' ? '✓ Activ' : '🚫 Blocat'}
                           </span>
-                        )}
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          user.status === 'active' 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {user.status === 'active' ? '✓ Activ' : '🚫 Blocat'}
-                        </span>
+                        </div>
+                        <div className="flex items-center gap-4 mb-3 text-sm">
+                          <span className="text-gray-400">📝 {user.listings} anunțuri</span>
+                          {user.credits > 0 && <span className="text-green-400 font-bold">💰 {user.credits} credite</span>}
+                          {user.discount > 0 && <span className="text-blue-400 font-bold">🎟️ {user.discount}% discount</span>}
+                          {user.freePromotions > 0 && <span className="text-yellow-400 font-bold">🎁 {user.freePromotions} promovări gratuite</span>}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4 mb-3 text-sm">
-                        <span className="text-gray-400">📝 {user.listings} anunțuri</span>
-                        {user.credits > 0 && <span className="text-green-400 font-bold">💰 {user.credits} credite</span>}
-                        {user.discount > 0 && <span className="text-blue-400 font-bold">🎟️ {user.discount}% discount</span>}
-                        {user.freePromotions > 0 && <span className="text-yellow-400 font-bold">🎁 {user.freePromotions} promovări gratuite</span>}
-                      </div>
-                    </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openCreditsModal(user)}
-                        className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
-                      >
-                        💳 Credite & Beneficii
-                      </button>
-                      {user.role !== 'admin' && user.status === 'active' && (
-                        <>
-                          <button
-                            onClick={() => makeAdmin(user.id)}
-                            className="px-6 py-3 bg-purple-500/20 text-purple-400 rounded-xl font-bold hover:bg-purple-500/30 transition-all"
-                          >
-                            👑 Fă Admin
-                          </button>
-                          <button
-                            onClick={() => banUser(user.id)}
-                            className="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-bold hover:bg-red-500/30 transition-all"
-                          >
-                            🚫 Blochează
-                          </button>
-                        </>
-                      )}
-                      {user.status === 'banned' && (
+                      <div className="flex gap-2">
                         <button
-                          onClick={() => unbanUser(user.id)}
-                          className="px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 transition-all"
+                          onClick={() => openCreditsModal(user)}
+                          className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
                         >
-                          ✅ Deblochează
+                          💳 Credite & Beneficii
                         </button>
-                      )}
+                        {user.role !== 'admin' && user.status === 'active' && (
+                          <>
+                            <button
+                              onClick={() => makeAdmin(user.id)}
+                              className="px-6 py-3 bg-purple-500/20 text-purple-400 rounded-xl font-bold hover:bg-purple-500/30 transition-all"
+                            >
+                              👑 Fă Admin
+                            </button>
+                            <button
+                              onClick={() => banUser(user.id)}
+                              className="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-bold hover:bg-red-500/30 transition-all"
+                            >
+                              🚫 Blochează
+                            </button>
+                          </>
+                        )}
+                        {user.status === 'banned' && (
+                          <button
+                            onClick={() => unbanUser(user.id)}
+                            className="px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 transition-all"
+                          >
+                            ✅ Deblochează
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </div>
@@ -710,7 +895,10 @@ export default function AdminModerationPage() {
                         type="number"
                         min="1"
                         value={creditsForm.expiryDays}
-                        onChange={(e) => setCreditsForm({ ...creditsForm, expiryDays: parseInt(e.target.value) || 30 })}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setCreditsForm({ ...creditsForm, expiryDays: isNaN(val) ? 30 : val });
+                        }}
                         placeholder="30"
                         className="w-full bg-gray-900/50 border-2 border-yellow-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
                       />

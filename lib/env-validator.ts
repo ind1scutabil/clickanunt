@@ -78,7 +78,13 @@ export function enforceEnvironment(): void {
     });
     console.error('\nApplication cannot start without these variables.');
     console.error('Please check .env.example for reference.');
-    process.exit(1);
+    
+    // Only exit in Node.js runtime, not in Edge Runtime
+    if (typeof process !== 'undefined' && process.exit) {
+      process.exit(1);
+    } else {
+      throw new Error('Missing required environment variables');
+    }
   }
 
   if (result.warnings.length > 0) {

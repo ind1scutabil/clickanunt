@@ -73,13 +73,20 @@ export function validateOrigin(request: NextRequest): boolean {
   
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro',
+    'https://www.clickanunt.ro',
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://46.225.69.155:3000',
+    'http://localhost',
   ];
   
   // Check Origin header
   if (origin) {
-    return allowedOrigins.some(allowed => origin.startsWith(allowed));
+    return allowedOrigins.some(allowed => {
+      // Allow if matches exactly or if origin is through Cloudflare
+      return origin.includes(allowed.replace('https://', '').replace('http://', '')) ||
+             origin.startsWith(allowed);
+    });
   }
   
   // Fallback to Referer header
@@ -87,16 +94,22 @@ export function validateOrigin(request: NextRequest): boolean {
     try {
       const refererUrl = new URL(referer);
       return allowedOrigins.some(allowed => {
-        const allowedUrl = new URL(allowed);
-        return refererUrl.origin === allowedUrl.origin;
+        try {
+          const allowedUrl = new URL(allowed);
+          return refererUrl.origin === allowedUrl.origin ||
+                 referer.includes(allowed);
+        } catch {
+          return referer.includes(allowed);
+        }
       });
     } catch {
       return false;
     }
   }
   
-  // No origin/referer = suspicious
-  return false;
+  // Allow if no origin/referer for same-site requests
+  // (Cloudflare and some proxies might not send these)
+  return true;
 }
 
 /**

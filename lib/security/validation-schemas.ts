@@ -125,6 +125,7 @@ export const listingCreateSchema = z.object({
   city: z.string().max(100).optional(),
   county: z.string().max(100).optional(),
   photos: z.array(z.string().url()).min(1, 'Minim o imagine').max(20, 'Maxim 20 imagini'),
+  video: z.string().url().optional().nullable(),
   contactPhone: phoneSchema.optional(),
   allowMessages: z.boolean().optional(),
   make: z.string().max(100).optional(),

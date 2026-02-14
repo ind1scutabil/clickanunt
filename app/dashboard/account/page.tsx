@@ -10,7 +10,7 @@ export default function AccountPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "password" | "email">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "password" | "email" | "benefits">("profile");
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Profile form
@@ -91,26 +91,42 @@ export default function AccountPage() {
       return;
     }
 
+    if (!passwordData.currentPassword) {
+      setMessage({ type: 'error', text: 'Introdu parola actuală' });
+      return;
+    }
+
     try {
       const token = localStorage.getItem('accessToken');
-        const csrfToken = await getCsrfToken();
+      if (!token) {
+        setMessage({ type: 'error', text: 'Nu ești autentificat' });
+        return;
+      }
+
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        setMessage({ type: 'error', text: 'CSRF token nu a putut fi obținut' });
+        return;
+      }
+
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-            'x-csrf-token': csrfToken,
+          'x-csrf-token': csrfToken,
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
-            confirmPassword: passwordData.confirmPassword,
+          confirmPassword: passwordData.confirmPassword,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('Password change error:', data);
         setMessage({ type: 'error', text: data.error || 'Eroare la schimbare' });
         return;
       }
@@ -122,6 +138,7 @@ export default function AccountPage() {
       });
       setMessage({ type: 'success', text: 'Parola schimbată cu succes!' });
     } catch (err) {
+      console.error('Password change exception:', err);
       setMessage({ type: 'error', text: 'Eroare la salvare' });
     }
   };
@@ -165,7 +182,7 @@ export default function AccountPage() {
         {/* Tabs */}
         <div className="glass-dark rounded-2xl border-2 border-[#2A2A2A] overflow-hidden mb-8">
           <div className="flex border-b border-[#2A2A2A]">
-            {(['profile', 'password', 'email'] as const).map((tab) => (
+            {(['profile', 'password', 'email', 'benefits'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -178,6 +195,7 @@ export default function AccountPage() {
                 {tab === 'profile' && 'Profil'}
                 {tab === 'password' && 'Parolă'}
                 {tab === 'email' && 'Email'}
+                {tab === 'benefits' && '✨ Beneficii'}
               </button>
             ))}
           </div>
@@ -287,6 +305,103 @@ export default function AccountPage() {
                 <p className="text-gray-400">Email actual: <span className="text-white font-bold">{user?.email}</span></p>
                 <p className="text-gray-500 text-sm">
                   Pentru a schimba adresa de email, contactează suportul nostru la <a href="mailto:support@clickanunt.ro" className="text-[#FF7900] hover:text-[#FFB84D]">support@clickanunt.ro</a>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Benefits Tab */}
+          {activeTab === 'benefits' && (
+            <div className="p-8">
+              <div className="mb-8">
+                <h3 className="text-2xl font-black text-white mb-2">Beneficii Active</h3>
+                <p className="text-gray-400">Beneficiile tale curente și privilegiile exclusive</p>
+              </div>
+
+              {user?.credits !== undefined && (
+                <div className="mb-6 p-6 bg-gradient-to-br from-purple-600/10 via-purple-500/5 to-transparent backdrop-blur-xl border border-purple-500/20 rounded-3xl hover:border-purple-500/40 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-purple-300 text-sm font-medium mb-1">Credite disponibile</p>
+                      <div className="text-5xl font-black text-white">{user.credits || 0}</div>
+                      <p className="text-purple-300/70 text-sm mt-2">Folosiți pentru anunțuri premium și alte servicii</p>
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg shadow-purple-500/30">
+                      <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Premium Features Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Feature 1: Priority Support */}
+                <div className="p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent backdrop-blur-xl border border-blue-500/20 rounded-2xl hover:border-blue-500/40 transition-all hover:shadow-lg hover:shadow-blue-500/10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg shadow-blue-500/30 flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Suport prioritar</h4>
+                      <p className="text-blue-300/70 text-xs">Răspuns rapid la orice întrebare</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feature 2: Higher Visibility */}
+                <div className="p-5 bg-gradient-to-br from-amber-600/10 via-amber-500/5 to-transparent backdrop-blur-xl border border-amber-500/20 rounded-2xl hover:border-amber-500/40 transition-all hover:shadow-lg hover:shadow-amber-500/10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg shadow-lg shadow-amber-500/30 flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Vizibilitate ridicată</h4>
+                      <p className="text-amber-300/70 text-xs">Anunțurile tale prioritar în căutări</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feature 3: Premium Badge */}
+                <div className="p-5 bg-gradient-to-br from-pink-600/10 via-pink-500/5 to-transparent backdrop-blur-xl border border-pink-500/20 rounded-2xl hover:border-pink-500/40 transition-all hover:shadow-lg hover:shadow-pink-500/10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-gradient-to-br from-pink-500 to-pink-600 rounded-lg shadow-lg shadow-pink-500/30 flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Insignă Premium</h4>
+                      <p className="text-pink-300/70 text-xs">Insignă de verificare pe profil</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Feature 4: Analytics */}
+                <div className="p-5 bg-gradient-to-br from-emerald-600/10 via-emerald-500/5 to-transparent backdrop-blur-xl border border-emerald-500/20 rounded-2xl hover:border-emerald-500/40 transition-all hover:shadow-lg hover:shadow-emerald-500/10">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-lg shadow-lg shadow-emerald-500/30 flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Statistici avansate</h4>
+                      <p className="text-emerald-300/70 text-xs">Analiză detaliată a performanței</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Benefits Info */}
+              <div className="p-6 bg-[#1A1A1A] border border-[#2A2A2A] rounded-2xl">
+                <p className="text-gray-400 text-sm">
+                  <span className="font-bold text-[#FF7900]">💡 Sfat:</span> Poți cumpăra credite pentru a obține mai multe beneficii. Accesează secțiunea de Promovare pentru a descoperi ofertele disponibile.
                 </p>
               </div>
             </div>

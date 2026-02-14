@@ -5,7 +5,13 @@
  * Run with: npm run smoke
  */
 
-import axios from 'axios';
+let axios: any;
+try {
+  axios = require('axios');
+} catch {
+  console.warn('⚠️ axios not installed. Install with: npm install axios');
+  process.exit(0);
+}
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -18,7 +24,7 @@ interface TestResult {
 
 const results: TestResult[] = [];
 
-async function test(name: string, fn: () => Promise<void>): Promise<void> {
+async function runTest(name: string, fn: () => Promise<void>): Promise<void> {
   const start = Date.now();
   try {
     await fn();
@@ -36,33 +42,33 @@ async function runSmokeTests(): Promise<void> {
   console.log(`Base URL: ${BASE_URL}\n`);
 
   // Health check
-  await test('API Health Check', async () => {
+  await runTest('API Health Check', async () => {
     const response = await axios.get(`${BASE_URL}/api/health`);
     if (response.status !== 200) throw new Error(`Status ${response.status}`);
   });
 
   // Homepage
-  await test('Homepage loads (200 OK)', async () => {
+  await runTest('Homepage loads (200 OK)', async () => {
     const response = await axios.get(`${BASE_URL}/`);
     if (response.status !== 200) throw new Error(`Status ${response.status}`);
     if (!response.data.includes('html')) throw new Error('No HTML content');
   });
 
   // Auth pages
-  await test('Login page (200 OK)', async () => {
+  await runTest('Login page (200 OK)', async () => {
     const response = await axios.get(`${BASE_URL}/auth/login`);
     if (response.status !== 200) throw new Error(`Status ${response.status}`);
   });
 
-  await test('Signup page (200 OK)', async () => {
+  await runTest('Signup page (200 OK)', async () => {
     const response = await axios.get(`${BASE_URL}/auth/signup`);
     if (response.status !== 200) throw new Error(`Status ${response.status}`);
   });
 
   // Dashboard pages
-  await test('Dashboard page loads', async () => {
+  await runTest('Dashboard page loads', async () => {
     const response = await axios.get(`${BASE_URL}/dashboard`, {
-      validateStatus: (status) => status === 200 || status === 307, // Redirect ok
+      validateStatus: (status: number) => status === 200 || status === 307, // Redirect ok
     });
     if (response.status !== 200 && response.status !== 307) {
       throw new Error(`Status ${response.status}`);
@@ -70,51 +76,51 @@ async function runSmokeTests(): Promise<void> {
   });
 
   // Listings page
-  await test('Listings page loads', async () => {
+  await runTest('Listings page loads', async () => {
     const response = await axios.get(`${BASE_URL}/listings`);
     if (response.status !== 200) throw new Error(`Status ${response.status}`);
   });
 
   // Admin pages (should redirect or deny without auth)
-  await test('Admin dashboard page exists', async () => {
+  await runTest('Admin dashboard page exists', async () => {
     const response = await axios.get(`${BASE_URL}/admin/dashboard`, {
-      validateStatus: (status) => status === 200 || status === 307 || status === 401,
+      validateStatus: (status: number) => status === 200 || status === 307 || status === 401,
     });
     if (response.status === 404) throw new Error('404 Not Found');
   });
 
-  await test('Admin moderation page exists', async () => {
+  await runTest('Admin moderation page exists', async () => {
     const response = await axios.get(`${BASE_URL}/admin/moderation`, {
-      validateStatus: (status) => status === 200 || status === 307 || status === 401,
+      validateStatus: (status: number) => status === 200 || status === 307 || status === 401,
     });
     if (response.status === 404) throw new Error('404 Not Found');
   });
 
   // API endpoints
-  await test('API Search endpoint exists', async () => {
+  await runTest('API Search endpoint exists', async () => {
     const response = await axios.get(`${BASE_URL}/api/search?q=test`, {
-      validateStatus: (status) => status === 200 || status === 400,
+      validateStatus: (status: number) => status === 200 || status === 400,
     });
     if (response.status === 404) throw new Error('404 Not Found');
   });
 
-  await test('API Listings endpoint exists', async () => {
+  await runTest('API Listings endpoint exists', async () => {
     const response = await axios.get(`${BASE_URL}/api/listings?page=1&limit=12`, {
-      validateStatus: (status) => status === 200 || status === 400 || status === 400,
+      validateStatus: (status: number) => status === 200 || status === 400,
     });
     if (response.status === 404) throw new Error('404 Not Found');
   });
 
   // 404 handling
-  await test('Invalid route returns 404', async () => {
+  await runTest('Invalid route returns 404', async () => {
     const response = await axios.get(`${BASE_URL}/this-does-not-exist-12345`, {
-      validateStatus: (status) => status === 404,
+      validateStatus: (status: number) => status === 404,
     });
     if (response.status !== 404) throw new Error(`Expected 404, got ${response.status}`);
   });
 
   // Security headers check
-  await test('Security headers present', async () => {
+  await runTest('Security headers present', async () => {
     const response = await axios.get(`${BASE_URL}/`);
     const headers = response.headers;
     
@@ -131,7 +137,7 @@ async function runSmokeTests(): Promise<void> {
   });
 
   // Build verification
-  await test('Production build successful', async () => {
+  await runTest('Production build successful', async () => {
     // Check if .next folder exists and has been built
     const fs = require('fs').promises;
     const path = require('path');

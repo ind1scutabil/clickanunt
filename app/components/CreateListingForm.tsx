@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 type UserOption = { id: string; email: string };
 type FileWithPreview = {
@@ -125,6 +126,7 @@ export default function CreateListingForm() {
     try {
       const photos: string[] = [];
       const uploadedFiles = uploadedMedia.filter((m) => !m.error);
+      const csrfToken = await getCsrfToken();
 
       for (let i = 0; i < uploadedFiles.length; i++) {
         const media = uploadedFiles[i];
@@ -137,7 +139,10 @@ export default function CreateListingForm() {
 
           const res = await fetch("/api/uploads", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "x-csrf-token": csrfToken,
+            },
             body: JSON.stringify({ 
               filename: media.file.name, 
               data: b64,

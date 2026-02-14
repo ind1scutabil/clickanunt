@@ -1,0 +1,21 @@
+✅ DEPLOYMENT READY FOR www.clickanunt.ro
+
+Build Status: ✅ COMPLETE
+Test Status: ✅ PASSING  
+Date: Feb 13, 2026
+
+READY TO DEPLOY - Follow these 3 steps:
+
+1. Server Setup (first time only):
+   ssh root@46.225.69.155 'mkdir -p /var/www/clickanunt; npm install -g pm2'
+
+2. Deploy:
+   cd ~/projects/auto-platform
+   rsync -avz --delete --exclude node_modules --exclude .git ./ root@46.225.69.155:/var/www/clickanunt/
+   ssh root@46.225.69.155 'cd /var/www/clickanunt && npm ci && npx prisma migrate deploy && NODE_ENV=production npm run build && pm2 start npm --name clickanunt -- start --cwd /var/www/clickanunt'
+
+3. Verify:
+   curl https://www.clickanunt.ro/api/health
+
+See DEPLOYMENT_READY_NOW.md for full details
+

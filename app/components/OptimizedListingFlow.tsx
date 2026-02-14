@@ -14,6 +14,7 @@ interface DraftListing {
   county: string;
   city: string;
   photos: string[];
+  video?: string;
   description: string;
   make?: string;
   model?: string;
@@ -41,6 +42,22 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+const INITIAL_DRAFT: DraftListing = {
+  step: 0,
+  title: "",
+  category: "",
+  priceAmount: "",
+  priceCurrency: "RON",
+  county: "",
+  city: "",
+  photos: [],
+  video: undefined,
+  description: "",
+  condition: "used",
+  phone: "",
+  allowMessages: true
+};
+
 export default function OptimizedListingFlow() {
   const router = useRouter();
   
@@ -50,20 +67,7 @@ export default function OptimizedListingFlow() {
   const [uploadingImage, setUploadingImage] = useState(false);
   
   // Form data with draft support
-  const [draft, setDraft] = useState<DraftListing>({
-    step: 0,
-    title: "",
-    category: "",
-    priceAmount: "",
-    priceCurrency: "RON",
-    county: "",
-    city: "",
-    photos: [],
-    description: "",
-    condition: "used",
-    phone: "",
-    allowMessages: true
-  });
+  const [draft, setDraft] = useState<DraftListing>(INITIAL_DRAFT);
 
   // Validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -176,33 +180,172 @@ export default function OptimizedListingFlow() {
   const handleImageUpload = async (files: FileList) => {
     if (!files || files.length === 0) return;
     
+    const remainingSlots = 20 - draft.photos.length;
+    if (remainingSlots <= 0) {
+      setErrors(prev => ({ ...prev, photos: "Ai atins limita de 20 poze" }));
+      return;
+    }
+    
     setUploadingImage(true);
     const newPhotos: string[] = [];
+    const uploadErrors: string[] = [];
     
     try {
-      for (let i = 0; i < Math.min(files.length, 10); i++) {
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        setErrors(prev => ({ ...prev, photos: "Eroare de securitate - token CSRF lipsă" }));
+        setUploadingImage(false);
+        return;
+      }
+
+      const filesToUpload = Math.min(files.length, remainingSlots);
+      
+      for (let i = 0; i < filesToUpload; i++) {
         const file = files[i];
-        const b64 = await fileToBase64(file);
-        const res = await fetch("/api/uploads", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, data: b64 }),
-        });
-        const data = await res.json();
-        if (res.ok && data.url) {
-          newPhotos.push(data.url);
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          uploadErrors.push(`${file.name}: nu este imagine`);
+          continue;
+        }
+
+        // Validate file size (max 10MB per image)
+        if (file.size > 10 * 1024 * 1024) {
+          uploadErrors.push(`${file.name}: prea mare (max 10MB)`);
+          continue;
+        }
+        
+        try {
+          const b64 = await fileToBase64(file);
+          
+          // Validate base64 conversion
+          if (!b64 || b64.length === 0) {
+            uploadErrors.push(`${file.name}: eroare conversie`);
+            continue;
+          }
+
+          // Extract safe filename extension - detect from MIME type for reliability
+          let safeExt = 'jpg';
+          if (file.type === 'image/png') safeExt = 'png';
+          else if (file.type === 'image/webp') safeExt = 'webp';
+          else if (file.type === 'image/gif') safeExt = 'gif';
+          else if (file.type === 'image/svg+xml') safeExt = 'svg';
+          
+          const safeFilename = `photo_${Date.now()}_${i}.${safeExt}`;
+
+          const res = await fetch("/api/uploads", {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "x-csrf-token": csrfToken,
+            },
+            body: JSON.stringify({ 
+              filename: safeFilename, 
+              data: b64,
+              type: "image"
+            }),
+          });
+
+          const data = await res.json();
+          
+          if (res.ok && data.url) {
+            newPhotos.push(data.url);
+          } else {
+            uploadErrors.push(`${file.name}: ${data.error || 'Eroare necunoscută'}`);
+          }
+        } catch (fileError: any) {
+          uploadErrors.push(`${file.name}: ${fileError.message || 'Eroare upload'}`);
         }
       }
       
-      setDraft(prev => ({
-        ...prev,
-        photos: [...prev.photos, ...newPhotos]
-      }));
-      
-      // Clear error
-      setErrors(prev => ({ ...prev, photos: "" }));
-    } catch (error) {
+      if (newPhotos.length > 0) {
+        setDraft(prev => ({
+          ...prev,
+          photos: [...prev.photos, ...newPhotos]
+        }));
+        
+        // Clear error if at least some uploaded successfully
+        setErrors(prev => ({ ...prev, photos: "" }));
+      }
+
+      if (uploadErrors.length > 0) {
+        const errorMsg = uploadErrors.slice(0, 2).join("; ");
+        setErrors(prev => ({ ...prev, photos: errorMsg }));
+      }
+    } catch (error: any) {
       console.error("Upload failed", error);
+      setErrors(prev => ({ ...prev, photos: error.message || "Eroare la încărcarea pozelor" }));
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle video upload
+  const handleVideoUpload = async (file: File) => {
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+      setErrors(prev => ({ ...prev, video: "Fișierul trebuie să fie un video (MP4, WebM, etc.)" }));
+      return;
+    }
+    
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, video: "Videoclipul nu poate depăși 50MB" }));
+      return;
+    }
+    
+    setUploadingImage(true);
+    
+    try {
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        setErrors(prev => ({ ...prev, video: "Eroare de securitate - token CSRF lipsă" }));
+        setUploadingImage(false);
+        return;
+      }
+
+      const b64 = await fileToBase64(file);
+      
+      // Validate base64 conversion
+      if (!b64 || b64.length === 0) {
+        setErrors(prev => ({ ...prev, video: "Eroare la conversie video" }));
+        setUploadingImage(false);
+        return;
+      }
+
+      // Extract safe filename extension - detect from MIME type for reliability  
+      let safeExt = 'mp4';
+      if (file.type === 'video/webm') safeExt = 'webm';
+      else if (file.type === 'video/quicktime') safeExt = 'mov';
+      else if (file.type === 'video/x-msvideo') safeExt = 'avi';
+      
+      const safeFilename = `video_${Date.now()}.${safeExt}`;
+
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ 
+          filename: safeFilename, 
+          data: b64,
+          type: "video"
+        }),
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setDraft(prev => ({ ...prev, video: data.url }));
+        setErrors(prev => ({ ...prev, video: "" }));
+      } else {
+        setErrors(prev => ({ ...prev, video: data.error || "Eroare la încărcarea videoclipului" }));
+      }
+    } catch (error: any) {
+      console.error("Video upload failed", error);
+      setErrors(prev => ({ ...prev, video: error.message || "Eroare la încărcarea videoclipului" }));
     } finally {
       setUploadingImage(false);
     }
@@ -214,6 +357,11 @@ export default function OptimizedListingFlow() {
       ...prev,
       photos: prev.photos.filter((_, i) => i !== index)
     }));
+  };
+  
+  // Remove video
+  const removeVideo = () => {
+    setDraft(prev => ({ ...prev, video: undefined }));
   };
 
   // Navigate steps
@@ -275,6 +423,7 @@ export default function OptimizedListingFlow() {
         county: draft.county,
         city: draft.city,
         photos: draft.photos,
+        video: draft.video || null,
         contactPhone: draft.phone,
         allowMessages: draft.allowMessages
       };
@@ -321,11 +470,18 @@ export default function OptimizedListingFlow() {
         listingId: data.listing?.id || data.id, 
         duration,
         category: draft.category,
-        photoCount: draft.photos.length
+        photoCount: draft.photos.length,
+        hasVideo: !!draft.video
       });
 
-      // Clear draft
+      // Clear draft - ALWAYS on success
       localStorage.removeItem("listingDraft");
+      
+      // Reset form state completely
+      setDraft(INITIAL_DRAFT);
+      setCurrentStep(0);
+      setErrors({});
+      setTouched({});
       
       // Redirect to listing
       router.push(`/listings/${data.listing?.id || data.id}`);
@@ -333,6 +489,11 @@ export default function OptimizedListingFlow() {
     } catch (error: any) {
       console.error('❌ EROARE FINALĂ:', error);
       const errorMessage = error?.message || "Eroare la publicare. Te rugăm să încerci din nou.";
+      
+      // Clear draft even on error - user can try again fresh
+      localStorage.removeItem("listingDraft");
+      setErrors({ general: errorMessage });
+      
       alert(errorMessage);
     } finally {
       setLoading(false);
@@ -590,7 +751,7 @@ export default function OptimizedListingFlow() {
             {/* Photos */}
             <div>
               <label className="block text-white font-semibold mb-2">
-                Poze <span className="text-red-500">*</span> (minim 1)
+                Poze <span className="text-red-500">*</span> (minim 1, maxim 20)
               </label>
               
               <div className="grid grid-cols-4 gap-4 mb-4">
@@ -599,14 +760,14 @@ export default function OptimizedListingFlow() {
                     <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
                     <button
                       onClick={() => removePhoto(idx)}
-                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
+                      className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold"
                     >
                       ×
                     </button>
                   </div>
                 ))}
                 
-                {draft.photos.length < 10 && (
+                {draft.photos.length < 20 && (
                   <label className="aspect-square border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[var(--accent-primary)] transition">
                     <input
                       type="file"
@@ -629,8 +790,47 @@ export default function OptimizedListingFlow() {
               
               {errors.photos && <p className="text-red-500 text-sm">{errors.photos}</p>}
               {draft.photos.length > 0 && !errors.photos && (
-                <p className="text-green-500 text-sm">✓ {draft.photos.length} {draft.photos.length === 1 ? 'poză adăugată' : 'poze adăugate'}</p>
+                <p className="text-green-500 text-sm">✓ {draft.photos.length}/20 {draft.photos.length === 1 ? 'poză adăugată' : 'poze adăugate'}</p>
               )}
+            </div>
+            
+            {/* Video */}
+            <div>
+              <label className="block text-white font-semibold mb-2">
+                Videoclip (opțional, max 50MB)
+              </label>
+              
+              {draft.video ? (
+                <div className="relative group">
+                  <video src={draft.video} className="w-full rounded-xl" controls />
+                  <button
+                    onClick={removeVideo}
+                    className="absolute top-4 right-4 px-4 py-2 bg-red-500 rounded-lg text-white font-bold hover:bg-red-600 transition"
+                  >
+                    Șterge video
+                  </button>
+                </div>
+              ) : (
+                <label className="block border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-[var(--accent-primary)] transition">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => e.target.files?.[0] && handleVideoUpload(e.target.files[0])}
+                    className="hidden"
+                  />
+                  {uploadingImage ? (
+                    <div className="text-gray-400">⏳ Încărcare video...</div>
+                  ) : (
+                    <>
+                      <div className="text-4xl mb-2">🎥</div>
+                      <p className="text-white font-semibold">Adaugă un videoclip</p>
+                      <p className="text-gray-400 text-sm mt-1">Maximum 50MB</p>
+                    </>
+                  )}
+                </label>
+              )}
+              
+              {errors.video && <p className="text-red-500 text-sm mt-2">{errors.video}</p>}
             </div>
 
             {/* Navigation */}
@@ -768,7 +968,7 @@ export default function OptimizedListingFlow() {
                 Mai multe poze (opțional)
               </label>
               <div className="grid grid-cols-5 gap-4">
-                {draft.photos.slice(0, 10).map((url, idx) => (
+                {draft.photos.slice(0, 20).map((url, idx) => (
                   <div key={idx} className="relative group aspect-square">
                     <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
                     <button
@@ -780,7 +980,7 @@ export default function OptimizedListingFlow() {
                   </div>
                 ))}
                 
-                {draft.photos.length < 10 && (
+                {draft.photos.length < 20 && (
                   <label className="aspect-square border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[var(--accent-primary)] transition">
                     <input
                       type="file"
@@ -801,7 +1001,7 @@ export default function OptimizedListingFlow() {
                 )}
               </div>
               <p className="text-xs text-gray-400 mt-2">
-                {draft.photos.length}/10 poze • Mai multe poze = mai multe vizualizări!
+                {draft.photos.length}/20 poze • Mai multe poze = mai multe vizualizări!
               </p>
             </div>
 

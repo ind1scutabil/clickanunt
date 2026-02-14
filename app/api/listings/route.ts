@@ -405,6 +405,7 @@ export async function POST(request: Request) {
       city: body.city || null,
       region: body.region || null,
       photos: body.photos ?? [],
+      video: body.video || null,
       isFeatured: body.isFeatured ?? false,
       
       // Auto-specific fields (nullable)

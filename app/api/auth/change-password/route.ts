@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { changePasswordSchema } from "@/lib/security/validation-schemas";
@@ -40,9 +40,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Get user din DB
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-    });
+    const dbUser = await db.findUserById(user.id);
 
     if (!dbUser) {
       return NextResponse.json(
@@ -64,10 +62,7 @@ export async function POST(request: NextRequest) {
     const newHash = await bcrypt.hash(newPassword, 10);
 
     // Actualizează parola
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: newHash },
-    });
+    await db.updateUser(user.id, { password: newHash });
 
     return NextResponse.json({
       success: true,

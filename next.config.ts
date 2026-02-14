@@ -24,7 +24,6 @@ const nextConfig: NextConfig = {
   
   experimental: {
     optimizePackageImports: ['react', 'react-dom'],
-    instrumentationHook: true,
   },
   
   // Production optimizations

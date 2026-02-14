@@ -62,13 +62,29 @@ export async function uploadImage(
     await s3Client.send(command);
 
     // Return CDN URL if configured, otherwise S3 URL
-    if (STORAGE_CONFIG.cdnUrl) {
-      return `${STORAGE_CONFIG.cdnUrl}/${key}`;
+    if (STORAGE_CONFIG.cdnUrl && STORAGE_CONFIG.cdnUrl.length > 0) {
+      // Ensure CDN URL is properly formatted
+      const cdnUrl = STORAGE_CONFIG.cdnUrl.endsWith('/') 
+        ? STORAGE_CONFIG.cdnUrl.slice(0, -1) 
+        : STORAGE_CONFIG.cdnUrl;
+      return `${cdnUrl}/${key}`;
     }
 
     // Construct public URL based on storage provider
-    const baseUrl = STORAGE_CONFIG.endpoint.replace('https://', '');
-    return `https://${STORAGE_CONFIG.bucket}.${baseUrl}/${key}`;
+    // Remove https:// and http:// from endpoint
+    const baseUrl = STORAGE_CONFIG.endpoint
+      .replace(/^https?:\/\//, '') // Remove protocol
+      .replace(/\/$/, '');          // Remove trailing slash
+    
+    // Format: https://{bucket}.{baseUrl}/{key}
+    let url = `https://${STORAGE_CONFIG.bucket}.${baseUrl}/${key}`;
+    
+    // Fallback: if bucket is already part of the baseUrl, just use it directly
+    if (baseUrl.includes(STORAGE_CONFIG.bucket)) {
+      url = `https://${baseUrl}/${key}`;
+    }
+    
+    return url;
   } catch (error) {
     console.error('Error uploading image:', error);
     throw new Error('Failed to upload image');

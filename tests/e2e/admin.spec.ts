@@ -1,13 +1,76 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs/promises';
+import path from 'path';
+
+const ADMIN_STORAGE_STATE = path.resolve(__dirname, '.auth/admin.json');
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || process.env.ADMIN_EMAIL || 'admin@clickanunt.ro';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || 'admin123';
 
 test.describe('Admin Dashboard', () => {
-  test.beforeEach(async ({ page }) => {
-    // Login as admin
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', 'admin@clickanunt.ro');
-    await page.fill('input[type="password"]', 'AdminPassword123!');
-    await page.click('button[type="submit"]');
-    await page.waitForURL('/');
+  test.use({ storageState: 'tests/e2e/.auth/admin.json' });
+
+  test.beforeAll(async ({ request, baseURL }) => {
+    const csrfRes = await request.get('/api/csrf');
+    if (!csrfRes.ok()) {
+      throw new Error(`Failed to fetch CSRF token (status ${csrfRes.status()})`);
+    }
+
+    const csrfData = (await csrfRes.json()) as { csrfToken?: string };
+    if (!csrfData.csrfToken) {
+      throw new Error('CSRF token missing in /api/csrf response');
+    }
+
+    const loginRes = await request.post('/api/auth/login', {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      headers: { 'x-csrf-token': csrfData.csrfToken },
+    });
+
+    const loginData = await loginRes.json();
+
+    if (loginRes.status() === 206) {
+      throw new Error(
+        'Admin login requires 2FA. Disable ADMIN_2FA_ENABLED in test env or use a non-2FA admin user for E2E.'
+      );
+    }
+
+    if (loginRes.status() !== 200) {
+      const errorMessage = loginData?.error?.message || loginData?.error || loginData?.message || 'Unknown login error';
+      throw new Error(`Admin login failed (${loginRes.status()}): ${errorMessage}`);
+    }
+
+    const storageState = await request.storageState();
+    const origin = new URL(baseURL || 'http://localhost:3000').origin;
+    const user = loginData?.user;
+    const accessToken = loginData?.accessToken;
+    const refreshToken = loginData?.refreshToken;
+
+    storageState.origins = storageState.origins || [];
+    const existingOrigin = storageState.origins.find((o) => o.origin === origin);
+    const targetOrigin = existingOrigin || { origin, localStorage: [] as { name: string; value: string }[] };
+
+    const setLocalStorageItem = (name: string, value: string | undefined) => {
+      if (!value) return;
+      const index = targetOrigin.localStorage.findIndex((item) => item.name === name);
+      const entry = { name, value };
+      if (index >= 0) {
+        targetOrigin.localStorage[index] = entry;
+      } else {
+        targetOrigin.localStorage.push(entry);
+      }
+    };
+
+    if (user) {
+      setLocalStorageItem('user', JSON.stringify(user));
+    }
+    setLocalStorageItem('accessToken', accessToken);
+    setLocalStorageItem('refreshToken', refreshToken);
+
+    if (!existingOrigin) {
+      storageState.origins.push(targetOrigin);
+    }
+
+    await fs.mkdir(path.dirname(ADMIN_STORAGE_STATE), { recursive: true });
+    await fs.writeFile(ADMIN_STORAGE_STATE, JSON.stringify(storageState, null, 2), 'utf-8');
   });
 
   test('should access admin dashboard', async ({ page }) => {
@@ -18,7 +81,7 @@ test.describe('Admin Dashboard', () => {
     
     // Should show admin content
     const adminHeader = page.locator('text=/admin|dashboard|moderare/i').first();
-    expect(adminHeader).toBeVisible();
+    await expect(adminHeader).toBeVisible();
   });
 
   test('should view listings pending approval', async ({ page }) => {

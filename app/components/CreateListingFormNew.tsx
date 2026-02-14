@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
 import { CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 type UserOption = { id: string; email: string };
 
@@ -85,13 +86,17 @@ export default function CreateListingFormNew() {
     setMessage(null);
     try {
       const photos: string[] = [];
+      const csrfToken = await getCsrfToken();
       if (files && files.length > 0) {
         const arr = Array.from(files);
         for (const f of arr) {
           const b64 = await fileToBase64(f);
           const res = await fetch("/api/uploads", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-csrf-token": csrfToken,
+            },
             body: JSON.stringify({ filename: f.name, data: b64 }),
           });
           const jd = await res.json();

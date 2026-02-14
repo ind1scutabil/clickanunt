@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
       // Strip EXIF data for privacy
       const cleanBuffer = await stripExifData(buf);
 
-      // Generate storage key
+      // Generate storage key with SAFE filename (ignore original filename completely)
       const id = listingId || `temp-${uuidv4()}`;
-      const ext = filename ? filename.split(".").pop() : "jpg";
-      const tempFilename = `${uuidv4()}.${ext}`;
+      const safeExt = 'jpg'; // Default safe extension
+      const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = generateImageKey(id, "original", tempFilename);
 
       // Upload to cloud storage
@@ -110,8 +110,8 @@ export async function POST(request: NextRequest) {
     // For videos: direct upload to storage
     if (fileType === "video") {
       const id = listingId || `temp-${uuidv4()}`;
-      const ext = filename ? filename.split(".").pop() : "mp4";
-      const tempFilename = `${uuidv4()}.${ext}`;
+      const safeExt = 'mp4'; // Default safe extension
+      const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = `listings/${id}/videos/${tempFilename}`;
 
       // Upload video to cloud storage

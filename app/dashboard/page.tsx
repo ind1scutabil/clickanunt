@@ -13,12 +13,53 @@ export default function DashboardPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
-    activeListings: 5,
-    totalViews: 1250,
-    messages: 23,
-    favorites: 8,
+    activeListings: 0,
+    totalViews: 0,
+    messages: 0,
+    favorites: 0,
   });
+  const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+
+  const refreshUser = async (token: string, fallbackUser?: any) => {
+    try {
+      const response = await fetch('/api/users/me', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const mergedUser = { ...(fallbackUser || {}), ...data };
+      setUser(mergedUser);
+      localStorage.setItem('user', JSON.stringify(mergedUser));
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
+  // Fetch stats from API
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
+      const response = await fetch('/api/dashboard/stats', {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.stats) {
+          setStats(data.stats);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -34,6 +75,12 @@ export default function DashboardPage() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       setIsAuthenticated(true);
+      
+      // Fetch real stats
+      fetchStats();
+
+      // Refresh user details (benefits, credits, discounts)
+      refreshUser(token, parsedUser);
     } catch (e) {
       console.error('Failed to parse user data:', e);
       localStorage.removeItem('accessToken');
@@ -112,7 +159,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500">Membru din februarie 2024</p>
                 </div>
               </div>
-              <Link href="/dashboard/settings">
+              <Link href="/dashboard/account">
                 <Button variant="primary">
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -124,70 +171,167 @@ export default function DashboardPage() {
           </Card.Body>
         </Card>
 
-        {/* Stats Grid - NEW DESIGN SYSTEM */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+        {/* Stats Grid - ENTERPRISE DESIGN */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {/* Active Listings */}
           <Link href="/dashboard/listings">
-            <Card variant="elevated" interactive className="h-full">
-              <Card.Body className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="group relative bg-gradient-to-br from-purple-600/10 via-purple-500/5 to-transparent backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 hover:border-purple-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
+              {/* Glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/0 via-purple-500/0 to-transparent group-hover:from-purple-600/10 group-hover:via-purple-500/5 transition-all duration-500"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg shadow-purple-500/30">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  <Badge variant="success" size="sm">+2</Badge>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-semibold text-green-400">Activ</span>
+                  </div>
                 </div>
-                <div className="text-3xl font-black text-white mb-2">{stats.activeListings}</div>
-                <div className="text-sm text-gray-400">Anunțuri active</div>
-              </Card.Body>
-            </Card>
+                
+                {statsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-20"></div>
+                    <div className="h-4 bg-white/5 rounded w-32"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
+                      {stats.activeListings}
+                    </div>
+                    <div className="text-sm font-medium text-purple-300">Anunțuri active</div>
+                    <div className="mt-3 flex items-center text-xs text-purple-400">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      Gestionează →
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </Link>
 
-          <Card variant="elevated">
-            <Card.Body className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-info-500/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-info-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Total Views */}
+          <div className="relative bg-gradient-to-br from-blue-600/10 via-cyan-500/5 to-transparent backdrop-blur-xl border border-blue-500/20 rounded-3xl p-6 overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-start justify-between mb-6">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-lg shadow-blue-500/30">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                 </div>
+                <div className="px-3 py-1 bg-blue-500/10 rounded-full">
+                  <span className="text-xs font-bold text-blue-400">Total</span>
+                </div>
               </div>
-              <div className="text-3xl font-black text-white mb-2">{stats.totalViews.toLocaleString()}</div>
-              <div className="text-sm text-gray-400">Vizualizări totale</div>
-            </Card.Body>
-          </Card>
+              
+              {statsLoading ? (
+                <div className="animate-pulse">
+                  <div className="h-10 bg-white/10 rounded-lg mb-2 w-28"></div>
+                  <div className="h-4 bg-white/5 rounded w-32"></div>
+                </div>
+              ) : (
+                <>
+                  <div className="text-4xl font-black text-white mb-2">
+                    {stats.totalViews.toLocaleString()}
+                  </div>
+                  <div className="text-sm font-medium text-blue-300">Vizualizări totale</div>
+                  <div className="mt-3 text-xs text-blue-400">
+                    Toate anunțurile tale
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
 
+          {/* Messages */}
           <Link href="/messages">
-            <Card variant="elevated" interactive className="h-full">
-              <Card.Body className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-warning-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-warning-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="group relative bg-gradient-to-br from-amber-600/10 via-orange-500/5 to-transparent backdrop-blur-xl border border-amber-500/20 rounded-3xl p-6 hover:border-amber-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-600/0 via-orange-500/0 to-transparent group-hover:from-amber-600/10 group-hover:via-orange-500/5 transition-all duration-500"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg shadow-amber-500/30 relative">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
+                    {!statsLoading && stats.messages > 0 && (
+                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
+                        {stats.messages > 9 ? '9+' : stats.messages}
+                      </div>
+                    )}
                   </div>
-                  {stats.messages > 0 && <Badge variant="error" size="sm">{stats.messages}</Badge>}
                 </div>
-                <div className="text-3xl font-black text-white mb-2">{stats.messages}</div>
-                <div className="text-sm text-gray-400">Mesaje noi</div>
-              </Card.Body>
-            </Card>
+                
+                {statsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-16"></div>
+                    <div className="h-4 bg-white/5 rounded w-24"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
+                      {stats.messages}
+                    </div>
+                    <div className="text-sm font-medium text-amber-300">
+                      {stats.messages === 1 ? 'Mesaj nou' : 'Mesaje noi'}
+                    </div>
+                    <div className="mt-3 flex items-center text-xs text-amber-400">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      Vezi mesaje →
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </Link>
 
+          {/* Favorites */}
           <Link href="/favorites">
-            <Card variant="elevated" interactive className="h-full">
-              <Card.Body className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 rounded-xl bg-success-500/20 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-success-500" fill="currentColor" viewBox="0 0 20 20">
+            <div className="group relative bg-gradient-to-br from-pink-600/10 via-rose-500/5 to-transparent backdrop-blur-xl border border-pink-500/20 rounded-3xl p-6 hover:border-pink-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl shadow-lg shadow-pink-500/30">
+                    <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                     </svg>
                   </div>
                 </div>
-                <div className="text-3xl font-black text-white mb-2">{stats.favorites}</div>
-                <div className="text-sm text-gray-400">Favorite salvate</div>
-              </Card.Body>
-            </Card>
+                
+                {statsLoading ? (
+                  <div className="animate-pulse">
+                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-16"></div>
+                    <div className="h-4 bg-white/5 rounded w-28"></div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
+                      {stats.favorites}
+                    </div>
+                    <div className="text-sm font-medium text-pink-300">
+                      {stats.favorites === 1 ? 'Favorit salvat' : 'Favorite salvate'}
+                    </div>
+                    <div className="mt-3 flex items-center text-xs text-pink-400">
+                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      Vezi colecția →
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </Link>
         </div>
 
@@ -200,7 +344,7 @@ export default function DashboardPage() {
           </Tabs.List>
 
           <Tabs.Content value="overview" className="mt-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               <Card variant="elevated">
                 <Card.Body className="p-6">
                   <h3 className="text-lg font-bold text-white mb-4">Acțiuni rapide</h3>
@@ -241,6 +385,49 @@ export default function DashboardPage() {
                       <Button variant="primary" size="sm">Upgrade la Premium</Button>
                     </Link>
                   )}
+                </Card.Body>
+              </Card>
+
+              <Card variant="elevated">
+                <Card.Body className="p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Beneficii active</h3>
+                  <div className="space-y-3 text-sm text-gray-300">
+                    <div className="flex items-center justify-between">
+                      <span>Credite disponibile</span>
+                      <span className="font-bold text-white">{user.creditsBalance ?? 0} RON</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Discount global</span>
+                      <span className="font-bold text-white">{user.promotionDiscountPercent ?? 0}%</span>
+                    </div>
+                    <div>
+                      <div className="text-gray-400 mb-2">Promovări gratuite</div>
+                      {(() => {
+                        const promotions = user?.promotionBenefits?.promotions || {};
+                        const entries = Object.entries(promotions).filter(([, value]: any) => {
+                          const count = value?.count || 0;
+                          const expiresAt = value?.expiresAt ? new Date(value.expiresAt).getTime() : null;
+                          const isActive = !expiresAt || expiresAt > Date.now();
+                          return count > 0 && isActive;
+                        });
+
+                        if (entries.length === 0) {
+                          return <div className="text-gray-500">Nu ai promovări gratuite active.</div>;
+                        }
+
+                        return (
+                          <ul className="space-y-1">
+                            {entries.map(([type, value]: any) => (
+                              <li key={type} className="flex items-center justify-between">
+                                <span className="capitalize">{type}</span>
+                                <span className="font-bold text-white">{value?.count || 0}×</span>
+                              </li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </Card.Body>
               </Card>
             </div>
