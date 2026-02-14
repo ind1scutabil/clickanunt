@@ -23,6 +23,7 @@ function getPublicBaseUrl(request: NextRequest): string {
 
 function normalizePublicUrl(url: string, request: NextRequest): string {
   const baseUrl = getPublicBaseUrl(request);
+  const base = new URL(baseUrl);
   try {
     const parsed = new URL(url);
     const localhostHosts = new Set([
@@ -33,6 +34,14 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
     ]);
     if (localhostHosts.has(parsed.host)) {
       return `${baseUrl}${parsed.pathname}`;
+    }
+
+    const needsHostFix = parsed.host !== base.host;
+    const needsHttps = parsed.protocol !== 'https:';
+    if (needsHostFix || needsHttps) {
+      parsed.protocol = 'https:';
+      parsed.host = base.host;
+      return parsed.toString();
     }
   } catch {
     // Ignore URL parsing errors
