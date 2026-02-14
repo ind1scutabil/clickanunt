@@ -65,6 +65,7 @@ export default function OptimizedListingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [forceNewDraft, setForceNewDraft] = useState(false);
   
   // Form data with draft support
   const [draft, setDraft] = useState<DraftListing>(INITIAL_DRAFT);
@@ -76,8 +77,25 @@ export default function OptimizedListingFlow() {
   // Pas 0: "Ce vinzi?" quick input
   const [quickInput, setQuickInput] = useState("");
 
-  // Load draft from localStorage
+  // Check URL parameters on mount
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("new")) {
+        // Force reset - clear localStorage and use fresh draft
+        localStorage.removeItem("listingDraft");
+        setForceNewDraft(true);
+        setDraft(INITIAL_DRAFT);
+        setCurrentStep(0);
+        return;
+      }
+    }
+  }, []);
+
+  // Load draft from localStorage (only if not forcing new)
+  useEffect(() => {
+    if (forceNewDraft) return;
+    
     const saved = localStorage.getItem("listingDraft");
     if (saved) {
       try {
@@ -88,7 +106,7 @@ export default function OptimizedListingFlow() {
         console.error("Failed to load draft", e);
       }
     }
-  }, []);
+  }, [forceNewDraft]);
 
   // Autosave draft every 3 seconds
   useEffect(() => {
@@ -193,36 +211,45 @@ export default function OptimizedListingFlow() {
     try {
       const csrfToken = await getCsrfToken();
       if (!csrfToken) {
-        setErrors(prev => ({ ...prev, photos: "Eroare de securitate - token CSRF lipsă" }));
+        console.error("❌ CSRF token missing");
+        setErrors(prev => ({ ...prev, photos: "Eroare de securitate - token CSRF lipsă. Încearcă din nou." }));
         setUploadingImage(false);
         return;
       }
 
       const filesToUpload = Math.min(files.length, remainingSlots);
+      console.log(`📸 Încep upload pentru ${filesToUpload} poze...`);
       
       for (let i = 0; i < filesToUpload; i++) {
         const file = files[i];
+        console.log(`📸 Procesez fișier ${i+1}: ${file.name} (${file.type}, ${file.size} bytes)`);
         
         // Validate file type
         if (!file.type.startsWith('image/')) {
+          console.error(`❌ Fișierul ${file.name} nu este imagine: ${file.type}`);
           uploadErrors.push(`${file.name}: nu este imagine`);
           continue;
         }
 
         // Validate file size (max 10MB per image)
         if (file.size > 10 * 1024 * 1024) {
+          console.error(`❌ Fișierul ${file.name} e prea mare: ${file.size} bytes`);
           uploadErrors.push(`${file.name}: prea mare (max 10MB)`);
           continue;
         }
         
         try {
+          console.log(`🔄 Convertesc în base64: ${file.name}`);
           const b64 = await fileToBase64(file);
           
           // Validate base64 conversion
           if (!b64 || b64.length === 0) {
+            console.error(`❌ Conversie base64 eșuată: ${file.name}`);
             uploadErrors.push(`${file.name}: eroare conversie`);
             continue;
           }
+          
+          console.log(`✅ Base64 convertit, lungime: ${b64.length} chars`);
 
           // Extract safe filename extension - detect from MIME type for reliability
           let safeExt = 'jpg';
@@ -233,6 +260,7 @@ export default function OptimizedListingFlow() {
           
           const safeFilename = `photo_${Date.now()}_${i}.${safeExt}`;
 
+          console.log(`📤 Trimit la API: ${safeFilename}`);
           const res = await fetch("/api/uploads", {
             method: "POST",
             headers: { 
@@ -246,19 +274,26 @@ export default function OptimizedListingFlow() {
             }),
           });
 
+          console.log(`📥 Răspuns API status: ${res.status}`);
           const data = await res.json();
+          console.log(`📥 Răspuns API data:`, data);
           
           if (res.ok && data.url) {
+            console.log(`✅ Upload reușit: ${data.url}`);
             newPhotos.push(data.url);
           } else {
-            uploadErrors.push(`${file.name}: ${data.error || 'Eroare necunoscută'}`);
+            const errorMsg = data.error || data.reason || 'Eroare necunoscută';
+            console.error(`❌ Upload eșuat: ${errorMsg}`);
+            uploadErrors.push(`${file.name}: ${errorMsg}`);
           }
         } catch (fileError: any) {
+          console.error(`❌ Eroare upload fișier: ${fileError.message}`);
           uploadErrors.push(`${file.name}: ${fileError.message || 'Eroare upload'}`);
         }
       }
       
       if (newPhotos.length > 0) {
+        console.log(`✅ Adaug ${newPhotos.length} poze în draft`);
         setDraft(prev => ({
           ...prev,
           photos: [...prev.photos, ...newPhotos]
@@ -270,11 +305,12 @@ export default function OptimizedListingFlow() {
 
       if (uploadErrors.length > 0) {
         const errorMsg = uploadErrors.slice(0, 2).join("; ");
+        console.error(`❌ Erori upload: ${errorMsg}`);
         setErrors(prev => ({ ...prev, photos: errorMsg }));
       }
     } catch (error: any) {
-      console.error("Upload failed", error);
-      setErrors(prev => ({ ...prev, photos: error.message || "Eroare la încărcarea pozelor" }));
+      console.error("❌ Upload failed (outer)", error);
+      setErrors(prev => ({ ...prev, photos: error.message || "Eroare la încărcarea pozelor. Încearcă din nou." }));
     } finally {
       setUploadingImage(false);
     }
@@ -482,6 +518,7 @@ export default function OptimizedListingFlow() {
       setCurrentStep(0);
       setErrors({});
       setTouched({});
+      setForceNewDraft(false);
       
       // Redirect to listing
       router.push(`/listings/${data.listing?.id || data.id}`);
@@ -497,6 +534,19 @@ export default function OptimizedListingFlow() {
       alert(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Reset draft completely
+  const handleReset = () => {
+    if (confirm("Ești sigur că vrei să resetezi formularul? Toate datele vor fi șterse.")) {
+      localStorage.removeItem("listingDraft");
+      setDraft(INITIAL_DRAFT);
+      setCurrentStep(0);
+      setErrors({});
+      setTouched({});
+      setQuickInput("");
+      setForceNewDraft(true);
     }
   };
 
@@ -537,11 +587,22 @@ export default function OptimizedListingFlow() {
               {currentStep === 2 && "Detalii despre anunț"}
               {currentStep === 3 && "Contact & publicare"}
             </h1>
-            {draft.lastSaved && (
-              <span className="text-sm text-gray-400">
-                ✓ Salvat automat
-              </span>
-            )}
+            <div className="flex items-center gap-4">
+              {draft.lastSaved && (
+                <span className="text-sm text-gray-400">
+                  ✓ Salvat automat
+                </span>
+              )}
+              {currentStep > 0 && (
+                <button
+                  onClick={handleReset}
+                  className="text-sm px-3 py-2 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition"
+                  title="Resetează formularul"
+                >
+                  🔄 Reset
+                </button>
+              )}
+            </div>
           </div>
           
           {/* Progress bar */}
