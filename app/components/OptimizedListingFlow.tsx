@@ -74,6 +74,7 @@ export default function OptimizedListingFlow() {
 
   // Validation state
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showGeneralError, setShowGeneralError] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Pas 0: "Ce vinzi?" quick input
@@ -196,6 +197,9 @@ export default function OptimizedListingFlow() {
     
     if (step === 1) {
       if (!draft.title.trim()) newErrors.title = "Titlul este obligatoriu";
+      if (draft.title.trim().length > 0 && draft.title.trim().length < 5) {
+        newErrors.title = "Titlul trebuie să aibă minim 5 caractere";
+      }
       if (!draft.category) newErrors.category = "Selectează categoria";
       if (!draft.priceAmount || draft.priceAmount <= 0) newErrors.priceAmount = "Prețul trebuie să fie mai mare de 0";
       if (!draft.county) newErrors.county = "Selectează județul";
@@ -487,7 +491,7 @@ export default function OptimizedListingFlow() {
     try {
       const payload: any = {
         ownerUserId: userId, // ✅ IMPORTANT: Include user ID
-        title: draft.title,
+        title: draft.title?.trim(),
         category: draft.category,
         priceAmount: Number(draft.priceAmount),
         priceCurrency: draft.priceCurrency,
@@ -501,14 +505,32 @@ export default function OptimizedListingFlow() {
         allowMessages: draft.allowMessages
       };
 
+      // Client-side sanity validation to avoid server schema errors
+      if (!payload.title || payload.title.length < 5) {
+        setErrors({ title: "Titlul trebuie să aibă minim 5 caractere" });
+        setShowGeneralError(true);
+        setLoading(false);
+        return;
+      }
+
+      const validFuel = new Set(['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas']);
+      const validTransmission = new Set(['manual', 'automatic']);
+
       // Add auto-specific fields
       if (isAutoCategory) {
         payload.make = draft.make || null;
         payload.model = draft.model || null;
-        payload.year = draft.year ? Number(draft.year) : null;
-        payload.mileage = draft.mileage ? Number(draft.mileage) : null;
-        payload.fuel = draft.fuel || null;
-        payload.transmission = draft.transmission || null;
+
+        const yearValue = draft.year ? Number(draft.year) : null;
+        payload.year = yearValue && yearValue >= 1900 ? yearValue : null;
+
+        const mileageValue = draft.mileage ? Number(draft.mileage) : null;
+        payload.mileage = mileageValue && mileageValue >= 0 ? mileageValue : null;
+
+        payload.fuel = draft.fuel && validFuel.has(draft.fuel) ? draft.fuel : null;
+        payload.transmission = draft.transmission && validTransmission.has(draft.transmission)
+          ? draft.transmission
+          : null;
       }
     
       const csrfToken = await getCsrfToken();
@@ -570,8 +592,7 @@ export default function OptimizedListingFlow() {
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
       setErrors({ general: errorMessage });
-      
-      alert(errorMessage);
+      setShowGeneralError(true);
     } finally {
       setLoading(false);
     }
@@ -618,6 +639,40 @@ export default function OptimizedListingFlow() {
 
   return (
     <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-primary)' }}>
+      {showGeneralError && errors.general && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-gradient-to-br from-[#121826] via-[#0B1220] to-[#0B0F1A] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex items-start gap-4">
+              <div className="mt-1 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/15 text-red-300">
+                <span className="text-lg font-bold">!</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white">Publicare eșuată</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-200">
+                  {errors.general}
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                onClick={() => setShowGeneralError(false)}
+                className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Închide
+              </button>
+              <button
+                onClick={() => {
+                  setShowGeneralError(false);
+                  setErrors(prev => ({ ...prev, general: "" }));
+                }}
+                className="rounded-xl bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-[#5B4BFF] hover:to-[#4338CA]"
+              >
+                Revizuiește formularul
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-4xl mx-auto">
         {/* Header with Progress */}
         <div className="mb-8">
