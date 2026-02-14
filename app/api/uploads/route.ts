@@ -24,7 +24,6 @@ export async function POST(request: NextRequest) {
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
       rateLimit: 'upload',
-      schema: uploadBase64Schema,
     });
 
     if (!security.success) {
@@ -32,13 +31,34 @@ export async function POST(request: NextRequest) {
         ? 429
         : security.csrfError
         ? 403
-        : security.validationError
-        ? 400
         : 400;
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { filename, data, listingId, type } = security.data as {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+    }
+
+    let parsed = uploadBase64Schema.safeParse(body);
+    if (!parsed.success) {
+      const onlyFilenameIssues = parsed.error.issues.every(issue => issue.path.join('.') === 'filename');
+      if (onlyFilenameIssues && body && typeof body === 'object') {
+        const { filename: _ignored, ...rest } = body as Record<string, unknown>;
+        parsed = uploadBase64Schema.safeParse(rest);
+      }
+    }
+
+    if (!parsed.success) {
+      const errors = parsed.error.issues
+        .map(e => `${e.path.join('.')}: ${e.message}`)
+        .join('; ');
+      return NextResponse.json({ error: errors || 'Invalid input' }, { status: 400 });
+    }
+
+    const { filename, data, listingId, type } = parsed.data as {
       filename?: string;
       data: string;
       listingId?: string;
