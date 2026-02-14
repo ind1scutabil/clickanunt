@@ -277,7 +277,7 @@ export const imageUploadSchema = z.object({
 export const uploadBase64Schema = z.object({
   filename: z.string().optional(), // Optional - server generates safe filename anyway
   data: z.string().min(1, 'Base64 data required'),
-  listingId: z.string().uuid().optional(),
+  listingId: z.string().optional(), // Changed from .uuid() to accept any string for debugging
   type: z.enum(['image', 'video']).optional(),
 }).strict();
 
