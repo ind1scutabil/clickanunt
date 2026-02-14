@@ -39,7 +39,7 @@ export function generateImageKey(listingId: string, size: 'thumb' | 'medium' | '
 }
 
 /**
- * Upload image to S3-compatible storage
+ * Upload image to S3-compatible storage or local fallback
  * Returns the public URL or CDN URL
  */
 export async function uploadImage(
@@ -48,6 +48,18 @@ export async function uploadImage(
   contentType: string = 'image/jpeg'
 ): Promise<string> {
   try {
+    // Check if S3 is properly configured
+    const hasS3Config = STORAGE_CONFIG.accessKeyId && 
+                        STORAGE_CONFIG.secretAccessKey && 
+                        STORAGE_CONFIG.bucket;
+
+    if (!hasS3Config) {
+      // Fallback to local storage
+      console.log('⚠️ S3 not configured, using local storage fallback');
+      const { uploadImageLocal } = await import('@/lib/storage-local');
+      return await uploadImageLocal(file, key);
+    }
+
     const command = new PutObjectCommand({
       Bucket: STORAGE_CONFIG.bucket,
       Key: key,
@@ -86,8 +98,16 @@ export async function uploadImage(
     
     return url;
   } catch (error) {
-    console.error('Error uploading image:', error);
-    throw new Error('Failed to upload image');
+    console.error('Error uploading image to S3:', error);
+    // Try local fallback on S3 error
+    try {
+      console.log('⚠️ S3 upload failed, trying local storage fallback');
+      const { uploadImageLocal } = await import('@/lib/storage-local');
+      return await uploadImageLocal(file, key);
+    } catch (localError) {
+      console.error('Local upload fallback also failed:', localError);
+      throw new Error('Failed to upload image');
+    }
   }
 }
 

@@ -58,6 +58,8 @@ const INITIAL_DRAFT: DraftListing = {
   allowMessages: true
 };
 
+const DRAFT_VERSION = "2"; // Increment when schema changes
+
 export default function OptimizedListingFlow() {
   const router = useRouter();
   
@@ -87,7 +89,22 @@ export default function OptimizedListingFlow() {
     if (params.has("new")) {
       console.log("✅ ?new parameter detected - clearing all data");
       localStorage.removeItem("listingDraft");
+      localStorage.removeItem("listingDraftVersion");
       setForceNewDraft(true);
+      setDraft(INITIAL_DRAFT);
+      setCurrentStep(0);
+      setQuickInput("");
+      setErrors({});
+      setTouched({});
+      return;
+    }
+
+    // Check draft version compatibility
+    const savedVersion = localStorage.getItem("listingDraftVersion");
+    if (savedVersion !== DRAFT_VERSION) {
+      console.log(`📝 Draft version mismatch (saved: ${savedVersion}, current: ${DRAFT_VERSION}) - clearing old data`);
+      localStorage.removeItem("listingDraft");
+      localStorage.removeItem("listingDraftVersion");
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
       setQuickInput("");
@@ -104,6 +121,7 @@ export default function OptimizedListingFlow() {
         setCurrentStep(parsed.step || 0);
       } catch (e) {
         console.error("Failed to load draft", e);
+        localStorage.removeItem("listingDraft");
       }
     } else {
       console.log("📝 No saved draft found, starting fresh");
@@ -117,6 +135,7 @@ export default function OptimizedListingFlow() {
     const timer = setTimeout(() => {
       const toSave = { ...draft, step: currentStep, lastSaved: Date.now() };
       localStorage.setItem("listingDraft", JSON.stringify(toSave));
+      localStorage.setItem("listingDraftVersion", DRAFT_VERSION);
     }, 3000);
     return () => clearTimeout(timer);
   }, [draft, currentStep]);
@@ -516,12 +535,14 @@ export default function OptimizedListingFlow() {
 
       // Clear draft - ALWAYS on success
       localStorage.removeItem("listingDraft");
+      localStorage.removeItem("listingDraftVersion");
       
       // Reset form state completely
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
       setErrors({});
       setTouched({});
+      setQuickInput("");
       setForceNewDraft(false);
       
       // Redirect to listing
@@ -533,6 +554,7 @@ export default function OptimizedListingFlow() {
       
       // Clear draft even on error - user can try again fresh
       localStorage.removeItem("listingDraft");
+      localStorage.removeItem("listingDraftVersion");
       setErrors({ general: errorMessage });
       
       alert(errorMessage);
@@ -545,6 +567,7 @@ export default function OptimizedListingFlow() {
   const handleReset = () => {
     if (confirm("Ești sigur că vrei să resetezi formularul? Toate datele vor fi șterse.")) {
       localStorage.removeItem("listingDraft");
+      localStorage.removeItem("listingDraftVersion");
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
       setErrors({});
