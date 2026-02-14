@@ -11,6 +11,34 @@ import { uploadBase64Schema } from "@/lib/security/validation-schemas";
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 
+function getPublicBaseUrl(request: NextRequest): string {
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  if (host) {
+    return `${proto}://${host}`;
+  }
+  return 'https://www.clickanunt.ro';
+}
+
+function normalizePublicUrl(url: string, request: NextRequest): string {
+  const baseUrl = getPublicBaseUrl(request);
+  try {
+    const parsed = new URL(url);
+    const localhostHosts = new Set([
+      'localhost:3000',
+      '127.0.0.1:3000',
+      '0.0.0.0:3000',
+      '46.225.69.155:3000',
+    ]);
+    if (localhostHosts.has(parsed.host)) {
+      return `${baseUrl}${parsed.pathname}`;
+    }
+  } catch {
+    // Ignore URL parsing errors
+  }
+  return url;
+}
+
 /**
  * POST /api/uploads
  * Image/Video upload endpoint
@@ -121,7 +149,8 @@ export async function POST(request: NextRequest) {
       const key = generateImageKey(id, "original", tempFilename);
 
       // Upload to cloud storage
-      const url = await uploadImage(cleanBuffer, key, "image/jpeg");
+      let url = await uploadImage(cleanBuffer, key, "image/jpeg");
+      url = normalizePublicUrl(url, request);
 
       return NextResponse.json({ 
         url,
@@ -139,7 +168,8 @@ export async function POST(request: NextRequest) {
       const key = `listings/${id}/videos/${tempFilename}`;
 
       // Upload video to cloud storage
-      const url = await uploadImage(buf, key, "video/mp4");
+      let url = await uploadImage(buf, key, "video/mp4");
+      url = normalizePublicUrl(url, request);
 
       return NextResponse.json({
         url,
