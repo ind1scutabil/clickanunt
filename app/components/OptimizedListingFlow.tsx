@@ -513,6 +513,17 @@ export default function OptimizedListingFlow() {
         return;
       }
 
+      const fuelMap: Record<string, string> = {
+        "Benzină": "petrol",
+        "Diesel": "diesel",
+        "Hibrid": "hybrid",
+        "Electric": "electric",
+        "GPL": "lpg",
+      };
+      const transmissionMap: Record<string, string> = {
+        "Manuală": "manual",
+        "Automată": "automatic",
+      };
       const validFuel = new Set(['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas']);
       const validTransmission = new Set(['manual', 'automatic']);
 
@@ -527,9 +538,14 @@ export default function OptimizedListingFlow() {
         const mileageValue = draft.mileage ? Number(draft.mileage) : null;
         payload.mileage = mileageValue && mileageValue >= 0 ? mileageValue : null;
 
-        payload.fuel = draft.fuel && validFuel.has(draft.fuel) ? draft.fuel : null;
-        payload.transmission = draft.transmission && validTransmission.has(draft.transmission)
-          ? draft.transmission
+        const normalizedFuel = draft.fuel ? (fuelMap[draft.fuel] || draft.fuel) : null;
+        const normalizedTransmission = draft.transmission
+          ? (transmissionMap[draft.transmission] || draft.transmission)
+          : null;
+
+        payload.fuel = normalizedFuel && validFuel.has(normalizedFuel) ? normalizedFuel : null;
+        payload.transmission = normalizedTransmission && validTransmission.has(normalizedTransmission)
+          ? normalizedTransmission
           : null;
       }
     
@@ -1070,11 +1086,11 @@ export default function OptimizedListingFlow() {
                       className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
                     >
                       <option value="">Selectează</option>
-                      <option value="Benzină">Benzină</option>
-                      <option value="Diesel">Diesel</option>
-                      <option value="Hibrid">Hibrid</option>
-                      <option value="Electric">Electric</option>
-                      <option value="GPL">GPL</option>
+                      <option value="petrol">Benzină</option>
+                      <option value="diesel">Diesel</option>
+                      <option value="hybrid">Hibrid</option>
+                      <option value="electric">Electric</option>
+                      <option value="lpg">GPL</option>
                     </select>
                   </div>
                   <div>
@@ -1085,8 +1101,8 @@ export default function OptimizedListingFlow() {
                       className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
                     >
                       <option value="">Selectează</option>
-                      <option value="Manuală">Manuală</option>
-                      <option value="Automată">Automată</option>
+                      <option value="manual">Manuală</option>
+                      <option value="automatic">Automată</option>
                     </select>
                   </div>
                 </div>
