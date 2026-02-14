@@ -116,7 +116,7 @@ test.describe('Production Smoke Tests', () => {
     
     // Should show 404 or redirect
     const url = page.url();
-    expect(url).toContain('404') || expect(url).toContain('not-found');
+    expect(url.includes('404') || url.includes('not-found')).toBeTruthy();
   });
 
   test('Static assets load', async ({ page }) => {
