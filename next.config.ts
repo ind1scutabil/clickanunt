@@ -104,6 +104,24 @@ const nextConfig: NextConfig = {
         headers: baseHeaders,
       },
       {
+        // Don't cache dynamic form pages
+        source: '/listings/new',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache'
+          },
+          {
+            key: 'Expires',
+            value: '0'
+          }
+        ]
+      },
+      {
         // API routes with CORS for Safari (OPTIONS preflight handled in app/api/cors)
         source: '/api/:path*',
         headers: [
