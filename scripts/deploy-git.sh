@@ -17,6 +17,29 @@
 
 set -e
 
+###############################################################################
+# DEPLOYMENT SAFETY CHECKS
+###############################################################################
+
+# Verify we're in a git repository (local)
+if [ ! -d ".git" ]; then
+  echo "❌ ERROR: Not in a git repository"
+  echo "   This script must run from the project root directory."
+  exit 1
+fi
+
+# Verify scripts/deploy-git.sh exists (prevents running from wrong repo)
+if [ ! -f "scripts/deploy-git.sh" ]; then
+  echo "❌ ERROR: scripts/deploy-git.sh not found"
+  echo "   This script must run from the auto-platform project root."
+  exit 1
+fi
+
+echo "✅ Local checks passed: Running from project root with git"
+echo ""
+
+###############################################################################
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
