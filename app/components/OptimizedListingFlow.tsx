@@ -85,9 +85,9 @@ export default function OptimizedListingFlow() {
 
     const params = new URLSearchParams(window.location.search);
     
-    // If ?new parameter exists, clear everything and start fresh
-    if (params.has("new")) {
-      console.log("✅ ?new parameter detected - clearing all data");
+    // If ?new parameter exists OR no explicit ?continue parameter, clear everything and start fresh
+    if (params.has("new") || !params.has("continue")) {
+      console.log("✅ Starting fresh listing (no ?continue parameter)");
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
       setForceNewDraft(true);
@@ -99,46 +99,64 @@ export default function OptimizedListingFlow() {
       return;
     }
 
-    // Check draft version compatibility
-    const savedVersion = localStorage.getItem("listingDraftVersion");
-    if (savedVersion !== DRAFT_VERSION) {
-      console.log(`📝 Draft version mismatch (saved: ${savedVersion}, current: ${DRAFT_VERSION}) - clearing old data`);
-      localStorage.removeItem("listingDraft");
-      localStorage.removeItem("listingDraftVersion");
-      setDraft(INITIAL_DRAFT);
-      setCurrentStep(0);
-      setQuickInput("");
-      return;
-    }
-
-    // Otherwise, try to load from localStorage
-    const saved = localStorage.getItem("listingDraft");
-    if (saved) {
-      try {
-        console.log("📂 Loading draft from localStorage");
-        const parsed = JSON.parse(saved);
-        setDraft(parsed);
-        setCurrentStep(parsed.step || 0);
-      } catch (e) {
-        console.error("Failed to load draft", e);
+    // Only load draft if explicitly requested with ?continue parameter
+    if (params.has("continue")) {
+      // Check draft version compatibility
+      const savedVersion = localStorage.getItem("listingDraftVersion");
+      if (savedVersion !== DRAFT_VERSION) {
+        console.log(`📝 Draft version mismatch (saved: ${savedVersion}, current: ${DRAFT_VERSION}) - clearing old data`);
         localStorage.removeItem("listingDraft");
+        localStorage.removeItem("listingDraftVersion");
+        setDraft(INITIAL_DRAFT);
+        setCurrentStep(0);
+        setQuickInput("");
+        return;
       }
-    } else {
-      console.log("📝 No saved draft found, starting fresh");
-      setDraft(INITIAL_DRAFT);
-      setCurrentStep(0);
+
+      // Try to load from localStorage
+      const saved = localStorage.getItem("listingDraft");
+      if (saved) {
+        try {
+          console.log("📂 Loading draft from localStorage (explicit ?continue)");
+          const parsed = JSON.parse(saved);
+          setDraft(parsed);
+          setCurrentStep(parsed.step || 0);
+        } catch (e) {
+          console.error("Failed to load draft", e);
+          localStorage.removeItem("listingDraft");
+          setDraft(INITIAL_DRAFT);
+          setCurrentStep(0);
+        }
+      } else {
+        console.log("📝 No saved draft found, starting fresh");
+        setDraft(INITIAL_DRAFT);
+        setCurrentStep(0);
+      }
     }
   }, []);
 
-  // Autosave draft every 3 seconds
+  // Autosave draft every 3 seconds (but not when starting fresh)
   useEffect(() => {
+    // Don't save if we just cleared the draft (forceNewDraft flag)
+    if (forceNewDraft) {
+      console.log("⏩ Skipping autosave for fresh draft");
+      return;
+    }
+
+    // Don't save empty drafts
+    if (currentStep === 0 && !draft.title && !draft.category && draft.photos.length === 0) {
+      console.log("⏩ Skipping autosave for empty draft");
+      return;
+    }
+
     const timer = setTimeout(() => {
       const toSave = { ...draft, step: currentStep, lastSaved: Date.now() };
       localStorage.setItem("listingDraft", JSON.stringify(toSave));
       localStorage.setItem("listingDraftVersion", DRAFT_VERSION);
+      console.log("💾 Draft autosaved");
     }, 3000);
     return () => clearTimeout(timer);
-  }, [draft, currentStep]);
+  }, [draft, currentStep, forceNewDraft]);
 
   // Smart category detection from quick input
   const detectCategory = useCallback((input: string) => {
