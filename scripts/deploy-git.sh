@@ -100,13 +100,23 @@ git push -u deploy "$GIT_BRANCH" --force 2>&1 | tail -3
 echo "${GREEN}✅ Code pushed to deploy repository${NC}"
 echo ""
 
+# Step 3.5: Sync .git folder to server (CRITICAL - ensures latest commits available)
+echo "${BLUE}[3.5/9]${NC} Syncing git history to server..."
+echo "📤 Rsync .git folder to ${SERVER}:${BARE_REPO}..."
+rsync -azq --delete "${LOCAL_DIR}/.git/" root@"${SERVER}:${BARE_REPO}/" || {
+  echo "${YELLOW}⚠️  Git sync warning (continuing anyway)${NC}"
+}
+echo "${GREEN}✅ Git history synced${NC}"
+echo ""
+
 # Step 4: Verify SSH connectivity
-echo "${BLUE}[4/9]${NC} Testing SSH connectivity..."
-if ! ssh -o ConnectTimeout=10 "${SERVER}" "echo '✅ SSH connection successful'" 2>&1 | tail -1; then
+echo "${BLUE}[4/9]${NC} Testing SSH connectivity and git config..."
+ssh -o ConnectTimeout=10 "${SERVER}" "git config --global --add safe.directory ${BARE_REPO} && git config --global --add safe.directory ${DEPLOY_DIR}" 2>/dev/null || true
+if ! ssh -o ConnectTimeout=10 "${SERVER}" "echo '✅ SSH ok'" 2>&1 | grep -q "SSH"; then
   echo "${RED}❌ Cannot connect to server${NC}"
   exit 1
 fi
-echo ""
+echo "${GREEN}✅ SSH and git configured${NC}"
 
 # Step 5: Backup database
 echo "${BLUE}[5/9]${NC} Creating database backup..."
