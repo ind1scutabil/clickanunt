@@ -97,16 +97,33 @@ export async function POST(request: NextRequest) {
     };
 
     // Validate input
+    console.log('📤 Upload request received', { 
+      hasData: !!data, 
+      dataType: typeof data,
+      dataLength: data?.length || 0,
+      type: type || 'not specified',
+      hasListingId: !!listingId
+    });
+
     if (!data) {
+      console.error('❌ Upload failed: no data provided');
       return NextResponse.json({ error: "no data provided" }, { status: 400 });
     }
 
     if (typeof data !== "string") {
+      console.error('❌ Upload failed: data not string', { actualType: typeof data });
       return NextResponse.json({ error: "data must be base64 string" }, { status: 400 });
     }
 
     // Convert base64 to buffer
-    const buf = Buffer.from(data, "base64");
+    let buf: Buffer;
+    try {
+      buf = Buffer.from(data, "base64");
+      console.log('✅ Base64 decoded', { bufferSize: buf.length });
+    } catch (error) {
+      console.error('❌ Base64 decode failed', { error });
+      return NextResponse.json({ error: "Invalid base64 data" }, { status: 400 });
+    }
 
     // Detect file type from magic bytes if not provided
     let fileType = type || "image";
@@ -130,17 +147,23 @@ export async function POST(request: NextRequest) {
 
     // For images: validate and process
     if (fileType === "image") {
+      console.log('🖼️  Processing image upload');
+      
       // Validate image
       const validation = await validateImage(buf);
       if (!validation.valid) {
+        console.error('❌ Image validation failed', { error: validation.error });
         return NextResponse.json(
           { error: validation.error },
           { status: 400 }
         );
       }
 
+      console.log('✅ Image validated');
+
       // Strip EXIF data for privacy
       const cleanBuffer = await stripExifData(buf);
+      console.log('✅ EXIF stripped');
 
       // Generate storage key with SAFE filename (ignore original filename completely)
       const id = listingId || `temp-${uuidv4()}`;
@@ -148,9 +171,14 @@ export async function POST(request: NextRequest) {
       const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = generateImageKey(id, "original", tempFilename);
 
+      console.log('📁 Generated storage key', { id, key, tempFilename });
+
       // Upload to cloud storage
       let url = await uploadImage(cleanBuffer, key, "image/jpeg");
+      console.log('☁️  Uploaded to storage', { rawUrl: url });
+      
       url = normalizePublicUrl(url, request);
+      console.log('✅ Image upload complete', { finalUrl: url });
 
       return NextResponse.json({ 
         url,
