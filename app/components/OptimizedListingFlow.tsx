@@ -77,36 +77,40 @@ export default function OptimizedListingFlow() {
   // Pas 0: "Ce vinzi?" quick input
   const [quickInput, setQuickInput] = useState("");
 
-  // Check URL parameters on mount
+  // Load draft from localStorage or check for ?new parameter on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("new")) {
-        // Force reset - clear localStorage and use fresh draft
-        localStorage.removeItem("listingDraft");
-        setForceNewDraft(true);
-        setDraft(INITIAL_DRAFT);
-        setCurrentStep(0);
-        return;
-      }
-    }
-  }, []);
+    if (typeof window === "undefined") return;
 
-  // Load draft from localStorage (only if not forcing new)
-  useEffect(() => {
-    if (forceNewDraft) return;
+    const params = new URLSearchParams(window.location.search);
     
+    // If ?new parameter exists, clear everything and start fresh
+    if (params.has("new")) {
+      console.log("✅ ?new parameter detected - clearing all data");
+      localStorage.removeItem("listingDraft");
+      setForceNewDraft(true);
+      setDraft(INITIAL_DRAFT);
+      setCurrentStep(0);
+      setQuickInput("");
+      return;
+    }
+
+    // Otherwise, try to load from localStorage
     const saved = localStorage.getItem("listingDraft");
     if (saved) {
       try {
+        console.log("📂 Loading draft from localStorage");
         const parsed = JSON.parse(saved);
         setDraft(parsed);
         setCurrentStep(parsed.step || 0);
       } catch (e) {
         console.error("Failed to load draft", e);
       }
+    } else {
+      console.log("📝 No saved draft found, starting fresh");
+      setDraft(INITIAL_DRAFT);
+      setCurrentStep(0);
     }
-  }, [forceNewDraft]);
+  }, []);
 
   // Autosave draft every 3 seconds
   useEffect(() => {
