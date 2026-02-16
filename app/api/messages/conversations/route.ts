@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/security/tokens";
+import { verifyToken } from "@/lib/auth";
 
 /**
  * GET /api/messages/conversations
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const payload = verifyAccessToken(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json(
         { error: "Invalid token" },

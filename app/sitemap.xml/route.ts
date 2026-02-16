@@ -59,7 +59,6 @@ ${listings.map((listing: any) => `  <url>
       },
     });
   } catch (error: any) {
-    console.error('Sitemap generation error:', error);
     return new NextResponse('Error generating sitemap', { status: 500 });
   }
 }

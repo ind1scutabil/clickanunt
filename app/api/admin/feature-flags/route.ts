@@ -35,7 +35,6 @@ export async function GET(request: NextRequest) {
       flags,
     });
   } catch (error) {
-    console.error('Get feature flags error:', error);
     return NextResponse.json(
       { error: "Eroare la obținerea feature flags" },
       { status: 500 }
@@ -78,7 +77,6 @@ export async function POST(request: NextRequest) {
       message: "Feature flag actualizat cu succes",
     });
   } catch (error) {
-    console.error('Set feature flag error:', error);
     return NextResponse.json(
       { error: "Eroare la actualizarea feature flag" },
       { status: 500 }
@@ -116,7 +114,6 @@ export async function DELETE(request: NextRequest) {
       message: key ? `Cache cleared pentru ${key}` : 'Cache-ul global a fost șters',
     });
   } catch (error) {
-    console.error('Clear cache error:', error);
     return NextResponse.json(
       { error: "Eroare la ștergerea cache-ului" },
       { status: 500 }

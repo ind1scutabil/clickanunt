@@ -134,7 +134,6 @@ export async function POST(request: NextRequest) {
       message: 'Beneficiile au fost aplicate',
     });
   } catch (error) {
-    console.error('Apply benefits error:', error);
     return NextResponse.json({ error: "Eroare la aplicarea beneficiilor" }, { status: 500 });
   }
 }

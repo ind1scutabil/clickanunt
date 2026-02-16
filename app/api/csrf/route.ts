@@ -7,6 +7,10 @@ export async function GET() {
 
   const response = NextResponse.json({ csrfToken: token });
 
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+
   const isProd = process.env.NODE_ENV === 'production';
 
   response.cookies.set('csrf-token', token, {

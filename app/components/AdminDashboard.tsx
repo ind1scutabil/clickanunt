@@ -28,7 +28,7 @@ export default function AdminDashboard() {
       
       const data = await res.json();
       // Asigură-te că listings este întotdeauna un array
-      const listingsArray = Array.isArray(data) ? data : (data.listings || []);
+      const listingsArray = Array.isArray(data) ? data : (data.data || data.listings || []);
       setListings(listingsArray);
     } catch (err: any) {
       setError(err.message || 'Eroare la încărcarea listingurilor');

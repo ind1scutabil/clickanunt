@@ -500,7 +500,6 @@ export default function OptimizedListingFlow() {
         county: draft.county,
         city: draft.city,
         photos: draft.photos,
-        video: draft.video || null,
         contactPhone: draft.phone,
         allowMessages: draft.allowMessages
       };
@@ -581,8 +580,7 @@ export default function OptimizedListingFlow() {
         listingId: data.listing?.id || data.id, 
         duration,
         category: draft.category,
-        photoCount: draft.photos.length,
-        hasVideo: !!draft.video
+        photoCount: draft.photos.length
       });
 
       // Clear draft - ALWAYS on success

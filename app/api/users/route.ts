@@ -30,7 +30,6 @@ export async function GET() {
     
     return NextResponse.json(allUsers || []);
   } catch (error: any) {
-    console.error('GET /api/users error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -86,14 +85,10 @@ export async function POST(request: Request) {
     // Send verification email (asynchronous - nu blocăm răspunsul)
     sendVerificationEmail(email, verificationToken, verificationCode)
       .then(result => {
-        if (result.success) {
-          console.log('✅ Email de verificare trimis cu succes către:', email);
-        } else {
-          console.error('❌ Eroare la trimiterea emailului:', result.error);
-        }
+        // Email sent - no need to log in production
       })
       .catch(err => {
-        console.error('❌ Excepție la trimiterea emailului:', err);
+        // Email failed - handled silently
       });
 
     // Return without sensitive data (password and reset token)
@@ -111,7 +106,6 @@ export async function POST(request: Request) {
       })
     }, { status: 201 });
   } catch (err: any) {
-    console.error('POST /api/users error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

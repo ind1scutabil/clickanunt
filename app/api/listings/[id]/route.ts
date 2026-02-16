@@ -26,7 +26,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     
     const listing = await prisma.listing.findUnique({
       where: { id },
-      include: { owner: true },
+      include: { 
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            phone: true,
+            businessPhone: true,
+            businessName: true,
+            avatar: true,
+            phoneVerified: true,
+            emailVerified: true,
+            trustScore: true,
+            totalSales: true,
+            averageRating: true,
+          }
+        }
+      },
     });
 
     if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -57,13 +74,45 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: security.error }, { status });
     }
 
+    // Verify ownership
+    const { verifyToken } = await import("@/lib/auth");
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const tokenPayload = await verifyToken(token);
+    if (!tokenPayload) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    // Check if listing exists and user owns it
+    const existingListing = await prisma.listing.findUnique({
+      where: { id },
+      select: { ownerUserId: true }
+    });
+
+    if (!existingListing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    // Use userId from token (not sub which is from standard JWT)
+    const userIdFromToken = (tokenPayload as any).userId || (tokenPayload as any).sub;
+    if (existingListing.ownerUserId !== userIdFromToken) {
+      return NextResponse.json({ error: "Not authorized to edit this listing" }, { status: 403 });
+    }
+
     const body = { ...(security.data as any), id };
 
     const allowed: any = {};
     const fields = [
       "title",
+      "category",
+      "subcategory",
       "priceAmount",
       "priceCurrency",
+      "condition",
       "status",
       "make",
       "model",
@@ -72,11 +121,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       "fuel",
       "transmission",
       "vin",
+      "attributes",
       "photos",
       "description",
       "city",
+      "county",
       "region",
       "isFeatured",
+      "contactPhone",
     ];
 
     for (const f of fields) if (f in body) allowed[f] = (body as any)[f];

@@ -2,44 +2,104 @@
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface Favorite {
+  id: string;
+  listing: {
+    id: string;
+    title: string;
+    priceAmount: number;
+    priceCurrency: string;
+    photos: string[];
+    city: string | null;
+    county: string | null;
+    category: string;
+    subcategory: string | null;
+    views: number;
+    isFeatured: boolean;
+    condition: string | null;
+    make: string | null;
+    model: string | null;
+    year: number | null;
+    mileage: number | null;
+    fuel: string | null;
+    transmission: string | null;
+    status: string;
+    createdAt: string;
+  };
+  createdAt: string;
+}
 
 export default function FavoritesPage() {
-  const [favorites] = useState([
-    {
-      id: 1,
-      title: "BMW Seria 3 320d xDrive",
-      price: "75.000 RON",
-      location: "București, Sector 1",
-      image: "https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=300&fit=crop",
-      category: "Auto",
-      views: 2345,
-      featured: true,
-      specs: "2020 · 45.000 km · Diesel · Automat",
-    },
-    {
-      id: 2,
-      title: "Apartament 2 camere decomandat",
-      price: "95.000 EUR",
-      location: "Cluj-Napoca, Mănăștur",
-      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&h=300&fit=crop",
-      category: "Imobiliare",
-      views: 1892,
-      featured: true,
-      specs: "56 mp · Etaj 3 · 2025 · Parcare",
-    },
-    {
-      id: 3,
-      title: "iPhone 14 Pro Max 256GB",
-      price: "4.500 RON",
-      location: "Timișoara, Centru",
-      image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=300&fit=crop",
-      category: "Electronice",
-      views: 3156,
-      featured: false,
-      specs: "Deep Purple · Garantie · Impecabil",
-    },
-  ]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchFavorites();
+  }, []);
+
+  const fetchFavorites = async () => {
+    try {
+      const res = await fetch('/api/favorites');
+      if (!res.ok) throw new Error('Failed to fetch favorites');
+      
+      const data = await res.json();
+      setFavorites(data.favorites || []);
+    } catch (err: any) {
+      console.error('Error fetching favorites:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeFavorite = async (listingId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    try {
+      const csrfToken = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrf-token='))
+        ?.split('=')[1];
+
+      const res = await fetch(`/api/favorites?listingId=${listingId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken || '',
+        },
+      });
+
+      if (!res.ok) throw new Error('Failed to remove favorite');
+
+      // Remove from local state
+      setFavorites(prev => prev.filter(fav => fav.listing.id !== listingId));
+    } catch (err: any) {
+      console.error('Error removing favorite:', err);
+    }
+  };
+
+  const formatPrice = (amount: number, currency: string) => {
+    return `${amount.toLocaleString()} ${currency}`;
+  };
+
+  const formatLocation = (city: string | null, county: string | null) => {
+    if (city && county) return `${city}, ${county}`;
+    if (city) return city;
+    if (county) return county;
+    return 'Locație nedisponibilă';
+  };
+
+  const formatSpecs = (listing: Favorite['listing']) => {
+    const specs = [];
+    if (listing.year) specs.push(listing.year.toString());
+    if (listing.mileage) specs.push(`${listing.mileage.toLocaleString()} km`);
+    if (listing.fuel) specs.push(listing.fuel);
+    if (listing.transmission) specs.push(listing.transmission);
+    return specs.join(' · ') || 'Detalii nedisponibile';
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0B14] relative overflow-hidden">
@@ -118,7 +178,7 @@ export default function FavoritesPage() {
                 </div>
                 <div>
                   <div className="text-4xl font-black text-white drop-shadow-lg">
-                    {favorites.reduce((sum, f) => sum + f.views, 0).toLocaleString()}
+                    {favorites.reduce((sum, f) => sum + f.listing.views, 0).toLocaleString()}
                   </div>
                   <div className="text-sm text-gray-400 font-semibold">Vizualizări totale</div>
                 </div>
@@ -145,7 +205,7 @@ export default function FavoritesPage() {
                 </div>
                 <div>
                   <div className="text-4xl font-black text-white drop-shadow-lg">
-                    {favorites.filter((f) => f.featured).length}
+                    {favorites.filter((f) => f.listing.isFeatured).length}
                   </div>
                   <div className="text-sm text-gray-400 font-semibold">Anunțuri premium</div>
                 </div>
@@ -155,7 +215,16 @@ export default function FavoritesPage() {
         </div>
 
         {/* Favorites List */}
-        {favorites.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-20">
+            <div className="inline-block w-12 h-12 border-4 border-[#6366F1] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-400 mt-4">Se încarcă favorite...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-red-400 text-lg">{error}</p>
+          </div>
+        ) : favorites.length === 0 ? (
           <div className="text-center py-20">
             <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#6366F1] to-[#7C3AED] rounded-full mb-6">
               <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,16 +257,20 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {favorites.map((listing) => (
+            {favorites.map((favorite) => {
+              const listing = favorite.listing;
+              const image = listing.photos[0] || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=300&fit=crop';
+              
+              return (
               <Link
-                key={listing.id}
+                key={favorite.id}
                 href={`/listings/${listing.id}`}
                 className="card-3d group cursor-pointer relative overflow-hidden rounded-2xl border-2 border-[#2A2A2A] hover:border-[#6366F1] transition-all duration-500"
               >
                 {/* Image */}
                 <div className="relative h-64 overflow-hidden">
                   <img
-                    src={listing.image}
+                    src={image}
                     alt={listing.title}
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
                   />
@@ -205,7 +278,9 @@ export default function FavoritesPage() {
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#6366F1]/40 via-transparent to-[#B537F2]/40 mix-blend-color" />
 
                   {/* Remove from favorites button */}
-                  <button className="absolute top-4 right-4 w-12 h-12 bg-[#6366F1] hover:bg-red-600 rounded-full flex items-center justify-center transition-all shadow-lg z-10">
+                  <button 
+                    onClick={(e) => removeFavorite(listing.id, e)}
+                    className="absolute top-4 right-4 w-12 h-12 bg-[#6366F1] hover:bg-red-600 rounded-full flex items-center justify-center transition-all shadow-lg z-10">
                     <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
@@ -215,7 +290,7 @@ export default function FavoritesPage() {
                     </svg>
                   </button>
 
-                  {listing.featured && (
+                  {listing.isFeatured && (
                     <div className="absolute top-4 left-4 px-4 py-2 bg-gradient-to-r from-[#8B5CF6] via-[#6366F1] to-[#7C3AED] text-white text-xs font-black rounded-full shadow-[0_0_20px_rgba(255,121,0,0.8)] animate-pulse">
                       ⭐ TOP ANUNȚ
                     </div>
@@ -253,12 +328,12 @@ export default function FavoritesPage() {
                   </h3>
 
                   <p className="text-sm text-gray-400 mb-4 line-clamp-1 font-medium">
-                    {listing.specs}
+                    {formatSpecs(listing)}
                   </p>
 
                   <div className="mb-4">
                     <div className="text-3xl font-black bg-gradient-to-r from-[#6366F1] to-[#8B5CF6] bg-clip-text text-transparent">
-                      {listing.price}
+                      {formatPrice(listing.priceAmount, listing.priceCurrency)}
                     </div>
                   </div>
 
@@ -282,7 +357,7 @@ export default function FavoritesPage() {
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
-                    <span className="font-semibold">{listing.location}</span>
+                    <span className="font-semibold">{formatLocation(listing.city, listing.county)}</span>
                   </div>
 
                   <div className="flex gap-2 pt-4 border-t border-[#2A2A2A]">
@@ -311,7 +386,8 @@ export default function FavoritesPage() {
                   </div>
                 </div>
               </Link>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

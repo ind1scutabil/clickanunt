@@ -30,32 +30,47 @@ export default function TransferPaymentPage() {
     setTimeout(() => setCopied(null), 2000);
   };
 
-  const handleConfirmTransfer = () => {
+  const handleConfirmTransfer = async () => {
     if (!email) {
       alert('Introdu email-ul pentru confirmare!');
       return;
     }
 
-    // Update listing cu promovare
-    const listing = memoryStorage.get(id);
-    if (listing) {
-      const updatedListing = {
-        ...listing,
-        promotionType: packageId,
-        promotionExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        isFeatured: true,
-        paymentMethod: 'transfer',
-        paymentDate: new Date().toISOString(),
-        paymentEmail: email,
-        paymentReference: bankDetails.reference
-      };
-      memoryStorage.set(id, updatedListing);
-    }
+    try {
+      // Get CSRF token
+      const csrfResponse = await fetch('/api/csrf');
+      const { csrfToken } = await csrfResponse.json();
 
-    setShowSuccess(true);
-    setTimeout(() => {
-      router.push(`/listings/${id}`);
-    }, 3000);
+      // Call API to promote listing
+      const response = await fetch(`/api/listings/${id}/promote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          packageId: packageId,
+          paymentMethod: 'transfer',
+          paymentEmail: email,
+          paymentReference: bankDetails.reference
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to promote listing');
+      }
+
+      const result = await response.json();
+      console.log('Promotion successful:', result);
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        router.push(`/listings/${id}`);
+      }, 3000);
+    } catch (error) {
+      console.error('Promotion error:', error);
+      alert('Eroare la înregistrarea transferului. Te rugăm să încerci din nou.');
+    }
   };
 
   if (showSuccess) {

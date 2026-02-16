@@ -89,7 +89,6 @@ export async function GET(
       stats,
     });
   } catch (error: any) {
-    console.error('Error fetching business profile:', error);
     return NextResponse.json(
       { error: 'Eroare la încărcarea profilului' },
       { status: 500 }

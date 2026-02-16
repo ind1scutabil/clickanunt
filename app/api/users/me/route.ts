@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(dbUser);
   } catch (error) {
-    console.error('Get user error:', error);
     return NextResponse.json(
       { error: "Eroare la preluare date" },
       { status: 500 }
@@ -97,7 +96,6 @@ export async function PATCH(request: NextRequest) {
       message: "Profil actualizat cu succes",
     });
   } catch (error) {
-    console.error('Update user error:', error);
     return NextResponse.json(
       { error: "Eroare la actualizare" },
       { status: 500 }

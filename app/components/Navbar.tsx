@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
@@ -60,6 +63,12 @@ export default function Navbar() {
   };
 
   const accountBadge = getAccountBadge();
+
+  const handleSearch = () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    router.push(`/listings?q=${encodeURIComponent(query)}`);
+  };
 
   const handleLogout = async () => {
     try {
@@ -162,19 +171,31 @@ export default function Navbar() {
               </div>
             </Link>
 
-            <div className="flex-1 max-w-2xl hidden md:block">
-              <div className="relative">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+            <div className="flex-1 max-w-4xl hidden md:block">
+              <div className="flex items-center h-11 bg-white/95 border border-gray-200 rounded-xl px-2 shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus-within:ring-2 focus-within:ring-[#6D5BFF]/20 focus-within:border-[#6D5BFF] transition-smooth">
+                <span className="pl-3 pr-2 text-gray-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
                 <input
                   type="text"
                   placeholder="Ce cauți astăzi?"
                   aria-label="Caută anunțuri"
-                  className="w-full h-11 pl-12 pr-24 bg-gray-50 border border-gray-200 rounded-xl focus:border-[#6D5BFF] focus:bg-white focus:shadow-md focus:ring-2 focus:ring-[#6D5BFF]/20 outline-none transition-smooth text-gray-900 text-sm placeholder:text-gray-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSearch();
+                    }
+                  }}
+                  className="flex-1 h-full bg-transparent text-[#0B1220] text-sm font-medium placeholder:text-gray-500 outline-none"
                 />
                 <button
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 px-4 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-semibold rounded-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-1"
+                  type="button"
+                  onClick={handleSearch}
+                  className="h-8 px-4 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-semibold rounded-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-1"
                   aria-label="Caută"
                 >
                   Caută
@@ -398,9 +419,19 @@ export default function Navbar() {
                 type="text"
                 placeholder="Caută în anunțuri..."
                 aria-label="Caută anunțuri mobile"
-                className="w-full px-5 py-3 pr-12 bg-gray-50 border-2 border-transparent rounded-xl focus:border-blue-500 focus:bg-white focus:shadow-lg focus:ring-2 focus:ring-[#6366F1]/30 outline-none transition-all"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSearch();
+                  }
+                }}
+                className="w-full px-5 py-3 pr-12 bg-white border-2 border-transparent rounded-xl focus:border-blue-500 focus:shadow-lg focus:ring-2 focus:ring-[#6366F1]/30 outline-none transition-all text-[#0B1220] placeholder:text-gray-500"
               />
               <button
+                type="button"
+                onClick={handleSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
                 aria-label="Caută"
               >

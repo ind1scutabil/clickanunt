@@ -14,7 +14,7 @@ import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery } from "@/lib/security/validation-schemas";
-import { verifyAccessToken } from "@/lib/security/tokens";
+import { verifyToken } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
     const cookieToken = request.cookies.get("accessToken")?.value || null;
     const accessToken = bearerToken || cookieToken;
-    const tokenPayload = accessToken ? verifyAccessToken(accessToken) : null;
+    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
 
     // ✅ IN-MEMORY MODE: Return listings from memory storage
     if (process.env.USE_IN_MEMORY_DB === 'true') {

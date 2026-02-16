@@ -33,6 +33,7 @@ interface Listing {
 }
 
 interface Filters {
+  q?: string;
   category?: string;
   subcategory?: string;
   make?: string;
@@ -52,12 +53,22 @@ interface Filters {
 export default function ListingsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasActiveSearch = Boolean(
+    searchParams.get('q') ||
+      searchParams.get('search') ||
+      searchParams.get('category') ||
+      searchParams.get('subcategory') ||
+      searchParams.get('county') ||
+      searchParams.get('city')
+  );
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isFilterSticky, setIsFilterSticky] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
+  const [showFiltersApplied, setShowFiltersApplied] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     sortBy: 'createdAt',
     sortOrder: 'desc',
@@ -84,19 +95,22 @@ export default function ListingsView() {
 
   // Read URL params on mount
   useEffect(() => {
+    const searchQuery = searchParams.get('q') || searchParams.get('search');
     const category = searchParams.get('category');
     const subcategory = searchParams.get('subcategory');
     const county = searchParams.get('county');
     const city = searchParams.get('city');
     
-    if (category || subcategory || county || city) {
+    if (searchQuery || category || subcategory || county || city) {
       setFilters(prev => ({
         ...prev,
+        ...(searchQuery && { q: searchQuery }),
         ...(category && { category }),
         ...(subcategory && { subcategory }),
         ...(county && { county }),
         ...(city && { city }),
       }));
+      setIsFiltersOpen(false);
     }
   }, [searchParams]);
 
@@ -122,10 +136,25 @@ export default function ListingsView() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, v]) => v !== undefined && v !== '')
-        ),
       });
+
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === '') return;
+        if (key === 'sortBy' || key === 'sortOrder') return;
+        params.set(key, value.toString());
+      });
+
+      const sortKey = `${filters.sortBy}-${filters.sortOrder}`;
+      const sortMap: Record<string, string> = {
+        'createdAt-desc': 'newest',
+        'price-asc': 'priceAsc',
+        'price-desc': 'priceDesc',
+        'featured-desc': 'featured',
+      };
+      const sort = sortMap[sortKey];
+      if (sort) {
+        params.set('sort', sort);
+      }
 
       const res = await fetch(`/api/listings?${params}`);
       
@@ -134,8 +163,9 @@ export default function ListingsView() {
       }
       
       const data = await res.json();
-      setListings(data.listings || []);
-      setTotal(data.pagination?.total || 0);
+      // API returns { data: [...], pagination: {...} }
+      setListings(data.data || data.listings || []);
+      setTotal(data.pagination?.total || data.pagination?.count || data.data?.length || 0);
     } catch (err: any) {
       setError(err.message || 'Eroare la încărcarea anunțurilor');
     } finally {
@@ -175,21 +205,31 @@ export default function ListingsView() {
       <h1 className="text-4xl font-bold tracking-tight text-white mb-8">Toate anunțurile</h1>
 
       {/* Filters */}
-      <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-300 ${
-        isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40' : ''
-      }`}>
-        
-        {/* Content */}
-        <div className="relative">
-          <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-            <svg className="w-7 h-7 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filtre
-          </h2>
+      {isFiltersOpen ? (
+        <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-300 ${
+          isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40' : ''
+        }`}>
+          
+          {/* Content */}
+          <div className="relative">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <svg className="w-7 h-7 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filtre
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsFiltersOpen(false)}
+                className="px-4 py-2 rounded-lg bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 text-sm font-semibold"
+              >
+                Ascunde filtre
+              </button>
+            </div>
 
-          {/* Main filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Main filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* Category */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
@@ -499,28 +539,55 @@ export default function ListingsView() {
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => loadListings()}
-              className="h-11 px-6 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
-            >
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={async () => {
+                  await loadListings();
+                  setIsFiltersOpen(false);
+                  setShowFiltersApplied(true);
+                  setTimeout(() => setShowFiltersApplied(false), 2500);
+                  const resultsEl = document.getElementById('listings-results');
+                  if (resultsEl) {
+                    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }}
+                className="h-11 px-6 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+              >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Aplică filtre
             </button>
-            <button
-              onClick={clearFilters}
-              className="h-11 px-6 rounded-[12px] bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
-            >
+              <button
+                onClick={clearFilters}
+                className="h-11 px-6 rounded-[12px] bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+              >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
               Resetează filtre
-            </button>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="mb-6 flex items-center justify-between rounded-2xl border border-white/5 bg-[#161B22] px-5 py-4">
+          <div className="text-white/80 text-sm font-semibold">Filtre ascunse</div>
+          <button
+            type="button"
+            onClick={() => setIsFiltersOpen(true)}
+            className="px-4 py-2 rounded-lg bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 text-sm font-semibold"
+          >
+            Afișează filtre
+          </button>
+        </div>
+      )}
+
+      {showFiltersApplied && (
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200 text-sm font-semibold">
+          Filtre aplicate cu succes.
+        </div>
+      )}
 
       {/* Active Filter Chips */}
       {Object.entries(filters).some(([key, value]) => value && key !== 'sortBy' && key !== 'sortOrder') && (
@@ -605,7 +672,7 @@ export default function ListingsView() {
       {/* Results */}
       {!loading && (
         <>
-          <div className="mb-4 text-gray-400">
+          <div id="listings-results" className="mb-4 text-gray-400">
             Găsite {total} anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 

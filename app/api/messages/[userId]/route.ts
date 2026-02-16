@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAccessToken } from "@/lib/security/tokens";
+import { verifyToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 
@@ -28,7 +28,7 @@ export async function GET(
       );
     }
 
-    const payload = verifyAccessToken(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json(
         { error: "Invalid token" },
@@ -73,7 +73,7 @@ export async function POST(
       );
     }
 
-    const payload = verifyAccessToken(token);
+    const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json(
         { error: "Invalid token" },

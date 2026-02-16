@@ -17,37 +17,48 @@ export default function PayPalPaymentPage() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    // Simulare redirecționare la PayPal și return
-    const simulatePayPalPayment = async () => {
+    // Process PayPal payment
+    const processPayPalPayment = async () => {
       setIsProcessing(true);
 
-      // În producție ar redirecționa la PayPal API
-      // window.location.href = `https://www.paypal.com/cgi-bin/webscr?...`;
+      try {
+        // Get CSRF token
+        const csrfResponse = await fetch('/api/csrf');
+        const { csrfToken } = await csrfResponse.json();
 
-      // Pentru dev, simulare după 2 secunde
-      setTimeout(() => {
-        // Update listing cu promovare
-        const listing = memoryStorage.get(id);
-        if (listing) {
-          const updatedListing = {
-            ...listing,
-            promotionType: packageId,
-            promotionExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            isFeatured: true,
+        // Call API to promote listing
+        const response = await fetch(`/api/listings/${id}/promote`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': csrfToken,
+          },
+          body: JSON.stringify({
+            packageId: packageId,
             paymentMethod: 'paypal',
-            paymentDate: new Date().toISOString(),
             paymentTransactionId: `PP-${Date.now()}`
-          };
-          memoryStorage.set(id, updatedListing);
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to promote listing');
         }
 
+        const result = await response.json();
+        console.log('Promotion successful:', result);
+
         setShowSuccess(true);
+      } catch (error) {
+        console.error('Promotion error:', error);
+        alert('Eroare la procesarea plății PayPal. Te rugăm să încerci din nou.');
+        router.push(`/listings/${id}/promote`);
+      } finally {
         setIsProcessing(false);
-      }, 2500);
+      }
     };
 
-    simulatePayPalPayment();
-  }, [id, packageId]);
+    processPayPalPayment();
+  }, [id, packageId, router]);
 
   if (showSuccess) {
     return (

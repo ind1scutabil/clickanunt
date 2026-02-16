@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Get dashboard stats error:', error);
     return NextResponse.json(
       { error: "Eroare la obținerea statisticilor" },
       { status: 500 }

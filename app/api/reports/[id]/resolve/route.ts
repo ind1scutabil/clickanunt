@@ -5,7 +5,7 @@ import { createAuditLog } from "@/lib/audit";
 import { logger } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { reportResolveSchema } from "@/lib/security/validation-schemas";
-import { verifyAccessToken } from "@/lib/security/tokens";
+import { verifyToken } from "@/lib/auth";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -36,7 +36,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "") || null;
-    const payload = token ? verifyAccessToken(token) : null;
+    const payload = token ? await verifyToken(token) : null;
     if (!payload || (payload.role !== 'admin' && payload.role !== 'owner' && payload.role !== 'moderator')) {
       return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
     }

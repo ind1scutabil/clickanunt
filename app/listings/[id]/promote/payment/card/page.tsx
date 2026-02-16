@@ -65,26 +65,39 @@ export default function CardPaymentPage() {
 
     setLoading(true);
 
-    // Simulare procesare plată (în producție ar merge la Stripe/PaymentProcessor)
-    setTimeout(() => {
-      // Update listing cu promovare
-      const listing = memoryStorage.get(id);
-      if (listing) {
-        const updatedListing = {
-          ...listing,
-          promotionType: packageId,
-          promotionExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          isFeatured: true,
+    try {
+      // Get CSRF token
+      const csrfResponse = await fetch('/api/csrf');
+      const { csrfToken } = await csrfResponse.json();
+
+      // Call API to promote listing
+      const response = await fetch(`/api/listings/${id}/promote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          packageId: packageId,
           paymentMethod: 'card',
-          paymentDate: new Date().toISOString(),
           paymentEmail: formData.email
-        };
-        memoryStorage.set(id, updatedListing);
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to promote listing');
       }
 
+      const result = await response.json();
+      console.log('Promotion successful:', result);
+
       setShowSuccess(true);
+    } catch (error) {
+      console.error('Promotion error:', error);
+      alert('Eroare la procesarea plății. Te rugăm să încerci din nou.');
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
   };
 
   if (showSuccess) {

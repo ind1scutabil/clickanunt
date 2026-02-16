@@ -63,7 +63,6 @@ export async function GET(request: Request) {
       offset,
     });
   } catch (error) {
-    console.error('Get reports error:', error);
     return NextResponse.json(
       { error: "Eroare la obținerea rapoartelor" },
       { status: 500 }

@@ -20,6 +20,9 @@ export default function DashboardPage() {
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [listings, setListings] = useState<any[]>([]);
+  const [listingsLoading, setListingsLoading] = useState(true);
+  const [listingsError, setListingsError] = useState<string | null>(null);
 
   const refreshUser = async (token: string, fallbackUser?: any) => {
     try {
@@ -61,6 +64,83 @@ export default function DashboardPage() {
     }
   };
 
+  const normalizeListingStatus = (listing: any) => {
+    const raw = listing?.status || listing?.moderationStatus || 'active';
+    if (raw === 'approved') return 'active';
+    if (raw === 'rejected') return 'rejected';
+    return String(raw).toLowerCase();
+  };
+
+  const formatPrice = (listing: any) => {
+    if (listing?.price) return String(listing.price);
+    const amount = listing?.priceAmount;
+    const currency = listing?.priceCurrency || 'RON';
+    if (typeof amount === 'number') {
+      return `${amount.toLocaleString('ro-RO')} ${currency}`;
+    }
+    return 'Pret la cerere';
+  };
+
+  const formatLocation = (listing: any) => {
+    const city = listing?.city;
+    const county = listing?.county;
+    if (city && county) return `${city}, ${county}`;
+    return city || county || 'Romania';
+  };
+
+  const formatPostedAt = (listing: any) => {
+    const createdAt = listing?.createdAt ? new Date(listing.createdAt) : null;
+    if (!createdAt || Number.isNaN(createdAt.getTime())) return 'Recent';
+    return createdAt.toLocaleDateString('ro-RO', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  const fetchListings = async () => {
+    try {
+      setListingsLoading(true);
+      setListingsError(null);
+
+      const token = localStorage.getItem('accessToken');
+      const userStr = localStorage.getItem('user');
+      const headers: Record<string, string> = {};
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      if (userStr) {
+        headers['X-User-Info'] = btoa(userStr);
+      }
+
+      const response = await fetch('/api/listings?userId=me&status=all', {
+        headers,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch listings');
+      }
+
+      const data = await response.json();
+      const items = Array.isArray(data) ? data : data.listings || data.data || [];
+      setListings(items);
+    } catch (error) {
+      console.error('Failed to fetch listings:', error);
+      setListings([]);
+      setListingsError('Nu am putut incarca anunturile.');
+    } finally {
+      setListingsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     const userData = localStorage.getItem('user');
@@ -81,6 +161,9 @@ export default function DashboardPage() {
 
       // Refresh user details (benefits, credits, discounts)
       refreshUser(token, parsedUser);
+
+      // Fetch user listings for dashboard
+      fetchListings();
     } catch (e) {
       console.error('Failed to parse user data:', e);
       localStorage.removeItem('accessToken');
@@ -106,12 +189,18 @@ export default function DashboardPage() {
     return null;
   }
 
+  const activeListings = listings.filter((listing) => normalizeListingStatus(listing) === 'active');
+  const recentListings = activeListings.slice(0, 3);
+  const sellerName = user?.name || user?.email || 'Contul meu';
+  const sellerInitials = getInitials(sellerName);
+
   return (
-    <div className="min-h-screen bg-[#0A0B14] relative overflow-hidden">
+    <div className="min-h-screen bg-[#0B0F17] relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute -top-24 left-1/3 w-[32rem] h-[32rem] bg-cyan-500/10 rounded-full blur-[140px]"></div>
+        <div className="absolute bottom-0 right-1/4 w-[28rem] h-[28rem] bg-emerald-500/10 rounded-full blur-[140px]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_40%)]"></div>
       </div>
       
       <Navbar />
@@ -119,10 +208,10 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
         {/* Page Header */}
         <div className="mb-12">
-          <h1 className="text-6xl font-black mb-4 text-white">
-            Contul <span className="bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent">meu</span>
+          <h1 className="text-5xl md:text-6xl font-black mb-4 text-white tracking-tight">
+            Dashboard <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">personal</span>
           </h1>
-          <p className="text-gray-400 text-lg">Gestionează-ți anunțurile și setările contului</p>
+          <p className="text-slate-300 text-lg">Control complet asupra anunțurilor, beneficiilor și activitatii contului.</p>
         </div>
 
         {/* User Profile Card */}
@@ -337,24 +426,40 @@ export default function DashboardPage() {
 
         {/* Tabs Section */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-12">
-          <Tabs.List>
-            <Tabs.Trigger value="overview">Privire generală</Tabs.Trigger>
-            <Tabs.Trigger value="listings">Anunțurile mele</Tabs.Trigger>
-            <Tabs.Trigger value="activity">Activitate</Tabs.Trigger>
+          <Tabs.List className="bg-slate-900/60 border border-white/10 rounded-2xl p-2 gap-2">
+            <Tabs.Trigger value="overview" className="rounded-xl px-5 py-2.5 text-sm">
+              Privire generala
+            </Tabs.Trigger>
+            <Tabs.Trigger value="listings" className="rounded-xl px-5 py-2.5 text-sm">
+              Anunturile mele
+            </Tabs.Trigger>
+            <Tabs.Trigger value="activity" className="rounded-xl px-5 py-2.5 text-sm">
+              Activitate
+            </Tabs.Trigger>
           </Tabs.List>
 
-          <Tabs.Content value="overview" className="mt-6">
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card variant="elevated">
+          <Tabs.Content value="overview" className="mt-8">
+            <div className="grid lg:grid-cols-12 gap-6">
+              <Card variant="elevated" className="lg:col-span-5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
                 <Card.Body className="p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Acțiuni rapide</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Actiuni rapide</h3>
+                      <p className="text-sm text-slate-400">Publica si gestioneaza anunturile in cateva secunde.</p>
+                    </div>
+                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                  </div>
                   <div className="space-y-3">
                     <Link href="/listings/new" className="block">
                       <Button variant="primary" size="lg" className="w-full justify-center">
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
-                        Adaugă anunț nou
+                        Adauga anunt nou
                       </Button>
                     </Link>
                     <Link href="/dashboard/listings" className="block">
@@ -362,23 +467,28 @@ export default function DashboardPage() {
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        Gestionează anunțuri
+                        Gestioneaza anunturi
                       </Button>
                     </Link>
                   </div>
                 </Card.Body>
               </Card>
 
-              <Card variant="elevated">
+              <Card variant="elevated" className="lg:col-span-4 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
                 <Card.Body className="p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Plan actual</h3>
-                  <Badge variant={user.role === 'premium' ? 'warning' : 'primary'} className="mb-4 w-fit">
-                    {user.role === 'premium' ? 'Premium' : 'Gratuit'}
-                  </Badge>
-                  <p className="text-gray-400 text-sm mb-4">
-                    {user.role === 'premium' 
-                      ? 'Beneficiezi de anunțuri promovate și suport prioritar.'
-                      : 'Upgrade la Premium pentru mai multe funcții.'}
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Plan actual</h3>
+                      <p className="text-sm text-slate-400">Statusul contului si optiuni de upgrade.</p>
+                    </div>
+                    <Badge variant={user.role === 'premium' ? 'warning' : 'primary'} className="w-fit">
+                      {user.role === 'premium' ? 'Premium' : 'Gratuit'}
+                    </Badge>
+                  </div>
+                  <p className="text-slate-300 text-sm mb-4">
+                    {user.role === 'premium'
+                      ? 'Ai acces la promovari prioritare si suport dedicat.'
+                      : 'Treci la Premium pentru mai multa vizibilitate si beneficii.'}
                   </p>
                   {user.role !== 'premium' && (
                     <Link href="/dashboard/billing">
@@ -388,10 +498,10 @@ export default function DashboardPage() {
                 </Card.Body>
               </Card>
 
-              <Card variant="elevated">
+              <Card variant="elevated" className="lg:col-span-3 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
                 <Card.Body className="p-6">
                   <h3 className="text-lg font-bold text-white mb-4">Beneficii active</h3>
-                  <div className="space-y-3 text-sm text-gray-300">
+                  <div className="space-y-4 text-sm text-slate-300">
                     <div className="flex items-center justify-between">
                       <span>Credite disponibile</span>
                       <span className="font-bold text-white">{user.creditsBalance ?? 0} RON</span>
@@ -401,7 +511,7 @@ export default function DashboardPage() {
                       <span className="font-bold text-white">{user.promotionDiscountPercent ?? 0}%</span>
                     </div>
                     <div>
-                      <div className="text-gray-400 mb-2">Promovări gratuite</div>
+                      <div className="text-slate-400 mb-2">Promovari gratuite</div>
                       {(() => {
                         const promotions = user?.promotionBenefits?.promotions || {};
                         const entries = Object.entries(promotions).filter(([, value]: any) => {
@@ -412,7 +522,7 @@ export default function DashboardPage() {
                         });
 
                         if (entries.length === 0) {
-                          return <div className="text-gray-500">Nu ai promovări gratuite active.</div>;
+                          return <div className="text-slate-500">Nu ai promovari gratuite active.</div>;
                         }
 
                         return (
@@ -420,7 +530,7 @@ export default function DashboardPage() {
                             {entries.map(([type, value]: any) => (
                               <li key={type} className="flex items-center justify-between">
                                 <span className="capitalize">{type}</span>
-                                <span className="font-bold text-white">{value?.count || 0}×</span>
+                                <span className="font-bold text-white">{value?.count || 0}x</span>
                               </li>
                             ))}
                           </ul>
@@ -433,49 +543,62 @@ export default function DashboardPage() {
             </div>
           </Tabs.Content>
 
-          <Tabs.Content value="listings" className="mt-6">
+          <Tabs.Content value="listings" className="mt-8">
             <div className="space-y-6">
-              <p className="text-gray-400">Anunțurile tale active sunt listate mai jos.</p>
-              
-              {/* ListingCard Examples - NEW DESIGN SYSTEM */}
-              <ListingCard
-                id="1"
-                title="BMW X5 2020 - Piele naturală, 150.000 km"
-                price="45.900 €"
-                image="https://images.unsplash.com/photo-1552820728-8ac41f1ce891?w=500&h=400&fit=crop"
-                category="Auto, moto și ambarcațiuni"
-                location="Cluj-Napoca, Cluj"
-                description="Stare impecabilă, service complet..."
-                postedAt="În urmă 2 zile"
-                verified
-                featured
-                seller={{
-                  name: "Ioan Popescu",
-                  avatar: "IP",
-                  verified: true
-                }}
-                onSave={() => console.log('Save listing 1')}
-                onClick={() => router.push('/listings/1')}
-              />
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-white">Anunturile mele</h3>
+                  <p className="text-slate-400">Vezi rapid anunturile active si performanta lor.</p>
+                </div>
+                <Link href="/dashboard/listings" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+                  Vezi toate anunturile →
+                </Link>
+              </div>
 
-              <ListingCard
-                id="2"
-                title="Apartament 3 camere, Dorobanți"
-                price="850 € / lună"
-                image="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=500&h=400&fit=crop"
-                category="Imobiliare"
-                location="București, Sector 1"
-                description="Mobilat modern, curte comună..."
-                postedAt="În urmă 5 zile"
-                featured
-                seller={{
-                  name: "Real Estate Pro",
-                  avatar: "RE",
-                  verified: true
-                }}
-                onSave={() => console.log('Save listing 2')}
-                onClick={() => router.push('/listings/2')}
-              />
+              {listingsLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="h-32 rounded-2xl border border-white/10 bg-slate-900/50 animate-pulse" />
+                  ))}
+                </div>
+              ) : listingsError ? (
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-200">
+                  {listingsError}
+                </div>
+              ) : recentListings.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-10 text-center">
+                  <div className="text-lg font-bold text-white mb-2">Nu ai anunturi active</div>
+                  <p className="text-slate-400 mb-6">Publica primul anunt pentru a aparea aici.</p>
+                  <Link href="/listings/new">
+                    <Button variant="primary">Adauga anunt</Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {recentListings.map((listing) => (
+                    <ListingCard
+                      key={listing.id}
+                      id={listing.id}
+                      title={listing.title}
+                      price={formatPrice(listing)}
+                      image={listing.photos?.[0] || listing.imageUrls?.[0]}
+                      category={listing.category}
+                      location={formatLocation(listing)}
+                      description={listing.description}
+                      postedAt={formatPostedAt(listing)}
+                      verified={Boolean(user?.verified)}
+                      featured={Boolean(listing.isFeatured || listing.isPromoted)}
+                      seller={{
+                        name: sellerName,
+                        avatar: sellerInitials,
+                        verified: Boolean(user?.verified),
+                      }}
+                      onClick={() => router.push(`/listings/${listing.id}`)}
+                      className="bg-gradient-to-b from-slate-900/80 to-slate-950/70 border border-white/10"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </Tabs.Content>
 

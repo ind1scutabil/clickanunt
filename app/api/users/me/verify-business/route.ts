@@ -119,7 +119,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Request business verification error:', error);
     return NextResponse.json(
       { error: 'Failed to submit verification request' },
       { status: 500 }
@@ -154,7 +153,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(request);
   } catch (error: any) {
-    console.error('Get verification request error:', error);
     return NextResponse.json(
       { error: 'Failed to get verification request' },
       { status: 500 }

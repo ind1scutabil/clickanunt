@@ -87,7 +87,6 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Upgrade subscription error:', error);
     return NextResponse.json(
       { error: 'Failed to upgrade subscription' },
       { status: 500 }
@@ -156,7 +155,6 @@ export async function DELETE(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Cancel subscription error:', error);
     return NextResponse.json(
       { error: 'Failed to cancel subscription' },
       { status: 500 }
@@ -205,7 +203,6 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error('Get subscription error:', error);
     return NextResponse.json(
       { error: 'Failed to get subscription' },
       { status: 500 }

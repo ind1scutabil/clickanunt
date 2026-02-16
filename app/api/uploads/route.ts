@@ -107,7 +107,6 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       const issues = parsed.error.issues;
       const bodyKeys = body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [];
-      console.error('Upload validation failed', { issues, bodyKeys });
       logUploadDebug("validation_failed", {
         issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
         bodyKeys,
@@ -126,21 +125,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Validate input
-    console.log('[UPLOAD] Request received', { 
-      hasData: !!data, 
-      dataType: typeof data,
-      dataLength: data?.length || 0,
-      type: type || 'not specified',
-      hasListingId: !!listingId
-    });
-
     if (!data) {
-      console.error('[UPLOAD] Failed: no data provided');
       return NextResponse.json({ error: "no data provided" }, { status: 400 });
     }
 
     if (typeof data !== "string") {
-      console.error('[UPLOAD] Failed: data not string', { actualType: typeof data });
       return NextResponse.json({ error: "data must be base64 string" }, { status: 400 });
     }
 
@@ -148,9 +137,7 @@ export async function POST(request: NextRequest) {
     let buf: Buffer;
     try {
       buf = Buffer.from(data, "base64");
-      console.log('[UPLOAD] Base64 decoded', { bufferSize: buf.length });
     } catch (error) {
-      console.error('[UPLOAD] Base64 decode failed', { error });
       return NextResponse.json({ error: "Invalid base64 data" }, { status: 400 });
     }
 
@@ -176,23 +163,17 @@ export async function POST(request: NextRequest) {
 
     // For images: validate and process
     if (fileType === "image") {
-      console.log('[UPLOAD] Processing image');
-      
       // Validate image
       const validation = await validateImage(buf);
       if (!validation.valid) {
-        console.error('[UPLOAD] Image validation failed', { error: validation.error });
         return NextResponse.json(
           { error: validation.error },
           { status: 400 }
         );
       }
 
-      console.log('[UPLOAD] Image validated');
-
       // Strip EXIF data for privacy
       const cleanBuffer = await stripExifData(buf);
-      console.log('[UPLOAD] EXIF stripped');
 
       // Generate storage key with SAFE filename (ignore original filename completely)
       const id = listingId || `temp-${uuidv4()}`;
@@ -200,14 +181,9 @@ export async function POST(request: NextRequest) {
       const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = generateImageKey(id, "original", tempFilename);
 
-      console.log('[UPLOAD] Generated storage key', { id, key, tempFilename });
-
       // Upload to cloud storage
       let url = await uploadImage(cleanBuffer, key, "image/jpeg");
-      console.log('[UPLOAD] Uploaded to storage', { rawUrl: url });
-      
       url = normalizePublicUrl(url, request);
-      console.log('[UPLOAD] Image upload complete', { finalUrl: url });
 
       return NextResponse.json({ 
         url,
@@ -238,7 +214,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
   } catch (err: any) {
-    console.error("Upload error:", err);
     return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
   }
 }

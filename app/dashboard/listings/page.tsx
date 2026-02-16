@@ -12,6 +12,7 @@ export default function MyListingsPage() {
   const [listings, setListings] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isPromoting, setIsPromoting] = useState<string | null>(null);
 
   useEffect(() => {
     // Check authentication
@@ -61,7 +62,7 @@ export default function MyListingsPage() {
         }
 
         const data = await response.json();
-        setListings(Array.isArray(data) ? data : data.listings || []);
+        setListings(Array.isArray(data) ? data : data.data || data.listings || []);
       }
     } catch (err) {
       console.error('Error fetching listings:', err);
@@ -91,6 +92,89 @@ export default function MyListingsPage() {
       setListings(listings.filter(l => l.id !== id));
     } catch (err) {
       setMessage({ type: 'error', text: 'Eroare la ștergere' });
+    }
+  };
+
+  const getCsrfToken = async () => {
+    try {
+      const response = await fetch('/api/csrf-token');
+      const data = await response.json();
+      return data.token;
+    } catch (err) {
+      console.error('Error getting CSRF token:', err);
+      return null;
+    }
+  };
+
+  const handlePromote = async (id: string, packageId: string) => {
+    try {
+      setIsPromoting(id);
+      const token = localStorage.getItem('accessToken');
+      const csrfToken = await getCsrfToken();
+
+      const response = await fetch(`/api/listings/${id}/promote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: JSON.stringify({ packageId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to promote');
+      }
+
+      const data = await response.json();
+      setMessage({ type: 'success', text: 'Anunț promovat cu succes!' });
+      
+      // Update listing in local state
+      setListings(listings.map(l => 
+        l.id === id 
+          ? { ...l, isPromoted: true, promotionType: packageId, promotionExpiresAt: data.listing.promotionExpiresAt }
+          : l
+      ));
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Eroare la promovare' });
+    } finally {
+      setIsPromoting(null);
+    }
+  };
+
+  const handleRemovePromotion = async (id: string) => {
+    try {
+      setIsPromoting(id);
+      const token = localStorage.getItem('accessToken');
+      const csrfToken = await getCsrfToken();
+
+      const response = await fetch(`/api/listings/${id}/promote`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to remove promotion');
+      }
+
+      setMessage({ type: 'success', text: 'Promovarea anunțului a fost anulată' });
+      
+      // Update listing in local state
+      setListings(listings.map(l => 
+        l.id === id 
+          ? { ...l, isPromoted: false, promotionType: null, promotionExpiresAt: null }
+          : l
+      ));
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Eroare la anularea promovării' });
+    } finally {
+      setIsPromoting(null);
     }
   };
 
@@ -328,6 +412,40 @@ export default function MyListingsPage() {
                         </svg>
                         Editează
                       </Link>
+                      {!listing.isPromoted && (
+                        <button
+                          onClick={() => handlePromote(listing.id, 'top')}
+                          disabled={isPromoting === listing.id}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FFD700] to-[#FFA500] hover:from-[#FFA500] hover:to-[#FFD700] text-black rounded-lg font-bold text-sm transition-all disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 10V3L4 14h7v7l9-11h-7z"
+                            />
+                          </svg>
+                          {isPromoting === listing.id ? 'Se promovează...' : 'Promoveaza'}
+                        </button>
+                      )}
+                      {listing.isPromoted && (
+                        <button
+                          onClick={() => handleRemovePromotion(listing.id)}
+                          disabled={isPromoting === listing.id}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#FF6B6B] to-[#FF8787] hover:from-[#FF8787] hover:to-[#FF6B6B] text-white rounded-lg font-bold text-sm transition-all disabled:opacity-50"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                          {isPromoting === listing.id ? 'Se procesează...' : 'Anulează promovare'}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(listing.id)}
                         className="flex items-center gap-2 px-5 py-2.5 glass-dark hover:bg-red-600/20 text-red-500 rounded-lg font-bold text-sm transition-all border border-red-500/30"

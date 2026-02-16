@@ -24,6 +24,13 @@ function getCategoryImage(category: string): string {
   return categoryImages[category] || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&h=600&fit=crop";
 }
 
+function maskEmail(email: string): string {
+  const [localPart, domain] = email.split('@');
+  if (!localPart || !domain) return 'Utilizator verificat';
+  const visible = localPart.length > 2 ? localPart.slice(0, 2) : localPart.slice(0, 1);
+  return `${visible}***@${domain}`;
+}
+
 export default function Page() {
   const params = useParams();
   const router = useRouter();
@@ -33,6 +40,7 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [showPhone, setShowPhone] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -44,6 +52,17 @@ export default function Page() {
       setIsFavorite(favorites.includes(id));
     }
   }, [id]);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        setCurrentUser(JSON.parse(userStr));
+      } catch {
+        setCurrentUser(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const loadListing = async () => {
@@ -157,6 +176,16 @@ export default function Page() {
       </>
     );
   }
+
+  const ownerId = listing.ownerUserId || listing.owner?.id;
+  const isOwner = Boolean(currentUser?.id && ownerId && currentUser.id === ownerId);
+  const isPrivileged = currentUser?.role === 'admin' || currentUser?.role === 'owner';
+  const canPromote = isOwner; // Only owner can promote their own listing
+  const sellerEmail = listing.owner?.email || '';
+  const sellerName = listing.owner?.name || '';
+  const sellerDisplayName = sellerName || (sellerEmail ? (isOwner || isPrivileged ? sellerEmail : maskEmail(sellerEmail)) : 'Vânzător verificat');
+  const sellerInitial = sellerDisplayName.charAt(0).toUpperCase();
+  const sellerPhone = listing.contactPhone || listing.owner?.phone || listing.owner?.businessPhone || '';
 
   return (
     <>
@@ -344,19 +373,7 @@ export default function Page() {
                     Detalii Tehnice
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {listing.condition && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
-                        <span className="text-gray-400 font-medium">Stare</span>
-                        <span className="text-white font-bold">
-                          {(listing.condition === "new" || listing.condition === "Nou") && "✨ Nou"}
-                          {(listing.condition === "used" || listing.condition === "Folosit") && "🔄 Folosit"}
-                          {(listing.condition === "refurbished" || listing.condition === "Recondiționat") && "🔧 Recondiționat"}
-                          {(listing.condition === "for_parts" || listing.condition === "Pentru piese") && "⚙️ Pentru piese"}
-                          {!['new', 'used', 'refurbished', 'for_parts', 'Nou', 'Folosit', 'Recondiționat', 'Pentru piese'].includes(listing.condition) && listing.condition}
-                        </span>
-                      </div>
-                    )}
-                    
+                    {/* Location Fields */}
                     {listing.county && (
                       <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
                         <span className="text-gray-400 font-medium">Județ</span>
@@ -373,6 +390,7 @@ export default function Page() {
                     {/* Auto-specific fields */}
                     {listing.category === "Auto, moto și ambarcațiuni" && (
                       <>
+                        {/* Basic Info */}
                         {listing.make && (
                           <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
                             <span className="text-gray-400 font-medium">Marcă</span>
@@ -385,10 +403,36 @@ export default function Page() {
                             <span className="text-white font-bold">{listing.model}</span>
                           </div>
                         )}
+                        {(listing.attributes?.bodyType || listing.attributes?.body_type) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Caroserie</span>
+                            <span className="text-white font-bold">🚙 {listing.attributes.bodyType || listing.attributes.body_type}</span>
+                          </div>
+                        )}
+                        {listing.condition && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Stare</span>
+                            <span className="text-white font-bold">
+                              {(listing.condition === "new" || listing.condition === "Nou") && "✨ Nou"}
+                              {(listing.condition === "used" || listing.condition === "Folosit") && "🔄 Folosit"}
+                              {(listing.condition === "refurbished" || listing.condition === "Recondiționat") && "🔧 Recondiționat"}
+                              {(listing.condition === "for_parts" || listing.condition === "Pentru piese") && "⚙️ Pentru piese"}
+                              {!['new', 'used', 'refurbished', 'for_parts', 'Nou', 'Folosit', 'Recondiționat', 'Pentru piese'].includes(listing.condition) && listing.condition}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Year & Registration */}
                         {listing.year && (
                           <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
                             <span className="text-gray-400 font-medium">An fabricație</span>
                             <span className="text-white font-bold">📅 {listing.year}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.firstRegistration || listing.attributes?.first_registration) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Prima înmatriculare</span>
+                            <span className="text-white font-bold">📆 {listing.attributes.firstRegistration || listing.attributes.first_registration}</span>
                           </div>
                         )}
                         {listing.mileage && (
@@ -397,10 +441,30 @@ export default function Page() {
                             <span className="text-white font-bold">🛣️ {listing.mileage.toLocaleString()} km</span>
                           </div>
                         )}
+                        {listing.vin && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">VIN</span>
+                            <span className="text-white font-bold font-mono text-sm">🔖 {listing.vin}</span>
+                          </div>
+                        )}
+                        
+                        {/* Engine & Performance */}
                         {listing.fuel && (
                           <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
                             <span className="text-gray-400 font-medium">Combustibil</span>
                             <span className="text-white font-bold">⛽ {listing.fuel}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.horsePower || listing.attributes?.horse_power || listing.attributes?.hp) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Putere</span>
+                            <span className="text-white font-bold">🐎 {listing.attributes.horsePower || listing.attributes.horse_power || listing.attributes.hp} CP</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.engineCapacity || listing.attributes?.engine_capacity || listing.attributes?.capacity) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Capacitate cilindrică</span>
+                            <span className="text-white font-bold">🔧 {listing.attributes.engineCapacity || listing.attributes.engine_capacity || listing.attributes.capacity} cm³</span>
                           </div>
                         )}
                         {listing.transmission && (
@@ -409,7 +473,118 @@ export default function Page() {
                             <span className="text-white font-bold">⚙️ {listing.transmission}</span>
                           </div>
                         )}
+                        {(listing.attributes?.drivetrain || listing.attributes?.drive_train) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Tracțiune</span>
+                            <span className="text-white font-bold">🔄 {listing.attributes.drivetrain || listing.attributes.drive_train}</span>
+                          </div>
+                        )}
+                        
+                        {/* Exterior & Interior */}
+                        {listing.attributes?.color && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Culoare</span>
+                            <span className="text-white font-bold">🎨 {listing.attributes.color}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.upholstery || listing.attributes?.interior) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Tapițerie</span>
+                            <span className="text-white font-bold">🪑 {listing.attributes.upholstery || listing.attributes.interior}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.doors || listing.attributes?.door_count) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Uși</span>
+                            <span className="text-white font-bold">🚪 {listing.attributes.doors || listing.attributes.door_count}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.seats || listing.attributes?.seat_count) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Locuri</span>
+                            <span className="text-white font-bold">💺 {listing.attributes.seats || listing.attributes.seat_count}</span>
+                          </div>
+                        )}
+                        
+                        {/* History & Ownership */}
+                        {(listing.attributes?.owners || listing.attributes?.owner_count || listing.attributes?.numberOfOwners) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Număr proprietari</span>
+                            <span className="text-white font-bold">👥 {listing.attributes.owners || listing.attributes.owner_count || listing.attributes.numberOfOwners}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.keys || listing.attributes?.key_count) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Chei</span>
+                            <span className="text-white font-bold">🔑 {listing.attributes.keys || listing.attributes.key_count}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.priorDamage !== undefined || listing.attributes?.prior_damage !== undefined || listing.attributes?.accident !== undefined) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Daune anterioare</span>
+                            <span className="text-white font-bold">
+                              {(listing.attributes.priorDamage === false || listing.attributes.prior_damage === false || listing.attributes.accident === false || listing.attributes.priorDamage === 'Nu' || listing.attributes.prior_damage === 'Nu') 
+                                ? '✅ Nu' 
+                                : (listing.attributes.priorDamage === true || listing.attributes.prior_damage === true || listing.attributes.accident === true || listing.attributes.priorDamage === 'Da' || listing.attributes.prior_damage === 'Da')
+                                ? '⚠️ Da'
+                                : listing.attributes.priorDamage || listing.attributes.prior_damage || listing.attributes.accident
+                              }
+                            </span>
+                          </div>
+                        )}
+                        {(listing.attributes?.serviceHistory || listing.attributes?.service_history) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Istoric service</span>
+                            <span className="text-white font-bold">📋 {listing.attributes.serviceHistory || listing.attributes.service_history}</span>
+                          </div>
+                        )}
+                        
+                        {/* Legal & Compliance */}
+                        {(listing.attributes?.countryOfOrigin || listing.attributes?.country_of_origin) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Țara de origine</span>
+                            <span className="text-white font-bold">🌍 {listing.attributes.countryOfOrigin || listing.attributes.country_of_origin}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.lastRegistrationCountry || listing.attributes?.last_registration_country) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Ultima înmatriculare</span>
+                            <span className="text-white font-bold">🌍 {listing.attributes.lastRegistrationCountry || listing.attributes.last_registration_country}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.environmentalClass || listing.attributes?.environmental_class || listing.attributes?.emission_standard) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Normă poluare</span>
+                            <span className="text-white font-bold">🌱 {listing.attributes.environmentalClass || listing.attributes.environmental_class || listing.attributes.emission_standard}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.inspectionValid || listing.attributes?.inspection_valid || listing.attributes?.itp) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">ITP valabil până</span>
+                            <span className="text-white font-bold">✅ {listing.attributes.inspectionValid || listing.attributes.inspection_valid || listing.attributes.itp}</span>
+                          </div>
+                        )}
+                        {(listing.attributes?.warranty || listing.attributes?.garantie) && (
+                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                            <span className="text-gray-400 font-medium">Garanție</span>
+                            <span className="text-white font-bold">🛡️ {listing.attributes.warranty || listing.attributes.garantie}</span>
+                          </div>
+                        )}
                       </>
+                    )}
+                    
+                    {/* Generic condition field for non-auto categories */}
+                    {listing.category !== "Auto, moto și ambarcațiuni" && listing.condition && (
+                      <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                        <span className="text-gray-400 font-medium">Stare</span>
+                        <span className="text-white font-bold">
+                          {(listing.condition === "new" || listing.condition === "Nou") && "✨ Nou"}
+                          {(listing.condition === "used" || listing.condition === "Folosit") && "🔄 Folosit"}
+                          {(listing.condition === "refurbished" || listing.condition === "Recondiționat") && "🔧 Recondiționat"}
+                          {(listing.condition === "for_parts" || listing.condition === "Pentru piese") && "⚙️ Pentru piese"}
+                          {!['new', 'used', 'refurbished', 'for_parts', 'Nou', 'Folosit', 'Recondiționat', 'Pentru piese'].includes(listing.condition) && listing.condition}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -456,10 +631,10 @@ export default function Page() {
                   </h3>
                   <div className="flex items-center gap-4 mb-6 p-4 bg-gray-900/50 rounded-2xl border border-gray-700/30">
                     <div className="w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg">
-                      {listing.owner?.email?.charAt(0).toUpperCase() || "?"}
+                      {sellerInitial || "?"}
                     </div>
                     <div>
-                      <p className="font-bold text-white text-lg">{listing.owner?.email || listing.owner?.name}</p>
+                      <p className="font-bold text-white text-lg">{sellerDisplayName}</p>
                       <p className="text-sm text-gray-400 flex items-center gap-1">
                         <span>✅</span> Membru din 2024
                       </p>
@@ -467,13 +642,24 @@ export default function Page() {
                   </div>
                   
                   <div className="space-y-3">
-                    <button 
-                      onClick={() => router.push(`/listings/${id}/promote`)}
-                      className="w-full bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white py-4 rounded-xl font-black text-lg shadow-2xl hover:shadow-yellow-500/50 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-                    >
-                      <span>🚀</span>
-                      <span>Promovează</span>
-                    </button>
+                    {isOwner && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button 
+                          onClick={() => router.push(`/listings/${id}/edit`)}
+                          className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-xl font-bold hover:shadow-xl hover:shadow-blue-500/30 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          <span>✏️</span>
+                          <span>Editează</span>
+                        </button>
+                        <button 
+                          onClick={() => router.push(`/listings/${id}/promote`)}
+                          className="bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white py-3 rounded-xl font-bold hover:shadow-xl hover:shadow-yellow-500/30 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          <span>🚀</span>
+                          <span>Promovează</span>
+                        </button>
+                      </div>
+                    )}
                     
                     <button 
                       onClick={() => router.push(`/listings/${id}/messages`)}
@@ -487,7 +673,7 @@ export default function Page() {
                       className="w-full bg-gray-900/70 border-2 border-[#00D4FF] text-[#00D4FF] py-4 rounded-xl font-bold hover:bg-[#00D4FF]/10 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                     >
                       <span>📞</span>
-                      <span>{showPhone ? (listing.contactPhone || 'Fără telefon') : 'Afișează telefon'}</span>
+                      <span>{showPhone ? (sellerPhone || 'Fără telefon') : 'Afișează telefon'}</span>
                     </button>
                   </div>
 

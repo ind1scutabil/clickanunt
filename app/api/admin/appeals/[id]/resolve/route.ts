@@ -1,5 +1,5 @@
 /**
- * API Route: Admin - Resolve Report
+ * API Route: Admin - Resolve Appeal
  */
 
 export const runtime = "nodejs";
@@ -7,7 +7,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
-import { auditActions } from "@/lib/audit";
 import type { UserRole } from "@prisma/client";
 
 export async function POST(
@@ -18,7 +17,7 @@ export async function POST(
     const { id } = await params;
     const user = await getUserFromRequest(request as any);
 
-    if (!user || !hasPermission(user.role as UserRole, Permission.REPORTS_RESOLVE)) {
+    if (!user || !hasPermission(user.role as UserRole, Permission.APPEALS_REVIEW)) {
       return NextResponse.json(
         { error: "Acces interzis" },
         { status: 403 }
@@ -26,48 +25,47 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { resolution, status } = body;
+    const { status, response } = body;
 
-    if (!resolution || !status) {
+    if (!status) {
       return NextResponse.json(
-        { error: "Resolution și status sunt necesare" },
+        { error: "Status este necesar" },
         { status: 400 }
       );
     }
 
-    if (!['resolved', 'dismissed'].includes(status)) {
+    if (!['approved', 'rejected'].includes(status)) {
       return NextResponse.json(
-        { error: "Status invalid" },
+        { error: "Status invalid (approved sau rejected)" },
         { status: 400 }
       );
     }
 
-    // Update report
-    const report = await prisma.report.update({
+    // Update appeal
+    const appeal = await prisma.appeal.update({
       where: { id },
       data: {
         status,
-        resolution,
-        resolvedAt: new Date(),
-        resolvedBy: user.id,
+        response: response || null,
+        reviewedAt: new Date(),
+        reviewedBy: user.id,
       },
       include: {
-        reporter: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
       },
     });
 
-    // Audit log
-    await auditActions.reportResolved(user, report, resolution);
-
-    return NextResponse.json({
-      success: true,
-      message: "Raport rezolvat cu succes",
-      report,
-    });
+    return NextResponse.json({ appeal });
   } catch (error) {
-
+    console.error('Error resolving appeal:', error);
     return NextResponse.json(
-      { error: "Eroare la rezolvarea raportului" },
+      { error: 'Eroare la rezolvarea apelului' },
       { status: 500 }
     );
   }
