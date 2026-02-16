@@ -81,6 +81,7 @@ export default function AdminDashboard() {
   const [showBroadcastConfirm, setShowBroadcastConfirm] = useState(false);
   const [broadcastConfirmData, setBroadcastConfirmData] = useState<any>(null);
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState(false);
 
   // SECURITY: Check authentication and authorization
   useEffect(() => {
@@ -154,7 +155,15 @@ export default function AdminDashboard() {
   };
 
   const handleBroadcast = async () => {
-    // Show confirmation modal instead of sending directly
+    // Validate before showing confirmation modal
+    if (!broadcastForm.title || !broadcastForm.message) {
+      setErrorMessage('⚠️ Te rog completează titlul și mesajul înainte de a trimite.');
+      return;
+    }
+    
+    // Reset states and show confirmation modal with data
+    setErrorMessage('');
+    setBroadcastSuccess(false);
     setBroadcastConfirmData({
       title: broadcastForm.title,
       message: broadcastForm.message,
@@ -208,14 +217,31 @@ export default function AdminDashboard() {
       }
 
       console.log('✅ Broadcast sent successfully!');
-      setShowBroadcastConfirm(false);
-      setBroadcastConfirmData(null);
-      alert('✅ Mesajul a fost trimis cu succes.');
+      
+      // Show success message in modal before closing
+      setErrorMessage('');
+      setBroadcastSuccess(true);
+      setBroadcastSending(false);
+      
+      // Close modal and reset form after delay to show success
+      setTimeout(() => {
+        setShowBroadcastConfirm(false);
+        setBroadcastConfirmData(null);
+        setBroadcastSuccess(false);
+        setBroadcastForm({
+          title: '',
+          message: '',
+          channels: { email: true, inApp: true, sms: false },
+          schedule: 'now' as BroadcastSchedule,
+          scheduledAt: '',
+        });
+      }, 2500);
+      
+      return; // Exit early on success
     } catch (error: unknown) {
       console.error('❌ Broadcast error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Eroare la trimiterea mesajului';
       setErrorMessage(errorMsg);
-      alert('❌ Eroare: ' + errorMsg);
     } finally {
       setBroadcastSending(false);
     }
@@ -844,16 +870,28 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Content */}
+              {/* Content - Editable */}
               <div className="space-y-4 mb-8 bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
                 <div className="border-l-4 border-cyan-400 pl-4">
-                  <p className="text-gray-400 text-sm">Titlu</p>
-                  <p className="text-white font-bold text-lg">{broadcastConfirmData.title}</p>
+                  <label className="text-gray-400 text-sm block mb-2">Titlu</label>
+                  <input
+                    type="text"
+                    value={broadcastConfirmData.title}
+                    onChange={(e) => setBroadcastConfirmData({ ...broadcastConfirmData, title: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-2 text-white font-bold text-lg focus:outline-none focus:border-cyan-400 transition-colors"
+                    placeholder="Titlu mesaj..."
+                  />
                 </div>
                 
                 <div className="border-l-4 border-blue-400 pl-4">
-                  <p className="text-gray-400 text-sm">Mesaj</p>
-                  <p className="text-white whitespace-pre-wrap">{broadcastConfirmData.message}</p>
+                  <label className="text-gray-400 text-sm block mb-2">Mesaj</label>
+                  <textarea
+                    value={broadcastConfirmData.message}
+                    onChange={(e) => setBroadcastConfirmData({ ...broadcastConfirmData, message: e.target.value })}
+                    rows={4}
+                    className="w-full bg-gray-900/50 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                    placeholder="Conținut mesaj..."
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
@@ -892,8 +930,27 @@ export default function AdminDashboard() {
                 </p>
               </div>
 
+              {/* Success Display */}
+              {broadcastSuccess && (
+                <div className="mb-4 p-6 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-2 border-green-400/50 rounded-2xl animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">✓</span>
+                    </div>
+                    <div>
+                      <p className="text-green-300 font-black text-lg">
+                        🎉 Mesaj trimis cu succes!
+                      </p>
+                      <p className="text-green-400/80 text-sm">
+                        Mesajul a fost programat pentru livrare la toți utilizatorii
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Error Display */}
-              {errorMessage && (
+              {errorMessage && !broadcastSuccess && (
                 <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
                   <p className="text-red-300 text-sm">
                     <strong>❌ Eroare:</strong> {errorMessage}
@@ -903,30 +960,47 @@ export default function AdminDashboard() {
 
               {/* Actions */}
               <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowBroadcastConfirm(false);
-                    setBroadcastConfirmData(null);
-                  }}
-                  disabled={broadcastSending}
-                  className="flex-1 px-6 py-3 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
-                >
-                  ❌ Anulează
-                </button>
-                <button
-                  onClick={sendBroadcastConfirmed}
-                  disabled={broadcastSending}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/50 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {broadcastSending ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Se trimite...
-                    </>
-                  ) : (
-                    <>✅ Confirmă & Trimite</>
-                  )}
-                </button>
+                {!broadcastSuccess ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowBroadcastConfirm(false);
+                        setBroadcastConfirmData(null);
+                        setErrorMessage('');
+                      }}
+                      disabled={broadcastSending}
+                      className="flex-1 px-6 py-3 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
+                    >
+                      ❌ Anulează
+                    </button>
+                    <button
+                      onClick={sendBroadcastConfirmed}
+                      disabled={broadcastSending || !broadcastConfirmData.title || !broadcastConfirmData.message}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/50 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {broadcastSending ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Se trimite...
+                        </>
+                      ) : (
+                        <>✅ Confirmă & Trimite</>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setShowBroadcastConfirm(false);
+                      setBroadcastConfirmData(null);
+                      setBroadcastSuccess(false);
+                      setErrorMessage('');
+                    }}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:shadow-lg hover:shadow-cyan-500/50 text-white rounded-xl font-bold transition-all"
+                  >
+                    ✓ Închide
+                  </button>
+                )}
               </div>
             </div>
           </div>
