@@ -70,9 +70,20 @@ export async function POST(request: NextRequest) {
     const user = await getUserFromRequest(request);
     console.log('🔵 [BROADCAST API] User:', user?.email, 'Role:', user?.role);
 
-    if (!user || !hasPermission(user.role as UserRole, Permission.SETTINGS_UPDATE)) {
-      console.log('❌ [BROADCAST API] Permission denied');
-      return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
+    if (!user) {
+      console.log('❌ [BROADCAST API] No user found - not authenticated');
+      return NextResponse.json({ 
+        error: "Acces interzis - Utilizator neautentificat",
+        debug: "getUserFromRequest returned null"
+      }, { status: 403 });
+    }
+    
+    if (!hasPermission(user.role as UserRole, Permission.SETTINGS_UPDATE)) {
+      console.log('❌ [BROADCAST API] Permission denied for role:', user.role);
+      return NextResponse.json({ 
+        error: "Acces interzis - Permisiuni insuficiente",
+        debug: `User role: ${user.role}, Required: SETTINGS_UPDATE permission`
+      }, { status: 403 });
     }
 
     console.log('🔵 [BROADCAST API] Starting CSRF validation...');
