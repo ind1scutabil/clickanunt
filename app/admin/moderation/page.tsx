@@ -142,6 +142,9 @@ export default function AdminModerationPage() {
   const [selectedUser, setSelectedUser] = useState<ModerationUser | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
+  const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const [userListings, setUserListings] = useState<ModerationListing[]>([]);
+  const [userListingsLoading, setUserListingsLoading] = useState(false);
   const [creditsForm, setCreditsForm] = useState({
     credits: '',
     discount: '',
@@ -231,6 +234,38 @@ export default function AdminModerationPage() {
       setUsersError('Failed to load users');
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  // Fetch listings for a specific user
+  const fetchUserListings = async (userId: number) => {
+    try {
+      setUserListingsLoading(true);
+      // Find user to match by email
+      const targetUser = users.find(u => u.id === userId);
+      if (!targetUser) {
+        setUserListings([]);
+        return;
+      }
+
+      // Combine all listings and filter by user's email
+      const allListings = [
+        ...pendingListings,
+        ...approvedListings,
+        ...rejectedListings
+      ];
+      
+      const userListings = allListings.filter(listing => {
+        // Match by owner email (owner is string, not object)
+        return listing.owner?.toLowerCase() === targetUser.email.toLowerCase();
+      });
+      
+      setUserListings(userListings);
+    } catch (error) {
+      console.error('Error fetching user listings:', error);
+      setUserListings([]);
+    } finally {
+      setUserListingsLoading(false);
     }
   };
 
@@ -1293,70 +1328,166 @@ export default function AdminModerationPage() {
                 </div>
               ) : (
                 users.map(user => (
-                  <div
-                    key={user.id}
-                    className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border ${
-                      user.status === 'banned' ? 'border-red-500/50' : 'border-gray-700/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-6">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-xl font-black text-white">{user.email}</h3>
-                          {user.role === 'admin' && (
-                            <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
-                              👑 ADMIN
+                  <div key={user.id} className="space-y-2">
+                    {/* User Card */}
+                    <div
+                      onClick={() => {
+                        if (expandedUserId === user.id) {
+                          setExpandedUserId(null);
+                        } else {
+                          setExpandedUserId(user.id);
+                          fetchUserListings(user.id);
+                        }
+                      }}
+                      className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border cursor-pointer transition-all ${
+                        user.status === 'banned' ? 'border-red-500/50' : 'border-gray-700/50'
+                      } ${expandedUserId === user.id ? 'ring-2 ring-cyan-400/50 border-cyan-400/50' : 'hover:border-cyan-400/30'}`}
+                    >
+                      <div className="flex items-center gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-xl font-black text-white">{user.email}</h3>
+                            {user.role === 'admin' && (
+                              <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
+                                👑 ADMIN
+                              </span>
+                            )}
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              user.status === 'active' 
+                                ? 'bg-green-500/20 text-green-400' 
+                                : 'bg-red-500/20 text-red-400'
+                            }`}>
+                              {user.status === 'active' ? '✓ Activ' : '🚫 Blocat'}
                             </span>
-                          )}
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            user.status === 'active' 
-                              ? 'bg-green-500/20 text-green-400' 
-                              : 'bg-red-500/20 text-red-400'
-                          }`}>
-                            {user.status === 'active' ? '✓ Activ' : '🚫 Blocat'}
-                          </span>
+                            {expandedUserId === user.id && (
+                              <span className="text-cyan-400 text-lg">▼</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mb-3 text-sm">
+                            <span className="text-gray-400">📝 {user.listings} anunțuri</span>
+                            {user.credits > 0 && <span className="text-green-400 font-bold">💰 {user.credits} credite</span>}
+                            {user.discount > 0 && <span className="text-blue-400 font-bold">🎟️ {user.discount}% discount</span>}
+                            {user.freePromotions > 0 && <span className="text-yellow-400 font-bold">🎁 {user.freePromotions} promovări gratuite</span>}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 mb-3 text-sm">
-                          <span className="text-gray-400">📝 {user.listings} anunțuri</span>
-                          {user.credits > 0 && <span className="text-green-400 font-bold">💰 {user.credits} credite</span>}
-                          {user.discount > 0 && <span className="text-blue-400 font-bold">🎟️ {user.discount}% discount</span>}
-                          {user.freePromotions > 0 && <span className="text-yellow-400 font-bold">🎁 {user.freePromotions} promovări gratuite</span>}
-                        </div>
-                      </div>
 
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openCreditsModal(user)}
-                          className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
-                        >
-                          💳 Credite & Beneficii
-                        </button>
-                        {user.role !== 'admin' && user.status === 'active' && (
-                          <>
-                            <button
-                              onClick={() => makeAdmin(user.id)}
-                              className="px-6 py-3 bg-purple-500/20 text-purple-400 rounded-xl font-bold hover:bg-purple-500/30 transition-all"
-                            >
-                              👑 Fă Admin
-                            </button>
-                            <button
-                              onClick={() => banUser(user.id)}
-                              className="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-bold hover:bg-red-500/30 transition-all"
-                            >
-                              🚫 Blochează
-                            </button>
-                          </>
-                        )}
-                        {user.status === 'banned' && (
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => unbanUser(user.id)}
-                            className="px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 transition-all"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCreditsModal(user);
+                            }}
+                            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
                           >
-                            ✅ Deblochează
+                            💳 Credite & Beneficii
                           </button>
-                        )}
+                          {user.role !== 'admin' && user.status === 'active' && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  makeAdmin(user.id);
+                                }}
+                                className="px-6 py-3 bg-purple-500/20 text-purple-400 rounded-xl font-bold hover:bg-purple-500/30 transition-all"
+                              >
+                                👑 Fă Admin
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  banUser(user.id);
+                                }}
+                                className="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-bold hover:bg-red-500/30 transition-all"
+                              >
+                                🚫 Blochează
+                              </button>
+                            </>
+                          )}
+                          {user.status === 'banned' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                unbanUser(user.id);
+                              }}
+                              className="px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 transition-all"
+                            >
+                              ✅ Deblochează
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Expanded User Listings */}
+                    {expandedUserId === user.id && (
+                      <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-cyan-400/30 ml-4 space-y-3">
+                        {userListingsLoading ? (
+                          <div className="text-center py-8">
+                            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full animate-spin mb-3">
+                              <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
+                            </div>
+                            <p className="text-gray-400">Se încarcă anunțurile...</p>
+                          </div>
+                        ) : userListings.length === 0 ? (
+                          <p className="text-gray-400 text-center py-4">📭 Nici un anunț</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <h4 className="text-gray-300 font-bold text-sm">🎯 Anunțurile utilizatorului ({userListings.length}):</h4>
+                            {userListings.map(listing => (
+                              <div
+                                key={listing.id}
+                                className="bg-gray-900/70 rounded-xl p-4 border border-gray-700/50 hover:border-cyan-400/50 transition-all"
+                              >
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="flex-1">
+                                    <h5 className="font-bold text-white text-sm">{listing.title}</h5>
+                                    <div className="flex items-center gap-3 mt-1 text-xs">
+                                      <span className="text-gray-400">📂 {listing.category}</span>
+                                      {listing.price && <span className="text-green-400 font-bold">💵 {listing.price.toLocaleString('ro-RO')} RON</span>}
+                                      <span className={`px-2 py-1 rounded ${
+                                        listing.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                        listing.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                                        'bg-red-500/20 text-red-400'
+                                      }`}>
+                                        {listing.status}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {listing.status !== 'approved' && (
+                                      <button
+                                        onClick={() => approveListing(listing.id)}
+                                        className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold hover:bg-green-500/30 transition-all"
+                                      >
+                                        ✓ Aprobă
+                                      </button>
+                                    )}
+                                    {listing.status !== 'rejected' && (
+                                      <button
+                                        onClick={() => rejectListing(listing.id)}
+                                        className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold hover:bg-red-500/30 transition-all"
+                                      >
+                                        ✗ Respinge
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
+                                          deleteListing(listing.id);
+                                        }
+                                      }}
+                                      className="px-3 py-1 bg-red-900/20 text-red-300 text-xs rounded font-bold hover:bg-red-900/30 transition-all"
+                                    >
+                                      🗑️ Șterge
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
