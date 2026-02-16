@@ -66,21 +66,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔵 [BROADCAST API] Request received');
     const user = await getUserFromRequest(request);
+    console.log('🔵 [BROADCAST API] User:', user?.email, 'Role:', user?.role);
 
     if (!user || !hasPermission(user.role as UserRole, Permission.SETTINGS_UPDATE)) {
+      console.log('❌ [BROADCAST API] Permission denied');
       return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
     }
 
+    console.log('🔵 [BROADCAST API] Starting CSRF validation...');
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
+    });
+    console.log('🔵 [BROADCAST API] Security validation result:', {
+      success: security.success,
+      error: security.error,
+      csrfError: security.csrfError,
+      hasData: !!security.data
     });
 
     if (!security.success) {
       const status = security.csrfError ? 403 : 400;
+      console.log('❌ [BROADCAST API] Security validation failed:', security.error);
       return NextResponse.json({ error: security.error }, { status });
     }
 
+    console.log('🔵 [BROADCAST API] Security data:', security.data);
+    
     const { title, message, channels, segment, schedule, scheduledAt } =
       security.data as {
         title?: string;
@@ -91,7 +104,10 @@ export async function POST(request: NextRequest) {
         scheduledAt?: string | null;
       };
 
+    console.log('🔵 [BROADCAST API] Extracted values:', { title, message, channels, segment, schedule });
+
     if (!title || !message) {
+      console.log('❌ [BROADCAST API] Missing title or message');
       return NextResponse.json({ error: "Titlu și mesaj sunt necesare" }, { status: 400 });
     }
 
