@@ -165,6 +165,9 @@ export async function POST(request: NextRequest) {
       select: { id: true, email: true },
     });
 
+    console.log('🔵 [BROADCAST API] Found users:', users.length);
+    console.log('🔵 [BROADCAST API] Channels:', channels);
+
     let notificationsCreated = 0;
     if (channels?.inApp !== false) {
       const batchSize = 1000;
@@ -182,11 +185,17 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    console.log('🔵 [BROADCAST API] In-app notifications created:', notificationsCreated);
 
     let emailResult = { sent: 0, skipped: 0 };
     if (channels?.email) {
       const emails = users.map((u: BroadcastUser) => u.email).filter((email): email is string => !!email);
+      console.log('🔵 [BROADCAST API] Sending emails to:', emails.length, 'addresses');
+      console.log('🔵 [BROADCAST API] Sample emails:', emails.slice(0, 3));
       emailResult = await sendBulkEmail(emails, title, `<p>${message}</p>`);
+      console.log('🔵 [BROADCAST API] Email result:', emailResult);
+    } else {
+      console.log('⚠️ [BROADCAST API] Email channel disabled, skipping email sending');
     }
 
     await createAuditLog({
