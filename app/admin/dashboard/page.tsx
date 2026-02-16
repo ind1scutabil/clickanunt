@@ -76,6 +76,11 @@ export default function AdminDashboard() {
   const [lastAction, setLastAction] = useState('Nicio acțiune recentă');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
+  // Broadcast confirmation modal
+  const [showBroadcastConfirm, setShowBroadcastConfirm] = useState(false);
+  const [broadcastConfirmData, setBroadcastConfirmData] = useState<any>(null);
+  const [broadcastSending, setBroadcastSending] = useState(false);
 
   // SECURITY: Check authentication and authorization
   useEffect(() => {
@@ -149,7 +154,20 @@ export default function AdminDashboard() {
   };
 
   const handleBroadcast = async () => {
+    // Show confirmation modal instead of sending directly
+    setBroadcastConfirmData({
+      title: broadcastForm.title,
+      message: broadcastForm.message,
+      channels: broadcastForm.channels,
+      schedule: broadcastForm.schedule,
+      scheduledAt: broadcastForm.scheduledAt,
+    });
+    setShowBroadcastConfirm(true);
+  };
+
+  const sendBroadcastConfirmed = async () => {
     try {
+      setBroadcastSending(true);
       setErrorMessage('');
       const csrfToken = await getCsrfToken();
       const res = await fetch('/api/admin/broadcasts', {
@@ -159,20 +177,20 @@ export default function AdminDashboard() {
           'X-CSRF-Token': csrfToken,
         },
         body: JSON.stringify({
-          title: broadcastForm.title,
-          message: broadcastForm.message,
-          channels: broadcastForm.channels,
+          title: broadcastConfirmData.title,
+          message: broadcastConfirmData.message,
+          channels: broadcastConfirmData.channels,
           segment: 'all',
-          schedule: broadcastForm.schedule,
-          scheduledAt: broadcastForm.scheduledAt,
+          schedule: broadcastConfirmData.schedule,
+          scheduledAt: broadcastConfirmData.scheduledAt,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Eroare la trimiterea mesajului');
 
-      const when = data.scheduled ? `Programat: ${broadcastForm.scheduledAt}` : 'Trimis acum';
-      setLastAction(`📨 Mesaj global: ${broadcastForm.title} · ${when}`);
+      const when = data.scheduled ? `Programat: ${broadcastConfirmData.scheduledAt}` : 'Trimis acum';
+      setLastAction(`📨 Mesaj global: ${broadcastConfirmData.title} · ${when}`);
 
       const broadcastsRes = await fetch('/api/admin/broadcasts');
       if (broadcastsRes.ok) {
@@ -180,9 +198,13 @@ export default function AdminDashboard() {
         setBroadcasts(broadcastsData.broadcasts || []);
       }
 
+      setShowBroadcastConfirm(false);
+      setBroadcastConfirmData(null);
       alert('✅ Mesajul a fost trimis cu succes.');
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Eroare la trimiterea mesajului');
+    } finally {
+      setBroadcastSending(false);
     }
   };
 
@@ -793,7 +815,102 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Broadcast Confirmation Modal */}
+        {showBroadcastConfirm && broadcastConfirmData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl p-8 max-w-2xl w-full border border-cyan-400/30 shadow-2xl shadow-cyan-500/20">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center text-white text-xl font-bold">
+                  ⚠️
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-white">Confirmare Trimitere Mesaj</h2>
+                  <p className="text-gray-400 text-sm">Revizuiește detaliile înainte de a trimite la toți utilizatorii</p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="space-y-4 mb-8 bg-gray-800/50 rounded-2xl p-6 border border-gray-700/50">
+                <div className="border-l-4 border-cyan-400 pl-4">
+                  <p className="text-gray-400 text-sm">Titlu</p>
+                  <p className="text-white font-bold text-lg">{broadcastConfirmData.title}</p>
+                </div>
+                
+                <div className="border-l-4 border-blue-400 pl-4">
+                  <p className="text-gray-400 text-sm">Mesaj</p>
+                  <p className="text-white whitespace-pre-wrap">{broadcastConfirmData.message}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">📢 Canale</p>
+                    <div className="flex flex-wrap gap-2">
+                      {broadcastConfirmData.channels.email && (
+                        <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-xs font-bold">📧 EMAIL</span>
+                      )}
+                      {broadcastConfirmData.channels.inApp && (
+                        <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-xs font-bold">📱 IN-APP</span>
+                      )}
+                      {broadcastConfirmData.channels.sms && (
+                        <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-xs font-bold">💬 SMS</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">⏰ Program</p>
+                    <div className="px-3 py-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                      {broadcastConfirmData.schedule === 'now' ? (
+                        <p className="text-green-400 font-bold">🚀 Trimite acum</p>
+                      ) : (
+                        <p className="text-yellow-400 font-bold">📅 {broadcastConfirmData.scheduledAt}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning */}
+              <div className="mb-8 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <p className="text-yellow-300 text-sm">
+                  <strong>⚠️ Observație:</strong> Mesajul va fi trimis la TOȚI utilizatorii (activi, inactivi, noi). Această acțiune nu poate fi anulată.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowBroadcastConfirm(false);
+                    setBroadcastConfirmData(null);
+                  }}
+                  disabled={broadcastSending}
+                  className="flex-1 px-6 py-3 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
+                >
+                  ❌ Anulează
+                </button>
+                <button
+                  onClick={sendBroadcastConfirmed}
+                  disabled={broadcastSending}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-lg hover:shadow-green-500/50 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {broadcastSending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Se trimite...
+                    </>
+                  ) : (
+                    <>✅ Confirmă & Trimite</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );
 }
+
