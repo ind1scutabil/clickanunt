@@ -103,17 +103,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    console.log('🔵 [BROADCAST API] Security data:', security.data);
+    // Parse request body manually since validateSecureRequest doesn't parse without schema
+    let body;
+    try {
+      body = await request.json();
+      console.log('🔵 [BROADCAST API] Parsed body:', body);
+    } catch (error) {
+      console.log('❌ [BROADCAST API] Failed to parse JSON body:', error);
+      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
+    }
     
-    const { title, message, channels, segment, schedule, scheduledAt } =
-      security.data as {
-        title?: string;
-        message?: string;
-        channels?: { email?: boolean; inApp?: boolean; sms?: boolean };
-        segment?: string;
-        schedule?: string;
-        scheduledAt?: string | null;
-      };
+    const { title, message, channels, segment, schedule, scheduledAt } = body as {
+      title?: string;
+      message?: string;
+      channels?: { email?: boolean; inApp?: boolean; sms?: boolean };
+      segment?: string;
+      schedule?: string;
+      scheduledAt?: string | null;
+    };
 
     console.log('🔵 [BROADCAST API] Extracted values:', { title, message, channels, segment, schedule });
 
