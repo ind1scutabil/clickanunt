@@ -540,7 +540,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {(['email', 'inApp', 'sms'] as const).map((channel) => (
-                        <label key={channel} className="flex items-center gap-2 text-gray-300">
+                        <label key={channel} className="flex items-center gap-2 text-gray-300 cursor-pointer hover:text-white transition-colors select-none">
                           <input
                             type="checkbox"
                             checked={broadcastForm.channels[channel]}
@@ -550,6 +550,7 @@ export default function AdminDashboard() {
                                 channels: { ...broadcastForm.channels, [channel]: !broadcastForm.channels[channel] }
                               })
                             }
+                            className="w-5 h-5 cursor-pointer accent-cyan-500"
                           />
                           {channel === 'inApp' ? 'In-App' : channel.toUpperCase()}
                         </label>
