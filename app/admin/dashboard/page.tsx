@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 type PromotionType = 'top' | 'urgent' | 'featured' | 'refresh';
 type ApplyTo = 'all' | 'new' | 'active' | 'inactive';
@@ -150,9 +151,13 @@ export default function AdminDashboard() {
   const handleBroadcast = async () => {
     try {
       setErrorMessage('');
+      const csrfToken = await getCsrfToken();
       const res = await fetch('/api/admin/broadcasts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
         body: JSON.stringify({
           title: broadcastForm.title,
           message: broadcastForm.message,
@@ -184,9 +189,13 @@ export default function AdminDashboard() {
   const handleApplyBenefits = async () => {
     try {
       setErrorMessage('');
+      const csrfToken = await getCsrfToken();
       const res = await fetch('/api/admin/benefits', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
         body: JSON.stringify({
           globalDiscount: benefitsForm.globalDiscount,
           freePromotions: benefitsForm.freePromotions,
@@ -212,9 +221,13 @@ export default function AdminDashboard() {
   const handleBulkAction = async () => {
     try {
       setErrorMessage('');
+      const csrfToken = await getCsrfToken();
       const res = await fetch('/api/admin/bulk-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
         body: JSON.stringify({
           segment: bulkForm.segment,
           action: bulkForm.action,
@@ -241,9 +254,13 @@ export default function AdminDashboard() {
 
     try {
       setErrorMessage('');
+      const csrfToken = await getCsrfToken();
       const res = await fetch('/api/admin/feature-flags', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
         body: JSON.stringify({
           key: SYSTEM_FLAG_KEYS[key],
           enabled: newValue,
