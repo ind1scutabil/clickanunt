@@ -167,9 +167,15 @@ export default function AdminDashboard() {
 
   const sendBroadcastConfirmed = async () => {
     try {
+      console.log('🚀 Starting broadcast send...');
       setBroadcastSending(true);
       setErrorMessage('');
+      
+      console.log('📝 Getting CSRF token...');
       const csrfToken = await getCsrfToken();
+      console.log('✅ CSRF token received');
+      
+      console.log('📤 Sending broadcast request...');
       const res = await fetch('/api/admin/broadcasts', {
         method: 'POST',
         headers: { 
@@ -186,7 +192,10 @@ export default function AdminDashboard() {
         }),
       });
 
+      console.log('📥 Response status:', res.status);
       const data = await res.json();
+      console.log('📊 Response data:', data);
+      
       if (!res.ok) throw new Error(data.error || 'Eroare la trimiterea mesajului');
 
       const when = data.scheduled ? `Programat: ${broadcastConfirmData.scheduledAt}` : 'Trimis acum';
@@ -198,11 +207,15 @@ export default function AdminDashboard() {
         setBroadcasts(broadcastsData.broadcasts || []);
       }
 
+      console.log('✅ Broadcast sent successfully!');
       setShowBroadcastConfirm(false);
       setBroadcastConfirmData(null);
       alert('✅ Mesajul a fost trimis cu succes.');
     } catch (error: unknown) {
-      setErrorMessage(error instanceof Error ? error.message : 'Eroare la trimiterea mesajului');
+      console.error('❌ Broadcast error:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Eroare la trimiterea mesajului';
+      setErrorMessage(errorMsg);
+      alert('❌ Eroare: ' + errorMsg);
     } finally {
       setBroadcastSending(false);
     }
@@ -878,6 +891,15 @@ export default function AdminDashboard() {
                   <strong>⚠️ Observație:</strong> Mesajul va fi trimis la TOȚI utilizatorii (activi, inactivi, noi). Această acțiune nu poate fi anulată.
                 </p>
               </div>
+
+              {/* Error Display */}
+              {errorMessage && (
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                  <p className="text-red-300 text-sm">
+                    <strong>❌ Eroare:</strong> {errorMessage}
+                  </p>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3">
