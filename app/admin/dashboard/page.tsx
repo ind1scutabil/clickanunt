@@ -177,28 +177,41 @@ export default function AdminDashboard() {
   const sendBroadcastConfirmed = async () => {
     try {
       console.log('🚀 Starting broadcast send...');
+      console.log('📋 Broadcast data:', broadcastConfirmData);
+      
+      // Explicit validation before sending
+      if (!broadcastConfirmData?.title || !broadcastConfirmData?.message) {
+        const errorMsg = '⚠️ Titlul și mesajul sunt obligatorii. Te rog completează ambele câmpuri.';
+        console.error('❌ Validation failed:', { title: broadcastConfirmData?.title, message: broadcastConfirmData?.message });
+        setErrorMessage(errorMsg);
+        return;
+      }
+      
       setBroadcastSending(true);
       setErrorMessage('');
       
       console.log('📝 Getting CSRF token...');
       const csrfToken = await getCsrfToken();
-      console.log('✅ CSRF token received');
+      console.log('✅ CSRF token received:', csrfToken?.substring(0, 20) + '...');
       
-      console.log('📤 Sending broadcast request...');
+      const payload = {
+        title: broadcastConfirmData.title,
+        message: broadcastConfirmData.message,
+        channels: broadcastConfirmData.channels,
+        segment: 'all',
+        schedule: broadcastConfirmData.schedule,
+        scheduledAt: broadcastConfirmData.scheduledAt,
+      };
+      
+      console.log('📤 Sending broadcast request with payload:', payload);
+      
       const res = await fetch('/api/admin/broadcasts', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrfToken,
         },
-        body: JSON.stringify({
-          title: broadcastConfirmData.title,
-          message: broadcastConfirmData.message,
-          channels: broadcastConfirmData.channels,
-          segment: 'all',
-          schedule: broadcastConfirmData.schedule,
-          scheduledAt: broadcastConfirmData.scheduledAt,
-        }),
+        body: JSON.stringify(payload),
       });
 
       console.log('📥 Response status:', res.status);
