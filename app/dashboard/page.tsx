@@ -261,7 +261,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Stats Grid - ENTERPRISE DESIGN */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
           {/* Active Listings */}
           <Link href="/dashboard/listings">
             <div className="group relative bg-gradient-to-br from-purple-600/10 via-purple-500/5 to-transparent backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 hover:border-purple-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
@@ -419,6 +419,34 @@ export default function DashboardPage() {
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+          </Link>
+
+          {/* Invoices - NEW */}
+          <Link href="/dashboard/invoices">
+            <div className="group relative bg-gradient-to-br from-emerald-600/10 via-teal-500/5 to-transparent backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-6 hover:border-emerald-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl shadow-lg shadow-emerald-500/30">
+                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+                
+                <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
+                  📄
+                </div>
+                <div className="text-sm font-medium text-emerald-300">Facturile mele</div>
+                <div className="mt-3 flex items-center text-xs text-emerald-400">
+                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Vezi facturi →
+                </div>
               </div>
             </div>
           </Link>
@@ -606,10 +634,30 @@ export default function DashboardPage() {
             <Card variant="elevated">
               <Card.Body className="p-6">
                 <h3 className="text-lg font-bold text-white mb-4">Activitate recentă</h3>
-                <div className="space-y-4 text-gray-400">
-                  <p>✓ Ai publicat anunțul "BMW X5 2020"</p>
-                  <p>✓ Ai primi 5 mesaje noi</p>
-                  <p>✓ Ai promovat anunțul "Apartament Dorobanți"</p>
+                <div className="space-y-4">
+                  {recentListings.length > 0 ? (
+                    <>
+                      {recentListings.slice(0, 3).map((listing) => (
+                        <div key={listing.id} className="flex items-center text-gray-300 hover:text-white transition-colors">
+                          <svg className="w-5 h-5 text-green-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <span>Ai publicat anunțul "{listing.title}"</span>
+                        </div>
+                      ))}
+                      {stats.messages > 0 && (
+                        <div className="flex items-center text-gray-300 hover:text-white transition-colors">
+                          <svg className="w-5 h-5 text-amber-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                          </svg>
+                          <span>Ai primit {stats.messages} {stats.messages === 1 ? 'mesaj nou' : 'mesaje noi'}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">Nicio activitate recentă</p>
+                  )}
                 </div>
               </Card.Body>
             </Card>
