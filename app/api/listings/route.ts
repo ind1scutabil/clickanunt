@@ -65,8 +65,11 @@ export async function GET(request: NextRequest) {
 
     const where: any = {};
 
-    // Status filter (only active by default)
-    where.status = query.status || q.get("status") || "active";
+    // Status filter (only active by default, skip filter if "all")
+    const statusParam = query.status || q.get("status") || "active";
+    if (statusParam !== "all") {
+      where.status = statusParam;
+    }
 
     // User filter (dashboard listings)
     if (userIdParam) {
