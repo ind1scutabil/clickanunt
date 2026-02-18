@@ -10,9 +10,10 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const params = await context.params;
     const idCheck = uuidSchema.safeParse(params.userId);
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
@@ -112,9 +113,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const params = await context.params;
     const idCheck = uuidSchema.safeParse(params.userId);
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
