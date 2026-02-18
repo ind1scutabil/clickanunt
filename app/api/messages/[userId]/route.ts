@@ -18,24 +18,32 @@ export async function GET(
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
     }
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    
-    if (!token) {
+    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
+    const cookieToken = request.cookies.get("accessToken")?.value;
+    const candidateTokens = [headerToken, cookieToken].filter(
+      (t): t is string => !!t && t !== "null" && t !== "undefined"
+    );
+    let payload = null;
+    for (const candidate of candidateTokens) {
+      payload = await verifyToken(candidate);
+      if (payload) break;
+    }
+
+    if (!payload) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const payload = await verifyToken(token);
-    if (!payload) {
+    const currentUserId = (payload as { userId?: string; sub?: string }).userId
+      || (payload as { sub?: string }).sub;
+    if (!currentUserId) {
       return NextResponse.json(
         { error: "Invalid token" },
         { status: 401 }
       );
     }
-
-    const currentUserId = payload.userId;
     const otherUserId = params.userId;
 
     // Find or create conversation between these two users
@@ -122,19 +130,20 @@ export async function POST(
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
     }
 
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    
-    if (!token) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
+    const cookieToken = request.cookies.get("accessToken")?.value;
+    const candidateTokens = [headerToken, cookieToken].filter(
+      (t): t is string => !!t && t !== "null" && t !== "undefined"
+    );
+    let payload = null;
+    for (const candidate of candidateTokens) {
+      payload = await verifyToken(candidate);
+      if (payload) break;
     }
 
-    const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json(
-        { error: "Invalid token" },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -165,7 +174,14 @@ export async function POST(
       );
     }
 
-    const senderId = payload.userId;
+    const senderId = (payload as { userId?: string; sub?: string }).userId
+      || (payload as { sub?: string }).sub;
+    if (!senderId) {
+      return NextResponse.json(
+        { error: "Invalid token" },
+        { status: 401 }
+      );
+    }
     const receiverId = params.userId;
 
     // Check if receiver exists
@@ -181,13 +197,19 @@ export async function POST(
     }
 
     // Find or create conversation
+    const whereClause: any = {
+      OR: [
+        { participant1Id: senderId, participant2Id: receiverId },
+        { participant1Id: receiverId, participant2Id: senderId },
+      ],
+    };
+    
+    if (listingId) {
+      whereClause.listingId = listingId;
+    }
+    
     let conversation = await prisma.conversation.findFirst({
-      where: {
-        OR: [
-          { participant1Id: senderId, participant2Id: receiverId },
-          { participant1Id: receiverId, participant2Id: senderId },
-        ],
-      },
+      where: whereClause,
     });
 
     if (!conversation) {

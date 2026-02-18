@@ -348,7 +348,7 @@ export default function DashboardPage() {
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-6">
                   <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg shadow-amber-500/30 relative">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
                     {!statsLoading && stats.messages > 0 && (
@@ -392,7 +392,7 @@ export default function DashboardPage() {
               <div className="relative z-10">
                 <div className="flex items-start justify-between mb-6">
                   <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl shadow-lg shadow-pink-500/30">
-                    <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                     </svg>
                   </div>

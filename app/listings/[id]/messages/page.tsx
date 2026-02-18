@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
+import { getCsrfToken } from '@/lib/security/csrf-client';
 
 interface Message {
   id: string;
@@ -115,12 +116,15 @@ export default function ListingMessagesPage() {
     fetchListing();
   }, [id, router]);
 
-  const fetchMessages = async (ownerId: string, token: string) => {
+  const fetchMessages = async (ownerId: string, token: string | null) => {
     try {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const res = await fetch(`/api/messages/${ownerId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch messages');
       const data = await res.json();
@@ -147,17 +151,19 @@ export default function ListingMessagesPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const csrfToken = document.cookie.split('; ')
-        .find(row => row.startsWith('csrf-token='))
-        ?.split('=')[1];
+      const csrfToken = await getCsrfToken();
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
       const res = await fetch(`/api/messages/${listing.owner.id}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken || '',
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           content: messageText.trim(),
           listingId: listing.id,

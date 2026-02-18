@@ -209,7 +209,8 @@ model User {
   createdBroadcasts   AdminBroadcast[] @relation("BroadcastCreator")
   sentMessages        Message[] @relation("MessageSender")
   receivedMessages    Message[] @relation("MessageReceiver")
-  conversations       Conversation[]
+  conversationsAsParticipant1 Conversation[] @relation("ConversationParticipant1")
+  conversationsAsParticipant2 Conversation[] @relation("ConversationParticipant2")
   
   @@index([email])
   @@index([role])
@@ -618,8 +619,9 @@ model Conversation {
   
   // Participants
   participant1Id String
-  participant1   User   @relation(fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant1   User   @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   participant2Id String
+  participant2   User   @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
   
   messages      Message[]
   

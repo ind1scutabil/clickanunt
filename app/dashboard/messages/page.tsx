@@ -29,7 +29,7 @@ interface Message {
 
 interface Conversation {
   id: string;
-  otherUser: {
+  otherParticipant: {
     id: string;
     name: string;
     avatar?: string;
@@ -38,9 +38,9 @@ interface Conversation {
     id: string;
     title: string;
   };
-  lastMessage: string;
+  lastMessage: any;
   unreadCount: number;
-  lastMessageTime: string;
+  lastMessageAt: string;
 }
 
 export default function MessagesPage() {
@@ -66,22 +66,33 @@ export default function MessagesPage() {
   const fetchConversations = async () => {
     try {
       const token = localStorage.getItem('accessToken');
+      console.log('[Messages] Fetching conversations with token:', token ? 'exists' : 'missing');
+      const headers: HeadersInit = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      
       const response = await fetch('/api/messages/conversations', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
+        credentials: 'include',
       });
 
+      console.log('[Messages] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[Messages] Error response:', errorData);
         throw new Error('Failed to fetch conversations');
       }
 
       const data = await response.json();
+      console.log('[Messages] Received data:', data);
       const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+      console.log('[Messages] Setting conversations:', conversationsList.length, 'items');
       setConversations(conversationsList);
       setIsLoading(false);
     } catch (err) {
-      console.error('Error fetching conversations:', err);
+      console.error('[Messages] Fetch error:', err);
       setConversations([]);
       setIsLoading(false);
     }
@@ -89,16 +100,19 @@ export default function MessagesPage() {
 
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
-    await fetchMessages(conversation.id);
+    await fetchMessages(conversation.otherParticipant.id);
   };
 
-  const fetchMessages = async (conversationId: string) => {
+  const fetchMessages = async (userId: string) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/messages/${conversationId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const headers: HeadersInit = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const response = await fetch(`/api/messages/${userId}`, {
+        headers,
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -121,13 +135,17 @@ export default function MessagesPage() {
     try {
       const token = localStorage.getItem('accessToken');
       const csrfToken = await getCsrfToken();
-      const response = await fetch(`/api/messages/${selectedConversation.id}`, {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'x-csrf-token': csrfToken,
+      };
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+      const response = await fetch(`/api/messages/${selectedConversation.otherParticipant.id}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({ content: newMessage }),
       });
 
@@ -136,7 +154,7 @@ export default function MessagesPage() {
       }
 
       setNewMessage("");
-      await fetchMessages(selectedConversation.id);
+      await fetchMessages(selectedConversation.otherParticipant.id);
     } catch (err) {
       console.error('Error sending message:', err);
     } finally {
@@ -195,19 +213,19 @@ export default function MessagesPage() {
                     }`}
                   >
                     <div className="flex items-center gap-3 mb-2">
-                      {conv.otherUser.avatar ? (
+                      {conv.otherParticipant.avatar ? (
                         <img
-                          src={conv.otherUser.avatar}
-                          alt={conv.otherUser.name}
+                          src={conv.otherParticipant.avatar}
+                          alt={conv.otherParticipant.name}
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#FF7900] to-[#FFB84D] flex items-center justify-center text-sm font-bold">
-                          {conv.otherUser.name.charAt(0).toUpperCase()}
+                          {conv.otherParticipant.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white truncate">{conv.otherUser.name}</p>
+                        <p className="font-bold text-white truncate">{conv.otherParticipant.name}</p>
                         {conv.unreadCount > 0 && (
                           <span className="inline-block bg-[#FF7900] text-white text-xs px-2 py-1 rounded-full font-bold">
                             {conv.unreadCount} nou
@@ -220,7 +238,7 @@ export default function MessagesPage() {
                         Re: {conv.listing.title}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500">{conv.lastMessageTime}</p>
+                    <p className="text-xs text-gray-500">{new Date(conv.lastMessageAt).toLocaleString()}</p>
                   </button>
                 ))
               )}
@@ -234,26 +252,26 @@ export default function MessagesPage() {
                 {/* Header */}
                 <div className="p-6 border-b border-[#2A2A2A] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {selectedConversation.otherUser.avatar ? (
+                    {selectedConversation.otherParticipant.avatar ? (
                       <img
-                        src={selectedConversation.otherUser.avatar}
-                        alt={selectedConversation.otherUser.name}
+                        src={selectedConversation.otherParticipant.avatar}
+                        alt={selectedConversation.otherParticipant.name}
                         className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#FF7900] to-[#FFB84D] flex items-center justify-center text-sm font-bold">
-                        {selectedConversation.otherUser.name.charAt(0).toUpperCase()}
+                        {selectedConversation.otherParticipant.name.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <p className="font-bold text-white">{selectedConversation.otherUser.name}</p>
+                      <p className="font-bold text-white">{selectedConversation.otherParticipant.name}</p>
                       {selectedConversation.listing && (
                         <p className="text-xs text-gray-400">{selectedConversation.listing.title}</p>
                       )}
                     </div>
                   </div>
                   <Link
-                    href={`/users/${selectedConversation.otherUser.id}`}
+                    href={`/users/${selectedConversation.otherParticipant.id}`}
                     className="px-4 py-2 border-2 border-[#FF7900] text-[#FF7900] rounded-lg font-bold text-sm hover:bg-[#FF7900]/10 transition"
                   >
                     Profil

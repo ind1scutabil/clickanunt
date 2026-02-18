@@ -8,24 +8,36 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get("authorization")?.replace("Bearer ", "");
-    
-    if (!token) {
+    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
+    const cookieToken = request.cookies.get("accessToken")?.value;
+    const candidateTokens = [headerToken, cookieToken].filter(
+      (t): t is string => !!t && t !== "null" && t !== "undefined"
+    );
+    let payload = null;
+    for (const candidate of candidateTokens) {
+      payload = await verifyToken(candidate);
+      if (payload) break;
+    }
+
+    if (!payload) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const payload = await verifyToken(token);
-    if (!payload) {
+    const userId = (payload as { userId?: string; sub?: string }).userId
+      || (payload as { sub?: string }).sub;
+    if (!userId) {
       return NextResponse.json(
         { error: "Invalid token" },
         { status: 401 }
       );
     }
-
-    const userId = payload.userId;
+    
+    const fs = require('fs');
+    const logPath = '/tmp/conversations-debug.log';
+    fs.appendFileSync(logPath, `\n[${new Date().toISOString()}] userId: ${userId}\n`);
 
     // Get all conversations for this user
     const conversations = await prisma.conversation.findMany({
@@ -37,6 +49,15 @@ export async function GET(request: NextRequest) {
       },
       include: {
         participant1: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+            businessName: true,
+          },
+        },
+        participant2: {
           select: {
             id: true,
             name: true,
@@ -57,7 +78,13 @@ export async function GET(request: NextRequest) {
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          include: {
+          select: {
+            id: true,
+            content: true,
+            isRead: true,
+            receiverId: true,
+            senderId: true,
+            createdAt: true,
             sender: {
               select: {
                 id: true,
@@ -76,7 +103,7 @@ export async function GET(request: NextRequest) {
     // Format conversations with the other participant's info
     const formattedConversations = conversations.map((conv) => {
       const otherParticipant = conv.participant1Id === userId 
-        ? conv.participant1 
+        ? conv.participant2 
         : conv.participant1;
       
       const unreadCount = conv.messages.filter(
@@ -93,7 +120,10 @@ export async function GET(request: NextRequest) {
         createdAt: conv.createdAt,
       };
     });
-
+    
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Returning ${formattedConversations.length} conversations\n`);
+    fs.appendFileSync(logPath, JSON.stringify(formattedConversations, null, 2) + '\n');
+    
     return NextResponse.json(formattedConversations);
   } catch (error: unknown) {
     console.error("Error fetching conversations:", error);
