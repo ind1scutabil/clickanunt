@@ -25,6 +25,8 @@ export function getCSPHeader(): string {
       "'unsafe-eval'", // Required for Next.js in dev
       'https://www.googletagmanager.com',
       'https://www.google-analytics.com',
+      'https://js.stripe.com', // Stripe.js
+      'https://cdn.jsdelivr.net', // CDN for utilities
     ],
     'style-src': [
       "'self'",
@@ -49,6 +51,11 @@ export function getCSPHeader(): string {
       "'self'",
       'https://www.google-analytics.com',
       'https://vitals.vercel-insights.com',
+      'https://api.stripe.com', // Stripe API
+    ],
+    'frame-src': [
+      'https://js.stripe.com', // Stripe 3DS frames
+      'https://hooks.stripe.com',
     ],
     'frame-ancestors': ["'none'"],
     'base-uri': ["'self'"],
@@ -116,10 +123,11 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   // Remove powered-by header
   headers.delete('X-Powered-By');
   
-  // Cross-Origin policies
-  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-  headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+  // Cross-Origin policies - DISABLED for Stripe.js compatibility
+  // Cross-Origin-Embedder-Policy blocks external scripts like Stripe.js
+  // headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+  // headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  // headers.set('Cross-Origin-Resource-Policy', 'same-origin');
   
   return response;
 }

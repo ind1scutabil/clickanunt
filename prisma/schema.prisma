@@ -196,6 +196,7 @@ model User {
 
   // Relations
   listings            Listing[]
+  favorites           Favorite[]
   reports             Report[]
   appeals             Appeal[]
   auditLogs           AuditLog[]
@@ -206,6 +207,9 @@ model User {
   verificationRequests VerificationRequest[]
   notifications       UserNotification[]
   createdBroadcasts   AdminBroadcast[] @relation("BroadcastCreator")
+  sentMessages        Message[] @relation("MessageSender")
+  receivedMessages    Message[] @relation("MessageReceiver")
+  conversations       Conversation[]
   
   @@index([email])
   @@index([role])
@@ -271,6 +275,9 @@ model Listing {
   city          String?
   region        String?
   
+  // Contact
+  contactPhone  String?
+  
   // Auto-specific fields (nullable for non-auto listings)
   make          String?
   model         String?
@@ -320,7 +327,9 @@ model Listing {
 
   // Relations
   reports           Report[]
+  favorites         Favorite[]
   moderationQueue   ModerationQueue[]
+  conversations     Conversation[]
   
   @@index([ownerUserId])
   @@index([category])
@@ -337,6 +346,22 @@ model Listing {
   @@index([status, priceAmount])
   @@index([status, createdAt])
   @@map("listings")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, listingId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("favorites")
 }
 
 model Report {
@@ -582,3 +607,58 @@ model UserNotification {
   @@index([broadcastId])
   @@map("user_notifications")
 }
+
+// ==================== MESSAGING SYSTEM ====================
+
+// Conversations - tracks message threads between users
+model Conversation {
+  id            String   @id @default(uuid())
+  listingId     String?
+  listing       Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  
+  // Participants
+  participant1Id String
+  participant1   User   @relation(fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2Id String
+  
+  messages      Message[]
+  
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([participant1Id, participant2Id, listingId])
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@index([listingId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Messages - individual messages in conversations
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  receiverId     String
+  receiver       User         @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  content        String       @db.Text
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("messages")
+}
+

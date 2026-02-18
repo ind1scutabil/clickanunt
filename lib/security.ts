@@ -222,8 +222,8 @@ export function getSecurityHeaders(): Record<string, string> {
     // Referrer policy
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     
-    // Permissions policy
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    // Permissions policy - allow payment for Stripe
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com")',
     
     // Remove server info
     'X-Powered-By': '',

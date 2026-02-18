@@ -42,9 +42,11 @@ export async function uploadImageLocal(
 
     // Return absolute URL using public domain
     // This ensures URLs pass Zod's .url() validation
-    const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.clickanunt.ro';
+    const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://clickanunt.ro';
     const cleanPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
-    return `${cleanPublicUrl}/uploads/${key}`;
+    // Always use HTTPS for consistency
+    const secureUrl = cleanPublicUrl.replace(/^http:/, 'https:');
+    return `${secureUrl}/uploads/${key}`;
   } catch (error) {
     console.error('Error uploading image locally:', error);
     throw new Error('Failed to upload image locally');

@@ -58,7 +58,7 @@ type ModerationOwner = {
 };
 
 type ModerationUser = {
-  id: number;
+  id: string;
   email: string;
   role: UserRole;
   status: UserStatus;
@@ -142,7 +142,7 @@ export default function AdminModerationPage() {
   const [selectedUser, setSelectedUser] = useState<ModerationUser | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
-  const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userListings, setUserListings] = useState<ModerationListing[]>([]);
   const [userListingsLoading, setUserListingsLoading] = useState(false);
   const [creditsForm, setCreditsForm] = useState({
@@ -238,29 +238,46 @@ export default function AdminModerationPage() {
   };
 
   // Fetch listings for a specific user
-  const fetchUserListings = async (userId: number) => {
+  const fetchUserListings = async (userId: string) => {
     try {
+      console.log('[FETCH] Started for userId:', userId);
       setUserListingsLoading(true);
-      // Find user to match by email
-      const targetUser = users.find(u => u.id === userId);
-      if (!targetUser) {
+      
+      const response = await fetch(`/api/admin/users/${userId}/listings`);
+      console.log('[FETCH] Response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('[FETCH] Failed - status:', response.status);
         setUserListings([]);
         return;
       }
 
-      // Combine all listings and filter by user's email
-      const allListings = [
-        ...pendingListings,
-        ...approvedListings,
-        ...rejectedListings
-      ];
+      const data = await response.json();
+      console.log('[FETCH] Response data:', data);
       
-      const userListings = allListings.filter(listing => {
-        // Match by owner email (owner is string, not object)
-        return listing.owner?.toLowerCase() === targetUser.email.toLowerCase();
-      });
-      
-      setUserListings(userListings);
+      if (data.success && data.listings) {
+        const transformedListings = data.listings
+          .filter((listing: any) => listing.ownerUserId === userId)
+          .map((listing: any) => ({
+          id: listing.id,
+          title: listing.title,
+          category: listing.category,
+          subcategory: listing.subcategory,
+          price: listing.price,
+          priceCurrency: listing.priceCurrency,
+          status: listing.queueStatus || listing.status,
+          photos: listing.photos ? 1 : 0,
+          owner: listing.owner,
+          ownerUserId: listing.ownerUserId,
+          submittedAt: listing.createdAt ? new Date(listing.createdAt).toLocaleDateString('ro-RO') : '—',
+          notes: listing.notes,
+          queueId: listing.queueId,
+          moderator: listing.moderator,
+        }));
+        setUserListings(transformedListings);
+      } else {
+        setUserListings([]);
+      }
     } catch (error) {
       console.error('Error fetching user listings:', error);
       setUserListings([]);
@@ -692,7 +709,7 @@ export default function AdminModerationPage() {
     memoryStorage.delete(id);
   };
 
-  const banUser = async (userId: number) => {
+  const banUser = async (userId: string) => {
     const reason = prompt('Motivul blocării (opcional):');
     if (reason === null) return; // User cancelled
     
@@ -731,7 +748,7 @@ export default function AdminModerationPage() {
     }
   };
 
-  const unbanUser = async (userId: number) => {
+  const unbanUser = async (userId: string) => {
     if (!confirm('Deblochezi acest utilizator?')) return;
     
     try {
@@ -764,7 +781,7 @@ export default function AdminModerationPage() {
     }
   };
 
-  const makeAdmin = async (userId: number) => {
+  const makeAdmin = async (userId: string) => {
     if (!confirm('Faci acest utilizator administrator?')) return;
     
     try {
@@ -1334,8 +1351,12 @@ export default function AdminModerationPage() {
                       onClick={() => {
                         if (expandedUserId === user.id) {
                           setExpandedUserId(null);
+                          setUserListings([]); // Clear listings when collapsing
                         } else {
+                          console.log('[CLICK HANDLER] Expanding user:', user.email, 'ID:', user.id);
                           setExpandedUserId(user.id);
+                          setUserListings([]); // Clear old listings before fetching new ones
+                          console.log('[CLICK HANDLER] Calling fetchUserListings with:', user.id);
                           fetchUserListings(user.id);
                         }
                       }}
@@ -1454,21 +1475,28 @@ export default function AdminModerationPage() {
                                     </div>
                                   </div>
                                   <div className="flex gap-2">
-                                    {listing.status !== 'approved' && (
-                                      <button
-                                        onClick={() => approveListing(listing.id)}
-                                        className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold hover:bg-green-500/30 transition-all"
-                                      >
-                                        ✓ Aprobă
-                                      </button>
+                                    {listing.queueId && (
+                                      <>
+                                        {listing.status !== 'approved' && (
+                                          <button
+                                            onClick={() => approveListing(listing.id)}
+                                            className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold hover:bg-green-500/30 transition-all"
+                                          >
+                                            ✓ Aprobă
+                                          </button>
+                                        )}
+                                        {listing.status !== 'rejected' && (
+                                          <button
+                                            onClick={() => rejectListing(listing.id)}
+                                            className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold hover:bg-red-500/30 transition-all"
+                                          >
+                                            ✗ Respinge
+                                          </button>
+                                        )}
+                                      </>
                                     )}
-                                    {listing.status !== 'rejected' && (
-                                      <button
-                                        onClick={() => rejectListing(listing.id)}
-                                        className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold hover:bg-red-500/30 transition-all"
-                                      >
-                                        ✗ Respinge
-                                      </button>
+                                    {!listing.queueId && listing.status === 'active' && (
+                                      <span className="text-xs text-green-400 font-bold">✅ Activ</span>
                                     )}
                                     <button
                                       onClick={() => {

@@ -75,10 +75,11 @@ export async function uploadImage(
 
     // Return CDN URL if configured, otherwise S3 URL
     if (STORAGE_CONFIG.cdnUrl && STORAGE_CONFIG.cdnUrl.length > 0) {
-      // Ensure CDN URL is properly formatted
-      const cdnUrl = STORAGE_CONFIG.cdnUrl.endsWith('/') 
+      // Ensure CDN URL is properly formatted and uses HTTPS
+      let cdnUrl = STORAGE_CONFIG.cdnUrl.endsWith('/') 
         ? STORAGE_CONFIG.cdnUrl.slice(0, -1) 
         : STORAGE_CONFIG.cdnUrl;
+      cdnUrl = cdnUrl.replace(/^http:/, 'https:');
       return `${cdnUrl}/${key}`;
     }
 
@@ -95,6 +96,9 @@ export async function uploadImage(
     if (baseUrl.includes(STORAGE_CONFIG.bucket)) {
       url = `https://${baseUrl}/${key}`;
     }
+    
+    // Ensure HTTPS
+    url = url.replace(/^http:/, 'https:');
     
     return url;
   } catch (error) {

@@ -64,8 +64,8 @@ export default function ListingMessagesPage() {
     fetch(`/api/listings/${id}`)
       .then(res => res.json())
       .then(data => {
-        if (data.listing) {
-          setListing(data.listing);
+        if (data && data.id) {
+          setListing(data);
         }
       })
       .catch(err => {

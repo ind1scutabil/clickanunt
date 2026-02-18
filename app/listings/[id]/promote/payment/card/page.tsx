@@ -1,9 +1,121 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Navbar from '@/app/components/Navbar';
-import { memoryStorage } from '@/lib/memory-storage';
 import { COMPANY_CONFIG } from '@/lib/company-config';
+
+// Initialize Stripe - LIVE MODE v2.0
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : Promise.resolve(null);
+
+// Map short package names to Stripe enum values
+const PACKAGE_MAPPING: Record<string, string> = {
+  'top': 'featured_7_days',
+  'urgent': 'featured_30_days',
+  'featured': 'featured_7_days',
+  'refresh': 'top_position_1_day',
+};
+
+function CheckoutForm({ listingId, onSuccess }: { listingId: string; onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) {
+      setError('Stripe nu s-a încărcat încă. Te rugăm să aștepți...');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        throw new Error(submitError.message);
+      }
+
+      const { error: confirmError } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/listings/${listingId}/promote/payment/success`,
+        },
+      });
+
+      if (confirmError) {
+        throw new Error(confirmError.message);
+      }
+    } catch (err: any) {
+      setError(err.message || 'A apărut o eroare la procesarea plății');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Stripe Payment Element */}
+      <div className="bg-gray-900/50 border-2 border-gray-700 rounded-xl p-4">
+        <PaymentElement 
+          options={{
+            layout: 'tabs',
+            terms: {
+              card: 'never'
+            },
+            defaultValues: {
+              billingDetails: {
+                address: {
+                  country: 'RO'
+                }
+              }
+            },
+            wallets: {
+              applePay: 'never',
+              googlePay: 'never'
+            }
+          }}
+        />
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+          <span className="text-xl">❌</span>
+          <p className="text-red-400 text-sm flex-1">{error}</p>
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={!stripe || loading}
+        className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-lg hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+      >
+        {loading ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin">⏳</span>
+            Se procesează...
+          </span>
+        ) : (
+          `✓ Plătește ${COMPANY_CONFIG.currency}`
+        )}
+      </button>
+
+      {/* Security Badge */}
+      <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
+        <span className="text-2xl">🔒</span>
+        <p className="text-green-400 text-sm">
+          Plata ta este protejată cu Stripe și criptare SSL 256-bit
+        </p>
+      </div>
+    </form>
+  );
+}
 
 export default function CardPaymentPage() {
   const params = useParams();
@@ -13,92 +125,50 @@ export default function CardPaymentPage() {
   const packageId = searchParams.get('package');
   const price = searchParams.get('price');
 
-  const [formData, setFormData] = useState({
-    cardNumber: '',
-    cardName: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    email: ''
-  });
-  const [loading, setLoading] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string>('');
+  const [intentLoading, setIntentLoading] = useState(true);
+  const [error, setError] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === 'cardNumber') {
-      // Format: XXXX XXXX XXXX XXXX
-      const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-      const matches = v.match(/\d{4,16}/g);
-      const match = (matches && matches[0]) || '';
-      const parts = [];
-      for (let i = 0, len = match.length; i < len; i += 4) {
-        parts.push(match.substring(i, i + 4));
+  // Create PaymentIntent on mount
+  useEffect(() => {
+    const createIntent = async () => {
+      try {
+        setIntentLoading(true);
+        setError('');
+
+        // Map short package name to Stripe enum
+        const fullPackageType = packageId ? (PACKAGE_MAPPING[packageId] || packageId) : packageId;
+
+        const response = await fetch('/api/payments/create-intent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            listingId: id,
+            packageType: fullPackageType,
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create payment intent');
+        }
+
+        const data = await response.json();
+        setClientSecret(data.clientSecret);
+      } catch (error: any) {
+        setError(error.message || 'Nu am putut inițializa plata. Te rugăm să încerci din nou.');
+      } finally {
+        setIntentLoading(false);
       }
-      setFormData({ ...formData, [name]: parts.join(' ') });
-    } else if (name === 'cvv') {
-      setFormData({ ...formData, [name]: value.replace(/[^0-9]/gi, '').substring(0, 3) });
-    } else {
-      setFormData({ ...formData, [name]: value });
+    };
+
+    if (id && packageId) {
+      createIntent();
     }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validare simplă
-    if (!formData.cardNumber || !formData.cardName || !formData.expiryMonth || !formData.expiryYear || !formData.cvv || !formData.email) {
-      alert('Completează toate câmpurile!');
-      return;
-    }
-
-    if (formData.cardNumber.replace(/\s/g, '').length !== 16) {
-      alert('Numărul cardului trebuie să aibă 16 cifre!');
-      return;
-    }
-
-    if (formData.cvv.length !== 3) {
-      alert('CVV trebuie să aibă 3 cifre!');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Get CSRF token
-      const csrfResponse = await fetch('/api/csrf');
-      const { csrfToken } = await csrfResponse.json();
-
-      // Call API to promote listing
-      const response = await fetch(`/api/listings/${id}/promote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify({
-          packageId: packageId,
-          paymentMethod: 'card',
-          paymentEmail: formData.email
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to promote listing');
-      }
-
-      const result = await response.json();
-      console.log('Promotion successful:', result);
-
-      setShowSuccess(true);
-    } catch (error) {
-      console.error('Promotion error:', error);
-      alert('Eroare la procesarea plății. Te rugăm să încerci din nou.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [id, packageId]);
 
   if (showSuccess) {
     return (
@@ -134,13 +204,12 @@ export default function CardPaymentPage() {
               <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
                 💳 Plată cu Card Bancar
               </h1>
-              <p className="text-gray-400">Introducă detaliile cardului tău pentru a completa plata</p>
+              <p className="text-gray-400">Introduceți detaliile cardului pentru a completa plata</p>
             </div>
 
             {/* Price Summary */}
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 mb-8">
-              {/* Price breakdown */}
-              {price && (
+            {price && (
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-2xl p-6 mb-8">
                 <div className="space-y-2 mb-4">
                   {(() => {
                     const priceNumber = parseFloat(price);
@@ -164,139 +233,68 @@ export default function CardPaymentPage() {
                     );
                   })()}
                 </div>
-              )}
-              
-              <div className="mt-6 bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 text-sm text-gray-300 space-y-1">
-                <div className="font-bold text-white mb-2">Beneficiar plată:</div>
-                <div><span className="text-gray-400">Companie:</span> {COMPANY_CONFIG.name}</div>
-                <div><span className="text-gray-400">CUI/TVA:</span> {COMPANY_CONFIG.cui}</div>
-                <div><span className="text-gray-400">IBAN:</span> {COMPANY_CONFIG.iban}</div>
-                <div><span className="text-gray-400">Banca:</span> {COMPANY_CONFIG.bank}</div>
-                <div><span className="text-gray-400">Monedă:</span> {COMPANY_CONFIG.currency}</div>
-              </div>
-            </div>
 
-            {/* Payment Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Card Number */}
-              <div>
-                <label className="block text-white font-bold mb-3">Numărul Cardului</label>
-                <input
-                  type="text"
-                  name="cardNumber"
-                  placeholder="1234 5678 9012 3456"
-                  value={formData.cardNumber}
-                  onChange={handleChange}
-                  maxLength={19}
-                  className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-lg tracking-widest"
-                />
-              </div>
-
-              {/* Card Name */}
-              <div>
-                <label className="block text-white font-bold mb-3">Titular Card</label>
-                <input
-                  type="text"
-                  name="cardName"
-                  placeholder="ION POPESCU"
-                  value={formData.cardName}
-                  onChange={handleChange}
-                  className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
-                />
-              </div>
-
-              {/* Expiry & CVV */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-white font-bold mb-3">Lună</label>
-                  <select
-                    name="expiryMonth"
-                    value={formData.expiryMonth}
-                    onChange={handleChange}
-                    className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="">MM</option>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i + 1} value={String(i + 1).padStart(2, '0')}>
-                        {String(i + 1).padStart(2, '0')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-white font-bold mb-3">Anul</label>
-                  <select
-                    name="expiryYear"
-                    value={formData.expiryYear}
-                    onChange={handleChange}
-                    className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  >
-                    <option value="">YY</option>
-                    {Array.from({ length: 10 }, (_, i) => {
-                      const year = new Date().getFullYear() + i;
-                      return (
-                        <option key={year} value={year.toString().slice(-2)}>
-                          {year.toString().slice(-2)}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-white font-bold mb-3">CVV</label>
-                  <input
-                    type="text"
-                    name="cvv"
-                    placeholder="123"
-                    value={formData.cvv}
-                    onChange={handleChange}
-                    maxLength={3}
-                    className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-center text-lg tracking-widest"
-                  />
+                <div className="mt-6 bg-blue-900/20 border border-blue-500/20 rounded-xl p-4 text-sm text-gray-300 space-y-1">
+                  <div className="font-bold text-white mb-2">Beneficiar plată:</div>
+                  <div><span className="text-gray-400">Companie:</span> {COMPANY_CONFIG.name}</div>
+                  <div><span className="text-gray-400">CUI/TVA:</span> {COMPANY_CONFIG.cui}</div>
                 </div>
               </div>
+            )}
 
-              {/* Email */}
-              <div>
-                <label className="block text-white font-bold mb-3">Email pentru Confirmare</label>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="example@email.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-gray-900/50 border-2 border-gray-700 rounded-xl px-4 py-4 text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
+            {/* Loading State */}
+            {intentLoading && (
+              <div className="text-center py-12">
+                <div className="animate-spin text-6xl mb-4">⏳</div>
+                <p className="text-gray-400">Se inițializează plata...</p>
               </div>
+            )}
 
-              {/* Security Notice */}
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
-                <svg className="w-6 h-6 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-green-400 text-sm">Plata ta este protejată cu criptare SSL 256-bit</span>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-4 pt-4">
+            {/* Error State */}
+            {error && !intentLoading && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+                <span className="text-6xl mb-4 block">❌</span>
+                <p className="text-red-400 mb-4">{error}</p>
                 <button
-                  type="button"
                   onClick={() => router.back()}
-                  className="flex-1 py-4 bg-gray-800 border-2 border-gray-700 text-white rounded-xl font-bold hover:bg-gray-700 transition-all"
+                  className="px-6 py-3 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-all"
                 >
                   ← Înapoi
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl font-black text-lg disabled:opacity-50 hover:shadow-2xl hover:shadow-blue-500/50 transition-all transform hover:scale-105 active:scale-95"
-                >
-                  {loading ? '⏳ Procesare...' : '✓ Plătește ' + price + ' RON'}
-                </button>
               </div>
-            </form>
+            )}
+
+            {/* Stripe Elements Form */}
+            {clientSecret && !intentLoading && (
+              <Elements 
+                stripe={stripePromise} 
+                options={{ 
+                  clientSecret,
+                  appearance: {
+                    theme: 'night',
+                    variables: {
+                      colorPrimary: '#6D5BFF',
+                      colorBackground: '#1a1a2e',
+                      colorText: '#ffffff',
+                      colorDanger: '#ef4444',
+                      fontFamily: 'system-ui, sans-serif',
+                      borderRadius: '12px',
+                    }
+                  },
+                  paymentMethodCreation: 'manual'
+                }}
+              >
+                <CheckoutForm listingId={id} onSuccess={() => setShowSuccess(true)} />
+              </Elements>
+            )}
+
+            {/* Back Button */}
+            <button
+              onClick={() => router.back()}
+              className="w-full mt-6 py-3 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-all"
+            >
+              ← Înapoi
+            </button>
           </div>
         </div>
       </main>

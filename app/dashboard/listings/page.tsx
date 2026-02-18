@@ -106,41 +106,9 @@ export default function MyListingsPage() {
     }
   };
 
-  const handlePromote = async (id: string, packageId: string) => {
-    try {
-      setIsPromoting(id);
-      const token = localStorage.getItem('accessToken');
-      const csrfToken = await getCsrfToken();
-
-      const response = await fetch(`/api/listings/${id}/promote`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({ packageId }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to promote');
-      }
-
-      const data = await response.json();
-      setMessage({ type: 'success', text: 'Anunț promovat cu succes!' });
-      
-      // Update listing in local state
-      setListings(listings.map(l => 
-        l.id === id 
-          ? { ...l, isPromoted: true, promotionType: packageId, promotionExpiresAt: data.listing.promotionExpiresAt }
-          : l
-      ));
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Eroare la promovare' });
-    } finally {
-      setIsPromoting(null);
-    }
+  const handlePromote = (id: string, packageId: string) => {
+    // Redirect to promotion page where user can choose package and payment method
+    router.push(`/listings/${id}/promote`);
   };
 
   const handleRemovePromotion = async (id: string) => {

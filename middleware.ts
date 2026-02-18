@@ -1,9 +1,11 @@
 /**
- * Next.js Middleware - Cache Control for Auth Pages
+ * Next.js Middleware - Cache Control for Auth Pages + Security Headers
  * Prevents caching of auth pages and API routes
+ * Applies security headers globally
  */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { applySecurityHeaders } from "@/lib/security/headers";
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -18,12 +20,18 @@ export function middleware(request: NextRequest) {
     response.headers.set("Expires", "0");
   }
 
-  return response;
+  // Apply security headers to all responses
+  return applySecurityHeaders(response);
 }
 
 export const config = {
   matcher: [
-    "/auth/:path*",
-    "/api/auth/:path*",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

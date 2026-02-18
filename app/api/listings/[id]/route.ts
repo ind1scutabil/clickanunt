@@ -48,6 +48,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     if (!listing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Increment views count
+    await prisma.listing.update({
+      where: { id },
+      data: { views: { increment: 1 } },
+    });
+
     return NextResponse.json(listing);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

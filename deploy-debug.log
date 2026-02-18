@@ -1,0 +1,35 @@
+
+> clickanunt@1.0.0 predeploy
+> npm run lint && npm run type-check && npm run test && npm run build
+
+
+> clickanunt@1.0.0 lint
+> eslint . --max-warnings=0
+
+
+> clickanunt@1.0.0 type-check
+> tsc --noEmit
+
+app/components/CarMakesGrid.tsx(12,8): error TS2307: Cannot find module '@/lib/carMakesWithLogos' or its corresponding type declarations.
+app/components/CarMakesGrid.tsx(32,38): error TS7006: Parameter 'make' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(43,54): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(46,47): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(85,16): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(89,17): error TS2322: Type 'unknown' is not assignable to type 'Key | null | undefined'.
+app/components/CarMakesGrid.tsx(90,49): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'SetStateAction<string>'.
+app/components/CarMakesGrid.tsx(97,17): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/components/CarMakesGrid.tsx(113,33): error TS7006: Parameter 'make' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(149,31): error TS7006: Parameter 'make' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(182,29): error TS7006: Parameter 'model' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(222,31): error TS7006: Parameter 'make' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(251,6): error TS7006: Parameter 'm' implicitly has an 'any' type.
+app/components/CarMakesGrid.tsx(277,24): error TS7006: Parameter 'model' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(4,74): error TS2307: Cannot find module '@/lib/carDatabasePro' or its corresponding type declarations.
+app/components/CarSelectorPro.tsx(66,56): error TS7006: Parameter 'make' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(68,11): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(68,14): error TS7006: Parameter 'b' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(75,14): error TS7006: Parameter 'model' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(78,12): error TS7006: Parameter 'a' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(78,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(139,37): error TS7006: Parameter 'brand' implicitly has an 'any' type.
+app/components/CarSelectorPro.tsx(227,39): error TS7006: Parameter 'model' implicitly has an 'any' type.

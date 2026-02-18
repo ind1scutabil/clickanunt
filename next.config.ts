@@ -56,7 +56,7 @@ const nextConfig: NextConfig = {
       },
       {
         key: 'Permissions-Policy',
-        value: 'camera=(), microphone=(), geolocation=()'
+        value: 'camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com")'
       },
       {
         key: 'Cache-Control',
@@ -71,16 +71,18 @@ const nextConfig: NextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          // Script: allow self + inline (Next.js requires) + GTM
-          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net",
+          // Script: allow self + inline (Next.js requires) + GTM + Stripe
+          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.jsdelivr.net https://js.stripe.com",
           // Style: allow self + inline (styled-components/emotion require) + Google Fonts
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           // Fonts: Google Fonts + data URIs
           "font-src 'self' https://fonts.gstatic.com data:",
           // Images: self + data + blob + https (for external images)
           "img-src 'self' data: blob: https:",
-          // Connect: self + API endpoints
-          "connect-src 'self' https://www.clickanunt.ro https://clickanunt.ro",
+          // Connect: self + API endpoints + Stripe API
+          "connect-src 'self' https://www.clickanunt.ro https://clickanunt.ro https://api.stripe.com",
+          // Frame: allow Stripe iframes
+          "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
           // Frame ancestors: deny embedding
           "frame-ancestors 'none'",
           // Base URI: restrict to same origin

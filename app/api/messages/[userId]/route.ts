@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
+import { prisma } from "@/lib/prisma";
 
 /**
  * GET /api/messages/[userId]
  * Get messages with specific user
- * 
- * Note: Messaging feature placeholder implementation
- * Message model not in Prisma schema
  */
 export async function GET(
   request: NextRequest,
@@ -36,9 +34,69 @@ export async function GET(
       );
     }
 
-    // Return empty messages list
-    // Message model is not implemented in Prisma schema
-    return NextResponse.json([]);
+    const currentUserId = payload.userId;
+    const otherUserId = params.userId;
+
+    // Find or create conversation between these two users
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        OR: [
+          { participant1Id: currentUserId, participant2Id: otherUserId },
+          { participant1Id: otherUserId, participant2Id: currentUserId },
+        ],
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              },
+            },
+            receiver: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+        participant1: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      // Return empty array if no conversation exists yet
+      return NextResponse.json([]);
+    }
+
+    // Mark messages as read
+    await prisma.message.updateMany({
+      where: {
+        conversationId: conversation.id,
+        receiverId: currentUserId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+      },
+    });
+
+    return NextResponse.json(conversation.messages);
   } catch (error: unknown) {
     console.error("Error fetching messages:", error);
     return NextResponse.json(
@@ -51,8 +109,6 @@ export async function GET(
 /**
  * POST /api/messages/[userId]
  * Send message to user
- * 
- * Note: Messaging feature placeholder implementation
  */
 export async function POST(
   request: NextRequest,
@@ -98,7 +154,7 @@ export async function POST(
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { content } = security.data as { content: string };
+    const { content, listingId } = security.data as { content: string; listingId?: string };
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
@@ -107,15 +163,79 @@ export async function POST(
       );
     }
 
-    // Placeholder: Message feature not yet implemented
-    return NextResponse.json(
-      { 
-        success: true, 
-        message: "Messaging feature is coming soon",
-        status: "not_implemented"
+    const senderId = payload.userId;
+    const receiverId = params.userId;
+
+    // Check if receiver exists
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId },
+    });
+
+    if (!receiver) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Find or create conversation
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        OR: [
+          { participant1Id: senderId, participant2Id: receiverId },
+          { participant1Id: receiverId, participant2Id: senderId },
+        ],
       },
-      { status: 501 }
-    );
+    });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          participant1Id: senderId,
+          participant2Id: receiverId,
+          listingId: listingId || null,
+        },
+      });
+    }
+
+    // Create message
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId,
+        receiverId,
+        content: content.trim(),
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    // Update conversation's lastMessageAt
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message,
+    });
   } catch (error: unknown) {
     console.error("Error sending message:", error);
     return NextResponse.json(

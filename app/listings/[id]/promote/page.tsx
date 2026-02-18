@@ -14,6 +14,7 @@ export default function PromotePage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [userDiscount, setUserDiscount] = useState<number>(0);
 
   const packages = [
     {
@@ -116,6 +117,34 @@ export default function PromotePage() {
     }
   }, [id]);
 
+  // Load user discount
+  useEffect(() => {
+    const loadUserDiscount = async () => {
+      try {
+        const response = await fetch('/api/user/discount');
+        if (response.ok) {
+          const data = await response.json();
+          setUserDiscount(data.promotionDiscountPercent || 0);
+          console.log('💰 User discount loaded:', data.promotionDiscountPercent);
+        }
+      } catch (error) {
+        console.error('Error loading user discount:', error);
+      }
+    };
+
+    loadUserDiscount();
+  }, []);
+
+  const calculateDiscountedPrice = (basePrice: number): number => {
+    if (userDiscount <= 0) return basePrice;
+    
+    const discountAmount = Math.floor((basePrice * userDiscount) / 100);
+    const finalPrice = basePrice - discountAmount;
+    
+    // Minimum 2 RON (Stripe requirement)
+    return Math.max(2, finalPrice);
+  };
+
   const handlePromote = () => {
     if (!selectedPackage) {
       alert('Selectează un pachet de promovare!');
@@ -132,19 +161,29 @@ export default function PromotePage() {
     }
 
     const pkg = packages.find(p => p.id === selectedPackage);
+    if (!pkg) return;
+
+    // Calculate price with discount
+    const finalPrice = calculateDiscountedPrice(pkg.price);
+
+    console.log('💰 Payment calculation:', {
+      basePrice: pkg.price,
+      userDiscount,
+      finalPrice,
+    });
 
     // Redirecționare în funcție de metoda de plată
     if (selectedPaymentMethod === 'card') {
-      router.push(`/listings/${id}/promote/payment/card?package=${selectedPackage}&price=${pkg?.price}`);
+      router.push(`/listings/${id}/promote/payment/card?package=${selectedPackage}&price=${finalPrice}`);
     } else if (selectedPaymentMethod === 'paypal') {
       // Simulare PayPal - în producție ar fi clientID și return URLs reale
       const returnUrl = encodeURIComponent(`${window.location.origin}/listings/${id}/promote/payment/success?package=${selectedPackage}`);
       const cancelUrl = encodeURIComponent(`${window.location.origin}/listings/${id}/promote`);
-      // În producție: window.location.href = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=YOUR_PAYPAL_EMAIL&item_name=${pkg?.name}&amount=${pkg?.price}&currency_code=RON&return=${returnUrl}&cancel_return=${cancelUrl}`;
+      // În producție: window.location.href = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=YOUR_PAYPAL_EMAIL&item_name=${pkg.name}&amount=${finalPrice}&currency_code=RON&return=${returnUrl}&cancel_return=${cancelUrl}`;
       // Pentru dev, mergem pe pagina de success direct
-      router.push(`/listings/${id}/promote/payment/paypal?package=${selectedPackage}&price=${pkg?.price}`);
+      router.push(`/listings/${id}/promote/payment/paypal?package=${selectedPackage}&price=${finalPrice}`);
     } else if (selectedPaymentMethod === 'transfer') {
-      router.push(`/listings/${id}/promote/payment/transfer?package=${selectedPackage}&price=${pkg?.price}`);
+      router.push(`/listings/${id}/promote/payment/transfer?package=${selectedPackage}&price=${finalPrice}`);
     }
   };
 
@@ -201,79 +240,93 @@ export default function PromotePage() {
       {/* Payment Modal */}
       {showPaymentModal && selectedPkg && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-3xl shadow-2xl border border-gray-700/50 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
+          <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-2xl shadow-2xl border border-gray-700/50 max-w-xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
             {/* Close Button */}
             <button
               onClick={() => setShowPaymentModal(false)}
-              className="absolute top-4 right-4 w-10 h-10 bg-gray-800/80 hover:bg-red-500/20 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 transition-all z-10"
+              className="absolute top-3 right-3 w-8 h-8 bg-gray-800/80 hover:bg-red-500/20 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 transition-all z-10"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
             {/* Header */}
-            <div className={`relative p-8 bg-gradient-to-r ${selectedPkg.color} rounded-t-3xl`}>
-              <div className="absolute inset-0 bg-black/20 rounded-t-3xl"></div>
+            <div className={`relative p-5 bg-gradient-to-r ${selectedPkg.color} rounded-t-2xl`}>
+              <div className="absolute inset-0 bg-black/20 rounded-t-2xl"></div>
               <div className="relative text-center">
-                <div className="text-6xl mb-4">{selectedPkg.icon}</div>
-                <h2 className="text-3xl font-black text-white mb-2">Confirmare Plată</h2>
-                <p className="text-white/90 text-lg">{selectedPkg.name}</p>
+                <div className="text-3xl mb-2">{selectedPkg.icon}</div>
+                <h2 className="text-xl font-black text-white mb-1">Confirmare Plată</h2>
+                <p className="text-white/90 text-sm">{selectedPkg.name}</p>
               </div>
             </div>
 
             {/* Body */}
-            <div className="p-8">
+            <div className="p-5">
               {/* Price Summary */}
-              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl p-6 mb-6 border border-gray-700/50">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-400 text-lg">Pachet selectat:</span>
-                  <span className="text-white font-bold text-lg">{selectedPkg.name}</span>
+              <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-xl p-4 mb-4 border border-gray-700/50">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400 text-sm">Pachet selectat:</span>
+                  <span className="text-white font-bold text-sm">{selectedPkg.name}</span>
                 </div>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-400 text-lg">Durată:</span>
-                  <span className="text-white font-bold text-lg">{selectedPkg.duration}</span>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-400 text-sm">Durată:</span>
+                  <span className="text-white font-bold text-sm">{selectedPkg.duration}</span>
                 </div>
-                <div className="border-t border-gray-700/50 pt-4 mt-4">
+                <div className="border-t border-gray-700/50 pt-3 mt-3">
+                  {userDiscount > 0 && (
+                    <>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-gray-400 text-sm">Preț original:</span>
+                        <span className="text-gray-400 line-through text-sm">{selectedPkg.price} RON</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-green-400 font-bold text-sm">🎉 Discount ({userDiscount}%):</span>
+                        <span className="text-green-400 font-bold text-sm">
+                          -{Math.floor((selectedPkg.price * userDiscount) / 100)} RON
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between items-center">
-                    <span className="text-white font-black text-2xl">Total de plată:</span>
-                    <span className={`text-4xl font-black bg-gradient-to-r ${selectedPkg.color} bg-clip-text text-transparent`}>
-                      {selectedPkg.price} RON
+                    <span className="text-white font-black text-base">Total de plată:</span>
+                    <span className={`text-2xl font-black bg-gradient-to-r ${selectedPkg.color} bg-clip-text text-transparent`}>
+                      {calculateDiscountedPrice(selectedPkg.price)} RON
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Payment Methods */}
-              <div className="mb-6">
-                <h3 className="text-xl font-black text-white mb-4 flex items-center gap-2">
+              <div className="mb-4">
+                <h3 className="text-base font-black text-white mb-3 flex items-center gap-2">
                   💳 Selectează metoda de plată
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {/* Card Payment */}
                   <button
                     onClick={() => setSelectedPaymentMethod('card')}
-                    className={`w-full p-5 rounded-xl border-2 transition-all transform hover:scale-[1.02] ${
+                    className={`w-full p-3 rounded-lg border-2 transition-all transform hover:scale-[1.01] ${
                       selectedPaymentMethod === 'card'
                         ? 'border-[#6D5BFF] bg-[#6D5BFF]/10 shadow-lg shadow-[#6D5BFF]/30'
                         : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                           </svg>
                         </div>
                         <div className="text-left">
-                          <p className="text-white font-bold text-lg">Card Bancar</p>
-                          <p className="text-gray-400 text-sm">Visa, Mastercard, American Express</p>
+                          <p className="text-white font-bold text-sm">Card Bancar</p>
+                          <p className="text-gray-400 text-xs">Visa, Mastercard, American Express</p>
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" className="h-8" />
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" alt="Mastercard" className="h-8" />
+                      <div className="flex gap-1.5">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" className="h-6" />
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" alt="Mastercard" className="h-6" />
                       </div>
                     </div>
                   </button>
@@ -281,48 +334,48 @@ export default function PromotePage() {
                   {/* PayPal */}
                   <button
                     onClick={() => setSelectedPaymentMethod('paypal')}
-                    className={`w-full p-5 rounded-xl border-2 transition-all transform hover:scale-[1.02] ${
+                    className={`w-full p-3 rounded-lg border-2 transition-all transform hover:scale-[1.01] ${
                       selectedPaymentMethod === 'paypal'
                         ? 'border-[#0070BA] bg-[#0070BA]/10 shadow-lg shadow-[#0070BA]/30'
                         : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-[#0070BA] rounded-xl flex items-center justify-center">
-                          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-[#0070BA] rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M8.32 21.97a.546.546 0 01-.26-.32c-.03-.15-.01-.89.62-4.09.03-.16.06-.32.08-.47.18-.98.28-1.49.97-1.49h1.46c2.92 0 5.17-1.07 6.16-2.94.77-1.44.9-3.12.38-4.87-.03-.11-.07-.21-.11-.32.64.23 1.22.53 1.72.91 1.93 1.46 2.45 3.8 1.55 6.99-.98 3.45-3.82 5.6-7.25 5.6h-5.32z" />
                             <path d="M11.85 6h-4.61c-.42 0-.79.31-.85.73l-1.88 12.06a.546.546 0 00.54.64h3.29c.42 0 .79-.31.85-.73l.49-3.18c.06-.42.43-.73.85-.73h1.97c4.07 0 6.42-2.01 7.03-5.99.29-1.82.01-3.25-.85-4.28C17.8 2.85 15.93 2 13.42 2h-4.61c-.42 0-.79.31-.85.73L6.08 9.68c-.06.42.24.77.66.77h3.29c.42 0 .79-.31.85-.73l.49-3.18c.06-.42.43-.54.48-.54z" />
                           </svg>
                         </div>
                         <div className="text-left">
-                          <p className="text-white font-bold text-lg">PayPal</p>
-                          <p className="text-gray-400 text-sm">Plată rapidă și securizată</p>
+                          <p className="text-white font-bold text-sm">PayPal</p>
+                          <p className="text-gray-400 text-xs">Plată rapidă și securizată</p>
                         </div>
                       </div>
-                      <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-8" />
+                      <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-6" />
                     </div>
                   </button>
 
                   {/* Transfer Bancar */}
                   <button
                     onClick={() => setSelectedPaymentMethod('transfer')}
-                    className={`w-full p-5 rounded-xl border-2 transition-all transform hover:scale-[1.02] ${
+                    className={`w-full p-3 rounded-lg border-2 transition-all transform hover:scale-[1.01] ${
                       selectedPaymentMethod === 'transfer'
                         ? 'border-green-500 bg-green-500/10 shadow-lg shadow-green-500/30'
                         : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
                           </svg>
                         </div>
                         <div className="text-left">
-                          <p className="text-white font-bold text-lg">Transfer Bancar</p>
-                          <p className="text-gray-400 text-sm">Plată prin transfer bancar direct</p>
+                          <p className="text-white font-bold text-sm">Transfer Bancar</p>
+                          <p className="text-gray-400 text-xs">Plată prin transfer bancar direct</p>
                         </div>
                       </div>
                     </div>
@@ -331,35 +384,35 @@ export default function PromotePage() {
               </div>
 
               {/* Security Badges */}
-              <div className="flex items-center justify-center gap-6 mb-6 py-4 bg-gray-800/30 rounded-xl">
-                <div className="flex items-center gap-2 text-green-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center gap-4 mb-4 py-3 bg-gray-800/30 rounded-lg">
+                <div className="flex items-center gap-1.5 text-green-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  <span className="text-sm font-medium">Plată Securizată SSL</span>
+                  <span className="text-xs font-medium">Plată Securizată SSL</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center gap-1.5 text-blue-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  <span className="text-sm font-medium">Protecție Cumpărător</span>
+                  <span className="text-xs font-medium">Protecție Cumpărător</span>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="flex-1 py-4 bg-gray-800 border-2 border-gray-700 text-white rounded-xl font-bold hover:bg-gray-700 transition-all"
+                  className="flex-1 py-2.5 bg-gray-800 border-2 border-gray-700 text-white rounded-lg font-bold text-sm hover:bg-gray-700 transition-all"
                 >
                   Anulează
                 </button>
                 <button
                   onClick={handleConfirmPayment}
                   disabled={!selectedPaymentMethod}
-                  className={`flex-1 py-4 rounded-xl font-black text-lg transition-all transform ${
+                  className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all transform ${
                     selectedPaymentMethod
-                      ? `bg-gradient-to-r ${selectedPkg.color} text-white hover:scale-105 hover:shadow-2xl active:scale-95`
+                      ? `bg-gradient-to-r ${selectedPkg.color} text-white hover:scale-[1.02] hover:shadow-xl active:scale-95`
                       : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   }`}
                 >
@@ -401,69 +454,69 @@ export default function PromotePage() {
             </div>
           </div>
 
-          {/* Packages Grid */}
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Packages Grid - Enterprise Compact */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {packages.map((pkg) => (
               <div
                 key={pkg.id}
                 onClick={() => setSelectedPackage(pkg.id)}
-                className={`relative cursor-pointer transition-all duration-300 transform hover:scale-105 ${
-                  selectedPackage === pkg.id ? 'scale-105 ring-4 ring-white/50' : ''
+                className={`relative cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
+                  selectedPackage === pkg.id ? 'scale-[1.02] ring-2 ring-white/30' : ''
                 }`}
               >
-                <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 p-8 h-full">
+                <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-700/50 p-5 h-full">
                   {/* Badge Popular */}
                   {pkg.id === 'top' && (
-                    <div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-pink-600 text-white text-xs font-black px-4 py-2 rounded-full shadow-lg rotate-12">
-                      🔥 CEL MAI POPULAR
+                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-red-500 to-pink-600 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg rotate-6">
+                      🔥 POPULAR
                     </div>
                   )}
                   
                   {/* Gradient Border Effect */}
-                  <div className={`absolute inset-0 bg-gradient-to-r ${pkg.color} opacity-20 blur-xl rounded-3xl`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-r ${pkg.color} opacity-10 blur-lg rounded-2xl`}></div>
                   
                   <div className="relative">
                     {/* Icon & Title */}
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className={`w-16 h-16 bg-gradient-to-br ${pkg.color} rounded-2xl flex items-center justify-center text-3xl shadow-lg`}>
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className={`w-10 h-10 bg-gradient-to-br ${pkg.color} rounded-xl flex items-center justify-center text-xl shadow-md flex-shrink-0`}>
                         {pkg.icon}
                       </div>
-                      <div className="flex-1">
-                        <h3 className="text-2xl font-black text-white">{pkg.name}</h3>
-                        <p className="text-gray-400 text-sm">{pkg.description}</p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-black text-white leading-tight">{pkg.name}</h3>
+                        <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{pkg.description}</p>
                       </div>
                     </div>
 
                     {/* Price */}
-                    <div className="mb-6 pb-6 border-b border-gray-700/50">
-                      <div className="flex items-end gap-2">
-                        <span className={`text-5xl font-black bg-gradient-to-r ${pkg.color} bg-clip-text text-transparent`}>
+                    <div className="mb-3 pb-3 border-b border-gray-700/50">
+                      <div className="flex items-end gap-1">
+                        <span className={`text-3xl font-black bg-gradient-to-r ${pkg.color} bg-clip-text text-transparent`}>
                           {pkg.price}
                         </span>
-                        <span className="text-2xl text-gray-400 mb-2">RON</span>
+                        <span className="text-lg text-gray-400 mb-1">RON</span>
                       </div>
-                      <p className="text-gray-400 text-sm mt-1">Valabil {pkg.duration}</p>
+                      <p className="text-gray-500 text-xs">Valabil {pkg.duration}</p>
                     </div>
 
                     {/* Features */}
-                    <ul className="space-y-3 mb-6">
+                    <ul className="space-y-1.5 mb-4">
                       {pkg.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-gray-300">
-                          <span className="text-green-400 text-sm mt-0.5">✓</span>
-                          <span className="text-sm">{feature}</span>
+                        <li key={idx} className="flex items-start gap-1.5 text-gray-300">
+                          <span className="text-green-400 text-[10px] mt-0.5 flex-shrink-0">✓</span>
+                          <span className="text-xs leading-tight">{feature}</span>
                         </li>
                       ))}
                     </ul>
 
                     {/* Select Button */}
                     <button
-                      className={`w-full py-4 rounded-xl font-black text-lg transition-all transform ${
+                      className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all ${
                         selectedPackage === pkg.id
-                          ? `bg-gradient-to-r ${pkg.color} text-white shadow-xl`
+                          ? `bg-gradient-to-r ${pkg.color} text-white shadow-lg`
                           : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
                       }`}
                     >
-                      {selectedPackage === pkg.id ? '✅ SELECTAT' : 'SELECTEAZĂ'}
+                      {selectedPackage === pkg.id ? '✓ Selectat' : 'Selectează'}
                     </button>
                   </div>
                 </div>

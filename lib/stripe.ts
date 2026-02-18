@@ -54,10 +54,11 @@ export async function createPaymentIntent(options: {
   packageType: PromotionPackage;
   customerEmail?: string;
   metadata?: Record<string, string>;
+  amount?: number;
 }): Promise<Stripe.PaymentIntent> {
-  const { userId, listingId, packageType, customerEmail, metadata = {} } = options;
+  const { userId, listingId, packageType, customerEmail, metadata = {}, amount: overrideAmount } = options;
 
-  const amount = PROMOTION_PRICES[packageType];
+  const amount = overrideAmount ?? PROMOTION_PRICES[packageType];
   const description = PROMOTION_DESCRIPTIONS[packageType];
 
   try {
@@ -73,9 +74,7 @@ export async function createPaymentIntent(options: {
         purpose: 'promote_listing',
         ...metadata,
       },
-      // Activare Apple Pay și Google Pay
-      payment_method_types: ['card'],
-      // Stripe activează automat Apple Pay și Google Pay dacă sunt disponibile
+      // Stripe activează automat toate metodele (card, Apple Pay, Google Pay)
       automatic_payment_methods: {
         enabled: true,
         allow_redirects: 'never',

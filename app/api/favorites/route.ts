@@ -1,62 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
+import { verifyToken } from '@/lib/auth';
 
 // GET /api/favorites - Get user's favorites
 export async function GET(req: NextRequest) {
   try {
-    const security = await validateSecureRequest(req, {
-      requireCSRF: false,
-      rateLimit: 'listings',
-    });
-
-    if (!security.success) {
-      return NextResponse.json(
-        { error: security.error || 'Unauthorized' },
-        { status: 401 }
-      );
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = (security.data as any)?.userId as string;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
-      );
+    const token = authHeader.substring(7);
+    const tokenPayload = await verifyToken(token);
+    if (!tokenPayload) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get favorites with listing details
+    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
+
     const favorites = await prisma.favorite.findMany({
       where: { userId },
       include: {
         listing: {
-          select: {
-            id: true,
-            title: true,
-            priceAmount: true,
-            priceCurrency: true,
-            photos: true,
-            city: true,
-            county: true,
-            category: true,
-            subcategory: true,
-            views: true,
-            isFeatured: true,
-            condition: true,
-            make: true,
-            model: true,
-            year: true,
-            mileage: true,
-            fuel: true,
-            transmission: true,
-            status: true,
-            createdAt: true,
-          },
-        },
+          include: {
+            owner: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                businessName: true,
+              }
+            }
+          }
+        }
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'desc' }
     });
 
     return NextResponse.json({ favorites });
@@ -78,82 +58,53 @@ export async function POST(req: NextRequest) {
   try {
     const security = await validateSecureRequest(req, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'api',
       schema: addFavoriteSchema,
     });
 
     if (!security.success) {
-      const status = security.rateLimitError
-        ? 429
-        : security.csrfError
-        ? 403
-        : security.validationError
-        ? 400
-        : 401;
-      return NextResponse.json({ error: security.error }, { status });
-    }
-
-    const userId = (security.data as any)?.userId as string;
-    const { listingId } = security.data as { listingId: string };
-
-    if (!userId) {
       return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
+        { error: security.error || 'Unauthorized' },
+        { status: security.rateLimitError ? 429 : security.csrfError ? 403 : 400 }
       );
     }
 
-    // Check if listing exists and is active
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    const tokenPayload = await verifyToken(token);
+    if (!tokenPayload) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
+    const { listingId } = security.data as any;
+
+    // Check if listing exists
     const listing = await prisma.listing.findUnique({
-      where: { id: listingId },
-      select: { id: true, status: true },
+      where: { id: listingId }
     });
 
     if (!listing) {
-      return NextResponse.json(
-        { error: 'Listing not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    // Check if already favorited
-    const existing = await prisma.favorite.findUnique({
-      where: {
-        userId_listingId: {
-          userId,
-          listingId,
-        },
-      },
-    });
-
-    if (existing) {
-      return NextResponse.json(
-        { message: 'Already in favorites', favorite: existing },
-        { status: 200 }
-      );
-    }
-
-    // Add to favorites
+    // Create favorite (will fail if duplicate due to unique constraint)
     const favorite = await prisma.favorite.create({
       data: {
         userId,
         listingId,
-      },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            priceAmount: true,
-            priceCurrency: true,
-            photos: true,
-          },
-        },
-      },
+      }
     });
 
-    return NextResponse.json({ favorite }, { status: 201 });
+    return NextResponse.json({ success: true, favorite });
   } catch (error: any) {
+    if (error.code === 'P2002') {
+      return NextResponse.json({ error: 'Already favorited' }, { status: 400 });
+    }
     console.error('Error adding favorite:', error);
     return NextResponse.json(
       { error: 'Failed to add favorite' },
@@ -162,38 +113,33 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/favorites?listingId=xxx - Remove from favorites
+// DELETE /api/favorites - Remove from favorites
 export async function DELETE(req: NextRequest) {
   try {
-    const security = await validateSecureRequest(req, {
-      requireCSRF: true,
-      rateLimit: 'listings',
-    });
-
-    if (!security.success) {
-      return NextResponse.json(
-        { error: security.error || 'Unauthorized' },
-        { status: 401 }
-      );
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = (security.data as any)?.userId as string;
+    const token = authHeader.substring(7);
+    const tokenPayload = await verifyToken(token);
+    if (!tokenPayload) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
     const { searchParams } = new URL(req.url);
     const listingId = searchParams.get('listingId');
 
-    if (!userId || !listingId) {
-      return NextResponse.json(
-        { error: 'User ID and Listing ID required' },
-        { status: 400 }
-      );
+    if (!listingId) {
+      return NextResponse.json({ error: 'listingId required' }, { status: 400 });
     }
 
-    // Delete favorite
     await prisma.favorite.deleteMany({
       where: {
         userId,
         listingId,
-      },
+      }
     });
 
     return NextResponse.json({ success: true });

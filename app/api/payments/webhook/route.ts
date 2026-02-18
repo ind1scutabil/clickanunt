@@ -256,46 +256,41 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   
   if (listingId) {
     try {
-      // TODO: Implement promotion tracking when Promotion model is added to schema
-      // For now, just update listing promotion status
+      const packageType = (payment.metadata as any)?.packageType;
+      
+      // Map package types to configuration
+      const promotionConfig: Record<string, { type: string, days: number, featured: boolean }> = {
+        'top': { type: 'boost_7days', days: 7, featured: true },
+        'urgent': { type: 'boost_72h', days: 3, featured: false },
+        'featured': { type: 'featured', days: 5, featured: true },
+        'refresh': { type: 'boost_24h', days: 1, featured: false }
+      };
+
+      const config = promotionConfig[packageType] || promotionConfig['featured'];
+      const promotionEnd = new Date();
+      promotionEnd.setDate(promotionEnd.getDate() + config.days);
+
+      // Update listing with promotion
       await prisma.listing.update({
         where: { id: listingId },
         data: {
           isPromoted: true,
-          promotionStartedAt: new Date()
+          isFeatured: config.featured,
+          promotionType: config.type as any,
+          promotionStartedAt: new Date(),
+          promotionExpiresAt: promotionEnd,
+          updatedAt: new Date() // Refresh position in listings
         }
       });
 
-      const packageType = (payment.metadata as any)?.packageType;
-      let promotionEnd: Date | undefined;
-
-      // Calcul dată expirare promovare
-      if (packageType?.includes('7_days') || packageType?.includes('7days')) {
-        promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + 7);
-      } else if (packageType?.includes('30_days') || packageType?.includes('30days')) {
-        promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + 30);
-      } else if (packageType?.includes('1_day') || packageType?.includes('24h')) {
-        promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + 1);
-      }
-
-      // Update listing cu promovare 
       logger.info('Listing promotion activated', {
         listingId,
         packageType,
         promotionEnd,
+        promotionType: config.type,
+        isFeatured: config.featured
       });
 
-      if (promotionEnd) {
-        await prisma.listing.update({
-          where: { id: listingId },
-          data: {
-            promotionExpiresAt: promotionEnd,
-          },
-        });
-      }
 
         // Audit log
         await createAuditLog({
