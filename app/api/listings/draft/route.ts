@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateSecureRequest } from '@/lib/security/middleware';
-import { draftCreateSchema } from '@/lib/security/validation-schemas';
+import { draftCreateSchema, uuidSchema } from '@/lib/security/validation-schemas';
+import { verifyToken } from '@/lib/auth';
 
 // Create or update draft
 export async function POST(req: NextRequest) {
@@ -23,14 +24,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { userId, ...draftData } = security.data as any;
+    // Extract userId from JWT token
+    const authHeader = req.headers.get('authorization');
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const cookieToken = req.cookies.get('accessToken')?.value || null;
+    const accessToken = bearer || cookieToken;
+    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
+    const userId = tokenPayload?.userId;
+
+    // ✅ Validate userId is a proper UUID
+    const uuidValidation = uuidSchema.safeParse(userId);
+    if (!uuidValidation.success) {
+      return NextResponse.json(
+        { error: 'User ID format is invalid. Please log in again.' },
+        { status: 401 }
+      );
+    }
 
     if (!userId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Autentificare necesară' },
+        { status: 401 }
       );
     }
+
+    const { ...draftData } = security.data as any;
 
     // Create draft with status 'draft'
     const draft = await prisma.listing.create({
@@ -87,11 +105,35 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { id, userId, ...draftData } = security.data as any;
+    // Extract userId from JWT token
+    const authHeader = req.headers.get('authorization');
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const cookieToken = req.cookies.get('accessToken')?.value || null;
+    const accessToken = bearer || cookieToken;
+    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
+    const userId = tokenPayload?.userId;
 
-    if (!id || !userId) {
+    // ✅ Validate userId is a proper UUID
+    const uuidValidation = uuidSchema.safeParse(userId);
+    if (!uuidValidation.success) {
       return NextResponse.json(
-        { error: 'Draft ID and User ID are required' },
+        { error: 'User ID format is invalid. Please log in again.' },
+        { status: 401 }
+      );
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Autentificare necesară' },
+        { status: 401 }
+      );
+    }
+
+    const { id, ...draftData } = security.data as any;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Draft ID is required' },
         { status: 400 }
       );
     }

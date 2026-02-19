@@ -1,16 +1,23 @@
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
+const crypto = require('crypto');
 
 const prisma = new PrismaClient();
+
+// ✅ Generate a proper UUID (v4)
+function generateUUID() {
+  return crypto.randomUUID();
+}
 
 async function createAdmin() {
   try {
     const adminPassword = 'ClickAnunt2026Admin';
     const passwordHash = await bcrypt.hash(adminPassword, 10);
     
+    // ✅ Use proper UUID instead of 'admin-' + Date.now()
     const admin = await prisma.user.create({
       data: {
-        id: 'admin-' + Date.now(),
+        id: generateUUID(),
         email: 'admin@clickanunt.ro',
         password: passwordHash,
         role: 'admin',

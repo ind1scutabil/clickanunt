@@ -47,7 +47,7 @@ export async function GET(
     const otherUserId = params.userId;
 
     // Find or create conversation between these two users
-    let conversation = await prisma.conversation.findFirst({
+    const conversation = await prisma.conversation.findFirst({
       where: {
         OR: [
           { participant1Id: currentUserId, participant2Id: otherUserId },

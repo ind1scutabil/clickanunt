@@ -644,24 +644,22 @@ export default function ListingsView() {
 
       {/* Loading - Skeleton Cards */}
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
+          {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="bg-[#1A1D24] rounded-2xl border border-white/5 overflow-hidden animate-pulse"
+              className="bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/5 overflow-hidden animate-pulse"
               role="status"
               aria-label="Se încarcă anunț"
             >
               {/* Image skeleton */}
-              <div className="aspect-[16/9] bg-[#111827]"></div>
+              <div className="aspect-video bg-gradient-to-br from-[#111827] to-[#0F1117]"></div>
               {/* Content skeleton */}
-              <div className="p-5">
-                <div className="h-7 bg-[#111827] rounded mb-2 w-3/4"></div>
-                <div className="h-7 bg-[#111827] rounded mb-4 w-1/2"></div>
-                <div className="h-5 bg-[#111827] rounded mb-2 w-full"></div>
-                <div className="h-8 bg-[#111827] rounded mb-4 w-1/3"></div>
-                <div className="h-4 bg-[#111827] rounded mb-2 w-full"></div>
-                <div className="h-4 bg-[#111827] rounded mb-4 w-3/4"></div>
+              <div className="p-4">
+                <div className="h-6 bg-[#111827] rounded mb-3 w-3/4"></div>
+                <div className="h-5 bg-[#111827] rounded mb-3 w-2/3"></div>
+                <div className="h-7 bg-[#111827] rounded mb-3 w-1/2"></div>
+                <div className="h-4 bg-[#111827] rounded mb-4 w-full"></div>
                 <div className="h-10 bg-[#111827] rounded w-full"></div>
               </div>
             </div>
@@ -672,19 +670,19 @@ export default function ListingsView() {
       {/* Results */}
       {!loading && (
         <>
-          <div id="listings-results" className="mb-4 text-gray-400">
-            Găsite {total} anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
+          <div id="listings-results" className="mb-6 text-gray-400 text-base font-medium">
+            Găsite <span className="text-white font-bold">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
             {listings.map((listing, index) => (
               <article
                 key={listing.id}
-                className="group bg-[#161B22] rounded-2xl border border-white/5 overflow-hidden shadow-[0_18px_50px_rgba(0,0,0,0.35)] hover:border-white/10 hover:shadow-[0_16px_40px_rgba(0,0,0,0.40)] hover:-translate-y-0.5 transition-all duration-300"
+                className="group relative bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/8 overflow-hidden shadow-lg hover:shadow-2xl hover:border-white/15 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
                 aria-label={listing.title}
               >
                 {/* Image - Fixed 16:9 Aspect Ratio */}
-                <div className="relative aspect-[16/9] bg-[#111827] overflow-hidden">
+                <div className="relative aspect-video bg-gradient-to-br from-[#111827] to-[#0F1117] overflow-hidden">
                   {listing.photos && listing.photos.length > 0 ? (
                     <img
                       src={listing.photos[0]}
@@ -692,11 +690,11 @@ export default function ListingsView() {
                       loading={index < 3 ? "eager" : "lazy"}
                       width={640}
                       height={360}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
-                      <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-gray-700 to-gray-800">
+                      <svg className="w-16 h-16 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -704,46 +702,47 @@ export default function ListingsView() {
                 </div>
 
                 {/* Content */}
-                <div className="p-5 flex flex-col">
-                  <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 leading-tight min-h-[3.5rem]">
+                <div className="p-4 flex flex-col flex-1">
+                  {/* Title - Consistent height */}
+                  <h3 className="text-base font-bold text-white mb-3 line-clamp-2 min-h-[2.8rem] leading-snug text-justify">
                     {listing.title}
                   </h3>
                   
-                  <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
-                    {listing.make && <span>{listing.make}</span>}
-                    {listing.model && (
-                      <>
-                        <span className="text-gray-600">•</span>
-                        <span>{listing.model}</span>
-                      </>
+                  {/* Metadata - Consistent height */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400 mb-3 min-h-[1.5rem]">
+                    {listing.make && (
+                      <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full font-medium">
+                        {listing.make}
+                      </span>
                     )}
                     {listing.year && (
-                      <>
-                        <span className="text-gray-600">•</span>
-                        <span>{listing.year}</span>
-                      </>
+                      <span className="px-2 py-1 bg-gray-700/40 text-gray-300 rounded-full font-medium">
+                        {listing.year}
+                      </span>
                     )}
                     {listing.mileage && (
-                      <>
-                        <span className="text-gray-600">•</span>
-                        <span>{new Intl.NumberFormat('ro-RO').format(listing.mileage)} km</span>
-                      </>
+                      <span className="px-2 py-1 bg-gray-700/40 text-gray-300 rounded-full text-xs font-medium">
+                        {new Intl.NumberFormat('ro-RO').format(listing.mileage)} km
+                      </span>
                     )}
                   </div>
 
-                  <div className="text-2xl font-bold text-white mb-4">
+                  {/* Price - Prominent */}
+                  <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-3">
                     {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: listing.priceCurrency, maximumFractionDigits: 0 }).format(listing.priceAmount)}
                   </div>
 
+                  {/* Description - Consistent height */}
                   {listing.description && (
-                    <p className="text-sm text-gray-400 mb-4 line-clamp-2 min-h-[2.5rem]">
+                    <p className="text-xs text-gray-400 mb-4 line-clamp-2 min-h-[2rem] leading-relaxed">
                       {listing.description}
                     </p>
                   )}
 
+                  {/* Button - Always at bottom */}
                   <Link
                     href={`/listings/${listing.id}`}
-                    className="mt-auto block text-center h-11 px-4 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold transition-all duration-300 shadow-[0_18px_50px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                    className="mt-auto block text-center h-10 px-4 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#5B4BFF] hover:to-[#00C4E0] text-white font-bold text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 flex items-center justify-center"
                     aria-label={`View details for ${listing.title}`}
                   >
                     Vezi detalii
@@ -755,16 +754,17 @@ export default function ListingsView() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center items-center gap-3 py-8">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-4 py-2 bg-[#1C212B] border border-white/10 rounded-[12px] text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
               >
-                « Înapoi
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                Înapoi
               </button>
               
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                   let pageNum: number;
                   if (totalPages <= 7) {
@@ -781,10 +781,10 @@ export default function ListingsView() {
                     <button
                       key={pageNum}
                       onClick={() => setPage(pageNum)}
-                      className={`px-4 py-2 rounded-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)] ${
+                      className={`px-4 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 ${
                         page === pageNum
-                          ? 'bg-[#1C212B] border border-white/10 text-white'
-                          : 'bg-[#1C212B] border border-white/5 text-white/70 hover:border-white/20 hover:text-white'
+                          ? 'bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white shadow-lg shadow-blue-500/30'
+                          : 'bg-gradient-to-br from-[#1C212B] to-[#161B22] border border-white/5 text-white/70 hover:border-white/15 hover:text-white hover:shadow-md'
                       }`}
                     >
                       {pageNum}
@@ -796,17 +796,19 @@ export default function ListingsView() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-4 py-2 bg-[#1C212B] border border-white/10 rounded-[12px] text-white/80 disabled:opacity-50 disabled:cursor-not-allowed hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
               >
-                Înainte »
+                Înainte
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               </button>
             </div>
           )}
 
           {listings.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-400">
-              <p className="text-xl mb-2">Nu s-au găsit anunțuri</p>
-              <p>Încearcă să modifici filtrele</p>
+            <div className="text-center py-16 text-gray-400">
+              <svg className="w-20 h-20 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-xl font-bold mb-2">Nu s-au găsit anunțuri</p>
+              <p className="text-sm">Încearcă să modifici filtrele sau să cauți cu alți parametri</p>
             </div>
           )}
         </>

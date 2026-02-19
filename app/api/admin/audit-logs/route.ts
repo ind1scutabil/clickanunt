@@ -3,15 +3,15 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { getAuditLogs, exportAuditLogsToCSV } from "@/lib/audit";
 import type { UserRole } from "@prisma/client";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
 
     if (!user || !hasPermission(user.role as UserRole, Permission.AUDIT_LOGS_VIEW)) {
       return NextResponse.json(

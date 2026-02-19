@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('accessToken', result.accessToken!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',  // Changed from 'strict' to allow fetch() requests
       maxAge: 60 * 60 * 24 * 7, // 7 zile
       path: '/',
       priority: 'high',
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('refreshToken', result.refreshToken!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',  // Changed from 'strict' to allow fetch() requests
       maxAge: 60 * 60 * 24 * 30, // 30 zile
       path: '/',
       priority: 'high',

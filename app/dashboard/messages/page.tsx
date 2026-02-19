@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
@@ -52,6 +52,10 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
 
+  // Real-time polling interval refs
+  const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     // Check authentication
     const token = localStorage.getItem('accessToken');
@@ -61,12 +65,17 @@ export default function MessagesPage() {
     }
 
     fetchConversations();
+
+    // Cleanup on unmount
+    return () => {
+      if (conversationsPollingRef.current) clearInterval(conversationsPollingRef.current);
+      if (messagesPollingRef.current) clearInterval(messagesPollingRef.current);
+    };
   }, [router]);
 
   const fetchConversations = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      console.log('[Messages] Fetching conversations with token:', token ? 'exists' : 'missing');
       const headers: HeadersInit = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
@@ -77,30 +86,57 @@ export default function MessagesPage() {
         credentials: 'include',
       });
 
-      console.log('[Messages] Response status:', response.status, response.statusText);
-
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[Messages] Error response:', errorData);
         throw new Error('Failed to fetch conversations');
       }
 
       const data = await response.json();
-      console.log('[Messages] Received data:', data);
       const conversationsList = Array.isArray(data) ? data : data.conversations || [];
-      console.log('[Messages] Setting conversations:', conversationsList.length, 'items');
       setConversations(conversationsList);
       setIsLoading(false);
     } catch (err) {
       console.error('[Messages] Fetch error:', err);
-      setConversations([]);
       setIsLoading(false);
+    }
+
+    // Start real-time polling for conversations (every 3 seconds)
+    if (!conversationsPollingRef.current) {
+      conversationsPollingRef.current = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('accessToken');
+          const headers: HeadersInit = {};
+          if (token) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+          
+          const response = await fetch('/api/messages/conversations', {
+            headers,
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+            setConversations(conversationsList);
+          }
+        } catch (err) {
+          // Silent fail for polling
+        }
+      }, 3000);
     }
   };
 
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
     await fetchMessages(conversation.otherParticipant.id);
+
+    // Clear old polling
+    if (messagesPollingRef.current) clearInterval(messagesPollingRef.current);
+    
+    // Start real-time polling for messages (every 1.5 seconds)
+    messagesPollingRef.current = setInterval(() => {
+      fetchMessages(conversation.otherParticipant.id);
+    }, 1500);
   };
 
   const fetchMessages = async (userId: string) => {
@@ -123,7 +159,6 @@ export default function MessagesPage() {
       setMessages(Array.isArray(data) ? data : data.messages || []);
     } catch (err) {
       console.error('Error fetching messages:', err);
-      setMessages([]);
     }
   };
 
@@ -154,9 +189,13 @@ export default function MessagesPage() {
       }
 
       setNewMessage("");
+      // Immediately fetch new message instead of relying on polling
       await fetchMessages(selectedConversation.otherParticipant.id);
+      // Also refresh conversations
+      await fetchConversations();
     } catch (err) {
       console.error('Error sending message:', err);
+      alert('Eroare la trimiterea mesajului. Te rog încearcă din nou.');
     } finally {
       setIsSending(false);
     }

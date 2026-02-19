@@ -3,15 +3,15 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import type { UserRole } from "@prisma/client";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
 
     if (!user || !hasPermission(user.role as UserRole, Permission.REPORTS_VIEW)) {
       return NextResponse.json(

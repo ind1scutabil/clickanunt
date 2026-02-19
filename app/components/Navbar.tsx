@@ -242,25 +242,50 @@ export default function Navbar() {
 
               <Link
                 href="/messages"
-                className="hit-target relative flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
+                className="hit-target group relative flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-label="Mesaje"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <span className="hidden lg:inline">Mesaje</span>
-                {/* Badge will be dynamic when messaging system is implemented */}
+                {/* Background with gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-blue-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Neon glow effect */}
+                <div className="absolute inset-0 rounded-xl blur-xl bg-gradient-to-r from-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
+                
+                {/* Icon with 3D effect and neon glow */}
+                <div className="relative flex items-center justify-center">
+                  <svg className="w-7 h-7 text-[#0B1220] group-hover:text-blue-600 transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
+                
+                {/* Label */}
+                <span className="hidden lg:inline text-sm font-bold text-[#0B1220] group-hover:text-blue-600 transition-colors duration-300">
+                  Mesaje
+                </span>
               </Link>
 
               <Link
                 href="/favorites"
-                className="hit-target flex items-center gap-2 px-4 py-2.5 text-[#0B1220] hover:text-[#6D5BFF] hover:bg-gray-50 transition-smooth font-semibold rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
+                className="hit-target group relative flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-label="Anunțuri favorite"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <span className="hidden lg:inline">Favorite</span>
+                {/* Background with gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-rose-500/10 to-pink-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Neon glow effect */}
+                <div className="absolute inset-0 rounded-xl blur-xl bg-gradient-to-r from-red-500/30 to-pink-500/30 opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
+                
+                {/* Icon with 3D effect and neon glow */}
+                <div className="relative flex items-center justify-center">
+                  <svg className="w-7 h-7 text-[#0B1220] group-hover:text-red-600 transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(220,38,38,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
+                
+                {/* Label */}
+                <span className="hidden lg:inline text-sm font-bold text-[#0B1220] group-hover:text-red-600 transition-colors duration-300">
+                  Favorite
+                </span>
               </Link>
 
               <div className="relative">

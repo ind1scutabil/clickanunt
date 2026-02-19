@@ -208,9 +208,20 @@ export default function AdminModerationPage() {
     try {
       setUsersLoading(true);
       setUsersError('');
-      const response = await fetch('/api/admin/users');
+      const token = localStorage.getItem('accessToken');
+      console.log('[DEBUG] fetchUsers - token exists:', !!token, 'length:', token?.length);
       
+      const response = await fetch('/api/admin/users', {
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      
+      console.log('[DEBUG] fetchUsers - response status:', response.status);
       if (!response.ok) {
+        const errorData = await response.text();
+        console.log('[DEBUG] fetchUsers - error response:', errorData);
         throw new Error('Failed to fetch users');
       }
 
@@ -243,7 +254,13 @@ export default function AdminModerationPage() {
       console.log('[FETCH] Started for userId:', userId);
       setUserListingsLoading(true);
       
-      const response = await fetch(`/api/admin/users/${userId}/listings`);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/admin/users/${userId}/listings`, {
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       console.log('[FETCH] Response status:', response.status);
       
       if (!response.ok) {
@@ -292,6 +309,7 @@ export default function AdminModerationPage() {
       setReportsLoading(true);
       const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/admin/reports?status=pending', {
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -314,6 +332,7 @@ export default function AdminModerationPage() {
       setAppealsLoading(true);
       const token = localStorage.getItem('accessToken');
       const response = await fetch('/api/admin/appeals?status=pending', {
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -336,6 +355,7 @@ export default function AdminModerationPage() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -362,6 +382,7 @@ export default function AdminModerationPage() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -389,6 +410,7 @@ export default function AdminModerationPage() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -415,6 +437,7 @@ export default function AdminModerationPage() {
       const token = localStorage.getItem('accessToken');
       const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -451,9 +474,9 @@ export default function AdminModerationPage() {
       };
 
       const [pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
-        fetch('/api/admin/moderation/queue?status=pending', { headers }),
-        fetch('/api/admin/moderation/queue?status=approved', { headers }),
-        fetch('/api/admin/moderation/queue?status=rejected', { headers }),
+        fetch('/api/admin/moderation/queue?status=pending', { headers, credentials: 'include' }),
+        fetch('/api/admin/moderation/queue?status=approved', { headers, credentials: 'include' }),
+        fetch('/api/admin/moderation/queue?status=rejected', { headers, credentials: 'include' }),
       ]);
 
       const responses = [pendingResponse, approvedResponse, rejectedResponse];
@@ -717,12 +740,15 @@ export default function AdminModerationPage() {
     
     try {
       const csrfToken = await getCsrfToken();
+      const token = localStorage.getItem('accessToken');
       
       const response = await fetch(`/api/admin/users/${userId}/ban`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           reason: reason || 'Admin action',
@@ -753,12 +779,15 @@ export default function AdminModerationPage() {
     
     try {
       const csrfToken = await getCsrfToken();
+      const token = localStorage.getItem('accessToken');
       
       const response = await fetch(`/api/admin/users/${userId}/unban`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 
@@ -786,12 +815,15 @@ export default function AdminModerationPage() {
     
     try {
       const csrfToken = await getCsrfToken();
+      const token = localStorage.getItem('accessToken');
       
       const response = await fetch(`/api/admin/users/${userId}/role`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           role: 'admin',
@@ -838,12 +870,15 @@ export default function AdminModerationPage() {
 
     try {
       const csrfToken = await getCsrfToken();
+      const token = localStorage.getItem('accessToken');
       
       const response = await fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'x-csrf-token': csrfToken,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           creditsBonus: credits,

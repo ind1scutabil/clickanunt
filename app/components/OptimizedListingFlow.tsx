@@ -22,10 +22,29 @@ interface DraftListing {
   mileage?: number | "";
   fuel?: string;
   transmission?: string;
+  vin?: string;
   condition: string;
   phone: string;
   allowMessages: boolean;
   lastSaved?: number;
+  // Additional car details
+  horsepower?: number | "";
+  cylinderCapacity?: number | "";
+  bodyType?: string;
+  color?: string;
+  seatCount?: number | "";
+  doorCount?: number | "";
+  owners?: number | "";
+  accidents?: string;
+  rare?: boolean;
+  registrationDate?: string;
+  inspectionExpires?: string;
+  countryOfOrigin?: string;
+  environmentalClass?: string;
+  co2Emissions?: number | "";
+  upholstery?: string;
+  keys?: number | "";
+  cocPapers?: boolean;
 }
 
 // Utility: Base64 conversion
@@ -55,10 +74,29 @@ const INITIAL_DRAFT: DraftListing = {
   description: "",
   condition: "used",
   phone: "",
-  allowMessages: true
+  allowMessages: true,
+  // Additional car details
+  horsepower: "",
+  cylinderCapacity: "",
+  bodyType: "",
+  color: "",
+  seatCount: "",
+  doorCount: "",
+  owners: "",
+  accidents: "",
+  rare: false,
+  registrationDate: "",
+  inspectionExpires: "",
+  countryOfOrigin: "",
+  environmentalClass: "",
+  co2Emissions: "",
+  upholstery: "",
+  keys: "",
+  cocPapers: false,
+  vin: "",
 };
 
-const DRAFT_VERSION = "2"; // Increment when schema changes
+const DRAFT_VERSION = "3"; // Increment when schema changes
 
 export default function OptimizedListingFlow() {
   const router = useRouter();
@@ -457,40 +495,11 @@ export default function OptimizedListingFlow() {
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
     
-    // ✅ OBȚINE USER ID - Cu fallback pentru development
-    let userId: string = 'anonymous-' + Date.now();
-    
-    const userStr = localStorage.getItem('user');
-    const token = localStorage.getItem('accessToken');
-    
-    console.log('🔍 Verificare autentificare:', { 
-      hasUserData: !!userStr, 
-      hasToken: !!token 
-    });
-    
-    // Dacă utilizatorul e autentificat, folosește ID-ul lui
-    if (userStr && token) {
-      try {
-
-        const csrfToken = await getCsrfToken();
-        const user = JSON.parse(userStr);
-        if (user.id) {
-          userId = user.id;
-          console.log('✅ Utilizator autentificat:', { userId, email: user.email });
-        }
-      } catch (e) {
-        console.error('❌ Eroare la parsarea datelor utilizator:', e);
-      }
-    } else {
-      console.warn('⚠️ Utilizator neautentificat - se folosește ID anonim pentru development');
-    }
-    
     setLoading(true);
     const startTime = Date.now();
     
     try {
       const payload: any = {
-        ownerUserId: userId, // ✅ IMPORTANT: Include user ID
         title: draft.title?.trim(),
         category: draft.category,
         priceAmount: Number(draft.priceAmount),
@@ -1102,6 +1111,249 @@ export default function OptimizedListingFlow() {
                       <option value="manual">Manuală</option>
                       <option value="automatic">Automată</option>
                     </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white font-semibold mb-2">Serie șasiu (VIN)</label>
+                    <input
+                      type="text"
+                      value={draft.vin || ""}
+                      onChange={(e) => updateField("vin", e.target.value)}
+                      placeholder="Ex: WVWZZZ3CZ9E123456"
+                      className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-white font-semibold mb-2">Accidente</label>
+                    <select
+                      value={(draft as any).accidents || ""}
+                      onChange={(e) => updateField("accidents", e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                    >
+                      <option value="">Selectează</option>
+                      <option value="no">Fără accidente</option>
+                      <option value="minor">Accident minor</option>
+                      <option value="major">Accident major</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-white font-semibold mb-2">Rar / Folosit cu grijă</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="rareCar"
+                      checked={(draft as any).rare || false}
+                      onChange={(e) => updateField("rare", e.target.checked)}
+                      className="w-5 h-5 rounded"
+                    />
+                    <label htmlFor="rareCar" className="text-white cursor-pointer">
+                      ✓ Mașina a fost folosită rar/cu grijă
+                    </label>
+                  </div>
+                </div>
+
+                {/* Extended car details - matching auto1.com */}
+                <div className="border-t border-gray-700 pt-6">
+                  <h4 className="text-lg font-bold text-white mb-4">Detalii suplimentare</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Putere (CP)</label>
+                      <input
+                        type="number"
+                        value={(draft as any).horsepower || ""}
+                        onChange={(e) => updateField("horsepower", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="120"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Cilindree (cm³)</label>
+                      <input
+                        type="number"
+                        value={(draft as any).cylinderCapacity || ""}
+                        onChange={(e) => updateField("cylinderCapacity", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="1500"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Culoare</label>
+                      <input
+                        type="text"
+                        value={(draft as any).color || ""}
+                        onChange={(e) => updateField("color", e.target.value)}
+                        placeholder="Ex: Gri"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Tip caroserie</label>
+                      <select
+                        value={(draft as any).bodyType || ""}
+                        onChange={(e) => updateField("bodyType", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      >
+                        <option value="">Selectează</option>
+                        <option value="sedan">Sedan</option>
+                        <option value="suv">SUV</option>
+                        <option value="combi">Combi</option>
+                        <option value="coupe">Coupe</option>
+                        <option value="hatchback">Hatchback</option>
+                        <option value="mpv">MPV</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Nr. locuri</label>
+                      <input
+                        type="number"
+                        value={(draft as any).seatCount || ""}
+                        onChange={(e) => updateField("seatCount", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="5"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Nr. uși</label>
+                      <input
+                        type="number"
+                        value={(draft as any).doorCount || ""}
+                        onChange={(e) => updateField("doorCount", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="4"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Nr. proprietari anteriori</label>
+                      <input
+                        type="number"
+                        value={(draft as any).owners || ""}
+                        onChange={(e) => updateField("owners", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="2"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Nr. chei</label>
+                      <input
+                        type="number"
+                        value={(draft as any).keys || ""}
+                        onChange={(e) => updateField("keys", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="2"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Data înmatriculării</label>
+                      <input
+                        type="date"
+                        value={(draft as any).registrationDate || ""}
+                        onChange={(e) => updateField("registrationDate", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">ITP (Inspecție Tehnică) expire la</label>
+                      <input
+                        type="date"
+                        value={(draft as any).inspectionExpires || ""}
+                        onChange={(e) => updateField("inspectionExpires", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Țara de origine</label>
+                      <select
+                        value={(draft as any).countryOfOrigin || ""}
+                        onChange={(e) => updateField("countryOfOrigin", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      >
+                        <option value="">Selectează</option>
+                        <option value="DE">Germania</option>
+                        <option value="FR">Franța</option>
+                        <option value="IT">Italia</option>
+                        <option value="AT">Austria</option>
+                        <option value="PL">Polonia</option>
+                        <option value="RO">România</option>
+                        <option value="HU">Ungaria</option>
+                        <option value="BE">Belgia</option>
+                        <option value="NL">Olanda</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Clasa de mediu</label>
+                      <select
+                        value={(draft as any).environmentalClass || ""}
+                        onChange={(e) => updateField("environmentalClass", e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      >
+                        <option value="">Selectează</option>
+                        <option value="EURO1">EURO 1</option>
+                        <option value="EURO2">EURO 2</option>
+                        <option value="EURO3">EURO 3</option>
+                        <option value="EURO4">EURO 4</option>
+                        <option value="EURO5">EURO 5</option>
+                        <option value="EURO6">EURO 6</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Emisii CO₂ (g/km)</label>
+                      <input
+                        type="number"
+                        value={(draft as any).co2Emissions || ""}
+                        onChange={(e) => updateField("co2Emissions", e.target.value ? Number(e.target.value) : "")}
+                        placeholder="150"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-white font-semibold mb-2">Tapițerie</label>
+                      <input
+                        type="text"
+                        value={(draft as any).upholstery || ""}
+                        onChange={(e) => updateField("upholstery", e.target.value)}
+                        placeholder="Ex: Piele"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-white font-semibold mb-2">COC (Certificate of Conformity)</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="cocPapers"
+                        checked={(draft as any).cocPapers || false}
+                        onChange={(e) => updateField("cocPapers", e.target.checked)}
+                        className="w-5 h-5 rounded"
+                      />
+                      <label htmlFor="cocPapers" className="text-white cursor-pointer">
+                        ✓ Avem documentul COC
+                      </label>
+                    </div>
                   </div>
                 </div>
               </>

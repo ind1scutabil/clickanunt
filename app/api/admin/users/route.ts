@@ -3,15 +3,23 @@
  */
 
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import type { UserRole } from "@prisma/client";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getUserFromRequest(request as any);
+    const user = await getUserFromRequest(request);
+
+    console.log('[ADMIN/USERS] Auth check:', {
+      hasUser: !!user,
+      userEmail: user?.email,
+      userRole: user?.role,
+      hasUsersViewPermission: user ? hasPermission(user.role as UserRole, Permission.USERS_VIEW_ALL) : false,
+      timestamp: new Date().toISOString()
+    });
 
     if (!user || !hasPermission(user.role as UserRole, Permission.USERS_VIEW_ALL)) {
       return NextResponse.json(

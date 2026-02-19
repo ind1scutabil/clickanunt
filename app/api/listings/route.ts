@@ -13,7 +13,7 @@ import { updateUserTrustScore, getRateLimit, canPerformAction, TRUST_LEVELS } fr
 import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
-import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery } from "@/lib/security/validation-schemas";
+import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidSchema } from "@/lib/security/validation-schemas";
 import { verifyToken } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -190,10 +190,43 @@ export async function POST(request: Request) {
     }
 
     const body = security.data as any;
-    const userId = body.ownerUserId;
+    
+    // ✅ Extract userId from JWT token for security (never trust client-provided userId)
+    const authHeader = (request as NextRequest).headers.get('authorization');
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const cookieToken = (request as NextRequest).cookies.get('accessToken')?.value || null;
+    const accessToken = bearer || cookieToken;
+    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
+    const userId = tokenPayload?.userId;
+    
+    // ✅ Validate userId is a proper UUID (reject malformed IDs
+    const uuidValidation = listingCreateSchema.shape.ownerUserId.safeParse(userId);
+    if (!uuidValidation.success) {
+      logger.warn('Invalid userId format in JWT', { userId, error: uuidValidation.error });
+      return NextResponse.json(
+        { error: 'User ID format is invalid. Please log in again.' },
+        { status: 401 }
+      );
+    }
+    
+    // If no valid JWT token, reject the request
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Autentificare necesară pentru a publica anunțuri' },
+        { status: 401 }
+      );
+    }
 
     logger.setContext({ userId, action: 'create_listing' });
     logger.info('Creating listing', { title: body.title });
+
+    // ✅ CLEAN NULL VALUES (from optional fields that came as null from client)
+    const cleanBody = Object.entries(body).reduce((acc, [key, value]) => {
+      if (value !== null && value !== undefined) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as any);
 
     // ✅ IN-MEMORY MODE: Skip DB operations for development
     if (process.env.USE_IN_MEMORY_DB === 'true') {
@@ -371,7 +404,7 @@ export async function POST(request: Request) {
       
       // Log pentru audit
       await logModeration(
-        body.ownerUserId,
+        userId,
         null,
         moderationResult,
         'rejected'
@@ -395,42 +428,62 @@ export async function POST(request: Request) {
     console.log(`✅ Anunț moderat: status=${moderationStatus}, score=${moderationScore}`);
 
     const data: any = {
-      ownerUserId: body.ownerUserId,
-      title: body.title,
-      category: body.category,
-      subcategory: body.subcategory || null,
-      priceAmount: body.priceAmount,
-      priceCurrency: body.priceCurrency ?? "RON",
-      condition: body.condition || "used",
-      status: moderationStatus === 'approved' ? (body.status ?? "active") : 'pending',
-      description: body.description,
-      county: body.county || null,
-      city: body.city || null,
-      region: body.region || null,
-      photos: body.photos ?? [],
-      video: body.video || null,
-      isFeatured: body.isFeatured ?? false,
+      owner: {
+        connect: { id: userId }
+      },
+      title: cleanBody.title,
+      category: cleanBody.category,
+      subcategory: cleanBody.subcategory,
+      priceAmount: cleanBody.priceAmount,
+      priceCurrency: cleanBody.priceCurrency ?? "RON",
+      condition: cleanBody.condition ?? "used",
+      status: moderationStatus === 'approved' ? (cleanBody.status ?? "active") : 'pending',
+      description: cleanBody.description,
+      county: cleanBody.county,
+      city: cleanBody.city,
+      region: cleanBody.region,
+      photos: cleanBody.photos ?? [],
+      contactPhone: cleanBody.phone,
+      isFeatured: cleanBody.isFeatured ?? false,
       
       // Auto-specific fields (nullable)
-      make: body.make || null,
-      model: body.model || null,
-      year: body.year || null,
-      mileage: body.mileage || null,
-      fuel: body.fuel || null,
-      transmission: body.transmission || null,
-      vin: body.vin || null,
+      make: cleanBody.make,
+      model: cleanBody.model,
+      year: cleanBody.year,
+      mileage: cleanBody.mileage,
+      fuel: cleanBody.fuel,
+      transmission: cleanBody.transmission,
+      vin: cleanBody.vin,
       
-      // Generic attributes
-      attributes: body.attributes || null,
+      // Generic attributes - include all optional car details
+      attributes: {
+        ...cleanBody.attributes,
+        accidents: cleanBody.accidents || null,
+        rare: cleanBody.rare || false,
+        horsepower: cleanBody.horsepower || null,
+        cylinderCapacity: cleanBody.cylinderCapacity || null,
+        bodyType: cleanBody.bodyType || null,
+        color: cleanBody.color || null,
+        seatCount: cleanBody.seatCount || null,
+        doorCount: cleanBody.doorCount || null,
+        owners: cleanBody.owners || null,
+        keys: cleanBody.keys || null,
+        registrationDate: cleanBody.registrationDate || null,
+        inspectionExpires: cleanBody.inspectionExpires || null,
+        countryOfOrigin: cleanBody.countryOfOrigin || null,
+        environmentalClass: cleanBody.environmentalClass || null,
+        co2Emissions: cleanBody.co2Emissions || null,
+        upholstery: cleanBody.upholstery || null,
+        cocPapers: cleanBody.cocPapers || false,
+      },
 
       // Moderation fields
       moderationStatus,
-      moderationScore,
-      moderationFlags: flags.length > 0 ? flags : null,
+      moderationNotes: flags.length > 0 ? `Flags: ${flags.join(', ')}` : null,
       
       // Scam detection results (store for admin review)
       scamScore: scamResult.score,
-      scamFlags: scamResult.flags.length > 0 ? scamResult.flags : null,
+      scamFlags: scamResult.flags && scamResult.flags.length > 0 ? scamResult.flags : [],
     };
 
     const listing = await prisma.listing.create({ data });
@@ -450,7 +503,7 @@ export async function POST(request: Request) {
 
     // Log moderare success
     await logModeration(
-      body.ownerUserId,
+      userId,
       listing.id,
       moderationResult,
       moderationStatus === 'approved' || moderationStatus === 'pending' ? 'approved' : 'rejected'

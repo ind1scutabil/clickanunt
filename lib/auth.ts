@@ -85,8 +85,14 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
     });
 
     return payload as TokenPayload;
-  } catch (error) {
-    console.error('JWT verification failed:', error);
+  } catch (error: any) {
+    console.error('[VERIFY_TOKEN_FAILED]', {
+      message: error?.message,
+      code: error?.code,
+      tokenLength: token?.length,
+      secretConfigured: !!process.env.JWT_SECRET,
+      timestamp: new Date().toISOString()
+    });
     return null;
   }
 }
@@ -113,12 +119,28 @@ export async function getUserFromRequest(request: NextRequest) {
     : null;
   
   const token = cookieToken || headerToken;
+
+  console.log('[GET_USER_FROM_REQUEST] Token extraction:', {
+    hasCookieToken: !!cookieToken,
+    hasAuthHeader: !!authHeader,
+    hasHeaderToken: !!headerToken,
+    usingToken: token ? 'yes' : 'no',
+    authHeaderValue: authHeader ? authHeader.substring(0, 30) + '...' : 'none',
+    timestamp: new Date().toISOString()
+  });
   
   if (!token) {
+    console.log('[GET_USER_FROM_REQUEST] No token found - returning null');
     return null;
   }
 
   const payload = await verifyToken(token);
+
+  console.log('[GET_USER_FROM_REQUEST] Token verification:', {
+    isValid: !!payload,
+    userId: payload?.userId,
+    timestamp: new Date().toISOString()
+  });
   
   if (!payload) {
     return null;
