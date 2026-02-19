@@ -9,6 +9,8 @@ import { ALL_CATEGORIES } from "@/lib/carData";
 import { SearchBar } from "@/app/components/composite";
 import { Button, Card, Badge } from "@/app/components/ui";
 import { CountUp } from "@/app/components/ui/CountUp";
+import { StatsStripSafe } from "@/app/components/enterprise";
+import { TrustBadges } from "@/app/components/enterprise";
 
 export default function HomePage() {
   const router = useRouter();
@@ -104,6 +106,9 @@ export default function HomePage() {
                 showCategory
               />
             </div>
+
+            {/* Trust Badges - Enterprise Safety Layer */}
+            <TrustBadges />
 
             {/* Trust Signals */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm text-white/70">
@@ -213,31 +218,7 @@ export default function HomePage() {
         </section>
 
         {/* Stats Section - NEW DESIGN SYSTEM */}
-        <section className="max-w-7xl mx-auto px-4 py-24">
-          <Card 
-            variant="elevated" 
-            className="p-8 md:p-12 relative bg-[#1A1D24] border border-white/5 shadow-[0_24px_70px_rgba(0,0,0,0.3)] overflow-hidden"
-          >
-            <div className="relative grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
-              <div className="transition-transform hover:scale-[1.02]">
-                <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">50K+</div>
-                <div className="text-sm md:text-base text-gray-400">Anunțuri Active</div>
-              </div>
-              <div className="transition-transform hover:scale-[1.02]">
-                <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">100K+</div>
-                <div className="text-sm md:text-base text-gray-400">Utilizatori</div>
-              </div>
-              <div className="transition-transform hover:scale-[1.02]">
-                <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">1M+</div>
-                <div className="text-sm md:text-base text-gray-400">Vizitatori/lună</div>
-              </div>
-              <div className="transition-transform hover:scale-[1.02]">
-                <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">4.8★</div>
-                <div className="text-sm md:text-base text-gray-400">Rating Mediu</div>
-              </div>
-            </div>
-          </Card>
-        </section>
+        <StatsStripSafe />
 
         {/* Features Section - NEW DESIGN SYSTEM */}
         <section className="max-w-7xl mx-auto px-4 py-28 pb-40">

@@ -22,7 +22,7 @@
 
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import type { SelectOption } from '@/app/components/ui';
 
 export interface SearchBarProps {
@@ -68,6 +68,24 @@ const SearchIcon = () => (
   </svg>
 );
 
+const ClockIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const SaveIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h6a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5z" />
+  </svg>
+);
+
+interface RecentSearch {
+  query: string;
+  category?: string;
+  timestamp: number;
+}
+
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   placeholder = 'Caută mașini, apartamente, telefoane...',
@@ -87,8 +105,42 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const [query, setQuery] = React.useState(defaultQuery);
   const [category, setCategory] = React.useState(defaultCategory);
+  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const [showRecent, setShowRecent] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Check if enterprise UI is enabled
+  const isEnterpriseEnabled = process.env.NEXT_PUBLIC_ENTERPRISE_CRITICAL_UI === 'true';
+
+  // Load recent searches from localStorage
+  useEffect(() => {
+    if (!isEnterpriseEnabled) return;
+    
+    try {
+      const stored = localStorage.getItem('clickanunt_recent_searches');
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Failed to load recent searches:', error);
+    }
+  }, [isEnterpriseEnabled]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowRecent(false);
+      }
+    };
+
+    if (showRecent) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showRecent]);
 
   // Keyboard shortcuts: Cmd+K or Ctrl+K to focus search input
   useEffect(() => {
@@ -104,11 +156,58 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const addToRecentSearches = (searchQuery: string, searchCategory?: string) => {
+    if (!isEnterpriseEnabled || !searchQuery.trim()) return;
+
+    const newSearch: RecentSearch = {
+      query: searchQuery.trim(),
+      category: searchCategory,
+      timestamp: Date.now(),
+    };
+
+    // Remove duplicate if exists
+    const filtered = recentSearches.filter(
+      s => !(s.query === newSearch.query && s.category === newSearch.category)
+    );
+
+    // Keep only last 8 searches
+    const updated = [newSearch, ...filtered].slice(0, 8);
+    setRecentSearches(updated);
+
+    try {
+      localStorage.setItem('clickanunt_recent_searches', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to save recent searches:', error);
+    }
+  };
+
+  const removeFromRecentSearches = (index: number) => {
+    const updated = recentSearches.filter((_, i) => i !== index);
+    setRecentSearches(updated);
+    try {
+      localStorage.setItem('clickanunt_recent_searches', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Failed to update recent searches:', error);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      addToRecentSearches(query.trim(), category || undefined);
       onSearch?.(query.trim(), category || undefined);
+      setShowRecent(false);
     }
+  };
+
+  const handleSelectRecent = (search: RecentSearch) => {
+    setQuery(search.query);
+    if (search.category) {
+      setCategory(search.category);
+    }
+    addToRecentSearches(search.query, search.category);
+    onSearch?.(search.query, search.category);
+    setShowRecent(false);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -120,15 +219,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className={`max-w-4xl mx-auto ${className || ''}`}>
-      <div className="flex flex-col sm:flex-row gap-4 w-full">
+      <div className="flex flex-col sm:flex-row gap-4 w-full relative">
         {/* Search Input Container */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={dropdownRef}>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
+            onFocus={() => isEnterpriseEnabled && setShowRecent(true)}
             placeholder={placeholder}
             aria-label="Search products or services"
             className="h-[56px] w-full bg-[#0f172a] text-white placeholder:text-slate-400 border border-slate-700 rounded-xl px-5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
@@ -136,6 +236,57 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               WebkitTextFillColor: 'white',
             }}
           />
+
+          {/* Recent Searches Dropdown */}
+          {isEnterpriseEnabled && showRecent && recentSearches.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-[#161B22] border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
+              <div className="p-3 border-b border-slate-700/50">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <ClockIcon />
+                  Căutări recente
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {recentSearches.map((search, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between px-4 py-2 hover:bg-slate-700/50 transition cursor-pointer border-b border-slate-700/30 last:border-b-0"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectRecent(search)}
+                      className="flex-1 text-left"
+                    >
+                      <div className="text-sm text-white font-medium">{search.query}</div>
+                      {search.category && (
+                        <div className="text-xs text-gray-400">{search.category}</div>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFromRecentSearches(idx)}
+                      className="text-gray-500 hover:text-gray-300 transition ml-2"
+                      aria-label="Remove search"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {query.trim() && !recentSearches.some(s => s.query === query.trim()) && (
+                <div className="border-t border-slate-700/50 p-3">
+                  <button
+                    type="button"
+                    onClick={() => addToRecentSearches(query.trim(), category || undefined)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-700/30 hover:bg-slate-700/50 text-white text-sm rounded-lg transition"
+                  >
+                    <SaveIcon />
+                    Salvează căutarea
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Category Select */}
