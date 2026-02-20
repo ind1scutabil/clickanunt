@@ -48,6 +48,50 @@ test.describe('Messaging', () => {
     expect(page.url()).toContain('/messages');
   });
 
+  test('[SMOKE] message send and delivery flow', async ({ page }) => {
+    // Navigate to messages page
+    await page.goto('/dashboard/messages');
+    
+    // Wait for messages page to load
+    await page.waitForSelector('text=Conversații', { timeout: 10000 });
+    
+    // Get first conversation if available
+    const conversationButton = page.locator('button').filter({ has: page.locator('text=') }).first();
+    const conversationVisible = await conversationButton.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    if (conversationVisible) {
+      // Click first conversation
+      await conversationButton.click();
+      
+      // Wait for message input to appear
+      const messageInput = page.locator('input[placeholder*="mesaj"], input[placeholder*="Scrie"], #message-input');
+      await messageInput.waitFor({ timeout: 5000 });
+      
+      // Type test message
+      const testMessage = `Test message ${Date.now()}`;
+      await messageInput.fill(testMessage);
+      
+      // Find and click send button
+      const sendButton = page.locator('button:has-text("Trimite"), #send-button').last();
+      expect(await sendButton.isEnabled()).toBe(true);
+      
+      // Send the message
+      await sendButton.click();
+      
+      // Wait briefly for message to process
+      await page.waitForTimeout(1500);
+      
+      // **CRITICAL CHECK**: Verify message appears in conversation thread
+      // This is the test for the message delivery bug fix
+      const messageInThread = page.locator(`text=${testMessage}`);
+      expect(await messageInThread.isVisible({ timeout: 5000 })).toBe(true);
+      
+      console.log('[SMOKE-TEST] ✓ Message delivery successful: message appears in thread');
+    } else {
+      console.log('[SMOKE-TEST] ⚠️ No conversations available to test');
+    }
+  });
+
   test('should display empty messages state', async ({ page }) => {
     await page.goto('/messages');
     

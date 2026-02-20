@@ -63,18 +63,7 @@ export default function MessagesPage() {
   const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
   const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Diagnostic: Component mount tracking
-  console.log('[MOUNT-CHECK] MessagesPage component rendering...');
-  if (typeof window !== 'undefined') {
-    (window as any).__messagesPageRendered = new Date().toISOString();
-  }
-
   useEffect(() => {
-    console.log('[MOUNT-CHECK] MessagesPage useEffect with empty deps - COMPONENT MOUNTED');
-    if (typeof window !== 'undefined') {
-      (window as any).__messagesPageMounted = true;
-      console.log('[MOUNT-CHECK] Set window.__messagesPageMounted = true');
-    }
     // Check authentication
     const token = localStorage.getItem('accessToken');
     if (!token) {
@@ -157,6 +146,10 @@ export default function MessagesPage() {
 
       if (!selectedConversation && conversationsList.length > 0) {
         await handleSelectConversation(conversationsList[0]);
+      } else if (selectedConversation && conversationsList.length > 0) {
+        // **CRITICAL FIX**: After message send, re-fetch messages for currently selected conversation
+        // This ensures the new message appears in the thread
+        await fetchMessages(selectedConversation.otherParticipant.id, selectedConversation.listing?.id, selectedConversation.id, 'manual');
       }
       setIsLoading(false);
     } catch (err) {
@@ -164,7 +157,7 @@ export default function MessagesPage() {
       setIsLoading(false);
     }
 
-    // Start real-time polling for conversations (every 800ms)
+    // Start real-time polling for conversations (every 1500ms)
     if (!conversationsPollingRef.current) {
       conversationsPollingRef.current = setInterval(async () => {
         try {
@@ -192,27 +185,23 @@ export default function MessagesPage() {
   };
 
   const handleSelectConversation = async (conversation: Conversation) => {
-    console.log('[SELECT-CONV] Selected conversation:', conversation.id, 'with', conversation.otherParticipant.name);
     setSelectedConversation(conversation);
     selectedConversationRef.current = conversation;
     await fetchMessages(conversation.otherParticipant.id, conversation.listing?.id, conversation.id);
 
     // Clear old polling
     if (messagesPollingRef.current) {
-      console.log('[SELECT-CONV] Clearing old polling interval');
       clearInterval(messagesPollingRef.current);
     }
     
-    // Start real-time polling for messages (every 500ms)
-    console.log('[SELECT-CONV] Starting message polling at 800ms...');
+    // Start real-time polling for messages (every 800ms)
     messagesPollingRef.current = setInterval(() => {
       const currentConversation = selectedConversationRef.current;
       if (!currentConversation) {
-        console.warn('[POLLING] ❌ No currentConversation in ref!');
+        console.warn('[Messaging] No conversation in ref during poll');
         return;
       }
       if (isSendingRef.current) {
-        console.log('[POLLING] Skipping - isSendingRef is true');
         return;
       }
       fetchMessages(
@@ -235,10 +224,6 @@ export default function MessagesPage() {
     }
 
     const requestSeq = ++messagesRequestSeqRef.current;
-    
-    if (source === 'poll') {
-      console.log(`[POLL-MSG] Fetching messages for conv ${conversationId}`);
-    }
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -256,20 +241,11 @@ export default function MessagesPage() {
         credentials: 'include',
       });
 
-      if (source === 'poll') {
-        console.log(`[POLL-MSG] Response status: ${response.status}`);
-      }
-
       if (!response.ok) {
-        if (source === 'poll') console.warn(`[POLL-MSG] ❌ Response not ok`);
         throw new Error('Failed to fetch messages');
       }
 
       const data = await response.json();
-      if (source === 'poll') {
-        console.log(`[POLL-MSG] Got ${Array.isArray(data) ? data.length : (data.messages || []).length} messages`);
-      }
-
       const nextMessages = Array.isArray(data) ? data : data.messages || [];
 
       if (requestSeq < lastAppliedMessagesSeqRef.current) {
@@ -278,7 +254,6 @@ export default function MessagesPage() {
 
       const currentConversation = selectedConversationRef.current;
       if (!currentConversation) {
-        if (source === 'poll') console.warn(`[POLL-MSG] ❌ No current conversation!`);
         return;
       }
 
@@ -328,26 +303,19 @@ export default function MessagesPage() {
           prevLast?.id === nextLast?.id &&
           prevLast?.updatedAt === nextLast?.updatedAt;
 
-        if (source === 'poll' && !isSameSnapshot) {
-          console.log(`[POLL-MSG] ✓ State updated: ${prevMessages.length} -> ${mergedMessages.length} messages`);
-        }
-
         return isSameSnapshot ? prevMessages : mergedMessages;
       });
     } catch (err) {
-      console.error(`[POLL-MSG] Error:`, err);
+      console.error('[Messages] Error fetching messages:', err);
     }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[SEND] Button clicked, form submitted');
     
     const activeConversation = selectedConversationRef.current || selectedConversation;
-    console.log('[SEND] activeConversation:', activeConversation?.id, 'newMessage length:', newMessage.trim().length);
     
     if (!newMessage.trim() || !activeConversation) {
-      console.log('[SEND] ❌ Early return - no message or no conversation');
       return;
     }
 
@@ -417,7 +385,7 @@ export default function MessagesPage() {
       console.log('[SEND] CSRF token obtained');
       
       let response = await sendMessageRequest(csrfToken);
-      console.log('[SEND] Response received, status:', response.status);
+      
 
       if (response.status === 403) {
         console.log('[SEND] CSRF 403, retrying with fresh token...');
@@ -434,7 +402,7 @@ export default function MessagesPage() {
       }
 
       const data = await response.json();
-      console.log('[SEND] ✓ Response success:', data);
+      
 
       const resolvedConversationId = data?.conversationId || conversationSnapshot.id;
 
@@ -459,7 +427,6 @@ export default function MessagesPage() {
       }
 
       if (resolvedConversationId !== conversationSnapshot.id) {
-        console.log('[SEND] Conversation ID changed from', conversationSnapshot.id, 'to', resolvedConversationId);
         setSelectedConversation((prev) => {
           const next = prev ? { ...prev, id: resolvedConversationId } : prev;
           selectedConversationRef.current = next;
@@ -467,17 +434,14 @@ export default function MessagesPage() {
         });
       }
 
-      // Let polling reconcile the canonical server list to avoid immediate overwrite races.
-      console.log('[SEND] Triggering fetchConversations to sync...');
-      fetchConversations();
-      console.log('[SEND] ✓✓✓ MESSAGE SEND COMPLETE ✓✓✓');
+      // Re-sync conversations and messages after send
+      await fetchConversations();
     } catch (err) {
-      console.error('[SEND] ❌ EXCEPTION:', err);
+      console.error('[Messaging] Error sending message:', err);
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessageId));
       setNewMessage(trimmedContent);
       alert('Eroare la trimiterea mesajului. Te rog încearcă din nou.');
     } finally {
-      console.log('[SEND] Finally block - setting isSending to false');
       setIsSending(false);
     }
   };
@@ -633,11 +597,7 @@ export default function MessagesPage() {
 
                 {/* Input */}
                 <form
-                  onSubmit={(e) => {
-                    console.log('[FORM] Form submitted - calling handleSendMessage');
-                    console.log('[FORM] Event:', e, 'Type:', e.type);
-                    handleSendMessage(e);
-                  }}
+                  onSubmit={handleSendMessage}
                   className="p-6 border-t border-[#2A2A2A] flex gap-3"
                   id="message-form"
                 >
@@ -646,9 +606,6 @@ export default function MessagesPage() {
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value);
-                      if (e.target.value.length % 10 === 0) {
-                        console.log('[INPUT] Typing, current length:', e.target.value.length);
-                      }
                     }}
                     placeholder="Scrie mesajul..."
                     className="flex-1 bg-[#2A2A2A] border-2 border-[#2A2A2A] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF7900]"
@@ -657,15 +614,6 @@ export default function MessagesPage() {
                   <button
                     type="submit"
                     disabled={isSending || !newMessage.trim()}
-                    onClick={(e) => {
-                      console.log('[BUTTON-CLICK] Button clicked! DOM check:', {
-                        form: document.getElementById('message-form'),
-                        input: document.getElementById('message-input'),
-                        isSending,
-                        hasText: !!newMessage.trim(),
-                        buttonDisabled: isSending || !newMessage.trim()
-                      });
-                    }}
                     className="px-6 py-2 bg-gradient-to-r from-[#FF7900] to-[#E66D00] text-white rounded-lg font-bold hover:shadow-lg hover:shadow-[#FF7900]/50 transition disabled:opacity-50"
                     id="send-button"
                   >
