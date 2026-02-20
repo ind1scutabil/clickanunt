@@ -443,7 +443,7 @@ export async function POST(request: Request) {
       city: cleanBody.city,
       region: cleanBody.region,
       photos: cleanBody.photos ?? [],
-      contactPhone: cleanBody.phone,
+      contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
       isFeatured: cleanBody.isFeatured ?? false,
       
       // Auto-specific fields (nullable)

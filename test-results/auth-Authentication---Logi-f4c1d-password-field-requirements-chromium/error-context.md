@@ -1,0 +1,123 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - link "Înapoi acasă" [ref=e6] [cursor=pointer]:
+      - /url: /
+      - img [ref=e7]
+      - text: Înapoi acasă
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: 📦
+        - heading "ClickAnunț" [level=1] [ref=e12]
+      - heading "Autentificare" [level=2] [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Email
+          - textbox "exemplu@email.com" [ref=e17]
+        - generic [ref=e18]:
+          - generic [ref=e19]: Parola
+          - textbox "••••••••" [ref=e20]
+          - link "Ai uitat parola?" [ref=e22] [cursor=pointer]:
+            - /url: /auth/forgot-password
+        - button "Conecteaza-te" [ref=e23] [cursor=pointer]
+      - paragraph [ref=e24]:
+        - text: Nu ai cont?
+        - link "Creeaza cont nou" [ref=e25] [cursor=pointer]:
+          - /url: /auth/signup
+    - generic [ref=e26]:
+      - paragraph [ref=e27]: "Demo: Foloseste orice email pentru a te conecta"
+      - paragraph [ref=e28]: "build: 1771577464857"
+  - contentinfo [ref=e29]:
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - heading "ClickAnunț" [level=3] [ref=e33]
+        - paragraph [ref=e34]: Platforma ta de încredere pentru toate tipurile de anunțuri.
+        - generic [ref=e35]:
+          - link [ref=e36] [cursor=pointer]:
+            - /url: https://facebook.com
+            - img [ref=e37]
+          - link [ref=e39] [cursor=pointer]:
+            - /url: https://instagram.com
+            - img [ref=e40]
+      - generic [ref=e42]:
+        - heading "Link-uri Rapide" [level=4] [ref=e43]
+        - list [ref=e44]:
+          - listitem [ref=e45]:
+            - link "Acasă" [ref=e46] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e47]:
+            - link "Anunțuri" [ref=e48] [cursor=pointer]:
+              - /url: /listings
+          - listitem [ref=e49]:
+            - link "Adaugă Anunț" [ref=e50] [cursor=pointer]:
+              - /url: /listings/new
+          - listitem [ref=e51]:
+            - link "Contact" [ref=e52] [cursor=pointer]:
+              - /url: /contact
+      - generic [ref=e53]:
+        - heading "Informații Legale" [level=4] [ref=e54]
+        - list [ref=e55]:
+          - listitem [ref=e56]:
+            - link "📄 Termeni și Condiții" [ref=e57] [cursor=pointer]:
+              - /url: /terms
+          - listitem [ref=e58]:
+            - link "🔐 Politica de Confidențialitate (GDPR)" [ref=e59] [cursor=pointer]:
+              - /url: /privacy
+          - listitem [ref=e60]:
+            - link "⚖️ Drepturile GDPR" [ref=e61] [cursor=pointer]:
+              - /url: /contact
+          - listitem [ref=e62]:
+            - link "🇪🇺 Soluționare Litigii UE" [ref=e63] [cursor=pointer]:
+              - /url: https://ec.europa.eu/consumers/odr
+      - generic [ref=e64]:
+        - heading "Contact" [level=4] [ref=e65]
+        - list [ref=e66]:
+          - listitem [ref=e67]:
+            - link "🛡️ admin@clickanunt.ro" [ref=e68] [cursor=pointer]:
+              - /url: mailto:admin@clickanunt.ro
+          - listitem [ref=e69]:
+            - link "🆘 support@clickanunt.ro" [ref=e70] [cursor=pointer]:
+              - /url: mailto:support@clickanunt.ro
+          - listitem [ref=e71]:
+            - link "💳 billing@clickanunt.ro" [ref=e72] [cursor=pointer]:
+              - /url: mailto:billing@clickanunt.ro
+          - listitem [ref=e73]:
+            - link "📧 contact@clickanunt.ro" [ref=e74] [cursor=pointer]:
+              - /url: mailto:contact@clickanunt.ro
+          - listitem [ref=e75]:
+            - link "🔐 dpo@clickanunt.ro (GDPR)" [ref=e76] [cursor=pointer]:
+              - /url: mailto:dpo@clickanunt.ro
+          - listitem [ref=e77]:
+            - link "📱 +40 XXX XXX XXX" [ref=e78] [cursor=pointer]:
+              - /url: tel:+40XXXXXXXXX
+          - listitem [ref=e79]: "Luni - Vineri: 09:00 - 18:00"
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - paragraph [ref=e84]: © 2026 ClickAnunț. Toate drepturile rezervate.
+        - paragraph [ref=e85]: "ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181"
+      - generic [ref=e86]:
+        - link "Termeni" [ref=e87] [cursor=pointer]:
+          - /url: /terms
+        - link "GDPR" [ref=e88] [cursor=pointer]:
+          - /url: /privacy
+        - link "Contact" [ref=e89] [cursor=pointer]:
+          - /url: /contact
+        - link "ANSPDCP" [ref=e90] [cursor=pointer]:
+          - /url: https://www.dataprotection.ro
+    - paragraph [ref=e93]:
+      - text: 🔐 Respectăm confidențialitatea ta. Datele personale sunt prelucrate conform
+      - link "GDPR (Regulamentul UE 2016/679)" [ref=e94] [cursor=pointer]:
+        - /url: /privacy
+      - text: și
+      - link "Legii 190/2018" [ref=e95] [cursor=pointer]:
+        - /url: /terms
+      - text: . Pentru exercitarea drepturilor GDPR, contactați
+      - link "dpo@clickanunt.ro" [ref=e96] [cursor=pointer]:
+        - /url: mailto:dpo@clickanunt.ro
+      - text: .
+  - button "Open Next.js Dev Tools" [ref=e102] [cursor=pointer]:
+    - img [ref=e103]
+  - alert [ref=e106]
+```

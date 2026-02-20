@@ -9,15 +9,25 @@ import { applySecurityHeaders } from "@/lib/security/headers";
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
+  const path = request.nextUrl.pathname;
+
+  const isMessagesRoute = path === "/messages" || path === "/dashboard/messages";
 
   // Add no-cache headers for auth pages and API auth routes
   if (
-    request.nextUrl.pathname.startsWith("/auth/") ||
-    request.nextUrl.pathname.startsWith("/api/auth/")
+    path.startsWith("/auth/") ||
+    path.startsWith("/api/auth/") ||
+    isMessagesRoute
   ) {
     response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    response.headers.set("CDN-Cache-Control", "no-store");
+    response.headers.set("Cloudflare-CDN-Cache-Control", "no-store");
     response.headers.set("Pragma", "no-cache");
     response.headers.set("Expires", "0");
+
+    if (isMessagesRoute) {
+      response.headers.set("Clear-Site-Data", '"cache"');
+    }
   }
 
   // Apply security headers to all responses

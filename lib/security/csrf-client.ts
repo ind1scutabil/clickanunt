@@ -1,6 +1,11 @@
 let cachedToken: string | null = null;
 let inflight: Promise<string> | null = null;
 
+export function clearCsrfTokenCache(): void {
+  cachedToken = null;
+  inflight = null;
+}
+
 export async function getCsrfToken(): Promise<string> {
   if (cachedToken) return cachedToken;
   if (inflight) return inflight;

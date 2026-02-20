@@ -1,0 +1,460 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Salt la conținut principal" [ref=e3] [cursor=pointer]:
+      - /url: "#main-content"
+    - banner [ref=e4]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - link "Despre noi" [ref=e9] [cursor=pointer]:
+            - /url: /about
+            - img [ref=e10]
+            - generic [ref=e12]: Despre noi
+          - link "Asistență" [ref=e13] [cursor=pointer]:
+            - /url: /contact
+            - img [ref=e14]
+            - generic [ref=e16]: Asistență
+        - generic [ref=e17]:
+          - link "contact@clickanunt.ro" [ref=e18] [cursor=pointer]:
+            - /url: mailto:contact@clickanunt.ro
+            - img [ref=e19]
+            - generic [ref=e21]: contact@clickanunt.ro
+          - link "+40 784 712 496" [ref=e22] [cursor=pointer]:
+            - /url: tel:+40784712496
+            - img [ref=e23]
+            - generic [ref=e25]: +40 784 712 496
+      - generic [ref=e27]:
+        - link "📦 ClickAnunț Anunțuri gratuite" [ref=e28] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e29]: 📦
+          - generic [ref=e30]:
+            - generic [ref=e31]: ClickAnunț
+            - generic [ref=e32]: Anunțuri gratuite
+        - generic [ref=e34]:
+          - img [ref=e36]
+          - textbox "Caută anunțuri" [ref=e38]:
+            - /placeholder: Ce cauți astăzi?
+          - button "Caută" [ref=e39] [cursor=pointer]
+        - navigation [ref=e40]:
+          - button "Meniu categorii" [ref=e42] [cursor=pointer]:
+            - img [ref=e43]
+            - text: Categorii
+            - img [ref=e45]
+          - link "Mesaje" [ref=e47] [cursor=pointer]:
+            - /url: /messages
+            - img [ref=e51]
+            - generic [ref=e53]: Mesaje
+          - link "Anunțuri favorite" [ref=e54] [cursor=pointer]:
+            - /url: /favorites
+            - img [ref=e58]
+            - generic [ref=e60]: Favorite
+          - button "Meniu utilizator" [ref=e62] [cursor=pointer]:
+            - img [ref=e63]
+            - generic [ref=e65]: Cont
+            - generic [ref=e66]: DELOGAT
+            - img [ref=e67]
+          - link "ADAUGĂ ANUNȚ" [ref=e69] [cursor=pointer]:
+            - /url: /listings/new
+            - img [ref=e70]
+            - generic [ref=e72]: ADAUGĂ ANUNȚ
+    - main [ref=e73]:
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - generic [ref=e77]: Platformă enterprise pentru anunțuri verificate
+          - heading "Găsește rapid oportunitățile potrivite în toată România, cu încredere" [level=1] [ref=e79]:
+            - text: Găsește rapid oportunitățile potrivite
+            - text: în toată România, cu încredere
+          - paragraph [ref=e80]: Peste 50.000 anunțuri verificate, filtre inteligente și protecție anti-fraudă.
+        - generic [ref=e83]:
+          - textbox "Search products or services" [ref=e85]:
+            - /placeholder: Caută mașini, apartamente, telefoane...
+          - combobox "Category filter" [ref=e86]:
+            - option "Agricultură" [selected]
+            - option "Altele"
+            - option "Animale de companie"
+            - option "Auto, moto și ambarcațiuni"
+            - option "Casă și grădină"
+            - option "Copii și bebeluși"
+            - option "Electronice și electrocasnice"
+            - option "Imobiliare"
+            - option "Locuri de muncă"
+            - option "Modă și frumusețe"
+            - option "Servicii și afaceri"
+            - option "Sport, timp liber și artă"
+          - button "Search" [ref=e87] [cursor=pointer]:
+            - img [ref=e88]
+            - generic [ref=e90]: Caută
+        - generic [ref=e91]:
+          - generic [ref=e93]: ✔️ Anunțuri verificate
+          - generic [ref=e95]: 🔒 Protecție anti-fraudă
+          - generic [ref=e97]: ⚡ Răspuns rapid
+          - generic [ref=e99]: ⭐ Suport dedicat
+        - generic [ref=e100]:
+          - link "Adaugă Anunț" [ref=e101] [cursor=pointer]:
+            - /url: /listings/new
+            - button "Adaugă Anunț" [ref=e102]:
+              - generic [ref=e103]:
+                - img [ref=e104]
+                - text: Adaugă Anunț
+          - link "Conectează-te" [ref=e106] [cursor=pointer]:
+            - /url: /auth/login
+            - button "Conectează-te" [ref=e107]:
+              - generic [ref=e108]: Conectează-te
+      - generic [ref=e109]:
+        - generic [ref=e110]:
+          - heading "Toate categoriile" [level=2] [ref=e111]
+          - paragraph [ref=e112]: Descoperă mii de anunțuri în 12 categorii diverse
+        - generic [ref=e113]:
+          - link "Agricultură 🌾 987 anunțuri Agricultură Vezi anunțuri" [ref=e114] [cursor=pointer]:
+            - /url: /listings?category=Agricultur%C4%83
+            - button "Agricultură 🌾 987 anunțuri Agricultură Vezi anunțuri" [ref=e115]:
+              - img "Agricultură" [ref=e116]
+              - generic [ref=e119]:
+                - generic [ref=e122]: 🌾
+                - generic [ref=e123]:
+                  - generic [ref=e125]: 987 anunțuri
+                  - heading "Agricultură" [level=3] [ref=e127]
+                  - generic [ref=e128]:
+                    - generic [ref=e129]: Vezi anunțuri
+                    - img [ref=e131]
+          - link "Altele 📦 1.234 anunțuri Altele Vezi anunțuri" [ref=e133] [cursor=pointer]:
+            - /url: /listings?category=Altele
+            - button "Altele 📦 1.234 anunțuri Altele Vezi anunțuri" [ref=e134]:
+              - img "Altele" [ref=e135]
+              - generic [ref=e138]:
+                - generic [ref=e141]: 📦
+                - generic [ref=e142]:
+                  - generic [ref=e144]: 1.234 anunțuri
+                  - heading "Altele" [level=3] [ref=e146]
+                  - generic [ref=e147]:
+                    - generic [ref=e148]: Vezi anunțuri
+                    - img [ref=e150]
+          - link "Animale de companie 🐾 1.654 anunțuri Animale de companie Vezi anunțuri" [ref=e152] [cursor=pointer]:
+            - /url: /listings?category=Animale%20de%20companie
+            - button "Animale de companie 🐾 1.654 anunțuri Animale de companie Vezi anunțuri" [ref=e153]:
+              - img "Animale de companie" [ref=e154]
+              - generic [ref=e157]:
+                - generic [ref=e160]: 🐾
+                - generic [ref=e161]:
+                  - generic [ref=e163]: 1.654 anunțuri
+                  - heading "Animale de companie" [level=3] [ref=e165]
+                  - generic [ref=e166]:
+                    - generic [ref=e167]: Vezi anunțuri
+                    - img [ref=e169]
+          - link "Auto, moto și ambarcațiuni 🚗 POPULAR 15.234 anunțuri Auto, moto și ambarcațiuni Vezi anunțuri" [ref=e171] [cursor=pointer]:
+            - /url: /listings?category=Auto%2C%20moto%20%C8%99i%20ambarca%C8%9Biuni
+            - button "Auto, moto și ambarcațiuni 🚗 POPULAR 15.234 anunțuri Auto, moto și ambarcațiuni Vezi anunțuri" [ref=e172]:
+              - img "Auto, moto și ambarcațiuni" [ref=e173]
+              - generic [ref=e176]:
+                - generic [ref=e177]:
+                  - generic [ref=e179]: 🚗
+                  - generic [ref=e181]: POPULAR
+                - generic [ref=e182]:
+                  - generic [ref=e184]: 15.234 anunțuri
+                  - heading "Auto, moto și ambarcațiuni" [level=3] [ref=e186]
+                  - generic [ref=e187]:
+                    - generic [ref=e188]: Vezi anunțuri
+                    - img [ref=e190]
+          - link "Casă și grădină 🛋️ POPULAR 4.321 anunțuri Casă și grădină Vezi anunțuri" [ref=e192] [cursor=pointer]:
+            - /url: /listings?category=Cas%C4%83%20%C8%99i%20gr%C4%83din%C4%83
+            - button "Casă și grădină 🛋️ POPULAR 4.321 anunțuri Casă și grădină Vezi anunțuri" [ref=e193]:
+              - img "Casă și grădină" [ref=e194]
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - generic [ref=e200]: 🛋️
+                  - generic [ref=e202]: POPULAR
+                - generic [ref=e203]:
+                  - generic [ref=e205]: 4.321 anunțuri
+                  - heading "Casă și grădină" [level=3] [ref=e207]
+                  - generic [ref=e208]:
+                    - generic [ref=e209]: Vezi anunțuri
+                    - img [ref=e211]
+          - link "Copii și bebeluși 🧸 2.987 anunțuri Copii și bebeluși Vezi anunțuri" [ref=e213] [cursor=pointer]:
+            - /url: /listings?category=Copii%20%C8%99i%20bebelu%C8%99i
+            - button "Copii și bebeluși 🧸 2.987 anunțuri Copii și bebeluși Vezi anunțuri" [ref=e214]:
+              - img "Copii și bebeluși" [ref=e215]
+              - generic [ref=e218]:
+                - generic [ref=e221]: 🧸
+                - generic [ref=e222]:
+                  - generic [ref=e224]: 2.987 anunțuri
+                  - heading "Copii și bebeluși" [level=3] [ref=e226]
+                  - generic [ref=e227]:
+                    - generic [ref=e228]: Vezi anunțuri
+                    - img [ref=e230]
+          - link "Electronice și electrocasnice 💻 POPULAR 8.932 anunțuri Electronice și electrocasnice Vezi anunțuri" [ref=e232] [cursor=pointer]:
+            - /url: /listings?category=Electronice%20%C8%99i%20electrocasnice
+            - button "Electronice și electrocasnice 💻 POPULAR 8.932 anunțuri Electronice și electrocasnice Vezi anunțuri" [ref=e233]:
+              - img "Electronice și electrocasnice" [ref=e234]
+              - generic [ref=e237]:
+                - generic [ref=e238]:
+                  - generic [ref=e240]: 💻
+                  - generic [ref=e242]: POPULAR
+                - generic [ref=e243]:
+                  - generic [ref=e245]: 8.932 anunțuri
+                  - heading "Electronice și electrocasnice" [level=3] [ref=e247]
+                  - generic [ref=e248]:
+                    - generic [ref=e249]: Vezi anunțuri
+                    - img [ref=e251]
+          - link "Imobiliare 🏠 POPULAR 12.456 anunțuri Imobiliare Vezi anunțuri" [ref=e253] [cursor=pointer]:
+            - /url: /listings?category=Imobiliare
+            - button "Imobiliare 🏠 POPULAR 12.456 anunțuri Imobiliare Vezi anunțuri" [ref=e254]:
+              - img "Imobiliare" [ref=e255]
+              - generic [ref=e258]:
+                - generic [ref=e259]:
+                  - generic [ref=e261]: 🏠
+                  - generic [ref=e263]: POPULAR
+                - generic [ref=e264]:
+                  - generic [ref=e266]: 12.456 anunțuri
+                  - heading "Imobiliare" [level=3] [ref=e268]
+                  - generic [ref=e269]:
+                    - generic [ref=e270]: Vezi anunțuri
+                    - img [ref=e272]
+          - link "Locuri de muncă 💼 POPULAR 5.432 anunțuri Locuri de muncă Vezi anunțuri" [ref=e274] [cursor=pointer]:
+            - /url: /listings?category=Locuri%20de%20munc%C4%83
+            - button "Locuri de muncă 💼 POPULAR 5.432 anunțuri Locuri de muncă Vezi anunțuri" [ref=e275]:
+              - img "Locuri de muncă" [ref=e276]
+              - generic [ref=e279]:
+                - generic [ref=e280]:
+                  - generic [ref=e282]: 💼
+                  - generic [ref=e284]: POPULAR
+                - generic [ref=e285]:
+                  - generic [ref=e287]: 5.432 anunțuri
+                  - heading "Locuri de muncă" [level=3] [ref=e289]
+                  - generic [ref=e290]:
+                    - generic [ref=e291]: Vezi anunțuri
+                    - img [ref=e293]
+          - link "Modă și frumusețe 👗 POPULAR 6.543 anunțuri Modă și frumusețe Vezi anunțuri" [ref=e295] [cursor=pointer]:
+            - /url: /listings?category=Mod%C4%83%20%C8%99i%20frumuse%C8%9Be
+            - button "Modă și frumusețe 👗 POPULAR 6.543 anunțuri Modă și frumusețe Vezi anunțuri" [ref=e296]:
+              - img "Modă și frumusețe" [ref=e297]
+              - generic [ref=e300]:
+                - generic [ref=e301]:
+                  - generic [ref=e303]: 👗
+                  - generic [ref=e305]: POPULAR
+                - generic [ref=e306]:
+                  - generic [ref=e308]: 6.543 anunțuri
+                  - heading "Modă și frumusețe" [level=3] [ref=e310]
+                  - generic [ref=e311]:
+                    - generic [ref=e312]: Vezi anunțuri
+                    - img [ref=e314]
+          - link "Servicii și afaceri 🔧 3.210 anunțuri Servicii și afaceri Vezi anunțuri" [ref=e316] [cursor=pointer]:
+            - /url: /listings?category=Servicii%20%C8%99i%20afaceri
+            - button "Servicii și afaceri 🔧 3.210 anunțuri Servicii și afaceri Vezi anunțuri" [ref=e317]:
+              - img "Servicii și afaceri" [ref=e318]
+              - generic [ref=e321]:
+                - generic [ref=e324]: 🔧
+                - generic [ref=e325]:
+                  - generic [ref=e327]: 3.210 anunțuri
+                  - heading "Servicii și afaceri" [level=3] [ref=e329]
+                  - generic [ref=e330]:
+                    - generic [ref=e331]: Vezi anunțuri
+                    - img [ref=e333]
+          - link "Sport, timp liber și artă ⚽ 3.876 anunțuri Sport, timp liber și artă Vezi anunțuri" [ref=e335] [cursor=pointer]:
+            - /url: /listings?category=Sport%2C%20timp%20liber%20%C8%99i%20art%C4%83
+            - button "Sport, timp liber și artă ⚽ 3.876 anunțuri Sport, timp liber și artă Vezi anunțuri" [ref=e336]:
+              - img "Sport, timp liber și artă" [ref=e337]
+              - generic [ref=e340]:
+                - generic [ref=e343]: ⚽
+                - generic [ref=e344]:
+                  - generic [ref=e346]: 3.876 anunțuri
+                  - heading "Sport, timp liber și artă" [level=3] [ref=e348]
+                  - generic [ref=e349]:
+                    - generic [ref=e350]: Vezi anunțuri
+                    - img [ref=e352]
+      - generic [ref=e354]:
+        - heading "De ce ClickAnunț?" [level=2] [ref=e356]
+        - generic [ref=e357]:
+          - generic [ref=e359]:
+            - generic [ref=e360]: ⚡
+            - heading "Rapid și Ușor" [level=3] [ref=e361]
+            - paragraph [ref=e362]: Publică un anunț în doar 2 minute. Interfață simplă și intuitivă.
+          - generic [ref=e364]:
+            - generic [ref=e365]: 🔒
+            - heading "Sigur și Verificat" [level=3] [ref=e366]
+            - paragraph [ref=e367]: Toate anunțurile sunt moderate. Protejăm datele tale personale.
+          - generic [ref=e369]:
+            - generic [ref=e370]: 💯
+            - heading "100% Gratuit" [level=3] [ref=e371]
+            - paragraph [ref=e372]: Fără costuri ascunse. Publică nelimitat, fără abonament.
+      - generic [ref=e373]:
+        - generic [ref=e375]:
+          - generic [ref=e376]:
+            - heading "ClickAnunț" [level=3] [ref=e377]
+            - paragraph [ref=e378]: Platforma ta de încredere pentru toate tipurile de anunțuri.
+            - generic [ref=e379]:
+              - link [ref=e380] [cursor=pointer]:
+                - /url: https://facebook.com
+                - img [ref=e381]
+              - link [ref=e383] [cursor=pointer]:
+                - /url: https://instagram.com
+                - img [ref=e384]
+          - generic [ref=e386]:
+            - heading "Link-uri Rapide" [level=4] [ref=e387]
+            - list [ref=e388]:
+              - listitem [ref=e389]:
+                - link "Acasă" [ref=e390] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e391]:
+                - link "Anunțuri" [ref=e392] [cursor=pointer]:
+                  - /url: /listings
+              - listitem [ref=e393]:
+                - link "Adaugă Anunț" [ref=e394] [cursor=pointer]:
+                  - /url: /listings/new
+              - listitem [ref=e395]:
+                - link "Contact" [ref=e396] [cursor=pointer]:
+                  - /url: /contact
+          - generic [ref=e397]:
+            - heading "Informații Legale" [level=4] [ref=e398]
+            - list [ref=e399]:
+              - listitem [ref=e400]:
+                - link "📄 Termeni și Condiții" [ref=e401] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e402]:
+                - link "🔐 Politica de Confidențialitate (GDPR)" [ref=e403] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e404]:
+                - link "⚖️ Drepturile GDPR" [ref=e405] [cursor=pointer]:
+                  - /url: /contact
+              - listitem [ref=e406]:
+                - link "🇪🇺 Soluționare Litigii UE" [ref=e407] [cursor=pointer]:
+                  - /url: https://ec.europa.eu/consumers/odr
+          - generic [ref=e408]:
+            - heading "Contact" [level=4] [ref=e409]
+            - list [ref=e410]:
+              - listitem [ref=e411]:
+                - link "🛡️ admin@clickanunt.ro" [ref=e412] [cursor=pointer]:
+                  - /url: mailto:admin@clickanunt.ro
+              - listitem [ref=e413]:
+                - link "🆘 support@clickanunt.ro" [ref=e414] [cursor=pointer]:
+                  - /url: mailto:support@clickanunt.ro
+              - listitem [ref=e415]:
+                - link "💳 billing@clickanunt.ro" [ref=e416] [cursor=pointer]:
+                  - /url: mailto:billing@clickanunt.ro
+              - listitem [ref=e417]:
+                - link "📧 contact@clickanunt.ro" [ref=e418] [cursor=pointer]:
+                  - /url: mailto:contact@clickanunt.ro
+              - listitem [ref=e419]:
+                - link "🔐 dpo@clickanunt.ro (GDPR)" [ref=e420] [cursor=pointer]:
+                  - /url: mailto:dpo@clickanunt.ro
+              - listitem [ref=e421]:
+                - link "📱 +40 XXX XXX XXX" [ref=e422] [cursor=pointer]:
+                  - /url: tel:+40XXXXXXXXX
+              - listitem [ref=e423]: "Luni - Vineri: 09:00 - 18:00"
+        - generic [ref=e426]:
+          - generic [ref=e427]:
+            - paragraph [ref=e428]: © 2026 ClickAnunț. Toate drepturile rezervate.
+            - paragraph [ref=e429]: "ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181"
+          - generic [ref=e430]:
+            - link "Termeni" [ref=e431] [cursor=pointer]:
+              - /url: /terms
+            - link "GDPR" [ref=e432] [cursor=pointer]:
+              - /url: /privacy
+            - link "Contact" [ref=e433] [cursor=pointer]:
+              - /url: /contact
+            - link "ANSPDCP" [ref=e434] [cursor=pointer]:
+              - /url: https://www.dataprotection.ro
+        - paragraph [ref=e437]:
+          - text: 🔐 Respectăm confidențialitatea ta. Datele personale sunt prelucrate conform
+          - link "GDPR (Regulamentul UE 2016/679)" [ref=e438] [cursor=pointer]:
+            - /url: /privacy
+          - text: și
+          - link "Legii 190/2018" [ref=e439] [cursor=pointer]:
+            - /url: /terms
+          - text: . Pentru exercitarea drepturilor GDPR, contactați
+          - link "dpo@clickanunt.ro" [ref=e440] [cursor=pointer]:
+            - /url: mailto:dpo@clickanunt.ro
+          - text: .
+  - contentinfo [ref=e441]:
+    - generic [ref=e443]:
+      - generic [ref=e444]:
+        - heading "ClickAnunț" [level=3] [ref=e445]
+        - paragraph [ref=e446]: Platforma ta de încredere pentru toate tipurile de anunțuri.
+        - generic [ref=e447]:
+          - link [ref=e448] [cursor=pointer]:
+            - /url: https://facebook.com
+            - img [ref=e449]
+          - link [ref=e451] [cursor=pointer]:
+            - /url: https://instagram.com
+            - img [ref=e452]
+      - generic [ref=e454]:
+        - heading "Link-uri Rapide" [level=4] [ref=e455]
+        - list [ref=e456]:
+          - listitem [ref=e457]:
+            - link "Acasă" [ref=e458] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e459]:
+            - link "Anunțuri" [ref=e460] [cursor=pointer]:
+              - /url: /listings
+          - listitem [ref=e461]:
+            - link "Adaugă Anunț" [ref=e462] [cursor=pointer]:
+              - /url: /listings/new
+          - listitem [ref=e463]:
+            - link "Contact" [ref=e464] [cursor=pointer]:
+              - /url: /contact
+      - generic [ref=e465]:
+        - heading "Informații Legale" [level=4] [ref=e466]
+        - list [ref=e467]:
+          - listitem [ref=e468]:
+            - link "📄 Termeni și Condiții" [ref=e469] [cursor=pointer]:
+              - /url: /terms
+          - listitem [ref=e470]:
+            - link "🔐 Politica de Confidențialitate (GDPR)" [ref=e471] [cursor=pointer]:
+              - /url: /privacy
+          - listitem [ref=e472]:
+            - link "⚖️ Drepturile GDPR" [ref=e473] [cursor=pointer]:
+              - /url: /contact
+          - listitem [ref=e474]:
+            - link "🇪🇺 Soluționare Litigii UE" [ref=e475] [cursor=pointer]:
+              - /url: https://ec.europa.eu/consumers/odr
+      - generic [ref=e476]:
+        - heading "Contact" [level=4] [ref=e477]
+        - list [ref=e478]:
+          - listitem [ref=e479]:
+            - link "🛡️ admin@clickanunt.ro" [ref=e480] [cursor=pointer]:
+              - /url: mailto:admin@clickanunt.ro
+          - listitem [ref=e481]:
+            - link "🆘 support@clickanunt.ro" [ref=e482] [cursor=pointer]:
+              - /url: mailto:support@clickanunt.ro
+          - listitem [ref=e483]:
+            - link "💳 billing@clickanunt.ro" [ref=e484] [cursor=pointer]:
+              - /url: mailto:billing@clickanunt.ro
+          - listitem [ref=e485]:
+            - link "📧 contact@clickanunt.ro" [ref=e486] [cursor=pointer]:
+              - /url: mailto:contact@clickanunt.ro
+          - listitem [ref=e487]:
+            - link "🔐 dpo@clickanunt.ro (GDPR)" [ref=e488] [cursor=pointer]:
+              - /url: mailto:dpo@clickanunt.ro
+          - listitem [ref=e489]:
+            - link "📱 +40 XXX XXX XXX" [ref=e490] [cursor=pointer]:
+              - /url: tel:+40XXXXXXXXX
+          - listitem [ref=e491]: "Luni - Vineri: 09:00 - 18:00"
+    - generic [ref=e494]:
+      - generic [ref=e495]:
+        - paragraph [ref=e496]: © 2026 ClickAnunț. Toate drepturile rezervate.
+        - paragraph [ref=e497]: "ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181"
+      - generic [ref=e498]:
+        - link "Termeni" [ref=e499] [cursor=pointer]:
+          - /url: /terms
+        - link "GDPR" [ref=e500] [cursor=pointer]:
+          - /url: /privacy
+        - link "Contact" [ref=e501] [cursor=pointer]:
+          - /url: /contact
+        - link "ANSPDCP" [ref=e502] [cursor=pointer]:
+          - /url: https://www.dataprotection.ro
+    - paragraph [ref=e505]:
+      - text: 🔐 Respectăm confidențialitatea ta. Datele personale sunt prelucrate conform
+      - link "GDPR (Regulamentul UE 2016/679)" [ref=e506] [cursor=pointer]:
+        - /url: /privacy
+      - text: și
+      - link "Legii 190/2018" [ref=e507] [cursor=pointer]:
+        - /url: /terms
+      - text: . Pentru exercitarea drepturilor GDPR, contactați
+      - link "dpo@clickanunt.ro" [ref=e508] [cursor=pointer]:
+        - /url: mailto:dpo@clickanunt.ro
+      - text: .
+  - button "Open Next.js Dev Tools" [ref=e514] [cursor=pointer]:
+    - img [ref=e515]
+  - alert [ref=e518]
+```

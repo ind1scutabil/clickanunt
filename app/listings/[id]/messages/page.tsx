@@ -62,6 +62,7 @@ export default function ListingMessagesPage() {
   const router = useRouter();
   const id = params?.id as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,7 +104,7 @@ export default function ListingMessagesPage() {
 
         // Once we have the listing owner, fetch messages
         if (data.owner?.id && data.owner.id !== parsed.id) {
-          fetchMessages(data.owner.id, token);
+          fetchMessages(data.owner.id, token, data.id);
         }
       } catch (err) {
         console.error('Error fetching listing:', err);
@@ -116,13 +117,14 @@ export default function ListingMessagesPage() {
     fetchListing();
   }, [id, router]);
 
-  const fetchMessages = async (ownerId: string, token: string | null) => {
+  const fetchMessages = async (ownerId: string, token: string | null, listingId?: string) => {
     try {
       const headers: HeadersInit = {};
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
-      const res = await fetch(`/api/messages/${ownerId}`, {
+      const query = listingId ? `?listingId=${encodeURIComponent(listingId)}` : '';
+      const res = await fetch(`/api/messages/${ownerId}${query}`, {
         headers,
         credentials: 'include',
       });
@@ -135,6 +137,39 @@ export default function ListingMessagesPage() {
       setMessages([]);
     }
   };
+
+  // Real-time polling scoped to current listing conversation
+  useEffect(() => {
+    if (!listing?.id || !listing?.owner?.id || !currentUser?.id) {
+      return;
+    }
+
+    if (listing.owner.id === currentUser.id) {
+      return;
+    }
+
+    const pollMessages = async () => {
+      const token = localStorage.getItem('accessToken');
+      await fetchMessages(listing.owner!.id, token, listing.id);
+    };
+
+    pollMessages();
+
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+
+    pollingRef.current = setInterval(() => {
+      pollMessages();
+    }, 1000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser || !listing?.owner || sendingMessage) {
@@ -179,8 +214,11 @@ export default function ListingMessagesPage() {
       
       // Add new message to list
       if (data.message) {
-        setMessages([...messages, data.message]);
+        setMessages((prev) => [...prev, data.message]);
       }
+
+      // Refresh conversation messages for the same listing immediately
+      await fetchMessages(listing.owner.id, token, listing.id);
       
       setMessageText('');
     } catch (err: any) {

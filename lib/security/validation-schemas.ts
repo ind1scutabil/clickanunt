@@ -177,6 +177,7 @@ export const listingPromoteSchema = z.object({
 export const messageSendSchema = z.object({
   content: z.string().min(1, 'Message content required').max(5000),
   listingId: z.string().uuid().optional(),
+  conversationId: z.string().uuid().optional(),
 }).strict();
 
 /**

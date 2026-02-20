@@ -11,7 +11,7 @@
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "test:e2e:headless": "playwright test --headed=false",
+    "test:e2e:headless": "playwright test",
     "verify": "npm run lint && npm run type-check && npm run test",
     "predeploy": "npm run lint && npm run type-check && npm run test && npm run build",
     "deploy": "./scripts/deploy.sh",

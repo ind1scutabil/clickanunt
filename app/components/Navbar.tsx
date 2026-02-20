@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
 
@@ -15,6 +15,8 @@ export default function Navbar() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -36,6 +38,36 @@ export default function Navbar() {
       setUserName(null);
     }
   }, []);
+
+  // Polling pentru notificări mesaje necitite
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!isLoggedIn || !token) return;
+
+    const checkUnread = async () => {
+      try {
+        const response = await fetch('/api/messages/conversations', {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const conversations = Array.isArray(data) ? data : data.conversations || [];
+          const total = conversations.reduce((sum: number, conv: any) => sum + (conv.unreadCount || 0), 0);
+          setUnreadCount(total);
+        }
+      } catch (err) {
+        // Fail silently
+      }
+    };
+
+    checkUnread();
+    unreadTimerRef.current = setInterval(checkUnread, 500);
+
+    return () => {
+      if (unreadTimerRef.current) clearInterval(unreadTimerRef.current);
+    };
+  }, [isLoggedIn]);
 
   const getAccountBadge = () => {
     if (!isLoggedIn) return 'DELOGAT';
@@ -256,6 +288,11 @@ export default function Navbar() {
                   <svg className="w-7 h-7 text-[#0B1220] group-hover:text-blue-600 transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                   </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 min-w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1 shadow-lg">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </div>
                 
                 {/* Label */}

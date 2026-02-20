@@ -35,10 +35,6 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const fs = require('fs');
-    const logPath = '/tmp/conversations-debug.log';
-    fs.appendFileSync(logPath, `\n[${new Date().toISOString()}] userId: ${userId}\n`);
-
     // Get all conversations for this user
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -120,9 +116,6 @@ export async function GET(request: NextRequest) {
         createdAt: conv.createdAt,
       };
     });
-    
-    fs.appendFileSync(logPath, `[${new Date().toISOString()}] Returning ${formattedConversations.length} conversations\n`);
-    fs.appendFileSync(logPath, JSON.stringify(formattedConversations, null, 2) + '\n');
     
     return NextResponse.json(formattedConversations);
   } catch (error: unknown) {
