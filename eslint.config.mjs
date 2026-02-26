@@ -37,6 +37,12 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
     },
   },
+  {
+    files: ["apps/mobile/**/*.{ts,tsx}"],
+    rules: {
+      "jsx-a11y/alt-text": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

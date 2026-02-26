@@ -11,7 +11,6 @@
  */
 
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
 
 /**
  * Content Security Policy configuration
@@ -200,5 +199,5 @@ export function isAdminRoute(pathname: string): boolean {
  * Generate nonce for CSP
  */
 export function generateNonce(): string {
-  return Buffer.from(crypto.randomUUID()).toString('base64');
+  return globalThis.crypto.randomUUID().replace(/-/g, '');
 }
