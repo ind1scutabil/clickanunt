@@ -8,7 +8,17 @@ import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  const traceId = request.headers.get('x-request-id') || crypto.randomUUID();
+  requestHeaders.set('x-request-id', traceId);
+
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
+
+  response.headers.set('x-request-id', traceId);
   const path = request.nextUrl.pathname;
 
   const isMessagesRoute = path === "/messages" || path === "/dashboard/messages";
