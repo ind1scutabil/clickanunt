@@ -1,6 +1,7 @@
 import { MOBILE_CONFIG } from '../config';
 import { getFlag } from '../featureFlags';
 import { addBreadcrumb, getRequestId, trackError } from '../telemetry';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
   AuthTokens,
   Conversation,
@@ -13,6 +14,72 @@ import type {
 
 let accessToken: string | null = null;
 let csrfToken: string | null = null;
+const sourceByKey = new Map<string, 'network' | 'cache'>();
+
+type CacheEnvelope<T> = {
+  savedAt: number;
+  data: T;
+};
+
+const cacheKey = (scope: string): string => `mobile.cache.${scope}`;
+
+const readCache = async <T>(key: string): Promise<T | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(cacheKey(key));
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as CacheEnvelope<T>;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+const writeCache = async <T>(key: string, value: T): Promise<void> => {
+  try {
+    const envelope: CacheEnvelope<T> = { savedAt: Date.now(), data: value };
+    await AsyncStorage.setItem(cacheKey(key), JSON.stringify(envelope));
+  } catch {
+  }
+};
+
+const fetchWithCache = async <T>(key: string, fetcher: () => Promise<T>): Promise<T> => {
+  if (!getFlag('enterprise_cache_offline')) {
+    const data = await fetcher();
+    sourceByKey.set(key, 'network');
+    return data;
+  }
+
+  const cached = await readCache<T>(key);
+  if (cached) {
+    sourceByKey.set(key, 'cache');
+    fetcher()
+      .then((fresh) => {
+        sourceByKey.set(key, 'network');
+        writeCache(key, fresh).catch(() => {});
+      })
+      .catch(() => {});
+    return cached;
+  }
+
+  try {
+    const data = await fetcher();
+    sourceByKey.set(key, 'network');
+    await writeCache(key, data);
+    return data;
+  } catch (error) {
+    const fallback = await readCache<T>(key);
+    if (fallback) {
+      sourceByKey.set(key, 'cache');
+      return fallback;
+    }
+    throw error;
+  }
+};
+
+export const getLastDataSource = (key: string): 'network' | 'cache' | null => sourceByKey.get(key) || null;
 
 export const setAccessToken = (token: string | null): void => {
   accessToken = token;
@@ -162,11 +229,13 @@ export const authApi = {
 
 export const listingsApi = {
   async list(): Promise<Listing[]> {
-    const data = await request<any>('/api/listings?status=active');
-    return data.listings ?? data.data ?? data;
+    return fetchWithCache('listings.active', async () => {
+      const data = await request<any>('/api/listings?status=active');
+      return data.listings ?? data.data ?? data;
+    });
   },
   async getById(id: string): Promise<Listing> {
-    return request<Listing>(`/api/listings/${id}`);
+    return fetchWithCache(`listing.${id}`, () => request<Listing>(`/api/listings/${id}`));
   },
   async my(): Promise<Listing[]> {
     const data = await request<any>('/api/listings?userId=me&status=all');
@@ -194,8 +263,10 @@ export const listingsApi = {
 
 export const favoritesApi = {
   async list(): Promise<Listing[]> {
-    const data = await request<any>('/api/favorites');
-    return data.favorites ?? data.listings ?? data.data ?? [];
+    return fetchWithCache('favorites.list', async () => {
+      const data = await request<any>('/api/favorites');
+      return data.favorites ?? data.listings ?? data.data ?? [];
+    });
   },
 };
 
