@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/auth/AuthContext';
+import { AppErrorBoundary } from './src/components/AppErrorBoundary';
 import { refreshRemoteFlags } from './src/featureFlags';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { addBreadcrumb, trackEvent } from './src/telemetry';
@@ -45,9 +46,11 @@ export default function App(): React.JSX.Element {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
+      </AppErrorBoundary>
     </SafeAreaProvider>
   );
 }

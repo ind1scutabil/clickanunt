@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { getLastDataSource, listingsApi } from '../api/client';
 import { useLiveSync } from '../hooks/useLiveSync';
+import { addBreadcrumb, trackEvent } from '../telemetry';
 import { THEME } from '../theme';
 import type { Listing } from '../types';
 
@@ -28,6 +30,8 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [offlineMode, setOfflineMode] = useState(false);
+  const listRef = useRef<FlatList<Listing> | null>(null);
+  const savedOffset = useRef(0);
 
   const load = useCallback(async () => {
     setError(null);
@@ -49,6 +53,20 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
 
   useLiveSync(load, { intervalMs: 12000 });
 
+  useFocusEffect(
+    useCallback(() => {
+      if (savedOffset.current <= 0) {
+        return;
+      }
+
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToOffset({ offset: savedOffset.current, animated: false });
+      }, 120);
+
+      return () => clearTimeout(timer);
+    }, [])
+  );
+
   const filteredItems = useMemo(() => {
     if (selectedCategory === 'all') {
       return items;
@@ -66,7 +84,14 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
         <Text style={styles.headerTitle}>Acasă</Text>
         <Text style={styles.headerSubtitle}>Actualizare automată la 12 secunde</Text>
 
-        <Pressable style={styles.publishButton} onPress={onOpenCreateListing}>
+        <Pressable
+          style={styles.publishButton}
+          onPress={() => {
+            addBreadcrumb('publish_listing_cta_home', 'ui');
+            trackEvent('publish_listing', { source: 'home_cta' }).catch(() => {});
+            onOpenCreateListing();
+          }}
+        >
           <View style={styles.publishIconWrap}>
             <Ionicons name="add-circle" size={18} color="#fff" />
           </View>
@@ -84,7 +109,10 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
               <Pressable
                 key={tab.key}
                 style={[styles.categoryTab, active ? styles.categoryTabActive : undefined]}
-                onPress={() => setSelectedCategory(tab.key)}
+                onPress={() => {
+                  setSelectedCategory(tab.key);
+                  trackEvent('search', { mode: 'category', category: tab.key }).catch(() => {});
+                }}
               >
                 <View style={[styles.categoryIconWrap, active ? styles.categoryIconWrapActive : undefined]}>
                   <Ionicons
@@ -104,6 +132,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
       {offlineMode ? <Text style={styles.offlineHint}>Afișăm ultimele date salvate.</Text> : null}
 
       <FlatList
+        ref={listRef}
         key="home-grid-2"
         data={filteredItems}
         keyExtractor={(item) => item.id}
@@ -111,8 +140,19 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.columnWrapper}
+        onScroll={(event) => {
+          savedOffset.current = event.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => onOpenListing(item.id)}>
+          <Pressable
+            style={styles.card}
+            onPress={() => {
+              addBreadcrumb('open_listing_from_home', 'ui');
+              trackEvent('view_listing', { listingId: item.id, source: 'home_card' }).catch(() => {});
+              onOpenListing(item.id);
+            }}
+          >
             <Image
               source={{ uri: item.photos?.[0] || 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200' }}
               style={styles.coverImage}
@@ -141,16 +181,37 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
             </Text>
 
             <View style={styles.actionsRow}>
-              <Pressable style={styles.primaryAction} onPress={() => onOpenListing(item.id)}>
+              <Pressable
+                style={styles.primaryAction}
+                onPress={() => {
+                  trackEvent('view_listing', { listingId: item.id, source: 'home_details_button' }).catch(() => {});
+                  onOpenListing(item.id);
+                }}
+              >
                 <Text style={styles.primaryActionText}>Vezi detalii</Text>
               </Pressable>
-              <Pressable style={styles.secondaryAction} onPress={() => onOpenListing(item.id)}>
+              <Pressable
+                style={styles.secondaryAction}
+                onPress={() => {
+                  trackEvent('contact_seller', { listingId: item.id, source: 'home_contact_button' }).catch(() => {});
+                  onOpenListing(item.id);
+                }}
+              >
                 <Text style={styles.secondaryActionText}>Contact</Text>
               </Pressable>
             </View>
           </Pressable>
         )}
-        ListEmptyComponent={!refreshing ? <Text style={styles.empty}>Nu există anunțuri disponibile.</Text> : null}
+        ListEmptyComponent={
+          !refreshing ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.empty}>Nu există anunțuri disponibile.</Text>
+              <Pressable style={styles.emptyCta} onPress={onOpenCreateListing}>
+                <Text style={styles.emptyCtaText}>Publică primul anunț</Text>
+              </Pressable>
+            </View>
+          ) : null
+        }
       />
     </View>
   );
@@ -335,5 +396,17 @@ const styles = StyleSheet.create({
   },
   error: { color: THEME.colors.error, paddingHorizontal: 12, paddingTop: 12 },
   offlineHint: { color: THEME.colors.warning, paddingHorizontal: 12, paddingBottom: 6, fontWeight: '600' },
+  emptyWrap: { alignItems: 'center', marginTop: 32 },
   empty: { color: THEME.colors.textMuted, textAlign: 'center', marginTop: 32 },
+  emptyCta: {
+    marginTop: 10,
+    height: 36,
+    borderRadius: THEME.radius.pill,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surface,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  emptyCtaText: { color: THEME.colors.textPrimary, fontWeight: '700', fontSize: 12 },
 });
