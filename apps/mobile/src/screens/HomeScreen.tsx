@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getLastDataSource, listingsApi } from '../api/client';
 import { useLiveSync } from '../hooks/useLiveSync';
@@ -25,6 +26,7 @@ const CATEGORY_TABS: Array<{ key: string; label: string; icon: keyof typeof Ioni
 ];
 
 export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Listing[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
+      <View style={[styles.headerBlock, { paddingTop: Math.max(8, insets.top + 4) }]}>
         <Text style={styles.headerTitle}>Acasă</Text>
         <Text style={styles.headerSubtitle}>Actualizare automată la 12 secunde</Text>
 

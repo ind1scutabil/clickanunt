@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           lastLoginAt: true,
           failedLoginAttempts: true,
+          creditsBalance: true,
+          freeBoostsRemaining: true,
+          promotionDiscountPercent: true,
           _count: {
             select: {
               listings: true,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { favoritesApi, getLastDataSource } from '../api/client';
 import { useLiveSync } from '../hooks/useLiveSync';
@@ -7,6 +8,7 @@ import { THEME } from '../theme';
 import type { Listing } from '../types';
 
 export function FavoritesScreen(): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Listing[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
@@ -29,7 +31,7 @@ export function FavoritesScreen(): React.JSX.Element {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerBlock}>
+      <View style={[styles.headerBlock, { paddingTop: Math.max(8, insets.top + 4) }]}>
         <Text style={styles.headerTitle}>Favorite</Text>
         <Text style={styles.headerSubtitle}>Sincronizare automată</Text>
       </View>

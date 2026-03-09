@@ -234,9 +234,9 @@ export default function AdminModerationPage() {
           role: user.role as UserRole,
           status: user.isBanned ? 'banned' : 'active' as UserStatus,
           listings: user._count?.listings || 0,
-          credits: 0,
-          freePromotions: 0,
-          discount: 0,
+          credits: user.creditsBalance || 0,
+          freePromotions: user.freeBoostsRemaining || 0,
+          discount: user.promotionDiscountPercent || 0,
         }));
         setUsers(mappedUsers);
       }

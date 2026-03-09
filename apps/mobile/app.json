@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "ClickAnunt",
+    "slug": "clickanunt-mobile",
+    "version": "1.0.0",
+    "newArchEnabled": true,
+    "orientation": "portrait",
+    "scheme": "clickanunt",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ro.clickanunt.mobile",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "ClickAnunt needs camera access to upload listing photos.",
+        "NSPhotoLibraryUsageDescription": "ClickAnunt needs photo library access to attach listing images.",
+        "NSMicrophoneUsageDescription": "ClickAnunt may use microphone access for media capture when adding listings."
+      }
+    },
+    "android": {
+      "package": "ro.clickanunt.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "RECORD_AUDIO"
+      ]
+    },
+    "extra": {
+      "siteUrl": "https://www.clickanunt.ro",
+      "eas": {
+        "projectId": "751b9385-25d6-45b9-a469-9a64e9433d3b"
+      }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-notifications",
+      "expo-font"
+    ],
+    "owner": "ind1scutabil"
+  }
+}

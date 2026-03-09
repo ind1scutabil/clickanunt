@@ -16,6 +16,7 @@
     "verify": "npm run lint && npm run type-check && npm run test",
     "predeploy": "npm run lint && npm run type-check && npm run test && npm run build",
     "deploy": "./scripts/deploy.sh",
+    "deploy-auto": "./scripts/deploy-auto.sh",
     "rollback": "./scripts/rollback.sh",
     "postinstall": "prisma generate",
     "db:migrate": "npx prisma migrate deploy",
