@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Login Setup</title>
+</head>
+<body>
+    <h1>Setting up admin session...</h1>
+    <script>
+        // Set admin user data
+        localStorage.setItem('user', JSON.stringify({
+            id: "admin-id",
+            email: "admin@clickanunt.ro",
+            role: "admin",
+            accountType: "business",
+            verificationLevel: "business",
+            name: "Admin"
+        }));
+
+        // Set access token
+        localStorage.setItem('accessToken', 'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJhZG1pbi1pZCIsImVtYWlsIjoiYWRtaW5AY2xpY2thbnVudC5ybyIsInJvbGUiOiJhZG1pbiIsInR5cGUiOiJhY2Nlc3MiLCJpYXQiOjE3NzMwNDcyNTAsImV4cCI6MTc3MzY1MjA1MCwiaXNzIjoiYXV0b3wbGF0Zm9ybSIsImF1ZCI6ImF1dG9wbGF0Zm9ybS11c2VycyJ9.YaewGK61B3puqJ0mLpG0YB5heXDnuFc29xfE0CfUHE8');
+
+        // Redirect to admin page
+        window.location.href = '/admin/moderation';
+    </script>
+</body>
+</html>

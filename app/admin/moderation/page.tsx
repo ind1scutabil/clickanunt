@@ -210,19 +210,38 @@ export default function AdminModerationPage() {
       setUsersError('');
       const token = localStorage.getItem('accessToken');
       console.log('[DEBUG] fetchUsers - token exists:', !!token, 'length:', token?.length);
+      console.log('[DEBUG] fetchUsers - token preview:', token?.substring(0, 20) + '...');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch('/api/admin/users', {
         credentials: 'include',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        signal: controller.signal,
       });
       
+      clearTimeout(timeoutId);
       console.log('[DEBUG] fetchUsers - response status:', response.status);
       if (!response.ok) {
         const errorData = await response.text();
         console.log('[DEBUG] fetchUsers - error response:', errorData);
-        throw new Error('Failed to fetch users');
+        
+        // Show specific error messages
+        if (response.status === 403) {
+          setUsersError('Acces interzis - verificați autentificarea admin');
+        } else if (response.status === 401) {
+          setUsersError('Neautorizat - token expirat sau invalid');
+        } else if (response.status >= 500) {
+          setUsersError('Eroare server - contactați administratorul');
+        } else {
+          setUsersError(`Eroare API: ${response.status} - ${errorData}`);
+        }
+        
+        throw new Error(`HTTP ${response.status}: ${errorData}`);
       }
 
       const data = await response.json();
@@ -233,7 +252,7 @@ export default function AdminModerationPage() {
           email: user.email,
           role: user.role as UserRole,
           status: user.isBanned ? 'banned' : 'active' as UserStatus,
-          listings: user._count?.listings || 0,
+          listings: 0, // Temporarily set to 0 since _count is removed
           credits: user.creditsBalance || 0,
           freePromotions: user.freeBoostsRemaining || 0,
           discount: user.promotionDiscountPercent || 0,
@@ -242,7 +261,11 @@ export default function AdminModerationPage() {
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      setUsersError('Failed to load users');
+      if (error instanceof Error && error.name === 'AbortError') {
+        setUsersError('Request timeout - please try again');
+      } else {
+        setUsersError('Failed to load users');
+      }
     } finally {
       setUsersLoading(false);
     }
@@ -255,12 +278,20 @@ export default function AdminModerationPage() {
       setUserListingsLoading(true);
       
       const token = localStorage.getItem('accessToken');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`/api/admin/users/${userId}/listings`, {
         credentials: 'include',
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       console.log('[FETCH] Response status:', response.status);
       
       if (!response.ok) {
@@ -297,6 +328,9 @@ export default function AdminModerationPage() {
       }
     } catch (error) {
       console.error('Error fetching user listings:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Request timeout for user listings');
+      }
       setUserListings([]);
     } finally {
       setUserListingsLoading(false);
@@ -308,12 +342,20 @@ export default function AdminModerationPage() {
     try {
       setReportsLoading(true);
       const token = localStorage.getItem('accessToken');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch('/api/admin/reports?status=pending', {
         credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) throw new Error('Failed to fetch reports');
       
@@ -321,6 +363,9 @@ export default function AdminModerationPage() {
       setReports(data.reports || []);
     } catch (error) {
       console.error('Error fetching reports:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Request timeout for reports');
+      }
     } finally {
       setReportsLoading(false);
     }
@@ -331,12 +376,20 @@ export default function AdminModerationPage() {
     try {
       setAppealsLoading(true);
       const token = localStorage.getItem('accessToken');
+      
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch('/api/admin/appeals?status=pending', {
         credentials: 'include',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) throw new Error('Failed to fetch appeals');
       
@@ -344,6 +397,9 @@ export default function AdminModerationPage() {
       setAppeals(data.appeals || []);
     } catch (error) {
       console.error('Error fetching appeals:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Request timeout for appeals');
+      }
     } finally {
       setAppealsLoading(false);
     }
@@ -473,11 +529,17 @@ export default function AdminModerationPage() {
         'Authorization': `Bearer ${token}`,
       };
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const [pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
-        fetch('/api/admin/moderation/queue?status=pending', { headers, credentials: 'include' }),
-        fetch('/api/admin/moderation/queue?status=approved', { headers, credentials: 'include' }),
-        fetch('/api/admin/moderation/queue?status=rejected', { headers, credentials: 'include' }),
+        fetch('/api/admin/moderation/queue?status=pending', { headers, credentials: 'include', signal: controller.signal }),
+        fetch('/api/admin/moderation/queue?status=approved', { headers, credentials: 'include', signal: controller.signal }),
+        fetch('/api/admin/moderation/queue?status=rejected', { headers, credentials: 'include', signal: controller.signal }),
       ]);
+
+      clearTimeout(timeoutId);
 
       const responses = [pendingResponse, approvedResponse, rejectedResponse];
       const failedResponse = responses.find((response) => !response.ok);
@@ -529,6 +591,9 @@ export default function AdminModerationPage() {
       setRejectedListings(transformItems(rejectedData.items || []));
     } catch (error) {
       console.error('Error fetching listings:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Request timeout for listings');
+      }
       // Fallback: still allow viewing even if queue is empty
       setPendingListings([]);
       setApprovedListings([]);
