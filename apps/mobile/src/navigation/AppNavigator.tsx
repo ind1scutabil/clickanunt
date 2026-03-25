@@ -113,24 +113,22 @@ function MainTabs({ navigation }: { navigation: any }): React.JSX.Element {
         tabBarIcon: ({ focused, color }) => <TabIcon name={TAB_ICONS[route.name] || 'ellipse'} focused={focused} color={color} />,
       })}
     >
-      <Tabs.Screen
-        name="Acasă"
-        children={() =>
+      <Tabs.Screen name="Acasă">
+        {() => (
           <HomeScreen
             onOpenListing={(listingId) => navigation.navigate('ListingDetails', { listingId })}
             onOpenCreateListing={() => navigation.navigate('ListingCreate')}
           />
-        }
-      />
+        )}
+      </Tabs.Screen>
       <Tabs.Screen name="Favorite" component={FavoritesScreen} />
-      <Tabs.Screen
-        name="Mesaje"
-        children={() =>
+      <Tabs.Screen name="Mesaje">
+        {() => (
           <MessagesScreen
             onOpenConversation={(params) => navigation.navigate('Conversation', params)}
           />
-        }
-      />
+        )}
+      </Tabs.Screen>
       <Tabs.Screen name="Notificări" component={NotificationsScreen} />
       <Tabs.Screen name="Cont" component={AccountTab} />
     </Tabs.Navigator>
@@ -192,19 +190,14 @@ export function AppNavigator(): React.JSX.Element {
             component={ListingDetailsScreen as any}
             options={{ title: 'Detalii anunț' }}
           />
-          <Stack.Screen
-            name="ListingCreate"
-            children={({ navigation }) => <ListingFormScreen mode="create" onSuccess={() => navigation.goBack()} />}
-            options={{ title: 'Publică anunț' }}
-          />
-          <Stack.Screen
-            name="ListingEdit"
-            children={({ navigation }) => <ListingFormScreen mode="edit" onSuccess={() => navigation.goBack()} />}
-            options={{ title: 'Editează anunț' }}
-          />
-          <Stack.Screen
-            name="Conversation"
-            children={({ route }) => (
+          <Stack.Screen name="ListingCreate" options={{ title: 'Publică anunț' }}>
+            {({ navigation }) => <ListingFormScreen mode="create" onSuccess={() => navigation.goBack()} />}
+          </Stack.Screen>
+          <Stack.Screen name="ListingEdit" options={{ title: 'Editează anunț' }}>
+            {({ navigation }) => <ListingFormScreen mode="edit" onSuccess={() => navigation.goBack()} />}
+          </Stack.Screen>
+          <Stack.Screen name="Conversation" options={({ route }) => ({ title: route.params.title || 'Conversație' })}>
+            {({ route }) => (
               <ConversationScreen
                 currentUserId={user.id}
                 userId={route.params.userId}
@@ -212,8 +205,7 @@ export function AppNavigator(): React.JSX.Element {
                 listingId={route.params.listingId}
               />
             )}
-            options={({ route }) => ({ title: route.params.title || 'Conversație' })}
-          />
+          </Stack.Screen>
         </Stack.Navigator>
       )}
     </NavigationContainer>

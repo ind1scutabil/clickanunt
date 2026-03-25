@@ -29,6 +29,13 @@ type User = {
   role: string;
 };
 
+type DashboardStats = {
+  activeListings: number;
+  pendingListings: number;
+  registeredUsers: number;
+  reportsReceived: number;
+};
+
 const SYSTEM_FLAG_KEYS = {
   registrations: 'registrations_enabled',
   newListings: 'listings_enabled',
@@ -76,6 +83,12 @@ export default function AdminDashboard() {
   const [lastAction, setLastAction] = useState('Nicio acțiune recentă');
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    activeListings: 0,
+    pendingListings: 0,
+    registeredUsers: 0,
+    reportsReceived: 0,
+  });
   
   // Broadcast confirmation modal
   const [showBroadcastConfirm, setShowBroadcastConfirm] = useState(false);
@@ -127,9 +140,12 @@ export default function AdminDashboard() {
 
   const loadAdminData = async () => {
     try {
-      const [flagsRes, broadcastsRes] = await Promise.all([
+      const [flagsRes, broadcastsRes, usersRes, pendingQueueRes, reportsRes] = await Promise.all([
         fetch('/api/admin/feature-flags'),
         fetch('/api/admin/broadcasts'),
+        fetch('/api/admin/users?limit=1'),
+        fetch('/api/admin/moderation/queue?status=pending'),
+        fetch('/api/admin/reports?status=pending'),
       ]);
 
       if (flagsRes.ok) {
@@ -149,6 +165,30 @@ export default function AdminDashboard() {
         const broadcastsData = await broadcastsRes.json();
         setBroadcasts(broadcastsData.broadcasts || []);
       }
+
+      const nextStats: DashboardStats = {
+        activeListings: 0,
+        pendingListings: 0,
+        registeredUsers: 0,
+        reportsReceived: 0,
+      };
+
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        nextStats.registeredUsers = typeof usersData.total === 'number' ? usersData.total : 0;
+      }
+
+      if (pendingQueueRes.ok) {
+        const pendingQueueData = await pendingQueueRes.json();
+        nextStats.pendingListings = Array.isArray(pendingQueueData.items) ? pendingQueueData.items.length : 0;
+      }
+
+      if (reportsRes.ok) {
+        const reportsData = await reportsRes.json();
+        nextStats.reportsReceived = Array.isArray(reportsData.reports) ? reportsData.reports.length : 0;
+      }
+
+      setStats(nextStats);
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'Eroare la încărcarea datelor');
     }
@@ -431,10 +471,10 @@ export default function AdminDashboard() {
                   <span className="text-3xl">✅</span>
                   <span className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full">ACTIVE</span>
                 </div>
-                <div className="text-3xl font-black text-white mb-1">0</div>
+                <div className="text-3xl font-black text-white mb-1">{stats.activeListings}</div>
                 <div className="text-emerald-300 text-xs font-semibold tracking-wide">ANUNȚURI ACTIVE</div>
                 <div className="mt-3 h-1 bg-emerald-500/20 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-1000" />
+                  <div className="h-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-1000" style={{ width: stats.activeListings > 0 ? '100%' : '0%' }} />
                 </div>
               </div>
             </div>
@@ -446,10 +486,10 @@ export default function AdminDashboard() {
                   <span className="text-3xl">⏳</span>
                   <span className="px-2 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full">PENDING</span>
                 </div>
-                <div className="text-3xl font-black text-white mb-1">0</div>
+                <div className="text-3xl font-black text-white mb-1">{stats.pendingListings}</div>
                 <div className="text-amber-300 text-xs font-semibold tracking-wide">ÎN AȘTEPTARE</div>
                 <div className="mt-3 h-1 bg-amber-500/20 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000" />
+                  <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000" style={{ width: stats.pendingListings > 0 ? '100%' : '0%' }} />
                 </div>
               </div>
             </div>
@@ -461,10 +501,10 @@ export default function AdminDashboard() {
                   <span className="text-3xl">👥</span>
                   <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs font-bold rounded-full">USERS</span>
                 </div>
-                <div className="text-3xl font-black text-white mb-1">1</div>
+                <div className="text-3xl font-black text-white mb-1">{stats.registeredUsers}</div>
                 <div className="text-cyan-300 text-xs font-semibold tracking-wide">UTILIZATORI REGISTRAȚI</div>
                 <div className="mt-3 h-1 bg-cyan-500/20 rounded-full overflow-hidden">
-                  <div className="h-full w-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-1000" />
+                  <div className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-1000" style={{ width: stats.registeredUsers > 0 ? '100%' : '0%' }} />
                 </div>
               </div>
             </div>
@@ -476,10 +516,10 @@ export default function AdminDashboard() {
                   <span className="text-3xl">⚠️</span>
                   <span className="px-2 py-1 bg-red-500/20 text-red-300 text-xs font-bold rounded-full">ALERTS</span>
                 </div>
-                <div className="text-3xl font-black text-white mb-1">0</div>
+                <div className="text-3xl font-black text-white mb-1">{stats.reportsReceived}</div>
                 <div className="text-red-300 text-xs font-semibold tracking-wide">RAPORTĂRI PRIMITE</div>
                 <div className="mt-3 h-1 bg-red-500/20 rounded-full overflow-hidden">
-                  <div className="h-full w-0 bg-gradient-to-r from-red-400 to-pink-500 transition-all duration-1000" />
+                  <div className="h-full bg-gradient-to-r from-red-400 to-pink-500 transition-all duration-1000" style={{ width: stats.reportsReceived > 0 ? '100%' : '0%' }} />
                 </div>
               </div>
             </div>
@@ -1095,4 +1135,3 @@ export default function AdminDashboard() {
     </>
   );
 }
-
