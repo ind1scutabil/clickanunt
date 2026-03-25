@@ -8,6 +8,7 @@ const REQUIRED_ENV_VARS = [
   'DATABASE_URL',
   'NEXTAUTH_SECRET',
   'NEXTAUTH_URL',
+  'JWT_SECRET',
 ] as const;
 
 const OPTIONAL_ENV_VARS = [

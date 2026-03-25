@@ -12,6 +12,7 @@ import { sendInvoiceEmail, sendPaymentConfirmationEmail } from '@/lib/invoice-ma
 import { createAuditLog } from '@/lib/audit';
 import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
+import { getRedisClient } from '@/lib/redis';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -59,6 +60,24 @@ export async function POST(req: NextRequest) {
     }
 
     logger.info('Webhook received', { eventType: event.type, eventId: event.id });
+
+    // Idempotency guard: prevent duplicate processing on webhook retries.
+    // Stripe can deliver the same event multiple times; we treat each `event.id` as unique.
+    if (event.id) {
+      const redis = getRedisClient();
+      const dedupeKey = `stripe:webhook:event:${event.id}`;
+      const ttlSeconds = 60 * 60 * 24 * 7; // 7 days
+      try {
+        const res = await redis.set(dedupeKey, '1', 'EX', ttlSeconds, 'NX');
+        if (!res) {
+          logger.info('Duplicate Stripe webhook event ignored', { eventId: event.id, eventType: event.type });
+          return NextResponse.json({ received: true, duplicate: true });
+        }
+      } catch (e) {
+        // Fail open: if Redis is down, still process payment to avoid missing promotions.
+        logger.warn('Stripe webhook dedupe via Redis failed (processing anyway)', { error: e, eventId: event.id });
+      }
+    }
 
     // Handle evenimente
     switch (event.type) {

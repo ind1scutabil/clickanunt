@@ -12,7 +12,13 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-in-production';
+const JWT_SECRET = (() => {
+  const v = process.env.JWT_SECRET;
+  if (!v || v.trim() === '') {
+    throw new Error('Missing required environment variable: JWT_SECRET');
+  }
+  return v;
+})();
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'change-this-too';
 
 /**
@@ -85,7 +91,7 @@ export function verifyAccessToken(token: string): JwtPayload | null {
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'clickanunt.ro',
       audience: 'clickanunt-users',
-    }) as JwtPayload & { type: string };
+    }) as unknown as JwtPayload & { type: string };
     
     if (decoded.type !== 'access') {
       return null;
@@ -111,7 +117,7 @@ export function verifyRefreshToken(token: string): JwtPayload | null {
     const decoded = jwt.verify(token, JWT_REFRESH_SECRET, {
       issuer: 'clickanunt.ro',
       audience: 'clickanunt-users',
-    }) as JwtPayload & { type: string };
+    }) as unknown as JwtPayload & { type: string };
     
     if (decoded.type !== 'refresh') {
       return null;
@@ -179,7 +185,7 @@ export function verifySpecialToken(
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'clickanunt.ro',
-    }) as { userId: string; email: string; type: string };
+    }) as unknown as { userId: string; email: string; type: string };
     
     if (decoded.type !== expectedType) {
       return null;

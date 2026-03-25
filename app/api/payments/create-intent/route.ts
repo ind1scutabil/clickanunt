@@ -26,10 +26,9 @@ function getSafePaymentErrorMessage(error: unknown): string {
 export async function POST(req: NextRequest) {
   try {
     // Validate CSRF and rate limit
-    // TEMPORARY: Disable CSRF AND RATE LIMIT for testing - ENABLE IN PRODUCTION!
     const security = await validateSecureRequest(req, {
-      requireCSRF: false, // TESTING ONLY - Enable in production
-      rateLimit: null, // TESTING ONLY - Enable 'payment' in production
+      requireCSRF: true,
+      rateLimit: 'payment',
     });
 
     if (!security.success) {

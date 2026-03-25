@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 interface NetopiaConfig {
   apiKey: string;
@@ -209,7 +210,11 @@ export class NetopiaPayments {
       decrypted += decipher.final('utf8');
 
       // Parse XML to JSON
-      return this.parseXMLResponse(decrypted);
+      const parsed = this.parseXMLResponse(decrypted);
+      return {
+        ...parsed,
+        rawData: decrypted, // Needed for signature verification (hash of raw payload)
+      };
     } catch (error) {
       console.error('Netopia decryption error:', error);
       throw new Error('Failed to decrypt Netopia notification');
@@ -219,10 +224,46 @@ export class NetopiaPayments {
   /**
    * Verify notification signature
    */
-  verifyNotification(orderId: string, amount: number, currency: string): boolean {
-    // Implement signature verification based on Netopia docs
-    // This is a simplified version
-    return true;
+  verifyNotification(verificationToken: string, rawData: string): boolean {
+    // "Real" verification: treat `verificationToken` as a signed JWT that
+    // embeds the `posSignature` in `aud[0]` and a SHA-512 (base64) hash of `rawData` in `sub`.
+    // If verificationToken/rawData are missing or verification fails, we reject (fail-closed).
+    if (!verificationToken || typeof verificationToken !== 'string') return false;
+    if (!rawData || typeof rawData !== 'string') return false;
+
+    const publicKeyStr = this.getPublicKey();
+    if (!publicKeyStr || !publicKeyStr.trim()) return false;
+
+    const [headb64] = verificationToken.split('.');
+    if (!headb64) return false;
+
+    let jwtAlgorithm: string = 'RS512';
+    try {
+      const jwtHeader = JSON.parse(Buffer.from(headb64, 'base64').toString('utf-8'));
+      if (jwtHeader?.typ !== 'JWT') return false;
+      if (jwtHeader?.alg) jwtAlgorithm = jwtHeader.alg;
+    } catch {
+      return false;
+    }
+
+    try {
+      const decoded = jwt.verify(verificationToken, publicKeyStr, {
+        // jsonwebtoken types are strict about `Algorithm`; cast to keep runtime flexible.
+        algorithms: [jwtAlgorithm as any],
+      }) as any;
+
+      if (decoded?.iss !== 'NETOPIA Payments') return false;
+
+      const aud0 = Array.isArray(decoded?.aud) ? decoded.aud[0] : decoded?.aud;
+      if (!aud0 || aud0 !== this.config.posSignature) return false;
+
+      const payloadHash = crypto.createHash('sha512').update(rawData).digest('base64');
+      if (!decoded?.sub || decoded.sub !== payloadHash) return false;
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -269,6 +310,9 @@ export class NetopiaPayments {
     const status = xml.match(/<action>([^<]*)<\/action>/)?.[1];
     const errorCode = xml.match(/<error_code>([^<]*)<\/error_code>/)?.[1];
     const errorMessage = xml.match(/<error_message>([^<]*)<\/error_message>/)?.[1];
+    const tokenIdentifier =
+      xml.match(/<token_identifier>([^<]*)<\/token_identifier>/)?.[1] ||
+      xml.match(/<token_identifier[^>]*>([^<]*)<\/token_identifier>/)?.[1];
 
     return {
       orderId,
@@ -277,6 +321,7 @@ export class NetopiaPayments {
       status,
       errorCode: errorCode || '0',
       errorMessage: errorMessage || '',
+      tokenIdentifier: tokenIdentifier || null,
     };
   }
 

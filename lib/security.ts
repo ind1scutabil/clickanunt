@@ -6,6 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
 
+const JWT_SECRET_VALUE = process.env.JWT_SECRET;
+if (!JWT_SECRET_VALUE || JWT_SECRET_VALUE.trim() === '') {
+  throw new Error('Missing required environment variable: JWT_SECRET');
+}
+
 // IP Blacklist - permanent banned IPs
 const blacklistedIPs = new Set<string>();
 const suspiciousIPs = new Map<string, { count: number; firstSeen: number }>();
@@ -236,7 +241,7 @@ export function getSecurityHeaders(): Record<string, string> {
 export function generateCSRFToken(sessionId: string): string {
   const timestamp = Date.now().toString();
   const hash = createHash('sha256')
-    .update(`${sessionId}${timestamp}${process.env.JWT_SECRET}`)
+    .update(`${sessionId}${timestamp}${JWT_SECRET_VALUE}`)
     .digest('hex');
   return `${timestamp}.${hash}`;
 }
@@ -253,7 +258,7 @@ export function verifyCSRFToken(token: string, sessionId: string): boolean {
     if (age > 60 * 60 * 1000) return false;
     
     const expectedHash = createHash('sha256')
-      .update(`${sessionId}${timestamp}${process.env.JWT_SECRET}`)
+      .update(`${sessionId}${timestamp}${JWT_SECRET_VALUE}`)
       .digest('hex');
     
     return hash === expectedHash;

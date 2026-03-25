@@ -78,6 +78,12 @@ jobs:
               echo '📦 Installing dependencies...'
               npm ci
 
+              echo '🔨 Generating Prisma Client...'
+              npx prisma generate
+
+              echo '🗃️ Applying Prisma migrations...'
+              npx prisma migrate deploy
+
               echo '🔨 Building application...'
               npm run build
 

@@ -28,8 +28,16 @@ export async function GET(request: NextRequest) {
       .map(word => `${word}:*`)
       .join(' & ');
 
-    // Execute search with raw SQL for performance
-    const listings = await prisma.$queryRawUnsafe<Array<{
+    // Preserve original truthiness behavior of optional filters:
+    // in the previous implementation, falsy strings (e.g. '') disabled the filter.
+    const categoryParam = category ? category : null;
+    const cityParam = city ? city : null;
+    const yearParam = year ? year : null;
+    const minPriceParam = minPrice ? minPrice : null;
+    const maxPriceParam = maxPrice ? maxPrice : null;
+
+    // Execute search with parameterized raw SQL (safe from SQL injection)
+    const listings = await prisma.$queryRaw<Array<{
       id: string;
       title: string;
       category: string | null;
@@ -41,7 +49,7 @@ export async function GET(request: NextRequest) {
       createdAt: Date;
       isPromoted: boolean | null;
       rank: number;
-    }>>(`
+    }>>`
       SELECT 
         id, title, category, "priceAmount", "priceCurrency", 
         city, county, photos, "createdAt", "isPromoted",
@@ -49,29 +57,29 @@ export async function GET(request: NextRequest) {
       FROM listings
       WHERE 
         status = 'active'
-        AND "search_vector" @@ to_tsquery('romanian', $1)
-        ${category ? `AND category = '${category}'` : ''}
-        ${city ? `AND city = '${city}'` : ''}
-        ${year ? `AND year = ${year}` : ''}
-        ${minPrice ? `AND "priceAmount" >= ${minPrice}` : ''}
-        ${maxPrice ? `AND "priceAmount" <= ${maxPrice}` : ''}
+        AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
+        AND (${categoryParam} IS NULL OR category = ${categoryParam})
+        AND (${cityParam} IS NULL OR city = ${cityParam})
+        AND (${yearParam} IS NULL OR year = ${yearParam})
+        AND (${minPriceParam} IS NULL OR "priceAmount" >= ${minPriceParam})
+        AND (${maxPriceParam} IS NULL OR "priceAmount" <= ${maxPriceParam})
       ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC
-      LIMIT $2 OFFSET $3
-    `, searchQuery, limit, offset);
+      LIMIT ${limit} OFFSET ${offset}
+    `;
 
     // Count total results
-    const countResult = await prisma.$queryRawUnsafe<Array<{ count: string }>>(`
+    const countResult = await prisma.$queryRaw<Array<{ count: string }>>`
       SELECT COUNT(*) as count
       FROM listings
       WHERE 
         status = 'active'
-        AND "search_vector" @@ to_tsquery('romanian', $1)
-        ${category ? `AND category = '${category}'` : ''}
-        ${city ? `AND city = '${city}'` : ''}
-        ${year ? `AND year = ${year}` : ''}
-        ${minPrice ? `AND "priceAmount" >= ${minPrice}` : ''}
-        ${maxPrice ? `AND "priceAmount" <= ${maxPrice}` : ''}
-    `, searchQuery);
+        AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
+        AND (${categoryParam} IS NULL OR category = ${categoryParam})
+        AND (${cityParam} IS NULL OR city = ${cityParam})
+        AND (${yearParam} IS NULL OR year = ${yearParam})
+        AND (${minPriceParam} IS NULL OR "priceAmount" >= ${minPriceParam})
+        AND (${maxPriceParam} IS NULL OR "priceAmount" <= ${maxPriceParam})
+    `;
 
     const total = parseInt(countResult[0]?.count || '0');
 

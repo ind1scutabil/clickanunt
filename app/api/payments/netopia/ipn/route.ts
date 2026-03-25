@@ -27,6 +27,27 @@ export async function POST(req: NextRequest) {
     const netopia = createNetopiaClient();
     const notification = netopia.decryptNotification(envKey, data);
 
+    // Verify IPN authenticity (fail-closed).
+    // NETOPIA signs an IPN payload with a JWT whose `aud` includes posSignature,
+    // and whose `sub` equals a hash of the raw decrypted payload.
+    const isSignatureValid = netopia.verifyNotification(
+      notification.tokenIdentifier,
+      notification.rawData,
+    );
+    if (!isSignatureValid) {
+      console.error('Netopia IPN: Invalid signature', {
+        orderId: notification.orderId,
+        status: notification.status,
+      });
+      return new NextResponse(
+        '<?xml version="1.0" encoding="utf-8"?><crc error_code="4">Invalid signature</crc>',
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/xml' },
+        }
+      );
+    }
+
     console.log('Netopia IPN received:', {
       orderId: notification.orderId,
       status: notification.status,

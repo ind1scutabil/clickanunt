@@ -9,9 +9,12 @@ import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
 
 // Secret pentru JWT (din .env)
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'default-secret-change-this-in-production'
-);
+const JWT_SECRET_RAW = process.env.JWT_SECRET;
+if (!JWT_SECRET_RAW || JWT_SECRET_RAW.trim() === '') {
+  throw new Error('Missing required environment variable: JWT_SECRET');
+}
+
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_RAW);
 
 const JWT_ALGORITHM = 'HS256';
 const TOKEN_EXPIRES_IN = '7d'; // 7 zile
