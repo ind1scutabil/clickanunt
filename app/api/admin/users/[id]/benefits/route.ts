@@ -48,45 +48,42 @@ export async function POST(
 
     const data = security.data as z.infer<typeof benefitsSchema>;
 
-    // Find target user
     const targetUser = await db.findUserById(id);
     if (!targetUser) {
       return NextResponse.json({ error: "Utilizatorul nu a fost găsit" }, { status: 404 });
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
-    // Add credits
-    if (data.creditsBonus && data.creditsBonus > 0) {
-      updateData.creditsBalance = (targetUser.creditsBalance || 0) + data.creditsBonus;
+    if (data.creditsBonus !== undefined) {
+      updateData.creditsBalance = Math.max(0, (targetUser.creditsBalance || 0) + data.creditsBonus);
     }
 
-    // Set discount
     if (data.globalDiscount !== undefined) {
       updateData.promotionDiscountPercent = data.globalDiscount;
     }
 
-    // Add free promotions
-    if (data.freePromotions && data.freePromotions > 0 && data.promotionType) {
+    if (data.freePromotions !== undefined && data.promotionType) {
       const benefits = (targetUser.promotionBenefits as PromotionBenefits) || {};
       const promotions = benefits.promotions || {};
       const current = promotions[data.promotionType] || { count: 0, expiresAt: null };
-      
+
       const expiryDays = data.expiryDays || 30;
       const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
 
       promotions[data.promotionType] = {
-        count: (current.count || 0) + data.freePromotions,
-        expiresAt: expiresAt.toISOString(),
+        count: data.freePromotions > 0 ? (current.count || 0) + data.freePromotions : 0,
+        expiresAt: data.freePromotions > 0 ? expiresAt.toISOString() : null,
       };
 
       updateData.promotionBenefits = { ...benefits, promotions };
+      updateData.freeBoostsRemaining = data.freePromotions;
+    } else if (data.freePromotions !== undefined) {
+      updateData.freeBoostsRemaining = data.freePromotions;
     }
 
-    // Update user
     await db.updateUser(id, updateData);
 
-    // Create audit log
     await createAuditLog({
       userId: adminUser.id,
       action: 'benefits.user_update',
@@ -108,8 +105,9 @@ export async function POST(
       user: {
         id: targetUser.id,
         email: targetUser.email,
-        creditsBalance: updateData.creditsBalance || targetUser.creditsBalance,
+        creditsBalance: typeof updateData.creditsBalance === 'number' ? updateData.creditsBalance : targetUser.creditsBalance,
         promotionDiscountPercent: updateData.promotionDiscountPercent ?? targetUser.promotionDiscountPercent,
+        promotionBenefits: updateData.promotionBenefits ?? targetUser.promotionBenefits,
       },
     });
   } catch (error) {

@@ -145,6 +145,7 @@ export default function AdminModerationPage() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userListings, setUserListings] = useState<ModerationListing[]>([]);
   const [userListingsLoading, setUserListingsLoading] = useState(false);
+  const [isSavingBenefits, setIsSavingBenefits] = useState(false);
   const [creditsForm, setCreditsForm] = useState({
     credits: '',
     discount: '',
@@ -303,25 +304,25 @@ export default function AdminModerationPage() {
       const data = await response.json();
       console.log('[FETCH] Response data:', data);
       
-      if (data.success && data.listings) {
+      if (data.success && Array.isArray(data.listings)) {
         const transformedListings = data.listings
-          .filter((listing: any) => listing.ownerUserId === userId)
+          .filter((listing: any) => listing?.id)
           .map((listing: any) => ({
-          id: listing.id,
-          title: listing.title,
-          category: listing.category,
-          subcategory: listing.subcategory,
-          price: listing.price,
-          priceCurrency: listing.priceCurrency,
-          status: listing.queueStatus || listing.status,
-          photos: listing.photos ? 1 : 0,
-          owner: listing.owner,
-          ownerUserId: listing.ownerUserId,
-          submittedAt: listing.createdAt ? new Date(listing.createdAt).toLocaleDateString('ro-RO') : '—',
-          notes: listing.notes,
-          queueId: listing.queueId,
-          moderator: listing.moderator,
-        }));
+            id: listing.id,
+            title: listing.title,
+            category: listing.category,
+            subcategory: listing.subcategory,
+            price: listing.price,
+            priceCurrency: listing.priceCurrency,
+            status: listing.queueStatus || listing.status,
+            photos: Array.isArray(listing.photos) ? listing.photos.length : listing.photos ? 1 : 0,
+            owner: listing.owner,
+            ownerUserId: listing.ownerUserId,
+            submittedAt: listing.createdAt ? new Date(listing.createdAt).toLocaleDateString('ro-RO') : '—',
+            notes: listing.notes,
+            queueId: listing.queueId,
+            moderator: listing.moderator,
+          }));
         setUserListings(transformedListings);
       } else {
         setUserListings([]);
@@ -927,16 +928,25 @@ export default function AdminModerationPage() {
   };
 
   const handleSaveCredits = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || isSavingBenefits) return;
 
-    const credits = creditsForm.credits ? parseInt(creditsForm.credits) : 0;
-    const discount = creditsForm.discount ? parseInt(creditsForm.discount) : 0;
-    const freePromotions = creditsForm.freePromotions ? parseInt(creditsForm.freePromotions) : 0;
+    const credits = creditsForm.credits ? parseInt(creditsForm.credits, 10) : 0;
+    const discount = creditsForm.discount ? parseInt(creditsForm.discount, 10) : 0;
+    const freePromotions = creditsForm.freePromotions ? parseInt(creditsForm.freePromotions, 10) : 0;
+
+    if ([credits, discount, freePromotions].some((value) => Number.isNaN(value))) {
+      setNotificationMessage('❌ Valorile introduse sunt invalide');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+
+    setIsSavingBenefits(true);
 
     try {
       const csrfToken = await getCsrfToken();
       const token = localStorage.getItem('accessToken');
-      
+
       const response = await fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
         method: 'POST',
         credentials: 'include',
@@ -948,29 +958,41 @@ export default function AdminModerationPage() {
         body: JSON.stringify({
           creditsBonus: credits,
           globalDiscount: discount,
-          freePromotions: freePromotions,
+          freePromotions,
           promotionType: creditsForm.promotionType,
           expiryDays: creditsForm.expiryDays,
         }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save benefits');
+      const responseText = await response.text();
+      let payload: any = null;
+
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          payload = null;
+        }
       }
 
-      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || `Eroare API (${response.status})`);
+      }
 
-      setUsers(users.map(u => 
-        u.id === selectedUser.id 
-          ? { 
-              ...u, 
-              credits,
-              discount,
-              freePromotions
-            } 
-          : u
-      ));
+      const updatedUser = payload?.user;
+
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          user.id === selectedUser.id
+            ? {
+                ...user,
+                credits: updatedUser?.creditsBalance ?? user.credits + credits,
+                discount: updatedUser?.promotionDiscountPercent ?? discount,
+                freePromotions,
+              }
+            : user
+        )
+      );
 
       setNotificationMessage(`✅ Beneficii actualizate pentru ${selectedUser.email}`);
       setShowNotification(true);
@@ -981,9 +1003,11 @@ export default function AdminModerationPage() {
       }, 3000);
     } catch (error: any) {
       console.error('Error saving benefits:', error);
-      setNotificationMessage(`❌ ${error.message || 'Eroare la salvarea beneficiilor'}`);
+      setNotificationMessage(`❌ ${error?.message || 'Eroare la salvarea beneficiilor'}`);
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
+    } finally {
+      setIsSavingBenefits(false);
     }
   };
 
@@ -1753,9 +1777,10 @@ export default function AdminModerationPage() {
                   </button>
                   <button
                     onClick={handleSaveCredits}
-                    className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-black text-lg hover:shadow-2xl hover:shadow-amber-500/50 transition-all transform hover:scale-105 active:scale-95"
+                    disabled={isSavingBenefits}
+                    className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-black text-lg hover:shadow-2xl hover:shadow-amber-500/50 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    ✅ Salvează Beneficii
+                    {isSavingBenefits ? '⏳ Se salvează...' : '✅ Salvează Beneficii'}
                   </button>
                 </div>
               </div>

@@ -10,19 +10,20 @@ import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
+import { z } from "zod";
 
 type PromotionBenefits = {
   promotions?: Record<string, { count?: number; expiresAt?: string | null }>;
 };
 
-type BenefitsRequest = {
-  globalDiscount?: string | number;
-  freePromotions?: string | number;
-  promotionType?: string;
-  creditsBonus?: string | number;
-  applyTo?: string;
-  expiryDays?: string | number;
-};
+const benefitsSchema = z.object({
+  globalDiscount: z.coerce.number().min(0).max(100).default(0),
+  freePromotions: z.coerce.number().min(0).default(0),
+  promotionType: z.enum(['top', 'urgent', 'featured', 'refresh']),
+  creditsBonus: z.coerce.number().min(0).default(0),
+  applyTo: z.enum(['all', 'new', 'active', 'inactive']).default('all'),
+  expiryDays: z.coerce.number().min(1).default(30),
+}).strict();
 
 function getSegmentWhere(segment: string) {
   const now = new Date();
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
 
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
+      schema: benefitsSchema,
     });
 
     if (!security.success) {
@@ -60,7 +62,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const body = security.data as BenefitsRequest;
     const {
       globalDiscount,
       freePromotions,
@@ -68,18 +69,14 @@ export async function POST(request: NextRequest) {
       creditsBonus,
       applyTo,
       expiryDays,
-    } = body;
+    } = security.data as z.infer<typeof benefitsSchema>;
 
-    const discountValue = Math.max(0, Math.min(100, parseInt(String(globalDiscount ?? 0), 10)));
-    const freeCount = Math.max(0, parseInt(String(freePromotions ?? 0), 10));
-    const creditsValue = Math.max(0, parseInt(String(creditsBonus ?? 0), 10));
-    const expiryValue = Math.max(1, parseInt(String(expiryDays ?? 30), 10));
+    const discountValue = globalDiscount;
+    const freeCount = freePromotions;
+    const creditsValue = creditsBonus;
+    const expiryValue = expiryDays;
 
-    if (!promotionType) {
-      return NextResponse.json({ error: "Tipul de promovare este necesar" }, { status: 400 });
-    }
-
-    const where = getSegmentWhere(applyTo || 'all');
+    const where = getSegmentWhere(applyTo);
     const users = await prisma.user.findMany({
       where,
       select: {
@@ -134,6 +131,7 @@ export async function POST(request: NextRequest) {
       message: 'Beneficiile au fost aplicate',
     });
   } catch (error) {
+    console.error('Apply benefits error:', error);
     return NextResponse.json({ error: "Eroare la aplicarea beneficiilor" }, { status: 500 });
   }
 }

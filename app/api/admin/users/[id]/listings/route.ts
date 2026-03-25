@@ -17,8 +17,16 @@ export async function GET(
   try {
     const { id } = await params;
     const userId = id;
- 
-    const testListings = await prisma.listing.findMany({
+    const user = await getUserFromRequest(request as any);
+
+    if (!user || !hasPermission(user.role as UserRole, Permission.USERS_VIEW_ALL)) {
+      return NextResponse.json(
+        { error: "Acces interzis" },
+        { status: 403 }
+      );
+    }
+
+    const listings = await prisma.listing.findMany({
       where: {
         ownerUserId: userId,
       },
@@ -42,22 +50,10 @@ export async function GET(
         updatedAt: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
-    const user = await getUserFromRequest(request as any);
 
-    if (!user || !hasPermission(user.role as UserRole, Permission.USERS_VIEW_ALL)) {
-      return NextResponse.json(
-        { error: "Acces interzis" },
-        { status: 403 }
-      );
-    }
-    
-    // Continue with normal logic...
-    const listings = testListings;
-
-    // Fetch listings in moderation queue for this user
     const queuedListings = await prisma.moderationQueue.findMany({
       where: {
         listing: {
@@ -83,6 +79,7 @@ export async function GET(
             },
             ownerUserId: true,
             createdAt: true,
+            updatedAt: true,
             status: true,
           },
         },
@@ -98,10 +95,11 @@ export async function GET(
           },
         },
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
-    
 
-    // Transform and combine results
     const transformedListings = listings.map((listing) => ({
       id: listing.id,
       title: listing.title,
@@ -110,59 +108,61 @@ export async function GET(
       price: listing.priceAmount,
       priceCurrency: listing.priceCurrency,
       status: listing.status,
-      photos: listing.photos && listing.photos.length > 0 ? listing.photos[0] : null,
-      owner: listing.owner?.email || 'Utilizator necunoscut',
+      photos: listing.photos || [],
+      owner: listing.owner?.email || "Utilizator necunoscut",
       ownerUserId: listing.ownerUserId,
       createdAt: listing.createdAt?.toISOString(),
       updatedAt: listing.updatedAt?.toISOString(),
-      queueStatus: undefined, // Not in queue
-      queueId: null,
-      moderator: null,
+      queueStatus: null as string | null,
+      queueId: null as string | null,
+      moderator: null as string | null,
+      notes: null as string | null,
     }));
 
-    const transformedQueuedListings = queuedListings.map((queueItem) => ({
-      id: queueItem.listing?.id,
-      title: queueItem.listing?.title,
-      category: queueItem.listing?.category,
-      subcategory: queueItem.listing?.subcategory,
-      price: queueItem.listing?.priceAmount,
-      priceCurrency: queueItem.listing?.priceCurrency,
-      status: queueItem.listing?.status || 'unknown', // Listing status
-      photos: queueItem.listing?.photos && queueItem.listing.photos.length > 0 ? queueItem.listing.photos[0] : null,
-      owner: queueItem.listing?.owner?.email || 'Utilizator necunoscut',
-      ownerUserId: queueItem.listing?.ownerUserId,
-      createdAt: queueItem.listing?.createdAt?.toISOString(),
-      updatedAt: queueItem.updatedAt?.toISOString(),
-      queueStatus: queueItem.status, // Moderation queue status (pending, approved, rejected)
-      queueId: queueItem.id,
-      moderator: queueItem.moderator?.email || null,
-    }));
+    const transformedQueuedListings = queuedListings
+      .filter((queueItem) => queueItem.listing?.id)
+      .map((queueItem) => ({
+        id: queueItem.listing!.id,
+        title: queueItem.listing!.title,
+        category: queueItem.listing!.category,
+        subcategory: queueItem.listing!.subcategory,
+        price: queueItem.listing!.priceAmount,
+        priceCurrency: queueItem.listing!.priceCurrency,
+        status: queueItem.listing!.status || "unknown",
+        photos: queueItem.listing!.photos || [],
+        owner: queueItem.listing!.owner?.email || "Utilizator necunoscut",
+        ownerUserId: queueItem.listing!.ownerUserId,
+        createdAt: queueItem.listing!.createdAt?.toISOString(),
+        updatedAt: queueItem.listing!.updatedAt?.toISOString() || queueItem.updatedAt?.toISOString(),
+        queueStatus: queueItem.status,
+        queueId: queueItem.id,
+        moderator: queueItem.moderator?.email || null,
+        notes: queueItem.notes || null,
+      }));
 
-    // Combine and deduplicate (prefer queued version if in queue)
-    const allListings: any[] = [...transformedQueuedListings];
-    for (const listing of transformedListings) {
-      if (!allListings.some((l) => l.id === listing.id)) {
-        allListings.push(listing as any);
-      }
-    }
+    const listingsById = new Map<string, (typeof transformedListings)[number]>();
 
-    const filteredListings = allListings.filter((listing) => listing.ownerUserId === userId);
+    transformedListings.forEach((listing) => {
+      listingsById.set(listing.id, listing);
+    });
+
+    transformedQueuedListings.forEach((listing) => {
+      listingsById.set(listing.id, listing);
+    });
+
+    const allListings = Array.from(listingsById.values()).sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
 
     return NextResponse.json({
       success: true,
-      listings: filteredListings,
-      count: filteredListings.length,
-      debug: {
-        paramId: id,
-        userId: userId,
-        listingsCount: listings.length,
-        queuedListingsCount: queuedListings.length,
-        listingsTitles: listings.map(l => l.title),
-        listedOwnerIds: listings.map(l => l.ownerUserId),
-      }
+      listings: allListings,
+      count: allListings.length,
     });
   } catch (error) {
-    console.error('Get user listings error:', error);
+    console.error("Get user listings error:", error);
     return NextResponse.json(
       { error: "Eroare la obținerea anunțurilor" },
       { status: 500 }
