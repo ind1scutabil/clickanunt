@@ -50,3 +50,8 @@ next-env.d.ts
 # accidental backups / local debug artifacts
 *.bak
 *.backup
+
+# archives & logs (do not commit large bundles)
+*.tar.gz
+*.zip
+*.log
