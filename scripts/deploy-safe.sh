@@ -22,7 +22,7 @@ echo "════════════════════════�
 
 echo ""
 echo "[deploy-safe] SSH → deploy-prod.sh pe server..."
-ssh -o ConnectTimeout=20 "${DEPLOY_SERVER}" "cd ${DEPLOY_DIR} && DEPLOY_BRANCH=${DEPLOY_BRANCH:-} ./scripts/deploy-prod.sh"
+ssh -o ConnectTimeout=20 "${DEPLOY_SERVER}" "cd ${DEPLOY_DIR} && DEPLOY_BRANCH=${DEPLOY_BRANCH:-} bash ./scripts/deploy-prod.sh"
 
 echo ""
 echo "✅ deploy-safe complet."
