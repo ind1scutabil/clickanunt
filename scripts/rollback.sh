@@ -54,6 +54,7 @@ rsync -avz --delete \
   --exclude .git \
   --exclude .next \
   --exclude .env.local \
+  --exclude 'public/uploads/' \
   ./ ${SERVER}:${DEPLOY_DIR}/
 
 echo "[5/7] Installing dependencies on server..."

@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
+import { ANALYTICS_EVENT } from "@/lib/analytics-events";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,42 +20,74 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get real stats from database
-    const [activeListingsCount, userListings] = await Promise.all([
-      // Active listings count
-      prisma.listing.count({
-        where: {
-          ownerUserId: user.id,
-          status: 'active',
-        },
-      }),
-      
-      // Get all user listings to calculate total views
-      prisma.listing.findMany({
-        where: {
-          ownerUserId: user.id,
-        },
-        select: {
-          views: true,
-        },
-      }),
-    ]);
+    const startOfTodayUtc = new Date();
+    startOfTodayUtc.setUTCHours(0, 0, 0, 0);
 
-    // Calculate total views across all user listings
-    const totalViews = userListings.reduce((sum: number, listing: any) => sum + (listing.views || 0), 0);
+    const [activeListingsCount, userListings, favoritesCount, unreadMessagesCount] =
+      await Promise.all([
+        prisma.listing.count({
+          where: {
+            ownerUserId: user.id,
+            status: "active",
+          },
+        }),
+        prisma.listing.findMany({
+          where: { ownerUserId: user.id },
+          select: { views: true },
+        }),
+        prisma.favorite.count({ where: { userId: user.id } }),
+        prisma.message.count({
+          where: { receiverId: user.id, isRead: false },
+        }),
+      ]);
 
-    // For now, return 0 for messages and favorites since models don't exist yet
-    // TODO: Implement when Favorite and Message models are added to schema
-    const unreadMessagesCount = 0;
-    const favoritesCount = 0;
+    const totalViews = userListings.reduce(
+      (sum: number, listing: { views: number | null }) =>
+        sum + (listing.views || 0),
+      0
+    );
+
+    const start7d = new Date(startOfTodayUtc);
+    start7d.setUTCDate(start7d.getUTCDate() - 6);
+
+    const viewRows = await prisma.$queryRaw<Array<{ d: Date; c: bigint }>>`
+      SELECT (DATE_TRUNC('day', e."createdAt" AT TIME ZONE 'UTC'))::date AS d, COUNT(*)::bigint AS c
+      FROM "analytics_events" e
+      INNER JOIN "listings" l ON l.id = e."listingId"
+      WHERE e."eventType" = ${ANALYTICS_EVENT.listing_view}
+        AND l."ownerUserId" = ${user.id}
+        AND e."createdAt" >= ${start7d}
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `;
+
+    const byDay = new Map<string, number>();
+    for (const row of viewRows) {
+      const key =
+        row.d instanceof Date
+          ? row.d.toISOString().slice(0, 10)
+          : String(row.d).slice(0, 10);
+      byDay.set(key, Number(row.c));
+    }
+
+    const viewsLast7Days: { date: string; views: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(startOfTodayUtc);
+      d.setUTCDate(d.getUTCDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      viewsLast7Days.push({ date: key, views: byDay.get(key) ?? 0 });
+    }
 
     return NextResponse.json({
       success: true,
       stats: {
         activeListings: activeListingsCount,
-        totalViews: totalViews,
+        totalViews,
+        totalViewsSource: "listing_views_counter",
+        viewsLast7DaysSource: "analytics_events_listing_view",
         messages: unreadMessagesCount,
         favorites: favoritesCount,
+        viewsLast7Days,
       },
     });
   } catch (error) {

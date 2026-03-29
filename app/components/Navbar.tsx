@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
+import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
 
 export default function Navbar() {
   const router = useRouter();
@@ -39,35 +40,76 @@ export default function Navbar() {
     }
   }, []);
 
-  // Polling pentru notificări mesaje necitite
+  // Badge mesaje: endpoint ușor + interval rezonabil; pauză când tab-ul e ascuns
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem("accessToken");
     if (!isLoggedIn || !token) return;
 
+    const POLL_MS = 30_000;
+
     const checkUnread = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
-        const response = await fetch('/api/messages/conversations', {
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'include',
-        });
+        const response = await fetchWithAuthRefresh("/api/messages/unread-count");
         if (response.ok) {
-          const data = await response.json();
-          const conversations = Array.isArray(data) ? data : data.conversations || [];
-          const total = conversations.reduce((sum: number, conv: any) => sum + (conv.unreadCount || 0), 0);
-          setUnreadCount(total);
+          const data = (await response.json()) as { count?: number };
+          setUnreadCount(typeof data.count === "number" ? data.count : 0);
         }
-      } catch (err) {
-        // Fail silently
+      } catch {
+        /* ignore */
       }
     };
 
-    checkUnread();
-    unreadTimerRef.current = setInterval(checkUnread, 500);
+    const schedule = () => {
+      if (unreadTimerRef.current) clearInterval(unreadTimerRef.current);
+      void checkUnread();
+      unreadTimerRef.current = setInterval(checkUnread, POLL_MS);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void checkUnread();
+    };
+
+    schedule();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(
+        `/api/messages/events?token=${encodeURIComponent(token)}`
+      );
+      es.onopen = () => {
+        void checkUnread();
+      };
+      es.onmessage = (ev) => {
+        let d: { type?: string };
+        try {
+          d = JSON.parse(ev.data);
+        } catch {
+          return;
+        }
+        if (d.type !== "message") return;
+        void checkUnread();
+      };
+    } catch {
+      /* fallback: interval only */
+    }
 
     return () => {
       if (unreadTimerRef.current) clearInterval(unreadTimerRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
+      es?.close();
     };
   }, [isLoggedIn]);
+
+  /** Pregătește rutele folosite des ca navigarea să pară instant (bundle + date) */
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    router.prefetch("/messages");
+    router.prefetch("/favorites");
+    router.prefetch("/dashboard");
+    router.prefetch("/listings");
+  }, [isLoggedIn, router]);
 
   const getAccountBadge = () => {
     if (!isLoggedIn) return 'DELOGAT';
@@ -147,13 +189,13 @@ export default function Navbar() {
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:bg-[#6366F1] focus:text-white focus:px-6 focus:py-3 focus:rounded-xl focus:outline-none focus:ring-4 focus:ring-white/50 focus:shadow-2xl font-bold"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-1/2 focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[200] focus:-translate-x-1/2 focus:rounded-xl focus:border focus:border-white/10 focus:bg-[var(--bg-elevated)] focus:px-5 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white focus:shadow-[var(--shadow-xl)] focus:outline-none focus:ring-2 focus:ring-[var(--border-focus)]"
       >
         Salt la conținut principal
       </a>
 
       <header
-        className="bg-white shadow-md sticky top-0 z-50 border-b-2 border-[#6D5BFF]/20"
+        className="sticky top-0 z-50 border-b border-neutral-200/90 bg-white/[0.97] shadow-[0_1px_0_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(15,23,42,0.08)] backdrop-blur-md"
         role="banner"
       >
         <div className="bg-[#0B1220] hidden md:block">
@@ -180,19 +222,13 @@ export default function Navbar() {
                   </svg>
                   <span className="hidden lg:inline">contact@clickanunt.ro</span>
                 </a>
-                <a href="tel:+40784712496" className="flex items-center gap-2 hover:text-[#6D5BFF] transition font-medium">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                  <span className="hidden lg:inline">+40 784 712 496</span>
-                </a>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center gap-4">
+        <div className="mx-auto max-w-7xl px-5 py-4 md:px-6 md:py-5">
+          <div className="flex items-center justify-between gap-5 md:gap-6">
             <Link href="/" className="group flex items-center gap-3 hover:opacity-90 transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:rounded-xl">
               <div className="w-12 h-12 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:shadow-lg transition-smooth group-hover:scale-105">
                 📦
@@ -204,7 +240,7 @@ export default function Navbar() {
             </Link>
 
             <div className="flex-1 max-w-4xl hidden md:block">
-              <div className="flex items-center h-11 bg-white/95 border border-gray-200 rounded-xl px-2 shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus-within:ring-2 focus-within:ring-[#6D5BFF]/20 focus-within:border-[#6D5BFF] transition-smooth">
+              <div className="flex h-11 items-center rounded-xl border border-neutral-200 bg-white/95 px-2 shadow-sm shadow-neutral-900/5 transition-smooth focus-within:border-primary-500/35 focus-within:ring-2 focus-within:ring-primary-500/15">
                 <span className="pl-3 pr-2 text-gray-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -227,7 +263,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="h-8 px-4 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-semibold rounded-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-1"
+                  className="h-8 rounded-lg border border-primary-500/20 bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm transition-smooth hover:bg-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-1"
                   aria-label="Caută"
                 >
                   Caută
@@ -235,7 +271,7 @@ export default function Navbar() {
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-2">
+            <nav className="hidden items-center gap-1 md:flex md:gap-2 lg:gap-3">
               <div className="relative">
                 <button
                   onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
@@ -274,55 +310,31 @@ export default function Navbar() {
 
               <Link
                 href="/messages"
-                className="hit-target group relative flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                className="group hit-target relative flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[#0B1220] transition-colors duration-normal ease-premium hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-label="Mesaje"
               >
-                {/* Background with gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-blue-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                {/* Neon glow effect */}
-                <div className="absolute inset-0 rounded-xl blur-xl bg-gradient-to-r from-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
-                
-                {/* Icon with 3D effect and neon glow */}
                 <div className="relative flex items-center justify-center">
-                  <svg className="w-7 h-7 text-[#0B1220] group-hover:text-blue-600 transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(59,130,246,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-7 w-7 text-[#0B1220] transition-colors group-hover:text-primary-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                   </svg>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-2 min-w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center px-1 shadow-lg">
-                      {unreadCount > 99 ? '99+' : unreadCount}
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
                 </div>
-                
-                {/* Label */}
-                <span className="hidden lg:inline text-sm font-bold text-[#0B1220] group-hover:text-blue-600 transition-colors duration-300">
-                  Mesaje
-                </span>
+                <span className="hidden text-sm font-semibold lg:inline">Mesaje</span>
               </Link>
 
               <Link
                 href="/favorites"
-                className="hit-target group relative flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                className="hit-target flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[#0B1220] transition-colors duration-normal ease-premium hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-label="Anunțuri favorite"
               >
-                {/* Background with gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 via-rose-500/10 to-pink-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                
-                {/* Neon glow effect */}
-                <div className="absolute inset-0 rounded-xl blur-xl bg-gradient-to-r from-red-500/30 to-pink-500/30 opacity-0 group-hover:opacity-70 transition-opacity duration-300" />
-                
-                {/* Icon with 3D effect and neon glow */}
-                <div className="relative flex items-center justify-center">
-                  <svg className="w-7 h-7 text-[#0B1220] group-hover:text-red-600 transition-all duration-300 drop-shadow-lg group-hover:drop-shadow-[0_0_12px_rgba(220,38,38,0.6)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                </div>
-                
-                {/* Label */}
-                <span className="hidden lg:inline text-sm font-bold text-[#0B1220] group-hover:text-red-600 transition-colors duration-300">
-                  Favorite
-                </span>
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span className="hidden text-sm font-semibold lg:inline">Favorite</span>
               </Link>
 
               <div className="relative">
@@ -337,13 +349,15 @@ export default function Navbar() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <span className="hidden lg:inline">Cont</span>
-                  <span className={`hidden xl:inline px-2 py-0.5 rounded-full text-xs font-black border ${
-                    isLoggedIn
-                      ? (isAdmin || userRole === 'owner'
-                          ? 'bg-purple-100 text-purple-700 border-purple-200'
-                          : 'bg-green-100 text-green-700 border-green-200')
-                      : 'bg-gray-100 text-gray-600 border-gray-200'
-                  }`}>
+                  <span
+                    className={`hidden xl:inline-flex min-h-[1.625rem] items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                      isLoggedIn
+                        ? isAdmin || userRole === "owner"
+                          ? "border-violet-200/80 bg-violet-50 text-violet-800"
+                          : "border-emerald-200/80 bg-emerald-50 text-emerald-800"
+                        : "border-neutral-200 bg-neutral-100 text-neutral-600"
+                    }`}
+                  >
                     {accountBadge}
                   </span>
                   <svg className={`w-4 h-4 transition-transform duration-200 ${isUserMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +464,7 @@ export default function Navbar() {
                 )}
               </div>
 
-              <Link href="/listings/new" className="hit-target flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF] focus-visible:ring-offset-2">
+              <Link href="/listings/new" className="hit-target ml-1 flex items-center gap-2 rounded-xl border border-primary-400/35 bg-primary-600 px-7 py-3.5 text-sm font-bold tracking-wide text-white shadow-lg shadow-primary-900/25 ring-1 ring-white/10 transition-all duration-normal ease-premium hover:bg-primary-500 hover:shadow-xl hover:shadow-primary-900/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                 </svg>
@@ -489,12 +503,12 @@ export default function Navbar() {
                     handleSearch();
                   }
                 }}
-                className="w-full px-5 py-3 pr-12 bg-white border-2 border-transparent rounded-xl focus:border-blue-500 focus:shadow-lg focus:ring-2 focus:ring-[#6366F1]/30 outline-none transition-all text-[#0B1220] placeholder:text-gray-500"
+                className="w-full rounded-xl border-2 border-transparent bg-white px-5 py-3 pr-12 text-[#0B1220] outline-none transition-all placeholder:text-gray-500 focus:border-primary-500/40 focus:shadow-sm focus:ring-2 focus:ring-primary-500/20"
               />
               <button
                 type="button"
                 onClick={handleSearch}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#6366F1] focus:ring-offset-2"
+                className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg border border-primary-500/20 bg-primary-600 text-white shadow-sm transition-all hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/35 focus:ring-offset-2"
                 aria-label="Caută"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -526,20 +540,20 @@ export default function Navbar() {
                   {accountBadge}
                 </div>
               </div>
-              <Link href="/listings" className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition font-semibold text-gray-700 hover:text-blue-600">
+              <Link href="/listings" className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700">
                 <span className="text-xl">📋</span>
                 <span>Toate anunțurile</span>
               </Link>
-              <Link href="/messages" className="relative flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition font-semibold text-gray-700 hover:text-blue-600">
+              <Link href="/messages" className="relative flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700">
                 <span className="text-xl">💬</span>
                 <span>Mesaje</span>
                 {/* Badge will be dynamic when messaging system is implemented */}
               </Link>
-              <Link href="/favorites" className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-pink-50 hover:to-red-50 rounded-xl transition font-semibold text-gray-700 hover:text-pink-600">
+              <Link href="/favorites" className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700">
                 <span className="text-xl">❤️</span>
                 <span>Favorite</span>
               </Link>
-              <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 rounded-xl transition font-semibold text-gray-700 hover:text-blue-600">
+              <Link href="/dashboard" className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700">
                 <span className="text-xl">👤</span>
                 <span>Contul meu</span>
               </Link>
@@ -547,7 +561,7 @@ export default function Navbar() {
               <div className="pt-2">
                 <Link
                   href="/listings/new"
-                  className="flex items-center justify-center gap-3 px-4 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-xl transition font-bold text-lg"
+                  className="flex items-center justify-center gap-3 rounded-xl border border-primary-500/25 bg-primary-600 px-4 py-4 text-lg font-semibold text-white shadow-md transition hover:bg-primary-500"
                 >
                   <span className="text-2xl">✨</span>
                   <span>Adaugă anunț gratuit</span>
@@ -559,14 +573,14 @@ export default function Navbar() {
                   <>
                     <Link
                       href="/auth/login"
-                      className="flex items-center justify-center gap-2 px-4 py-3 text-center text-blue-600 hover:bg-blue-50 rounded-xl transition font-semibold"
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-center font-semibold text-primary-700 transition hover:bg-neutral-100"
                     >
                       <span>🔐</span>
                       <span>Autentificare</span>
                     </Link>
                     <Link
                       href="/auth/signup"
-                      className="flex items-center justify-center gap-2 px-4 py-3 text-center text-blue-600 hover:bg-blue-50 rounded-xl transition font-semibold"
+                      className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-center font-semibold text-primary-700 transition hover:bg-neutral-100"
                     >
                       <span>📝</span>
                       <span>Înregistrare</span>

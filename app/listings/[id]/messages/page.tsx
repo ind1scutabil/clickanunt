@@ -2,49 +2,21 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
-import { getCsrfToken } from '@/lib/security/csrf-client';
+import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from '@/lib/admin-fetch';
+import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
+import { displayNameForMessagingUser } from '@/lib/messaging-display';
+import type { ListingPublicDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
 
-interface Message {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  isRead: boolean;
-  readAt: string | null;
-  createdAt: string;
-  sender: {
-    id: string;
-    name: string | null;
-    email: string;
-    avatar: string | null;
-  };
-  receiver: {
-    id: string;
-    name: string | null;
-    email: string;
-    avatar: string | null;
-  };
-}
+type Message = MessageThreadRowDto;
 
-interface Listing {
-  id: string;
-  title: string;
-  photos?: string[];
-  category?: string;
-  priceAmount?: number;
-  priceCurrency?: string;
-  city?: string;
-  county?: string;
-  make?: string;
-  model?: string;
-  year?: number;
+type Listing = ListingPublicDto & {
   owner?: {
     id: string;
     name: string | null;
     email: string;
     avatar: string | null;
     businessName: string | null;
+    role?: string | null;
     totalListings: number;
     averageRating: number;
     responseRate: number;
@@ -63,6 +35,14 @@ export default function ListingMessagesPage() {
   const id = params?.id as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const fetchMessagesRef = useRef<
+    (ownerId: string, _token: string | null, listingId?: string) => Promise<void>
+  >(async () => {});
+  const listingThreadRef = useRef<{
+    listingId?: string;
+    ownerId?: string;
+    currentUserId?: string;
+  }>({});
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +51,8 @@ export default function ListingMessagesPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Când SSE e conectat, polling-ul HTTP e oprit (fallback la deconectare) */
+  const [sseConnected, setSseConnected] = useState(false);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -117,17 +99,10 @@ export default function ListingMessagesPage() {
     fetchListing();
   }, [id, router]);
 
-  const fetchMessages = async (ownerId: string, token: string | null, listingId?: string) => {
+  const fetchMessages = async (ownerId: string, _token: string | null, listingId?: string) => {
     try {
-      const headers: HeadersInit = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
       const query = listingId ? `?listingId=${encodeURIComponent(listingId)}` : '';
-      const res = await fetch(`/api/messages/${ownerId}${query}`, {
-        headers,
-        credentials: 'include',
-      });
+      const res = await fetchWithAuthRefresh(`/api/messages/${ownerId}${query}`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       const data = await res.json();
       setMessages(Array.isArray(data) ? data : []);
@@ -138,7 +113,77 @@ export default function ListingMessagesPage() {
     }
   };
 
-  // Real-time polling scoped to current listing conversation
+  fetchMessagesRef.current = fetchMessages;
+
+  useEffect(() => {
+    listingThreadRef.current = {
+      listingId: listing?.id,
+      ownerId: listing?.owner?.id,
+      currentUserId: currentUser?.id,
+    };
+  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
+
+  // SSE: mesaje noi pentru acest anunț
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (!token || !listing?.id || !listing?.owner?.id || !currentUser?.id) {
+      return;
+    }
+    if (listing.owner.id === currentUser.id) {
+      return;
+    }
+
+    let es: EventSource;
+    try {
+      es = new EventSource(
+        `/api/messages/events?token=${encodeURIComponent(token)}`
+      );
+    } catch {
+      return;
+    }
+
+    es.onopen = () => {
+      setSseConnected(true);
+    };
+
+    es.onmessage = (ev) => {
+      let d: {
+        type?: string;
+        listingId?: string | null;
+        senderId?: string;
+        receiverId?: string;
+      };
+      try {
+        d = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      if (d.type !== "message") return;
+      const ctx = listingThreadRef.current;
+      const { listingId, ownerId, currentUserId } = ctx;
+      if (!listingId || !ownerId || !currentUserId) return;
+      if (d.listingId == null || d.listingId !== listingId) return;
+      if (d.senderId !== currentUserId && d.receiverId !== currentUserId) return;
+      void fetchMessagesRef.current(
+        ownerId,
+        localStorage.getItem("accessToken"),
+        listingId
+      );
+    };
+
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        setSseConnected(false);
+      }
+    };
+
+    return () => {
+      es.close();
+      setSseConnected(false);
+    };
+  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
+
+  // Fallback polling când SSE nu e activ
   useEffect(() => {
     if (!listing?.id || !listing?.owner?.id || !currentUser?.id) {
       return;
@@ -148,20 +193,29 @@ export default function ListingMessagesPage() {
       return;
     }
 
+    if (sseConnected) {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      return;
+    }
+
     const pollMessages = async () => {
-      const token = localStorage.getItem('accessToken');
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const token = localStorage.getItem("accessToken");
       await fetchMessages(listing.owner!.id, token, listing.id);
     };
 
-    pollMessages();
+    void pollMessages();
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
 
     pollingRef.current = setInterval(() => {
-      pollMessages();
-    }, 1000);
+      void pollMessages();
+    }, 5000);
 
     return () => {
       if (pollingRef.current) {
@@ -169,7 +223,7 @@ export default function ListingMessagesPage() {
         pollingRef.current = null;
       }
     };
-  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
+  }, [listing?.id, listing?.owner?.id, currentUser?.id, sseConnected]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser || !listing?.owner || sendingMessage) {
@@ -186,23 +240,9 @@ export default function ListingMessagesPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const csrfToken = await getCsrfToken();
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'x-csrf-token': csrfToken,
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const res = await fetch(`/api/messages/${listing.owner.id}`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({
-          content: messageText.trim(),
-          listingId: listing.id,
-        }),
+      const res = await postJsonWithAuthRefresh(`/api/messages/${listing.owner.id}`, {
+        content: messageText.trim(),
+        listingId: listing.id,
       });
 
       if (!res.ok) {
@@ -336,6 +376,11 @@ export default function ListingMessagesPage() {
                     <>
                       {messages.map((msg) => {
                         const isOwn = msg.senderId === currentUser.id;
+                        const senderLabel = displayNameForMessagingUser(msg.sender);
+                        const senderInitial =
+                          senderLabel.charAt(0).toUpperCase() ||
+                          msg.sender?.email?.[0]?.toUpperCase() ||
+                          '?';
                         return (
                           <div
                             key={msg.id}
@@ -348,11 +393,16 @@ export default function ListingMessagesPage() {
                                   ? 'bg-gradient-to-br from-blue-600 to-cyan-500' 
                                   : 'bg-gradient-to-br from-slate-600 to-slate-700'
                               }`}>
-                                {msg.sender.name?.[0]?.toUpperCase() || msg.sender.email[0].toUpperCase()}
+                                {senderInitial}
                               </div>
                               
                               {/* Message Bubble */}
                               <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                                {!isOwn && (
+                                  <span className="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                    {senderLabel}
+                                  </span>
+                                )}
                                 <div
                                   className={`px-5 py-3 rounded-2xl ${
                                     isOwn
@@ -428,12 +478,12 @@ export default function ListingMessagesPage() {
             {/* Listing Info Sidebar */}
             <div className="space-y-6">
               {/* Listing Card */}
-              <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden hover:border-blue-500/30 transition-all duration-300">
+              <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden hover:border-blue-500/30 transition-all duration-normal ease-premium">
                 <div className="h-48 bg-slate-700 overflow-hidden relative group">
                   <div
-                    className="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                    className="w-full h-full bg-cover bg-center transition-transform duration-normal ease-premium group-hover:scale-110"
                     style={{
-                      backgroundImage: `url(${listing.photos?.[0] || 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400&h=300&fit=crop'})`,
+                      backgroundImage: `url(${listingPrimaryPhotoSrc(listing.photos)})`,
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
@@ -496,10 +546,14 @@ export default function ListingMessagesPage() {
                   
                   <div className="flex items-center gap-4 p-4 bg-slate-900/70 rounded-2xl border border-slate-700/50 mb-4 hover:border-blue-500/30 transition-all">
                     <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-full flex items-center justify-center text-white font-black text-xl shadow-lg shadow-blue-500/30">
-                      {listing.owner.name?.[0]?.toUpperCase() || listing.owner.email?.[0].toUpperCase() || 'V'}
+                      {displayNameForMessagingUser(listing.owner).charAt(0).toUpperCase() || 'V'}
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold text-white">{listing.owner.businessName || listing.owner.name || listing.owner.email?.split('@')[0]}</p>
+                      <p className="font-bold text-white">
+                        {listing.owner.businessName?.trim()
+                          ? listing.owner.businessName
+                          : displayNameForMessagingUser(listing.owner)}
+                      </p>
                       <div className="flex items-center gap-1 mt-1">
                         <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />

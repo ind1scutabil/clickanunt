@@ -1,3 +1,6 @@
+/**
+ * @deprecated Legacy file — not routed by App Router. Contains hardcoded demo stats in fetchStats; do not use as reference.
+ */
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

@@ -18,9 +18,13 @@
 
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Card, Badge, Avatar, Button, Dropdown } from '@/app/components/ui';
+import {
+  DEFAULT_LISTING_IMAGE_URL,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+} from '@/lib/listing-photo-url';
 
 export interface ListingCardProps {
   /**
@@ -119,6 +123,12 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   onReport,
   className,
 }) => {
+  const resolvedSrc = (image?.trim() || DEFAULT_LISTING_IMAGE_URL) as string;
+  const [imgSrc, setImgSrc] = useState(resolvedSrc);
+  useEffect(() => {
+    setImgSrc(resolvedSrc);
+  }, [resolvedSrc]);
+
   return (
     <Card
       variant="elevated"
@@ -128,24 +138,29 @@ export const ListingCard: React.FC<ListingCardProps> = ({
     >
       <Card.Body className="p-0">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Image */}
-          {image && (
-            <div className="relative w-full md:w-48 h-48 md:h-auto flex-shrink-0">
-              <Image
-                src={image}
-                alt={title}
-                fill
-                sizes="(max-width: 768px) 100vw, 192px"
-                className="object-cover md:rounded-l-lg"
-                unoptimized
-              />
+          {/* Image — always show area; empty prop uses default asset */}
+          <div className="relative w-full md:w-48 h-48 flex-shrink-0 bg-[#111827]">
+            <Image
+              src={imgSrc}
+              alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, 192px"
+              className="object-cover md:rounded-l-lg"
+              unoptimized
+              onError={() => {
+                setImgSrc((cur) =>
+                  cur === LISTING_PHOTO_ONERROR_FALLBACK ? cur : LISTING_PHOTO_ONERROR_FALLBACK
+                );
+              }}
+            />
               {urgent && (
-                <div className="absolute top-3 left-3">
-                  <Badge variant="error" size="sm">URGENT</Badge>
+                <div className="absolute left-3 top-3 z-10">
+                  <Badge variant="warning" outlined size="sm">
+                    Urgent
+                  </Badge>
                 </div>
               )}
             </div>
-          )}
 
           {/* Content */}
           <div className="flex-1 p-4 md:p-6">

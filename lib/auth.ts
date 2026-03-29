@@ -121,30 +121,15 @@ export async function getUserFromRequest(request: NextRequest) {
     ? authHeader.substring(7) 
     : null;
   
-  const token = cookieToken || headerToken;
+  // Prefer explicit Bearer token (SPA) over cookie — stale httpOnly cookies break auth otherwise.
+  const token = headerToken || cookieToken;
 
-  console.log('[GET_USER_FROM_REQUEST] Token extraction:', {
-    hasCookieToken: !!cookieToken,
-    hasAuthHeader: !!authHeader,
-    hasHeaderToken: !!headerToken,
-    usingToken: token ? 'yes' : 'no',
-    authHeaderValue: authHeader ? authHeader.substring(0, 30) + '...' : 'none',
-    timestamp: new Date().toISOString()
-  });
-  
   if (!token) {
-    console.log('[GET_USER_FROM_REQUEST] No token found - returning null');
     return null;
   }
 
   const payload = await verifyToken(token);
 
-  console.log('[GET_USER_FROM_REQUEST] Token verification:', {
-    isValid: !!payload,
-    userId: payload?.userId,
-    timestamp: new Date().toISOString()
-  });
-  
   if (!payload) {
     return null;
   }
@@ -195,8 +180,32 @@ export async function authenticateUser(
       };
     }
 
-    // Verify password
-    const isValid = await bcrypt.compare(password, user.password);
+    if ("deletedAt" in user && user.deletedAt) {
+      return {
+        success: false,
+        error: "Contul nu mai este disponibil.",
+      };
+    }
+
+    // Verify password (malformed bcrypt hashes must not throw — treat as wrong password)
+    if (!user.password || typeof user.password !== 'string' || !user.password.startsWith('$2')) {
+      console.error('[AUTH] User has no valid bcrypt hash:', user.id);
+      return {
+        success: false,
+        error: 'Email sau parolă incorectă',
+      };
+    }
+
+    let isValid = false;
+    try {
+      isValid = await bcrypt.compare(password, user.password);
+    } catch (e) {
+      console.error('[AUTH] bcrypt.compare failed:', e);
+      return {
+        success: false,
+        error: 'Email sau parolă incorectă',
+      };
+    }
 
     if (!isValid) {
       // Increment failed attempts

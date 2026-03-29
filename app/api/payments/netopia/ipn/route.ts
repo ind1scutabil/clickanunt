@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createNetopiaClient, NETOPIA_STATUS } from '@/lib/netopia';
+import { PaymentStatus } from '@prisma/client';
 
 /**
  * Netopia IPN (Instant Payment Notification) handler
@@ -9,10 +10,15 @@ import { createNetopiaClient, NETOPIA_STATUS } from '@/lib/netopia';
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const envKey = formData.get('env_key') as string;
-    const data = formData.get('data') as string;
+    const envKey = formData.get('env_key');
+    const data = formData.get('data');
 
-    if (!envKey || !data) {
+    if (
+      typeof envKey !== 'string' ||
+      envKey.trim() === '' ||
+      typeof data !== 'string' ||
+      data.trim() === ''
+    ) {
       console.error('Netopia IPN: Missing env_key or data');
       return new NextResponse(
         '<?xml version="1.0" encoding="utf-8"?><crc error_code="1">Invalid request</crc>',
@@ -123,24 +129,47 @@ export async function POST(req: NextRequest) {
         updatedStatus = 'failed';
     }
 
-    // Update payment
-    await prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: updatedStatus as any,
-        paidAt: shouldActivate ? new Date() : payment.paidAt,
-        metadata: {
-          ...payment.metadata as any,
-          netopiaStatus: notification.status,
-          netopiaErrorCode: notification.errorCode,
-          netopiaErrorMessage: notification.errorMessage,
-          ipnReceivedAt: new Date().toISOString(),
-        },
-      },
-    });
+    const netopiaMetadata = {
+      ...payment.metadata as any,
+      netopiaStatus: notification.status,
+      netopiaErrorCode: notification.errorCode,
+      netopiaErrorMessage: notification.errorMessage,
+      ipnReceivedAt: new Date().toISOString(),
+    };
 
-    // Activate promotion or subscription if payment succeeded
+    // Update payment in a way that avoids duplicate success side-effects.
+    // Under duplicate IPN delivery, only the first handler should run promotion/subscription + invoice creation.
+    let runSideEffects = shouldActivate;
+
     if (shouldActivate) {
+      const updated = await prisma.payment.updateMany({
+        where: {
+          id: payment.id,
+          status: { not: PaymentStatus.succeeded },
+        },
+        data: {
+          status: PaymentStatus.succeeded,
+          paidAt: new Date(),
+          metadata: netopiaMetadata,
+        },
+      });
+
+      if (updated.count === 0) {
+        runSideEffects = false;
+      }
+    } else {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: updatedStatus as any,
+          paidAt: payment.paidAt,
+          metadata: netopiaMetadata,
+        },
+      });
+    }
+
+    // Activate promotion or subscription if payment succeeded (first time only)
+    if (runSideEffects) {
       const metadata = payment.metadata as any;
       
       if (metadata.promotionId) {
@@ -155,10 +184,12 @@ export async function POST(req: NextRequest) {
             : metadata.promotionType === 'boost_7days' ? 168
             : 24;
 
+          const { computeFeedBoost } = await import("@/lib/listing-feed-boost");
           await prisma.listing.update({
             where: { id: listing.id },
             data: {
               isPromoted: true,
+              feedBoost: computeFeedBoost(true, !!listing.isFeatured),
               promotionType: metadata.promotionType,
               promotionStartedAt: new Date(),
               promotionExpiresAt: new Date(Date.now() + promotionDuration * 60 * 60 * 1000),

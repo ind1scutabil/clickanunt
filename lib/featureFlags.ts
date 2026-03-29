@@ -1,6 +1,9 @@
 /**
- * Feature Flags System
- * Control feature rollout and A/B testing
+ * Feature Flags System — DB-backed (`feature_flags`), cached ~60s.
+ * Used for registrations, listings, payments, promotions, maintenance, etc.
+ * Enterprise env toggles: see `lib/feature-flags.ts` (FEATURE_ENTERPRISE_*).
+ * Runtime analytics scaling: `ANALYTICS_PERSISTED_QUEUE`, `ANALYTICS_LISTING_VIEW_SAMPLE_RATE`,
+ * `ANALYTICS_DEFER_MICROTASK`, `CRON_SECRET` + GET `/api/cron/analytics`.
  */
 
 import { prisma } from './prisma';

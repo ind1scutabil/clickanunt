@@ -21,6 +21,7 @@ interface IUser {
   verificationCode?: string | null;
   verificationTokenExpiry?: Date | null;
   isBanned: boolean;
+  moderationSuspendedUntil?: Date | null;
   banReason?: string | null;
   failedLoginAttempts?: number;
   lockedUntil?: Date | null;
@@ -30,6 +31,7 @@ interface IUser {
   twoFactorSecret?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt?: Date | null;
 }
 
 class MemoryDB {

@@ -7,8 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { createPaymentIntent, PromotionPackage, isValidPromotionPackage, PROMOTION_PRICES } from '@/lib/stripe';
+import {
+  inferUiPackageIdFromStripeType,
+  resolvePromotionPaymentBaseBani,
+} from '@/lib/promotion-packages';
+import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 import { logger } from '@/lib/observability';
 import { PaymentStatus } from '@prisma/client';
+import { verifyToken } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -42,7 +48,12 @@ export async function POST(req: NextRequest) {
 
     // Parse body
     const body = await req.json();
-    const { listingId, packageType, customerEmail } = body;
+    const { listingId, packageType, customerEmail, packageId } = body as {
+      listingId?: string;
+      packageType?: string;
+      customerEmail?: string;
+      packageId?: string;
+    };
 
     // Validate input
     if (!listingId || !packageType) {
@@ -82,6 +93,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const headerToken = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '')?.trim();
+    const cookieToken = req.cookies.get('accessToken')?.value;
+    const accessToken = headerToken || cookieToken;
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Autentificare necesară' }, { status: 401 });
+    }
+    const session = await verifyToken(accessToken);
+    const sessionUserId = session?.userId;
+    if (!sessionUserId || sessionUserId !== listing.ownerUserId) {
+      return NextResponse.json(
+        { error: 'Doar proprietarul anunțului poate iniția plata' },
+        { status: 403 }
+      );
+    }
+
     const userId = listing.ownerUserId;
 
     // Get user info for receipt email AND discount
@@ -101,38 +127,39 @@ export async function POST(req: NextRequest) {
       promotionDiscountPercent: user?.promotionDiscountPercent,
     });
 
-    // Get base price from package
-    const baseAmount = PROMOTION_PRICES[packageType as PromotionPackage];
-    
-    // Apply user discount if available
-    let finalAmount = baseAmount;
-    let discountApplied = 0;
-    
-    if (user?.promotionDiscountPercent && user.promotionDiscountPercent > 0) {
-      discountApplied = Math.floor((baseAmount * user.promotionDiscountPercent) / 100);
-      finalAmount = baseAmount - discountApplied;
-      
-      // Minimum 2 RON (200 bani) - Stripe requirement
-      if (finalAmount < 200) {
-        finalAmount = 200;
+    // Preț din configurația salvată (admin) când trimite packageId; altfel fallback Stripe
+    let baseAmount: number;
+    const uiPackageId =
+      packageId != null && typeof packageId === 'string' ? packageId.trim() : '';
+    if (uiPackageId) {
+      const resolved = await resolvePromotionPaymentBaseBani(uiPackageId, packageType);
+      if ('error' in resolved) {
+        return NextResponse.json({ error: resolved.error }, { status: 400 });
       }
-      
-      logger.info('Discount applied', {
-        userId,
-        baseAmount,
-        discountPercent: user.promotionDiscountPercent,
-        discountApplied,
-        finalAmount,
-      });
+      baseAmount = resolved.amount;
     } else {
-      console.log('⚠️ NO DISCOUNT APPLIED:', {
-        hasUser: !!user,
-        promotionDiscountPercent: user?.promotionDiscountPercent,
-        isGreaterThanZero: (user?.promotionDiscountPercent || 0) > 0,
-      });
+      baseAmount = PROMOTION_PRICES[packageType as PromotionPackage];
     }
+    
+    const finalAmount = applyUserPromotionDiscountToBaseBani(
+      baseAmount,
+      user?.promotionDiscountPercent
+    );
+    const discountApplied =
+      user?.promotionDiscountPercent && user.promotionDiscountPercent > 0
+        ? Math.floor((baseAmount * user.promotionDiscountPercent) / 100)
+        : 0;
 
-    console.log('💰 FINAL AMOUNT:', { baseAmount, finalAmount, discountApplied });
+    const promotionUiPackageIdForMeta =
+      uiPackageId || inferUiPackageIdFromStripeType(packageType) || '';
+
+    logger.info('Promotion checkout amounts', {
+      userId,
+      baseAmount,
+      finalAmount,
+      discountApplied,
+      promotionUiPackageId: promotionUiPackageIdForMeta || undefined,
+    });
 
     // Create PaymentIntent in Stripe with discounted price
     const paymentIntent = await createPaymentIntent({
@@ -146,6 +173,7 @@ export async function POST(req: NextRequest) {
         baseAmount: baseAmount.toString(),
         discountPercent: user?.promotionDiscountPercent?.toString() || '0',
         discountApplied: discountApplied.toString(),
+        ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
       },
       // Override amount with discounted price
       amount: finalAmount,
@@ -176,6 +204,7 @@ export async function POST(req: NextRequest) {
           discountPercent: user?.promotionDiscountPercent || 0,
           discountApplied,
           finalAmount,
+          ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
         },
       },
     });

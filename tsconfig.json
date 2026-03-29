@@ -31,10 +31,17 @@
       ],
       "@/lib/*": [
         "lib/*"
+      ],
+      "@clickanunt/api-contracts": [
+        "packages/api-contracts/index.ts"
+      ],
+      "@clickanunt/api-contracts/*": [
+        "packages/api-contracts/*"
       ]
     }
   },
   "include": [
+    "packages/**/*.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
     "lib/**/*.ts",

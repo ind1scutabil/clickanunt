@@ -131,14 +131,20 @@ const config: Config = {
       
       // Animations
       transitionDuration: {
-        '120': '120ms',
-        '180': '180ms',
-        '240': '240ms',
-        '320': '320ms',
-        '400': '400ms',
+        /** Design-system: interactive hovers 200–300ms (default 250ms) */
+        base: "200ms",
+        normal: "250ms",
+        "120": "120ms",
+        "180": "180ms",
+        "240": "240ms",
+        "280": "280ms",
+        "320": "320ms",
+        "400": "400ms",
       },
       transitionTimingFunction: {
-        'bounce': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        premium: "cubic-bezier(0.22, 1, 0.36, 1)",
+        smooth: "cubic-bezier(0.22, 1, 0.36, 1)",
+        "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
       },
       
       // Existing animations (keep for compatibility)

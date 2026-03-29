@@ -239,10 +239,13 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    const cookieDomain = process.env.NODE_ENV === "production" ? ".clickanunt.ro" : undefined;
+
     // Set cookies pentru autentificare automată
     response.cookies.set("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      domain: cookieDomain,
       sameSite: "lax",
       maxAge: 24 * 60 * 60, // 24 hours
     });
@@ -250,6 +253,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      domain: cookieDomain,
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
     });

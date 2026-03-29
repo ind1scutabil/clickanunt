@@ -46,7 +46,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 }) => {
   const baseStyles = cn(
     'bg-neutral-800',
-    !noPulse && 'animate-pulse'
+    !noPulse && 'animate-pulse motion-reduce:animate-none'
   );
 
   if (variant === 'text') {

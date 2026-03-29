@@ -111,6 +111,7 @@ export default function AccountPage() {
 
       const response = await fetch('/api/auth/change-password', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -155,10 +156,16 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#0B0F17] relative overflow-hidden text-white">
+      {/* Background decoration (enterprise look) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-24 left-1/3 w-[32rem] h-[32rem] bg-cyan-500/10 rounded-full blur-[140px]"></div>
+        <div className="absolute bottom-0 right-1/4 w-[28rem] h-[28rem] bg-emerald-500/10 rounded-full blur-[140px]"></div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_40%)]"></div>
+      </div>
       <Navbar />
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 py-12 relative z-10">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-5xl font-black mb-4">

@@ -16,6 +16,18 @@ BACKUP_NAME="${1:-backup_${TIMESTAMP}}"
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
 
+# Ensure pg_dump is non-interactive.
+# backup-db.sh uses POSTGRES_PASSWORD -> PGPASSWORD for pg_dump. If it's missing,
+# try deriving it from DATABASE_URL (format: postgres://user:pass@host:port/db).
+if [ -z "${POSTGRES_PASSWORD:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+  POSTGRES_PASSWORD="$(echo "$DATABASE_URL" | sed -E 's#^[a-zA-Z]+://[^:]+:([^@]+)@.*#\1#')"
+fi
+
+if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+  echo "❌ POSTGRES_PASSWORD missing (and could not be derived from DATABASE_URL). Refusing interactive pg_dump." >&2
+  exit 1
+fi
+
 echo "🔄 Starting backup of database: $DB_NAME"
 echo "📁 Backup location: $BACKUP_DIR/$BACKUP_NAME.sql.gz"
 

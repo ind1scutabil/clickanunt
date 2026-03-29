@@ -110,6 +110,99 @@ export async function GET(request: NextRequest) {
       prisma.moderationQueue.count({ where }),
     ]);
 
+    // Fallback safety-net:
+    // if pending listings exist but queue rows are missing, expose them in moderation tab.
+    if (status === 'pending') {
+      const pendingListingIds = new Set(
+        items.map((item) => item.listingId).filter((id): id is string => typeof id === 'string')
+      );
+
+      const orphanPendingListings = await prisma.listing.findMany({
+        where: {
+          status: 'pending',
+          id: {
+            notIn: Array.from(pendingListingIds),
+          },
+        },
+        take: Math.max(0, limit - items.length),
+        orderBy: { updatedAt: 'asc' },
+        select: {
+          id: true,
+          category: true,
+          ownerUserId: true,
+          photos: true,
+          priceAmount: true,
+          priceCurrency: true,
+          subcategory: true,
+          title: true,
+          createdAt: true,
+          updatedAt: true,
+          owner: {
+            select: {
+              accountType: true,
+              avatar: true,
+              averageRating: true,
+              banReason: true,
+              bannedAt: true,
+              bannedBy: true,
+              businessCUI: true,
+              businessDescription: true,
+              businessEmail: true,
+              businessLocation: true,
+              businessLogo: true,
+              businessName: true,
+              businessPhone: true,
+              businessRegCom: true,
+              businessWebsite: true,
+              createdAt: true,
+              creditsBalance: true,
+              email: true,
+              emailVerified: true,
+              failedLoginAttempts: true,
+              freeBoostsRemaining: true,
+              id: true,
+              isBanned: true,
+              lastActiveAt: true,
+              lastLoginAt: true,
+              lastLoginIp: true,
+              lockedUntil: true,
+              name: true,
+              phone: true,
+              phoneVerified: true,
+              promotionBenefits: true,
+              promotionDiscountPercent: true,
+              responseRate: true,
+              role: true,
+              subscriptionExpiresAt: true,
+              subscriptionRenewsAt: true,
+              subscriptionTier: true,
+              totalListings: true,
+              totalSales: true,
+              trustScore: true,
+              twoFactorEnabled: true,
+              updatedAt: true,
+              verificationLevel: true,
+            },
+          },
+        },
+      });
+
+      const syntheticItems = orphanPendingListings.map((listing) => ({
+        id: `synthetic-${listing.id}`,
+        listingId: listing.id,
+        priority: 0,
+        assignedTo: null,
+        moderator: null,
+        status: 'pending',
+        notes: 'Listing pending without queue row',
+        createdAt: listing.createdAt,
+        updatedAt: listing.updatedAt,
+        listing,
+      }));
+
+      items.push(...syntheticItems as any);
+    }
+
     return NextResponse.json({
       success: true,
       items,

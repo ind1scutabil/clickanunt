@@ -22,11 +22,7 @@ if (!globalForStorage.listingsStorage) {
       description: 'BMW Seria 7 în stare excelentă, toate dotările, istoric complet service BMW.',
       county: 'București',
       city: 'Sector 1',
-      photos: [
-        'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&h=600&fit=crop',
-        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=600&fit=crop',
-        'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&h=600&fit=crop'
-      ],
+      photos: [],
       contactPhone: '+40 784 712 496',
       allowMessages: true,
       ownerUserId: 'owner-123',

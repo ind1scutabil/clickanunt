@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
@@ -10,27 +10,13 @@ import {
   ROMANIAN_COUNTIES, 
   CITIES_BY_COUNTY 
 } from "@/lib/carData";
+import {
+  listingPrimaryPhotoSrc,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+} from "@/lib/listing-photo-url";
+import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
-interface Listing {
-  id: string;
-  title: string;
-  make?: string;
-  model?: string;
-  year?: number;
-  mileage?: number;
-  priceAmount: number;
-  priceCurrency: string;
-  description?: string;
-  photos?: string[];
-  status: string;
-  createdAt: string;
-  category?: string;
-  subcategory?: string;
-  fuel?: string;
-  transmission?: string;
-  county?: string;
-  city?: string;
-}
+type Listing = ListingPublicDto;
 
 interface Filters {
   q?: string;
@@ -73,6 +59,7 @@ export default function ListingsView() {
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
+  const activeRequestRef = useRef(0);
 
   const limit = 12;
 
@@ -129,6 +116,7 @@ export default function ListingsView() {
   }, []);
 
   async function loadListings() {
+    const requestId = ++activeRequestRef.current;
     setLoading(true);
     setError(null);
     
@@ -156,19 +144,25 @@ export default function ListingsView() {
         params.set('sort', sort);
       }
 
-      const res = await fetch(`/api/listings?${params}`);
+      const res = await fetch(`/api/listings?${params}`, { cache: 'no-store' });
       
       if (!res.ok) {
         throw new Error(`Failed to load listings: ${res.status}`);
       }
       
       const data = await res.json();
+      if (requestId !== activeRequestRef.current) {
+        // Ignore stale responses (prevents category mismatch/race flicker).
+        return;
+      }
       // API returns { data: [...], pagination: {...} }
       setListings(data.data || data.listings || []);
       setTotal(data.pagination?.total || data.pagination?.count || data.data?.length || 0);
     } catch (err: any) {
+      if (requestId !== activeRequestRef.current) return;
       setError(err.message || 'Eroare la încărcarea anunțurilor');
     } finally {
+      if (requestId !== activeRequestRef.current) return;
       setLoading(false);
     }
   }
@@ -206,7 +200,7 @@ export default function ListingsView() {
 
       {/* Filters */}
       {isFiltersOpen ? (
-        <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-300 ${
+        <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-normal ease-premium ${
           isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40' : ''
         }`}>
           
@@ -678,27 +672,24 @@ export default function ListingsView() {
             {listings.map((listing, index) => (
               <article
                 key={listing.id}
-                className="group relative bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/8 overflow-hidden shadow-lg hover:shadow-2xl hover:border-white/15 hover:-translate-y-1 transition-all duration-300 flex flex-col h-full"
+                className="group relative bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/8 overflow-hidden shadow-lg hover:shadow-2xl hover:border-white/15 hover:-translate-y-1 transition-all duration-normal ease-premium flex flex-col h-full"
                 aria-label={listing.title}
               >
                 {/* Image - Fixed 16:9 Aspect Ratio */}
                 <div className="relative aspect-video bg-gradient-to-br from-[#111827] to-[#0F1117] overflow-hidden">
-                  {listing.photos && listing.photos.length > 0 ? (
-                    <img
-                      src={listing.photos[0]}
-                      alt={listing.title}
-                      loading={index < 3 ? "eager" : "lazy"}
-                      width={640}
-                      height={360}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="flex items-center justify-center h-full bg-gradient-to-br from-gray-700 to-gray-800">
-                      <svg className="w-16 h-16 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                  )}
+                  <img
+                    src={listingPrimaryPhotoSrc(listing.photos)}
+                    alt={listing.title}
+                    loading={index < 3 ? "eager" : "lazy"}
+                    width={640}
+                    height={360}
+                    className="w-full h-full object-cover transition-transform duration-normal ease-premium group-hover:scale-110"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      el.onerror = null;
+                      el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                    }}
+                  />
                 </div>
 
                 {/* Content */}
@@ -742,7 +733,7 @@ export default function ListingsView() {
                   {/* Button - Always at bottom */}
                   <Link
                     href={`/listings/${listing.id}`}
-                    className="mt-auto block text-center h-10 px-4 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#5B4BFF] hover:to-[#00C4E0] text-white font-bold text-sm transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 flex items-center justify-center"
+                    className="mt-auto block text-center h-10 px-4 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#5B4BFF] hover:to-[#00C4E0] text-white font-bold text-sm transition-all duration-normal ease-premium shadow-lg hover:shadow-xl hover:shadow-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 flex items-center justify-center"
                     aria-label={`View details for ${listing.title}`}
                   >
                     Vezi detalii

@@ -191,6 +191,8 @@ export default function EditListingPage() {
     attributes: {} as any
   });
 
+  const canRepublish = ['paused', 'hidden', 'rejected', 'pending'].includes(String(listing?.status || '').toLowerCase());
+
   useEffect(() => {
     const loadListing = async () => {
       try {
@@ -273,13 +275,47 @@ export default function EditListingPage() {
     }
   }, [id]);
 
-  const handleSave = async () => {
+  const handleSave = async (requestRepublish = false) => {
     setSaving(true);
     try {
+      if (!formData.title.trim() || formData.title.trim().length < 5) {
+        setNotification({ message: 'Titlul trebuie să aibă minim 5 caractere.', type: 'error' });
+        setSaving(false);
+        return;
+      }
+
+      if (!formData.category.trim()) {
+        setNotification({ message: 'Categoria este obligatorie pentru salvare.', type: 'error' });
+        setSaving(false);
+        return;
+      }
+
+      const payload: Record<string, unknown> = {
+        ...formData,
+        title: formData.title.trim(),
+        category: formData.category.trim(),
+        subcategory: formData.subcategory.trim() || null,
+        description: formData.description.trim() || null,
+        county: formData.county.trim() || null,
+        city: formData.city.trim() || null,
+        contactPhone: formData.contactPhone.trim() || null,
+        make: formData.make.trim() || null,
+        model: formData.model.trim() || null,
+        vin: formData.vin.trim() || null,
+        year: Number.isFinite(formData.year) && formData.year >= 1900 ? formData.year : null,
+        fuel: ['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas'].includes(String(formData.fuel))
+          ? formData.fuel
+          : null,
+        transmission: ['manual', 'automatic'].includes(String(formData.transmission))
+          ? formData.transmission
+          : null,
+      };
+      if (requestRepublish) payload.status = 'pending';
+
       const useInMemory = process.env.NEXT_PUBLIC_USE_IN_MEMORY_DB === 'true';
 
       if (useInMemory) {
-        memoryStorage.set(id, formData);
+        memoryStorage.set(id, payload);
         setNotification({ message: 'Anunț salvat cu succes!', type: 'success' });
       } else {
         const token = localStorage.getItem('accessToken');
@@ -292,22 +328,34 @@ export default function EditListingPage() {
             'x-csrf-token': csrfToken,
           },
           credentials: 'include',
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to save listing');
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data?.error || 'Eroare la salvare');
         }
 
-        setNotification({ message: 'Anunț salvat cu succes!', type: 'success' });
+        setNotification({
+          message: requestRepublish
+            ? 'Anunțul a fost trimis la moderare.'
+            : canRepublish
+            ? 'Modificările au fost salvate. Acum apasă "Salvează și trimite la reverificare".'
+            : 'Anunț salvat cu succes!',
+          type: 'success'
+        });
       }
 
-      setTimeout(() => {
-        router.push(`/listings/${id}`);
-      }, 1500);
+      // For suspended/rejected listings, keep user on page after plain save
+      // so they can explicitly send the listing back to moderation.
+      if (!canRepublish || requestRepublish) {
+        setTimeout(() => {
+          router.push(`/listings/${id}`);
+        }, 1500);
+      }
     } catch (error) {
       console.error('Error saving listing:', error);
-      setNotification({ message: 'Eroare la salvare', type: 'error' });
+      setNotification({ message: error instanceof Error ? error.message : 'Eroare la salvare', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -356,6 +404,18 @@ export default function EditListingPage() {
             </div>
           )}
 
+          {canRepublish && (
+            <div className="mb-6 p-4 rounded-lg border border-amber-500/40 bg-amber-900/20">
+              <p className="text-amber-200 font-semibold mb-1">Anunț suspendat sau respins de moderare</p>
+              <p className="text-amber-100/90 text-sm">
+                După ce faci modificările necesare, folosește butonul „Salvează și trimite la reverificare”.
+              </p>
+              {listing?.moderationNotes ? (
+                <p className="mt-2 text-sm text-amber-100"><span className="font-semibold">Motiv:</span> {listing.moderationNotes}</p>
+              ) : null}
+            </div>
+          )}
+
           <div className="bg-slate-900/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-[#4E3CFF]/5 via-transparent to-transparent pointer-events-none" />
             <div className="absolute inset-0 rounded-2xl border-2 border-gradient-to-br from-[#4E3CFF]/10 to-transparent pointer-events-none" />
@@ -374,7 +434,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: BMW 320d, anul 2015"
                     />
                   </div>
@@ -386,7 +446,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează categorie</option>
                       <option value="Automobile">Automobile</option>
@@ -405,7 +465,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.subcategory}
                       onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: Sedane, SUV, Coupe"
                     />
                   </div>
@@ -417,7 +477,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.condition}
                       onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează stare</option>
                       <option value="new">Nou</option>
@@ -442,7 +502,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.priceAmount}
                       onChange={(e) => setFormData({ ...formData, priceAmount: parseFloat(e.target.value) })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="0"
                     />
                   </div>
@@ -454,7 +514,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.priceCurrency}
                       onChange={(e) => setFormData({ ...formData, priceCurrency: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="RON">RON</option>
                       <option value="EUR">EUR</option>
@@ -487,7 +547,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.year}
                       onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="2020"
                     />
                   </div>
@@ -499,7 +559,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.mileage}
                       onChange={(e) => setFormData({ ...formData, mileage: parseInt(e.target.value) })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="50000 km"
                     />
                   </div>
@@ -513,7 +573,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.fuel}
                       onChange={(e) => setFormData({ ...formData, fuel: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="petrol">⛽ Benzină</option>
@@ -532,7 +592,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.transmission}
                       onChange={(e) => setFormData({ ...formData, transmission: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="manual">🎛️ Manuală</option>
@@ -550,7 +610,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.bodyType || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, bodyType: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="Sedan">Sedan</option>
@@ -573,7 +633,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.firstRegistration || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, firstRegistration: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: 02/2020"
                     />
                   </div>
@@ -588,7 +648,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.vin || ''}
                       onChange={(e) => setFormData({ ...formData, vin: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600 font-mono"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600 font-mono"
                       placeholder="17 caractere"
                       maxLength={17}
                     />
@@ -602,7 +662,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.attributes?.horsePower || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, horsePower: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="130"
                     />
                   </div>
@@ -617,7 +677,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.attributes?.engineCapacity || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, engineCapacity: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="1995"
                     />
                   </div>
@@ -629,7 +689,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.drivetrain || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, drivetrain: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="Față">Față (FWD)</option>
@@ -648,7 +708,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.color || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, color: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: Albastru metalic"
                     />
                   </div>
@@ -660,7 +720,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.upholstery || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, upholstery: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="Textil">Textil</option>
@@ -680,7 +740,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.doors || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, doors: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="2">2 uși</option>
@@ -697,7 +757,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.seats || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, seats: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="2">2 locuri</option>
@@ -718,7 +778,7 @@ export default function EditListingPage() {
                       type="number"
                       value={formData.attributes?.owners || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, owners: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: 2"
                       min="0"
                     />
@@ -731,7 +791,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.keys || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, keys: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="1">1 cheie</option>
@@ -749,7 +809,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.priorDamage || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, priorDamage: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="Nu">Nu</option>
@@ -765,7 +825,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.serviceHistory || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, serviceHistory: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="Complet">Complet (Carnet service)</option>
@@ -784,7 +844,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.countryOfOrigin || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, countryOfOrigin: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: Germania, România"
                     />
                   </div>
@@ -797,7 +857,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.lastRegistrationCountry || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, lastRegistrationCountry: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: România"
                     />
                   </div>
@@ -811,7 +871,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.attributes?.environmentalClass || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, environmentalClass: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează...</option>
                       <option value="EURO 6d">EURO 6d</option>
@@ -830,7 +890,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.inspectionValid || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, inspectionValid: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: 12/2026"
                     />
                   </div>
@@ -845,7 +905,7 @@ export default function EditListingPage() {
                       type="text"
                       value={formData.attributes?.warranty || ''}
                       onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, warranty: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: 12 luni, Garanție producător"
                     />
                   </div>
@@ -864,7 +924,7 @@ export default function EditListingPage() {
                     <select
                       value={formData.county}
                       onChange={(e) => setFormData({ ...formData, county: e.target.value, city: '' })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează județ...</option>
                       {Object.keys(romanianCounties).sort().map((county) => (
@@ -881,7 +941,7 @@ export default function EditListingPage() {
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       disabled={!formData.county}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 appearance-none cursor-pointer group-hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="">Selectează oraș...</option>
                       {formData.county && romanianCounties[formData.county]?.map((city) => (
@@ -904,7 +964,7 @@ export default function EditListingPage() {
                     type="tel"
                     value={formData.contactPhone}
                     onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                    className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                    className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                     placeholder="+40..."
                   />
                 </div>
@@ -921,7 +981,7 @@ export default function EditListingPage() {
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-300 group-hover:border-gray-600"
+                    className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                     placeholder="Descrie starea, istoricul, caracteristicile..."
                     rows={4}
                   />
@@ -937,12 +997,21 @@ export default function EditListingPage() {
                   Anulează
                 </button>
                 <button
-                  onClick={handleSave}
+                  onClick={() => handleSave(false)}
                   disabled={saving}
                   className="px-6 py-3 bg-[#4E3CFF] text-white rounded-xl hover:bg-[#3E2CDF] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? 'Se salvează...' : 'Salvează'}
                 </button>
+                {canRepublish && (
+                  <button
+                    onClick={() => handleSave(true)}
+                    disabled={saving}
+                    className="px-6 py-3 bg-amber-500 text-black rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                  >
+                    {saving ? 'Se trimite...' : 'Salvează și trimite la moderare'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

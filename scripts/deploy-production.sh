@@ -42,7 +42,7 @@ echo -e "${YELLOW}Step 5: Building application locally...${NC}"
 npm run build || { echo -e "${RED}❌ Build failed. Fix errors before deploying.${NC}"; exit 1; }
 
 echo -e "${YELLOW}Step 6: Syncing files to server...${NC}"
-rsync -avz --delete --exclude node_modules --exclude .git --exclude .next --exclude coverage --exclude .swc \
+rsync -avz --delete --exclude node_modules --exclude .git --exclude .next --exclude coverage --exclude .swc --exclude 'public/uploads/' \
   ./ ${SERVER}:${DEPLOY_DIR}/
 
 echo -e "${YELLOW}Step 7: Installing dependencies on server...${NC}"

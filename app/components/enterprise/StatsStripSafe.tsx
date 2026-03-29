@@ -4,9 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/app/components/ui';
 
 interface StatsData {
+  available?: boolean;
   activeListings?: number;
   totalUsers?: number;
-  monthlyVisitors?: number;
+  listingViewsLast30d?: number;
   averageRating?: number;
 }
 
@@ -44,9 +45,14 @@ export const StatsStripSafe: React.FC = () => {
         });
         
         if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-          setHasApiError(false);
+          const data = (await response.json()) as StatsData;
+          if (data.available === false) {
+            setStats(null);
+            setHasApiError(true);
+          } else {
+            setStats(data);
+            setHasApiError(false);
+          }
         } else {
           setHasApiError(true);
         }
@@ -88,31 +94,42 @@ export const StatsStripSafe: React.FC = () => {
             ))}
           </div>
         ) : (
-          // Real data from API
           <div className="relative grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
             <div className="transition-transform hover:scale-[1.02]">
               <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
-                {stats.activeListings ? `${(stats.activeListings / 1000).toFixed(0)}K+` : '...'}
+                {typeof stats.activeListings === 'number'
+                  ? stats.activeListings.toLocaleString('ro-RO')
+                  : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Anunțuri Active</div>
+              <div className="text-sm md:text-base text-gray-400">Anunțuri active</div>
+              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (count)</div>
             </div>
             <div className="transition-transform hover:scale-[1.02]">
               <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
-                {stats.totalUsers ? `${(stats.totalUsers / 1000).toFixed(0)}K+` : '...'}
+                {typeof stats.totalUsers === 'number'
+                  ? stats.totalUsers.toLocaleString('ro-RO')
+                  : '—'}
               </div>
               <div className="text-sm md:text-base text-gray-400">Utilizatori</div>
+              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (count)</div>
             </div>
             <div className="transition-transform hover:scale-[1.02]">
               <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
-                {stats.monthlyVisitors ? `${(stats.monthlyVisitors / 1000000).toFixed(1)}M+` : '...'}
+                {typeof stats.listingViewsLast30d === 'number'
+                  ? stats.listingViewsLast30d.toLocaleString('ro-RO')
+                  : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Vizitatori/lună</div>
+              <div className="text-sm md:text-base text-gray-400">Vizualizări anunțuri (30z)</div>
+              <div className="text-gray-500 mt-1 text-[11px]">Sursă: analytics_events</div>
             </div>
             <div className="transition-transform hover:scale-[1.02]">
               <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
-                {stats.averageRating ? `${stats.averageRating.toFixed(1)}★` : '...'}
+                {typeof stats.averageRating === 'number' && stats.averageRating > 0
+                  ? `${stats.averageRating.toFixed(1)}★`
+                  : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Rating Mediu</div>
+              <div className="text-sm md:text-base text-gray-400">Rating mediu</div>
+              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (avg user rating)</div>
             </div>
           </div>
         )}

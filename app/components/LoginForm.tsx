@@ -4,6 +4,10 @@ import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+const devLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV === "development") console.log(...args);
+};
+
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,20 +29,20 @@ export default function LoginForm() {
       return handle2FASubmit();
     }
 
-    console.log('[LOGIN] Starting login process...');
+    devLog('[LOGIN] Starting login process...');
 
     try {
       // Clear any existing session first
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
-      console.log('[LOGIN] Cleared existing session');
+      devLog('[LOGIN] Cleared existing session');
 
-      console.log('[LOGIN] Making API call...');
+      devLog('[LOGIN] Making API call...');
 
       const csrfToken = await getCsrfToken();
       
-      console.log('[LOGIN] Sending login request');
+      devLog('[LOGIN] Sending login request');
       
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -53,15 +57,15 @@ export default function LoginForm() {
         }),
       });
 
-      console.log('[LOGIN] API response status:', res.status);
+      devLog('[LOGIN] API response status:', res.status);
 
       const data = await res.json();
 
-      console.log('[LOGIN] API response data:', data);
+      devLog('[LOGIN] API response data:', data);
 
       // Verifică dacă necesită 2FA
       if (res.status === 206 && data.requiresTwoFactor) {
-        console.log('[LOGIN] 2FA required for admin user');
+        devLog('[LOGIN] 2FA required for admin user');
         setRequiresTwoFA(true);
         setSessionToken(data.sessionToken);
         setMessageType("success");
@@ -93,18 +97,18 @@ export default function LoginForm() {
       // Salvează tokens în localStorage
       if (data.accessToken) {
         localStorage.setItem('accessToken', data.accessToken);
-        console.log('[LOGIN] Access token saved');
+        devLog('[LOGIN] Access token saved');
       }
       if (data.refreshToken) {
         localStorage.setItem('refreshToken', data.refreshToken);
-        console.log('[LOGIN] Refresh token saved');
+        devLog('[LOGIN] Refresh token saved');
       }
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
-        console.log('[LOGIN] User data saved');
+        devLog('[LOGIN] User data saved');
       }
 
-      console.log('[LOGIN] Redirecting to dashboard...');
+      devLog('[LOGIN] Redirecting to dashboard...');
 
       if (data.user?.role === 'admin' || data.user?.role === 'owner') {
         router.push('/admin/dashboard');
@@ -128,7 +132,7 @@ export default function LoginForm() {
         return;
       }
 
-      console.log('[2FA] Verifying 2FA code...');
+      devLog('[2FA] Verifying 2FA code...');
 
       const res = await fetch("/api/auth/verify-2fa", {
         method: "POST",
@@ -169,7 +173,7 @@ export default function LoginForm() {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
 
-      console.log('[2FA] 2FA verification successful');
+      devLog('[2FA] 2FA verification successful');
       router.push('/admin/dashboard');
     } catch (err: unknown) {
       console.error('[2FA] Error:', err);

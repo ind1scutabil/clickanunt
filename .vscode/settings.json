@@ -133,7 +133,7 @@
   "extensions.recommendations": [
     "prisma.prisma"
   ],
-  "extensions.ignoreRecommendations": false,
+  "extensions.ignoreRecommendations": true,
   "workbench.startupEditor": "none",
   "workbench.editor.enablePreview": false,
   "workbench.editor.enablePreviewFromQuickOpen": false,

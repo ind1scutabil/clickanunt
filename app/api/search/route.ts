@@ -1,103 +1,139 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { parseAndValidateQuery } from "@/lib/security/validation-schemas";
+import { getUserFromRequest } from "@/lib/auth";
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-query";
+import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
+
+/**
+ * @deprecated Prefer `GET /api/listings?q=…` for full listing rows + shared filters/sort.
+ * This route returns a slim `SearchResponseDto` for backward compatibility; it uses the same FTS engine as `/api/listings`.
+ */
+const searchSchema = z.object({
+  q: z.string().min(2).max(200),
+  category: z.string().min(1).max(100).optional(),
+  city: z.string().min(1).max(100).optional(),
+  year: z.coerce.number().int().min(1900).max(2100).optional(),
+  minPrice: z.coerce.number().min(0).max(1_000_000).optional(),
+  maxPrice: z.coerce.number().min(0).max(1_000_000).optional(),
+  page: z.coerce.number().int().min(1).max(50).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+});
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || '';
-    const category = searchParams.get('category');
-    const city = searchParams.get('city');
-    const minPrice = searchParams.get('minPrice');
-    const maxPrice = searchParams.get('maxPrice');
-    const year = searchParams.get('year');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = (page - 1) * limit;
-
-    if (!query || query.length < 2) {
-      return NextResponse.json(
-        { error: 'Query must be at least 2 characters' },
-        { status: 400 }
-      );
+    const parsed = parseAndValidateQuery(searchParams, searchSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error || "Invalid query" }, { status: 400 });
     }
 
-    // Full-text search using PostgreSQL tsvector
-    const searchQuery = query
-      .trim()
-      .split(/\s+/)
-      .map(word => `${word}:*`)
-      .join(' & ');
+    if (!parsed.data) {
+      return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+    }
 
-    // Preserve original truthiness behavior of optional filters:
-    // in the previous implementation, falsy strings (e.g. '') disabled the filter.
-    const categoryParam = category ? category : null;
-    const cityParam = city ? city : null;
-    const yearParam = year ? year : null;
-    const minPriceParam = minPrice ? minPrice : null;
-    const maxPriceParam = maxPrice ? maxPrice : null;
+    const { q, category, city, year, minPrice, maxPrice, page, limit } = parsed.data;
+    const offset = (page - 1) * limit;
 
-    // Execute search with parameterized raw SQL (safe from SQL injection)
-    const listings = await prisma.$queryRaw<Array<{
-      id: string;
-      title: string;
-      category: string | null;
-      priceAmount: number | null;
-      priceCurrency: string | null;
-      city: string | null;
-      county: string | null;
-      photos: string[] | null;
-      createdAt: Date;
-      isPromoted: boolean | null;
-      rank: number;
-    }>>`
-      SELECT 
-        id, title, category, "priceAmount", "priceCurrency", 
-        city, county, photos, "createdAt", "isPromoted",
-        ts_rank("search_vector", to_tsquery('romanian', $1)) AS rank
-      FROM listings
-      WHERE 
-        status = 'active'
-        AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
-        AND (${categoryParam} IS NULL OR category = ${categoryParam})
-        AND (${cityParam} IS NULL OR city = ${cityParam})
-        AND (${yearParam} IS NULL OR year = ${yearParam})
-        AND (${minPriceParam} IS NULL OR "priceAmount" >= ${minPriceParam})
-        AND (${maxPriceParam} IS NULL OR "priceAmount" <= ${maxPriceParam})
-      ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC
-      LIMIT ${limit} OFFSET ${offset}
-    `;
+    if (typeof minPrice === "number" && typeof maxPrice === "number" && minPrice > maxPrice) {
+      return NextResponse.json({ error: "minPrice cannot be greater than maxPrice" }, { status: 400 });
+    }
 
-    // Count total results
-    const countResult = await prisma.$queryRaw<Array<{ count: string }>>`
-      SELECT COUNT(*) as count
-      FROM listings
-      WHERE 
-        status = 'active'
-        AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
-        AND (${categoryParam} IS NULL OR category = ${categoryParam})
-        AND (${cityParam} IS NULL OR city = ${cityParam})
-        AND (${yearParam} IS NULL OR year = ${yearParam})
-        AND (${minPriceParam} IS NULL OR "priceAmount" >= ${minPriceParam})
-        AND (${maxPriceParam} IS NULL OR "priceAmount" <= ${maxPriceParam})
-    `;
+    const tsq = buildRomanianTsQuery(q);
+    if (!tsq) {
+      return NextResponse.json({ error: "Invalid search query" }, { status: 400 });
+    }
 
-    const total = parseInt(countResult[0]?.count || '0');
-
-    return NextResponse.json({
-      results: listings,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
+    const { ids, ranks, total } = await ftsSearchListingIds(
+      prisma,
+      tsq,
+      {
+        activeOnly: true,
+        category: category ?? null,
+        city: city ?? null,
+        year: typeof year === "number" ? year : null,
+        minPrice: typeof minPrice === "number" ? minPrice : null,
+        maxPrice: typeof maxPrice === "number" ? maxPrice : null,
       },
+      limit,
+      offset
+    );
+
+    const rows =
+      ids.length === 0
+        ? []
+        : await prisma.listing.findMany({
+            where: { id: { in: ids } },
+            select: {
+              id: true,
+              title: true,
+              category: true,
+              priceAmount: true,
+              priceCurrency: true,
+              city: true,
+              county: true,
+              photos: true,
+              createdAt: true,
+              isPromoted: true,
+            },
+          });
+
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const results = ids
+      .map((id, i) => {
+        const row = byId.get(id);
+        if (!row) return null;
+        return {
+          id: row.id,
+          title: row.title,
+          category: row.category,
+          priceAmount: row.priceAmount,
+          priceCurrency: row.priceCurrency,
+          city: row.city,
+          county: row.county,
+          photos: normalizeListingPhotosArray(row.photos),
+          createdAt: row.createdAt.toISOString(),
+          isPromoted: row.isPromoted,
+          rank: ranks[i] ?? 0,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    const viewer = await getUserFromRequest(request);
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.search_performed,
+      userId: viewer?.id ?? null,
+      metadata: {
+        q: q.slice(0, 200),
+        resultCount: total,
+        category: category ?? null,
+        city: city ?? null,
+        page,
+      },
+      request,
     });
 
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Search failed', details: message },
-      { status: 500 }
+      {
+        results,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      },
+      {
+        headers: {
+          Deprecation: "true",
+          Link: '</api/listings>; rel="successor-version"',
+        },
+      }
     );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Search failed", details: message }, { status: 500 });
   }
 }

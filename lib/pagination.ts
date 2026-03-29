@@ -43,7 +43,8 @@ export function encodeCursor(id: string): string {
 }
 
 /**
- * Build Prisma where clause with cursor
+ * @deprecated Folosit doar pentru compatibilitate; pentru feed-ul public folosește keyset-ul
+ * `buildListingFeedKeysetWhere` (sortare feedBoost + createdAt + id).
  */
 export function buildCursorWhere(
   cursor: string | undefined,
@@ -62,23 +63,97 @@ export function buildCursorWhere(
   };
 }
 
+/** Cursor keyset pentru feed (v2) — aliniat cu orderBy feedBoost desc, createdAt desc, id desc */
+export type ListingFeedCursorPayload = {
+  feedBoost: number;
+  createdAt: Date;
+  id: string;
+};
+
+export function encodeListingFeedCursor(payload: ListingFeedCursorPayload): string {
+  return Buffer.from(
+    JSON.stringify({
+      v: 2,
+      fb: payload.feedBoost,
+      ca: payload.createdAt.toISOString(),
+      id: payload.id,
+    }),
+    "utf-8"
+  ).toString("base64");
+}
+
+export function decodeListingFeedCursor(raw: string | undefined): ListingFeedCursorPayload | null {
+  if (!raw) return null;
+  try {
+    const json = JSON.parse(Buffer.from(raw, "base64").toString("utf-8")) as {
+      v?: number;
+      fb?: number;
+      ca?: string;
+      id?: string;
+    };
+    if (json?.v === 2 && typeof json.fb === "number" && typeof json.ca === "string" && typeof json.id === "string") {
+      const d = new Date(json.ca);
+      if (Number.isNaN(d.getTime())) return null;
+      return { feedBoost: json.fb, createdAt: d, id: json.id };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Paginare keyset corectă pentru milioane de anunțuri (fără OFFSET).
+ */
+export function buildListingFeedKeysetWhere(
+  cursor: ListingFeedCursorPayload | null,
+  baseWhere: Prisma.ListingWhereInput
+): Prisma.ListingWhereInput {
+  if (!cursor) return baseWhere;
+  const { feedBoost, createdAt, id } = cursor;
+  return {
+    AND: [
+      baseWhere,
+      {
+        OR: [
+          { feedBoost: { lt: feedBoost } },
+          {
+            AND: [{ feedBoost }, { createdAt: { lt: createdAt } }],
+          },
+          {
+            AND: [
+              { feedBoost },
+              { createdAt: { equals: createdAt } },
+              { id: { lt: id } },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 /**
  * Build cursor-based pagination for listings
  */
 export function buildPagination<T extends { id: string }>(
   data: T[],
-  limit: number
+  limit: number,
+  encodeNextCursor?: (lastRow: T) => string | null
 ): PaginationResult<T> {
   const hasMore = data.length > limit;
   const items = hasMore ? data.slice(0, limit) : data;
 
-  const nextCursor = hasMore && items.length > 0
-    ? encodeCursor(items[items.length - 1].id)
-    : null;
+  const last = items.length > 0 ? items[items.length - 1] : null;
+  const nextCursor =
+    hasMore && last
+      ? encodeNextCursor
+        ? encodeNextCursor(last)
+        : encodeCursor(last.id)
+      : null;
 
-  const prevCursor = items.length > 0
-    ? encodeCursor(items[0].id)
-    : null;
+  const first = items.length > 0 ? items[0] : null;
+  const prevCursor = first ? encodeCursor(first.id) : null;
 
   return {
     data: items,

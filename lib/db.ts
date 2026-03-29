@@ -15,11 +15,15 @@ if (useMemory) {
 
 class PrismaDB {
   async findUserByEmail(email: string) {
-    return await prisma!.user.findUnique({ where: { email } });
+    return await prisma!.user.findFirst({
+      where: { email, deletedAt: null },
+    });
   }
 
   async findUserById(id: string) {
-    return await prisma!.user.findUnique({ where: { id } });
+    return await prisma!.user.findFirst({
+      where: { id, deletedAt: null },
+    });
   }
 
   async createUser(data: any) {

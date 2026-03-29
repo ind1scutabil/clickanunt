@@ -45,12 +45,15 @@ echo ""
 
 # Step 4: Backup database
 echo "[4/10] Creating database backup..."
-ssh ${SERVER} "cd ${DEPLOY_DIR} && ./scripts/backup-db.sh 2>/dev/null || echo 'Backup script not found, skipping...'"
+ssh ${SERVER} "cd ${DEPLOY_DIR} && set -a && [ -f .env ] && source .env || true && set +a && ./scripts/backup-db.sh 2>/dev/null || echo 'Backup skipped (script missing or failed) ...'"
 echo "✅ Backup completed (or skipped)"
 echo ""
 
 # Step 5: Sync files to server
 echo "[5/10] Syncing files to server..."
+# Exclude public/uploads from rsync: --delete would otherwise remove server-only files
+# (local fallback uploads live under DEPLOY_DIR/public/uploads; see lib/storage-local.ts)
+# Exclude backups/ and scripts/exports/: created on server; --delete must not wipe them
 rsync -avz --delete \
   --exclude node_modules \
   --exclude .git \
@@ -58,6 +61,9 @@ rsync -avz --delete \
   --exclude .env.local \
   --exclude coverage \
   --exclude playwright-report \
+  --exclude 'public/uploads' \
+  --exclude 'backups' \
+  --exclude 'scripts/exports' \
   ./ ${SERVER}:${DEPLOY_DIR}/ || {
   echo "❌ File sync failed"
   exit 1

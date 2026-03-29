@@ -5,6 +5,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Navbar from '@/app/components/Navbar';
 import { COMPANY_CONFIG } from '@/lib/company-config';
+import { getCsrfToken } from '@/lib/security/csrf-client';
 
 // Initialize Stripe - LIVE MODE v2.0
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
@@ -140,15 +141,23 @@ export default function CardPaymentPage() {
         // Map short package name to Stripe enum
         const fullPackageType = packageId ? (PACKAGE_MAPPING[packageId] || packageId) : packageId;
 
+        const csrfToken = await getCsrfToken();
+        const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (csrfToken) headers['x-csrf-token'] = csrfToken;
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+
         const response = await fetch('/api/payments/create-intent', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
+          credentials: 'include',
           body: JSON.stringify({
             listingId: id,
             packageType: fullPackageType,
-          })
+            packageId,
+          }),
         });
 
         if (!response.ok) {

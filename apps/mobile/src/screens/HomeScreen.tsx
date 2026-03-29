@@ -1,13 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getLastDataSource, listingsApi } from '../api/client';
+import { categoriesApi, getLastDataSource, listingsApi, listingsBrowseQueryString } from '../api/client';
 import { useLiveSync } from '../hooks/useLiveSync';
 import { addBreadcrumb, trackEvent } from '../telemetry';
 import { THEME } from '../theme';
+import { primaryListingPhotoUri } from '../utils/listingPhotos';
 import type { Listing } from '../types';
 
 type Props = {
@@ -15,15 +26,25 @@ type Props = {
   onOpenCreateListing: () => void;
 };
 
-const CATEGORY_TABS: Array<{ key: string; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { key: 'all', label: 'Toate', icon: 'apps' },
-  { key: 'auto', label: 'Auto', icon: 'car-sport' },
-  { key: 'imobiliare', label: 'Imobiliare', icon: 'business' },
-  { key: 'electronice', label: 'Electronice', icon: 'phone-portrait' },
-  { key: 'servicii', label: 'Servicii', icon: 'construct' },
-  { key: 'moda', label: 'Modă', icon: 'shirt' },
-  { key: 'casa', label: 'Casă', icon: 'home' },
-];
+type CategoryTab = { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; count?: number };
+
+function iconForCategory(label: string): keyof typeof Ionicons.glyphMap {
+  const l = label.toLowerCase();
+  if (l.includes('auto') || l.includes('moto')) return 'car-sport';
+  if (l.includes('imobiliar')) return 'business';
+  if (l.includes('electron')) return 'phone-portrait';
+  if (l.includes('servici')) return 'construct';
+  if (l.includes('modă') || l.includes('frumuse')) return 'shirt';
+  if (l.includes('casă') || l.includes('grădin')) return 'home';
+  if (l.includes('sport') || l.includes('timp liber')) return 'football';
+  if (l.includes('copil')) return 'happy';
+  if (l.includes('anim')) return 'paw';
+  if (l.includes('job') || l.includes('muncă')) return 'briefcase';
+  if (l.includes('agricult')) return 'leaf';
+  return 'pricetag';
+}
+
+const DEFAULT_TABS: CategoryTab[] = [{ key: 'all', label: 'Toate', icon: 'apps' }];
 
 export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets();
@@ -31,23 +52,62 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryTabs, setCategoryTabs] = useState<CategoryTab[]>(DEFAULT_TABS);
   const [offlineMode, setOfflineMode] = useState(false);
   const listRef = useRef<FlatList<Listing> | null>(null);
   const savedOffset = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    categoriesApi
+      .list()
+      .then((rows) => {
+        if (cancelled) return;
+        const next: CategoryTab[] = [
+          { key: 'all', label: 'Toate', icon: 'apps' },
+          ...rows.map((r) => ({
+            key: r.key,
+            label: r.label,
+            icon: iconForCategory(r.label),
+            count: r.count,
+          })),
+        ];
+        setCategoryTabs(next);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategoryTabs(DEFAULT_TABS);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
     setRefreshing(true);
     try {
-      const data = await listingsApi.list();
+      const q = searchQuery.trim();
+      const feedParams = {
+        page: 1,
+        limit: 24,
+        status: 'active',
+        sort: 'newest' as const,
+        category: selectedCategory === 'all' ? undefined : selectedCategory,
+        q: q.length >= 2 ? q : undefined,
+      };
+      const data = await listingsApi.browseFeed(feedParams);
       setItems(data);
-      setOfflineMode(getLastDataSource('listings.active') === 'cache');
+      const cacheKey = `listings.browse.${listingsBrowseQueryString(feedParams)}`;
+      setOfflineMode(getLastDataSource(cacheKey) === 'cache');
     } catch {
       setError('Nu am putut încărca anunțurile.');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedCategory, searchQuery]);
 
   useEffect(() => {
     load();
@@ -69,22 +129,22 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
     }, [])
   );
 
-  const filteredItems = useMemo(() => {
-    if (selectedCategory === 'all') {
-      return items;
-    }
-
-    return items.filter((item) => {
-      const category = String(item.category || '').toLowerCase();
-      return category.includes(selectedCategory);
-    });
-  }, [items, selectedCategory]);
-
   return (
     <View style={styles.container}>
       <View style={[styles.headerBlock, { paddingTop: Math.max(8, insets.top + 4) }]}>
         <Text style={styles.headerTitle}>Acasă</Text>
         <Text style={styles.headerSubtitle}>Actualizare automată la 12 secunde</Text>
+
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Caută (min. 2 caractere) — același motor ca pe site"
+          placeholderTextColor={THEME.colors.textMuted}
+          style={styles.searchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
 
         <Pressable
           style={styles.publishButton}
@@ -105,7 +165,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
         </Pressable>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
-          {CATEGORY_TABS.map((tab) => {
+          {categoryTabs.map((tab) => {
             const active = selectedCategory === tab.key;
             return (
               <Pressable
@@ -123,7 +183,10 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
                     color={active ? THEME.colors.accent : THEME.colors.textSecondary}
                   />
                 </View>
-                <Text style={[styles.categoryText, active ? styles.categoryTextActive : undefined]}>{tab.label}</Text>
+                <Text style={[styles.categoryText, active ? styles.categoryTextActive : undefined]} numberOfLines={1}>
+                  {tab.label}
+                  {typeof tab.count === 'number' ? ` (${tab.count})` : ''}
+                </Text>
               </Pressable>
             );
           })}
@@ -136,7 +199,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
       <FlatList
         ref={listRef}
         key="home-grid-2"
-        data={filteredItems}
+        data={items}
         keyExtractor={(item) => item.id}
         numColumns={2}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
@@ -156,7 +219,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
             }}
           >
             <Image
-              source={{ uri: item.photos?.[0] || 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200' }}
+              source={{ uri: primaryListingPhotoUri(item.photos) }}
               style={styles.coverImage}
               resizeMode="cover"
             />
@@ -179,7 +242,9 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
             <Text style={styles.meta} numberOfLines={1}>{item.city || 'Localitate neprecizată'}</Text>
 
             <Text style={styles.price}>
-              {item.priceAmount ? `${item.priceAmount.toLocaleString('ro-RO')} ${item.priceCurrency || 'RON'}` : 'Preț la cerere'}
+              {item.priceAmount != null
+                ? `${item.priceAmount.toLocaleString('ro-RO')} ${item.priceCurrency || 'RON'}`
+                : 'Preț la cerere'}
             </Text>
 
             <View style={styles.actionsRow}>
@@ -207,7 +272,13 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
         ListEmptyComponent={
           !refreshing ? (
             <View style={styles.emptyWrap}>
-              <Text style={styles.empty}>Nu există anunțuri disponibile.</Text>
+              <Text style={styles.empty}>
+                {searchQuery.trim().length >= 2
+                  ? 'Niciun rezultat pentru căutare.'
+                  : selectedCategory === 'all'
+                    ? 'Nu există anunțuri disponibile.'
+                    : 'Nu există anunțuri în această categorie.'}
+              </Text>
               <Pressable style={styles.emptyCta} onPress={onOpenCreateListing}>
                 <Text style={styles.emptyCtaText}>Publică primul anunț</Text>
               </Pressable>
@@ -236,6 +307,17 @@ const styles = StyleSheet.create({
     color: THEME.colors.accent,
     fontSize: 11,
     fontWeight: '600',
+  },
+  searchInput: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: THEME.colors.surface,
+    color: THEME.colors.textPrimary,
+    fontSize: 15,
   },
   publishButton: {
     marginTop: 10,
@@ -282,6 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
+    maxWidth: 220,
     height: 34,
     borderRadius: THEME.radius.pill,
     borderWidth: 1,
@@ -307,6 +390,7 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
+    flexShrink: 1,
   },
   categoryTextActive: {
     color: THEME.colors.textPrimary,

@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { getLastDataSource, listingsApi } from '../api/client';
+import { favoritesApi, getLastDataSource, listingsApi } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { useLiveSync } from '../hooks/useLiveSync';
 import { THEME } from '../theme';
+import { listingPhotoGalleryUris } from '../utils/listingPhotos';
 import type { Listing } from '../types';
 
 type Props = {
@@ -11,10 +13,13 @@ type Props = {
 };
 
 export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
+  const { user } = useAuth();
   const [item, setItem] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +41,49 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
 
   useLiveSync(load, { intervalMs: 10000 });
 
+  useEffect(() => {
+    if (!user || !item) {
+      setFavorited(false);
+      return;
+    }
+    let cancelled = false;
+    favoritesApi
+      .list()
+      .then((list) => {
+        if (!cancelled) {
+          setFavorited(list.some((f) => f.listingId === item.id));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFavorited(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, item?.id]);
+
+  const toggleFavorite = useCallback(async () => {
+    if (!user || !item || favBusy) {
+      return;
+    }
+    setFavBusy(true);
+    const next = !favorited;
+    setFavorited(next);
+    try {
+      if (next) {
+        await favoritesApi.add(item.id);
+      } else {
+        await favoritesApi.remove(item.id);
+      }
+    } catch {
+      setFavorited(!next);
+    } finally {
+      setFavBusy(false);
+    }
+  }, [user, item, favorited, favBusy]);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -55,9 +103,8 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
     );
   }
 
-  const photos = item.photos?.length
-    ? item.photos
-    : ['https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200'];
+  const photos = listingPhotoGalleryUris(item.photos);
+  const inactiveListing = item.status && item.status !== 'active';
 
   const attributes = item.attributes && typeof item.attributes === 'object'
     ? Object.entries(item.attributes).filter(([, value]) => value !== null && value !== undefined && String(value) !== '')
@@ -66,14 +113,30 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
-        {photos.map((photo) => (
-          <Image key={photo} source={{ uri: photo }} style={styles.carouselImage} resizeMode="cover" />
+        {photos.map((photo, idx) => (
+          <Image key={`${idx}-${photo}`} source={{ uri: photo }} style={styles.carouselImage} resizeMode="cover" />
         ))}
       </ScrollView>
 
       <View style={styles.card}>
         {offlineMode ? <Text style={styles.offlineHint}>Afișăm ultimele date salvate.</Text> : null}
+        {inactiveListing ? (
+          <Text style={styles.inactiveBanner}>
+            Acest anunț nu mai este disponibil ca activ ({item.status}). Poți vedea în continuare detaliile salvate.
+          </Text>
+        ) : null}
         <Text style={styles.title}>{item.title}</Text>
+        {user && item.status === 'active' ? (
+          <Pressable
+            onPress={() => {
+              void toggleFavorite();
+            }}
+            disabled={favBusy}
+            style={({ pressed }) => [styles.favRow, pressed && styles.favRowPressed]}
+          >
+            <Text style={styles.favText}>{favorited ? '★ Salvat în favorite' : '☆ Adaugă la favorite'}</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.price}>
           {item.priceAmount ? `${item.priceAmount.toLocaleString('ro-RO')} ${item.priceCurrency || 'RON'}` : 'Preț la cerere'}
         </Text>
@@ -174,7 +237,26 @@ const styles = StyleSheet.create({
     ...THEME.shadow.card,
   },
   title: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
+  favRow: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surfaceAlt,
+  },
+  favRowPressed: { opacity: 0.85 },
+  favText: { color: THEME.colors.accent, fontWeight: '700', fontSize: 14 },
   offlineHint: { color: THEME.colors.warning, fontWeight: '600', marginBottom: 8 },
+  inactiveBanner: {
+    color: THEME.colors.warning,
+    fontWeight: '800',
+    marginBottom: 10,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   price: { fontSize: 24, fontWeight: '800', color: THEME.colors.accent, marginTop: 8 },
   meta: { marginTop: 8, color: THEME.colors.textSecondary },
   description: {

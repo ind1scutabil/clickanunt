@@ -39,28 +39,37 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-[#0A0A0A] text-white pt-24 p-8">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4 text-[#39FF14]">Contact</h1>
-          <p className="text-gray-400 mb-8">
-            Aveți întrebări? Doriți să ne contactați pentru exercitarea drepturilor GDPR sau alte probleme?
-            Completați formularul de mai jos sau folosiți datele de contact.
-          </p>
+      <div className="enterprise-page-bg enterprise-mesh min-h-screen text-white">
+        <div className="mx-auto max-w-6xl px-4 pb-20 pt-24 md:px-8">
+          <header className="mb-10 md:mb-12">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+              Suntem aici pentru tine
+            </p>
+            <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">
+              <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
+                Contact
+              </span>
+            </h1>
+            <p className="max-w-2xl text-lg text-[var(--text-secondary)]">
+              Aveți întrebări sau solicitări GDPR? Completați formularul sau scrieți direct pe adresa dedicată
+              subiectului.
+            </p>
+          </header>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid gap-8 md:grid-cols-2 md:gap-10">
             {/* Contact Form */}
-            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-              <h2 className="text-2xl font-semibold mb-6 text-white">Formular de Contact</h2>
+            <div className="enterprise-card rounded-2xl p-6 md:p-8">
+              <h2 className="mb-6 text-xl font-semibold text-white">Formular de contact</h2>
               
               {submitted && (
-                <div className="mb-4 p-4 bg-green-900/50 border border-green-700 rounded">
-                  ✅ Mesajul dvs. a fost trimis cu succes! Vă vom răspunde în cel mai scurt timp.
+                <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm text-emerald-100">
+                  Mesajul a fost înregistrat. Îți vom răspunde în cel mai scurt timp.
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium mb-2" htmlFor="name">
+                  <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]" htmlFor="name">
                     Nume complet *
                   </label>
                   <input
@@ -69,13 +78,13 @@ export default function ContactPage() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full p-3 bg-[#0A0A0A] border border-gray-700 rounded focus:border-[#39FF14] focus:outline-none text-white"
+                    className="enterprise-input w-full px-4 py-3"
                     placeholder="Nume și prenume"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2" htmlFor="email">
+                  <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]" htmlFor="email">
                     Email *
                   </label>
                   <input
@@ -84,13 +93,13 @@ export default function ContactPage() {
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full p-3 bg-[#0A0A0A] border border-gray-700 rounded focus:border-[#39FF14] focus:outline-none text-white"
+                    className="enterprise-input w-full px-4 py-3"
                     placeholder="email@exemplu.ro"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2" htmlFor="subject">
+                  <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]" htmlFor="subject">
                     Subiect *
                   </label>
                   <select
@@ -98,7 +107,7 @@ export default function ContactPage() {
                     required
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full p-3 bg-[#0A0A0A] border border-gray-700 rounded focus:border-[#39FF14] focus:outline-none text-white"
+                    className="enterprise-input w-full px-4 py-3"
                   >
                     <option value="general">Întrebare generală</option>
                     <option value="admin">Administrare / Cont admin</option>
@@ -115,19 +124,19 @@ export default function ContactPage() {
                   </select>
                 </div>
 
-                <div className="bg-gray-800/60 border border-gray-700 rounded p-4 text-sm">
-                  <div className="text-gray-400 mb-1">Email dedicat pentru acest subiect</div>
+                <div className="rounded-xl border border-white/10 bg-[var(--bg-secondary)]/80 p-4 text-sm">
+                  <div className="mb-1 text-[var(--text-tertiary)]">Rută recomandată pentru acest subiect</div>
                   <a
                     href={`mailto:${selectedEmail.email}`}
-                    className="text-[#39FF14] hover:underline font-bold"
+                    className="font-semibold text-[var(--accent-secondary)] hover:underline"
                   >
                     {selectedEmail.email}
                   </a>
-                  <div className="text-gray-500 mt-1">{selectedEmail.label}</div>
+                  <div className="mt-1 text-[var(--text-muted)]">{selectedEmail.label}</div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2" htmlFor="message">
+                  <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]" htmlFor="message">
                     Mesaj *
                   </label>
                   <textarea
@@ -136,75 +145,72 @@ export default function ContactPage() {
                     rows={6}
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    className="w-full p-3 bg-[#0A0A0A] border border-gray-700 rounded focus:border-[#39FF14] focus:outline-none resize-none text-white"
-                    placeholder="Descrieți solicitarea dvs. în detaliu..."
+                    className="enterprise-input w-full resize-none px-4 py-3"
+                    placeholder="Descrie solicitarea în detaliu..."
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-[#39FF14] text-black font-semibold rounded hover:bg-[#2DE000] transition-colors"
+                  className="w-full rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                 >
-                  📧 Trimite Mesaj
+                  Trimite mesajul
                 </button>
 
-                <p className="text-xs text-gray-500">
-                  * Câmpuri obligatorii. Prin trimiterea acestui formular, sunteți de acord cu prelucrarea
-                  datelor conform <a href="/privacy" className="text-[#39FF14] hover:underline">Politicii de Confidențialitate</a>.
+                <p className="text-xs text-[var(--text-muted)]">
+                  * Câmpuri obligatorii. Prin trimitere ești de acord cu prelucrarea datelor conform{" "}
+                  <a href="/privacy" className="text-[var(--accent-secondary)] hover:underline">
+                    Politicii de confidențialitate
+                  </a>
+                  .
                 </p>
               </form>
             </div>
 
             {/* Contact Information */}
             <div className="space-y-6">
-              <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                <h2 className="text-2xl font-semibold mb-4 text-white">Date de Contact</h2>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#39FF14] mb-2">📧 Email General</h3>
-                    <a className="text-gray-300 hover:underline" href="mailto:contact@clickanunt.ro">contact@clickanunt.ro</a>
+              <div className="enterprise-card rounded-2xl p-6 md:p-8">
+                <h2 className="mb-6 text-xl font-semibold text-white">Canale oficiale</h2>
+                <div className="space-y-5">
+                  {[
+                    { title: "Email general", mail: "contact@clickanunt.ro", color: "text-emerald-400/95" },
+                    { title: "Administrare", mail: "admin@clickanunt.ro", color: "text-violet-400/95" },
+                    { title: "Suport", mail: "support@clickanunt.ro", color: "text-sky-400/95" },
+                    { title: "Facturare", mail: "billing@clickanunt.ro", color: "text-amber-400/95" },
+                    { title: "GDPR / DPO", mail: "dpo@clickanunt.ro", color: "text-blue-400/95", note: "Responsabil protecția datelor" },
+                  ].map((row) => (
+                    <div key={row.mail} className="border-b border-white/[0.06] pb-5 last:border-0 last:pb-0">
+                      <h3 className={`mb-1 text-sm font-semibold ${row.color}`}>{row.title}</h3>
+                      <a className="text-[var(--text-secondary)] transition hover:text-white" href={`mailto:${row.mail}`}>
+                        {row.mail}
+                      </a>
+                      {"note" in row && row.note && <p className="mt-1 text-xs text-[var(--text-muted)]">{row.note}</p>}
+                    </div>
+                  ))}
+                  <div className="border-b border-white/[0.06] pb-5">
+                    <h3 className="mb-1 text-sm font-semibold text-[var(--text-tertiary)]">Notificări automate</h3>
+                    <p className="text-[var(--text-secondary)]">noreply@clickanunt.ro</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">Doar pentru mesaje transmise de sistem</p>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-[#9B5CFF] mb-2">🛡️ Admin</h3>
-                    <a className="text-gray-300 hover:underline" href="mailto:admin@clickanunt.ro">admin@clickanunt.ro</a>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#00D4FF] mb-2">🆘 Suport</h3>
-                    <a className="text-gray-300 hover:underline" href="mailto:support@clickanunt.ro">support@clickanunt.ro</a>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#FFD24C] mb-2">💳 Billing</h3>
-                    <a className="text-gray-300 hover:underline" href="mailto:billing@clickanunt.ro">billing@clickanunt.ro</a>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#1E90FF] mb-2">🔐 GDPR / Protecția Datelor</h3>
-                    <a className="text-gray-300 hover:underline" href="mailto:dpo@clickanunt.ro">dpo@clickanunt.ro</a>
-                    <p className="text-sm text-gray-500">Responsabil Protecția Datelor (DPO)</p>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#B537F2] mb-2">📨 No-reply (automat)</h3>
-                    <p className="text-gray-300">noreply@clickanunt.ro</p>
-                    <p className="text-sm text-gray-500">Adresa folosită pentru notificări automate</p>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-2">📱 Telefon</h3>
-                    <p className="text-gray-300">+40 XXX XXX XXX</p>
-                    <p className="text-sm text-gray-500">Luni - Vineri: 09:00 - 18:00</p>
+                    <h3 className="mb-1 text-sm font-semibold text-[var(--text-tertiary)]">Telefon</h3>
+                    <p className="text-[var(--text-secondary)]">+40 XXX XXX XXX</p>
+                    <p className="text-xs text-[var(--text-muted)]">Luni–Vineri · 09:00–18:00</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                <h2 className="text-2xl font-semibold mb-4 text-white">🏢 Date Societate</h2>
-                <div className="space-y-2 text-gray-300">
-                  <p><strong>Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
+              <div className="enterprise-card rounded-2xl p-6 md:p-8">
+                <h2 className="mb-4 text-xl font-semibold text-white">Date societate</h2>
+                <div className="space-y-2 text-[var(--text-secondary)]">
+                  <p><strong className="text-[var(--text-primary)]">Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
                   <p><strong>CUI/Cod fiscal:</strong> RO46062613</p>
                   <p><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
                   <p><strong>Reg. Com.:</strong> J20220000480181</p>
                   <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
                   <p><strong>Email principal:</strong> contact@clickanunt.ro</p>
-                  <div className="mt-4 pt-4 border-t border-gray-700">
-                    <p className="text-sm text-gray-400 mb-2"><strong>Detalii Bancară:</strong></p>
+                  <div className="mt-4 border-t border-white/[0.06] pt-4">
+                    <p className="mb-2 text-sm text-[var(--text-tertiary)]"><strong className="text-[var(--text-primary)]">Detalii bancare</strong></p>
                     <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
                     <p><strong>Banca:</strong> ING</p>
                     <p><strong>Valută:</strong> RON</p>
@@ -212,42 +218,42 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              <div className="bg-blue-900/20 p-6 rounded-lg border border-blue-800">
-                <h2 className="text-xl font-semibold mb-3 text-white">⚖️ Autoritatea de Supraveghere GDPR</h2>
-                <p className="text-sm text-gray-300 mb-3">
+              <div className="enterprise-card rounded-2xl border border-blue-500/20 bg-blue-950/20 p-6">
+                <h2 className="mb-3 text-lg font-semibold text-white">Autoritate de supraveghere (GDPR)</h2>
+                <p className="mb-3 text-sm text-[var(--text-secondary)]">
                   Pentru plângeri legate de protecția datelor personale:
                 </p>
-                <div className="space-y-1 text-sm text-gray-300">
+                <div className="space-y-1 text-sm text-[var(--text-secondary)]">
                   <p><strong>ANSPDCP</strong></p>
                   <p>B-dul G-ral. Gheorghe Magheru 28-30, Sector 1, București</p>
                   <p>Tel: +40 318 059 211</p>
                   <p>Email: anspdcp@dataprotection.ro</p>
                   <p>
-                    <a href="https://www.dataprotection.ro" target="_blank" rel="noopener" className="text-[#1E90FF] hover:underline">
+                    <a href="https://www.dataprotection.ro" target="_blank" rel="noopener" className="text-[var(--accent-secondary)] hover:underline">
                       www.dataprotection.ro
                     </a>
                   </p>
                 </div>
               </div>
 
-              <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                <h2 className="text-xl font-semibold mb-3 text-white">⏱️ Timp de Răspuns</h2>
-                <ul className="space-y-2 text-sm text-gray-300">
-                  <li>✅ <strong>Solicitări GDPR:</strong> 30 zile (art. 12 GDPR)</li>
-                  <li>✅ <strong>Întrebări generale:</strong> 2-3 zile lucrătoare</li>
-                  <li>✅ <strong>Probleme tehnice:</strong> 24-48 ore</li>
-                  <li>✅ <strong>Raportări abuz:</strong> 24 ore (prioritate)</li>
+              <div className="enterprise-card rounded-2xl p-6">
+                <h2 className="mb-3 text-lg font-semibold text-white">Timp de răspuns</h2>
+                <ul className="space-y-2 text-sm text-[var(--text-secondary)]">
+                  <li><strong className="text-[var(--text-primary)]">GDPR:</strong> până la 30 zile (art. 12)</li>
+                  <li><strong className="text-[var(--text-primary)]">General:</strong> 2–3 zile lucrătoare</li>
+                  <li><strong className="text-[var(--text-primary)]">Tehnic:</strong> 24–48 ore</li>
+                  <li><strong className="text-[var(--text-primary)]">Abuz:</strong> prioritate în 24 h</li>
                 </ul>
               </div>
             </div>
           </div>
 
-          <div className="mt-12 bg-yellow-900/20 p-6 rounded-lg border border-yellow-800">
-            <h2 className="text-xl font-semibold mb-3 text-yellow-400">⚠️ Important - Solicitări GDPR</h2>
-            <p className="text-gray-300 mb-4">
+          <div className="enterprise-card mt-12 rounded-2xl border border-amber-500/25 bg-amber-950/15 p-6 md:p-8">
+            <h2 className="mb-3 text-lg font-semibold text-amber-200">Solicitări GDPR</h2>
+            <p className="mb-4 text-[var(--text-secondary)]">
               Pentru solicitări de exercitare a drepturilor GDPR, vă rugăm să includeți:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-gray-300 ml-4">
+            <ul className="ml-4 list-inside list-disc space-y-2 text-[var(--text-secondary)]">
               <li>Email-ul asociat contului dvs. pe platformă</li>
               <li>Tipul de solicitare (acces, ștergere, rectificare, etc.)</li>
               <li>O descriere clară a cererii</li>

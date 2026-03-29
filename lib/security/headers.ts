@@ -16,7 +16,7 @@ import { NextResponse } from 'next/server';
  * Content Security Policy configuration
  */
 export function getCSPHeader(): string {
-  const cspDirectives = {
+  const cspDirectives: Record<string, string[]> = {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
@@ -42,7 +42,6 @@ export function getCSPHeader(): string {
       'data:',
       'blob:',
       'https:',
-      'https://images.unsplash.com',
       'https://www.clickanunt.ro',
     ],
     'media-src': ["'self'"],
@@ -60,12 +59,16 @@ export function getCSPHeader(): string {
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
     'object-src': ["'none'"],
-    'upgrade-insecure-requests': [],
   };
-  
-  // In development, relax CSP for hot reload
+
+  // Production HTTPS only — never in dev: Safari/Chrome upgrade http://localhost → https
+  // and break CSS/JS loading (no TLS on local dev).
+  if (process.env.NODE_ENV === 'production') {
+    cspDirectives['upgrade-insecure-requests'] = [];
+  }
+
+  // In development, relax CSP for hot reload (WebSocket HMR)
   if (process.env.NODE_ENV === 'development') {
-    cspDirectives['script-src'].push("'unsafe-eval'");
     cspDirectives['connect-src'].push('ws:', 'wss:');
   }
   

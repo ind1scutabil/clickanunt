@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import Link from 'next/link';
 import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
+import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from '@/lib/admin-fetch';
 
 interface Invoice {
   id: string;
@@ -43,8 +44,9 @@ export default function AdminInvoicesPage() {
   const [viewTab, setViewTab] = useState<'list' | 'export' | 'anaf'>('list');
   const [exportLoading, setExportLoading] = useState(false);
   const [anafStatus, setAnafStatus] = useState('');
+  const [inlineMessage, setInlineMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -55,33 +57,28 @@ export default function AdminInvoicesPage() {
         search: filters.searchQuery,
       });
 
-      const res = await fetch(`/api/admin/invoices?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`,
-        },
-      });
+      const res = await fetchWithAuthRefresh(`/api/admin/invoices?${params.toString()}`);
 
-      if (!res.ok) throw new Error('Failed to load invoices');
+      if (!res.ok) throw new Error('Nu am putut încărca facturile');
 
       const data = await res.json();
       setInvoices(data.invoices || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error loading invoices');
+      setError(err instanceof Error ? err.message : 'Eroare la încărcarea facturilor');
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.status, filters.dateRange, filters.searchQuery]);
 
-  // Load invoices
   useEffect(() => {
     if (!isLoading && !isAuthorized) {
       router.push('/');
       return;
     }
     if (!isLoading && isAuthorized) {
-      loadInvoices();
+      void loadInvoices();
     }
-  }, [filters.status, filters.dateRange, filters.searchQuery, isAuthorized, isLoading]);
+  }, [filters.status, filters.dateRange, filters.searchQuery, isAuthorized, isLoading, loadInvoices, router]);
 
   const handleSelectInvoice = (invoiceId: string) => {
     const newSelected = new Set(selectedInvoices);
@@ -103,13 +100,10 @@ export default function AdminInvoicesPage() {
 
   const downloadInvoicePDF = async (invoiceId: string) => {
     try {
-      const res = await fetch(`/api/admin/invoices/${invoiceId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-      });
+      setInlineMessage(null);
+      const res = await fetchWithAuthRefresh(`/api/admin/invoices/${invoiceId}/download`);
 
-      if (!res.ok) throw new Error('Failed to download invoice');
+      if (!res.ok) throw new Error('Descărcarea PDF a eșuat');
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -118,39 +112,43 @@ export default function AdminInvoicesPage() {
       a.download = `invoice-${invoiceId}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
+      setInlineMessage({ type: 'ok', text: 'PDF descărcat.' });
     } catch (err) {
-      alert(`Error downloading invoice: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setInlineMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Eroare la descărcare',
+      });
     }
   };
 
   const downloadMultipleInvoices = async () => {
     try {
       setExportLoading(true);
+      setInlineMessage(null);
 
-      const res = await fetch('/api/admin/invoices/batch-download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: JSON.stringify({
-          invoiceIds: Array.from(selectedInvoices),
-        }),
+      const res = await postJsonWithAuthRefresh('/api/admin/invoices/batch-download', {
+        invoiceIds: Array.from(selectedInvoices),
       });
 
-      if (!res.ok) throw new Error('Failed to download invoices');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error((errBody as { error?: string }).error || 'Arhiva nu a putut fi generată');
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `invoices-${new Date().toISOString().split('T')[0]}.zip`;
+      a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
 
-      alert('✅ Invoices downloaded successfully!');
+      setInlineMessage({ type: 'ok', text: 'Export CSV batch descărcat.' });
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setInlineMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Eroare la descărcare',
+      });
     } finally {
       setExportLoading(false);
     }
@@ -160,21 +158,23 @@ export default function AdminInvoicesPage() {
     try {
       const headers = ['Invoice Number', 'User', 'Email', 'Amount', 'VAT', 'Total', 'Status', 'Issued Date'];
       const rows = invoices
-        .filter(inv => selectedInvoices.size === 0 || selectedInvoices.has(inv.id))
-        .map(inv => [
+        .filter((inv) => selectedInvoices.size === 0 || selectedInvoices.has(inv.id))
+        .map((inv) => [
           inv.invoiceNumber,
           inv.userName,
           inv.userEmail,
-          ((inv.metadata as Record<string, unknown> | null)?.subtotal as number || 0) / 100,
-          ((inv.metadata as Record<string, unknown> | null)?.vatAmount as number || 0) / 100,
+          (((inv.metadata as Record<string, unknown> | null)?.subtotal as number) || 0) / 100,
+          (((inv.metadata as Record<string, unknown> | null)?.vatAmount as number) || 0) / 100,
           (inv.amount / 100).toFixed(2),
           inv.status,
           new Date(inv.issuedAt).toLocaleDateString('ro-RO'),
         ]);
 
-      const csv = [headers, ...rows].map((row: (string | number | undefined)[]) => row.map(cell => `"${cell}"`).join(',')).join('\n');
-      
-      const blob = new Blob([csv as string], { type: 'text/csv' });
+      const csv = [headers, ...rows]
+        .map((row: (string | number | undefined)[]) => row.map((cell) => `"${cell}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv as string], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -182,50 +182,46 @@ export default function AdminInvoicesPage() {
       a.click();
       window.URL.revokeObjectURL(url);
 
-      alert('✅ CSV exported successfully!');
+      setInlineMessage({ type: 'ok', text: 'Fișier CSV generat.' });
     } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setInlineMessage({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Eroare export CSV',
+      });
     }
   };
 
   const submitToANAF = async () => {
     try {
-      setAnafStatus('Processing...');
+      setAnafStatus('Se procesează…');
 
-      const res = await fetch('/api/admin/invoices/submit-anaf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: JSON.stringify({
-          invoiceIds: Array.from(selectedInvoices),
-          format: 'e-invoice', // e-invoice format for ANAF
-        }),
+      const res = await postJsonWithAuthRefresh('/api/admin/invoices/submit-anaf', {
+        invoiceIds: Array.from(selectedInvoices),
+        format: 'e-invoice',
       });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || 'Failed to submit to ANAF');
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Trimitere ANAF eșuată');
 
       setAnafStatus(
-        `✅ Successfully submitted ${data.submitted} invoices to ANAF. Failed: ${data.failed || 0}`
+        `Trimise: ${(data as { submitted?: number }).submitted ?? 0} · Eșuate: ${(data as { failed?: number }).failed ?? 0}`
       );
-      
-      loadInvoices();
+
+      void loadInvoices();
     } catch (err) {
-      setAnafStatus(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setAnafStatus(err instanceof Error ? err.message : 'Eroare');
     }
   };
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      draft: 'bg-gray-600 text-white',
-      issued: 'bg-blue-600 text-white',
-      paid: 'bg-green-600 text-white',
-      cancelled: 'bg-red-600 text-white',
+      draft: 'bg-white/10 text-[var(--text-secondary)]',
+      issued: 'bg-blue-500/20 text-blue-200/95',
+      paid: 'bg-emerald-500/20 text-emerald-200/95',
+      cancelled: 'bg-red-500/20 text-red-200/95',
     };
-    return styles[status as keyof typeof styles] || 'bg-gray-600 text-white';
+    return styles[status as keyof typeof styles] || 'bg-white/10 text-[var(--text-secondary)]';
   };
 
   const filteredInvoices = invoices.filter(inv => {
@@ -245,12 +241,13 @@ export default function AdminInvoicesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
-            <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
-          </div>
-          <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+          <div
+            className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+            aria-hidden
+          />
+          <p className="text-sm text-[var(--text-tertiary)]">Verificare acces admin…</p>
         </div>
       </div>
     );
@@ -258,10 +255,10 @@ export default function AdminInvoicesPage() {
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 text-center">
-          <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
-          <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi această pagină.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4">
+        <div className="max-w-md rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+          <p className="text-lg font-semibold text-red-300">Acces respins</p>
+          <p className="mt-2 text-sm text-[var(--text-tertiary)]">Nu ai permisiunea pentru această pagină.</p>
         </div>
       </div>
     );
@@ -270,62 +267,83 @@ export default function AdminInvoicesPage() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-[#0A0A0A] text-white pt-24 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-4xl font-bold text-[#00D4FF]">💰 Gestiune Facturi</h1>
-              <Link
-                href="/admin/dashboard"
-                className="px-4 py-2 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#4E3CFF] hover:to-[#6D5BFF] text-white rounded-lg transition-all shadow-lg hover:shadow-[#6D5BFF]/50 font-semibold"
-              >
-                ← Înapoi la Dashboard
-              </Link>
+      <main className="min-h-screen bg-[var(--bg-primary)] pb-14 pt-20 text-[var(--text-primary)]">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <header className="mb-10 flex flex-col gap-4 border-b border-[var(--border-primary)] pb-8 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Finanțe
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Facturi admin</h1>
+              <p className="mt-2 max-w-2xl text-sm text-[var(--text-tertiary)]">
+                Listă, export CSV și flux ANAF (conform configurării serverului).
+              </p>
             </div>
-            <p className="text-gray-400">
-              Administrează facturile emise, descarcă pentru contabilitate sau trimite automat la ANAF
-            </p>
-          </div>
+            <Link
+              href="/admin/dashboard"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-[var(--bg-elevated)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
+            >
+              ← Dashboard
+            </Link>
+          </header>
 
-          {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-900/50 border border-red-700 rounded text-red-200">
-              ❌ {error}
+            <div className="mb-6 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200/95">
+              {error}
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-8 border-b border-gray-700">
+          {inlineMessage && (
+            <div
+              className={`mb-6 rounded-xl border px-4 py-3 text-sm ${
+                inlineMessage.type === 'ok'
+                  ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100/95'
+                  : 'border-red-500/25 bg-red-500/10 text-red-100/95'
+              }`}
+            >
+              {inlineMessage.text}
+            </div>
+          )}
+
+          <div className="mb-8 flex flex-wrap gap-1 border-b border-white/[0.06] pb-1" role="tablist" aria-label="Vizualizări facturi">
             <button
+              type="button"
+              role="tab"
+              aria-selected={viewTab === 'list'}
               onClick={() => setViewTab('list')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 viewTab === 'list'
-                  ? 'border-[#00D4FF] text-[#00D4FF]'
-                  : 'border-transparent text-gray-400 hover:text-white'
+                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              📋 Lista Facturi
+              Listă
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={viewTab === 'export'}
               onClick={() => setViewTab('export')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 viewTab === 'export'
-                  ? 'border-[#00D4FF] text-[#00D4FF]'
-                  : 'border-transparent text-gray-400 hover:text-white'
+                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              📥 Descărcare & Export
+              Export
             </button>
             <button
+              type="button"
+              role="tab"
+              aria-selected={viewTab === 'anaf'}
               onClick={() => setViewTab('anaf')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 viewTab === 'anaf'
-                  ? 'border-[#00D4FF] text-[#00D4FF]'
-                  : 'border-transparent text-gray-400 hover:text-white'
+                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              🏛️ ANAF SPV
+              ANAF SPV
             </button>
           </div>
 
@@ -333,15 +351,15 @@ export default function AdminInvoicesPage() {
           {viewTab === 'list' && (
             <>
               {/* Filters */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 mb-6">
-                <h2 className="text-xl font-semibold mb-4">🔍 Filtre</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mb-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Filtre</h2>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Status</label>
+                    <label className="mb-1.5 block text-xs font-medium text-[var(--text-tertiary)]">Status</label>
                     <select
                       value={filters.status}
                       onChange={(e) => setFilters({ ...filters, status: e.target.value as 'all' | 'draft' | 'issued' | 'paid' | 'cancelled' })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white"
+                      className="enterprise-input w-full rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)]"
                     >
                       <option value="all">Toate</option>
                       <option value="draft">Draft</option>
@@ -351,11 +369,11 @@ export default function AdminInvoicesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Perioada</label>
+                    <label className="mb-1.5 block text-xs font-medium text-[var(--text-tertiary)]">Perioadă</label>
                     <select
                       value={filters.dateRange}
                       onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as 'today' | 'week' | 'month' | 'all' })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white"
+                      className="enterprise-input w-full rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)]"
                     >
                       <option value="today">Astazi</option>
                       <option value="week">Această săptămână</option>
@@ -364,49 +382,51 @@ export default function AdminInvoicesPage() {
                     </select>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-2">Căutare</label>
+                    <label className="mb-1.5 block text-xs font-medium text-[var(--text-tertiary)]">Căutare</label>
                     <input
                       type="text"
-                      placeholder="Număr factură, utilizator, email..."
+                      placeholder="Număr factură, utilizator, email…"
                       value={filters.searchQuery}
                       onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-                      className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white"
+                      className="enterprise-input w-full rounded-xl px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-900 border border-gray-800 rounded p-4">
-                  <p className="text-gray-400 text-sm">Total Facturi</p>
-                  <p className="text-2xl font-bold text-[#00D4FF]">{filteredInvoices.length}</p>
+              <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Facturi (filtrate)</p>
+                  <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                    {filteredInvoices.length}
+                  </p>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded p-4">
-                  <p className="text-gray-400 text-sm">Total (fără TVA)</p>
-                  <p className="text-2xl font-bold text-green-400">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Total fără TVA</p>
+                  <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-300/95">
                     {((totalAmount - totalVAT) / 100).toFixed(2)} RON
                   </p>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded p-4">
-                  <p className="text-gray-400 text-sm">TVA Total</p>
-                  <p className="text-2xl font-bold text-yellow-400">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">TVA</p>
+                  <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-200/95">
                     {(totalVAT / 100).toFixed(2)} RON
                   </p>
                 </div>
               </div>
 
               {/* Table */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+              <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)]">
                 {loading ? (
-                  <div className="p-8 text-center text-gray-400">Se încarcă facturile...</div>
+                  <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">Se încarcă facturile…</div>
                 ) : filteredInvoices.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400">Nicio factură găsită</div>
+                  <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">Nicio factură găsită</div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-800 border-b border-gray-700">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-white/[0.06] bg-[var(--bg-primary)]/50">
                           <tr>
                             <th className="px-4 py-3 text-left">
                               <input
@@ -430,7 +450,7 @@ export default function AdminInvoicesPage() {
                           {filteredInvoices.map((invoice) => (
                             <tr
                               key={invoice.id}
-                              className="border-b border-gray-800 hover:bg-gray-800/50 transition-colors"
+                              className="border-b border-white/[0.05] transition-colors hover:bg-white/[0.03]"
                             >
                               <td className="px-4 py-3">
                                 <input
@@ -442,15 +462,15 @@ export default function AdminInvoicesPage() {
                               </td>
                               <td className="px-4 py-3 font-mono text-sm">{invoice.invoiceNumber}</td>
                               <td className="px-4 py-3 text-sm">{invoice.userName}</td>
-                              <td className="px-4 py-3 text-sm text-gray-400">{invoice.userEmail}</td>
+                              <td className="px-4 py-3 text-sm text-[var(--text-muted)]">{invoice.userEmail}</td>
                               <td className="px-4 py-3 text-right font-semibold">
                                 {((invoice.amount - (((invoice.metadata as Record<string, unknown> | null)?.vatAmount as number) || 0)) / 100).toFixed(2)} RON
                               </td>
-                              <td className="px-4 py-3 text-right text-yellow-400">
+                              <td className="px-4 py-3 text-right text-amber-200/90">
                                 {((((invoice.metadata as Record<string, unknown> | null)?.vatAmount as number) || 0) / 100).toFixed(2)} RON
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`px-3 py-1 rounded text-sm font-medium ${getStatusBadge(invoice.status)}`}>
+                                <span className={`rounded-md px-2.5 py-1 text-xs font-medium ${getStatusBadge(invoice.status)}`}>
                                   {invoice.status}
                                 </span>
                               </td>
@@ -459,10 +479,11 @@ export default function AdminInvoicesPage() {
                               </td>
                               <td className="px-4 py-3 text-center">
                                 <button
+                                  type="button"
                                   onClick={() => downloadInvoicePDF(invoice.id)}
-                                  className="text-[#00D4FF] hover:text-[#00B8E6] text-sm font-medium"
+                                  className="text-sm font-medium text-[var(--accent-secondary)] hover:underline"
                                 >
-                                  📥 PDF
+                                  PDF
                                 </button>
                               </td>
                             </tr>
@@ -478,83 +499,74 @@ export default function AdminInvoicesPage() {
 
           {/* EXPORT VIEW */}
           {viewTab === 'export' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Download Section */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                <h2 className="text-xl font-semibold mb-4">📥 Descarcă Facturi</h2>
-                <p className="text-gray-400 mb-6">
-                  Selectează facturile din lista și descarcă-le ca PDF individual sau în pachet ZIP pentru
-                  transmitere în contabilitate.
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-2 text-base font-semibold text-[var(--text-primary)]">Export în masă</h2>
+                <p className="mb-6 text-sm text-[var(--text-tertiary)]">
+                  Selectează rânduri în listă, apoi descarcă CSV agregat (batch) sau export local CSV din datele
+                  încărcate.
                 </p>
 
-                <div className="space-y-3 mb-6">
-                  <div className="p-4 bg-blue-900/20 border border-blue-700 rounded">
-                    <p className="text-sm text-blue-300">
-                      📊 Facturi selectate: <strong>{selectedInvoices.size}</strong>
-                    </p>
+                <div className="mb-6 space-y-3">
+                  <div className="rounded-xl border border-white/[0.08] bg-[var(--bg-primary)]/50 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                    Facturi selectate:{' '}
+                    <span className="font-mono font-semibold text-[var(--text-primary)]">{selectedInvoices.size}</span>
                   </div>
 
                   <button
+                    type="button"
                     onClick={downloadMultipleInvoices}
                     disabled={selectedInvoices.size === 0 || exportLoading}
-                    className="w-full px-4 py-3 bg-[#00D4FF] text-black font-semibold rounded hover:bg-[#00B8E6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] py-3 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {exportLoading ? '⏳ Se procesează...' : `📦 Descarcă ${selectedInvoices.size} ca ZIP`}
+                    {exportLoading ? 'Se generează…' : `Descarcă batch CSV (${selectedInvoices.size})`}
                   </button>
 
                   <button
+                    type="button"
                     onClick={exportToCSV}
-                    className="w-full px-4 py-3 bg-green-600 text-white font-semibold rounded hover:bg-green-700 transition-colors"
+                    className="w-full rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:border-[var(--border-focus)]"
                   >
-                    📊 Export CSV pentru Contabilitate
+                    Export CSV (din listă filtrată)
                   </button>
                 </div>
 
-                <div className="bg-green-900/20 border border-green-700 rounded p-4 text-sm text-green-300">
-                  <p className="font-semibold mb-2">✅ Pachete pregatite pentru export:</p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>PDF individual pentru fiecare factură</li>
-                    <li>Arhivă ZIP cu toate facturile</li>
-                    <li>CSV cu detalii complete (pentru Excel)</li>
-                    <li>Gata de transmis în contabilitate</li>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-emerald-200/90">
+                  <p className="mb-2 font-medium">Inclus</p>
+                  <ul className="list-inside list-disc space-y-1 text-[var(--text-tertiary)]">
+                    <li>PDF per factură din coloana „Listă”</li>
+                    <li>Batch: CSV unic pentru ID-uri selectate</li>
+                    <li>Export rapid CSV din ecranul curent</li>
                   </ul>
                 </div>
               </div>
 
-              {/* Accounting Info */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                <h2 className="text-xl font-semibold mb-4">📋 Info Contabilitate</h2>
+              <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Date contabilitate</h2>
 
-                <div className="space-y-4">
+                <div className="space-y-4 text-sm">
                   <div>
-                    <p className="text-gray-400 text-sm mb-2">Beneficiar:</p>
-                    <p className="font-semibold">ENORE SALES TYPE S.R.L.</p>
+                    <p className="text-xs text-[var(--text-muted)]">Beneficiar</p>
+                    <p className="font-medium text-[var(--text-primary)]">ENORE SALES TYPE S.R.L.</p>
                   </div>
 
                   <div>
-                    <p className="text-gray-400 text-sm mb-2">CUI / Cod Fiscal:</p>
-                    <p className="font-semibold font-mono">RO46062613</p>
+                    <p className="text-xs text-[var(--text-muted)]">CUI</p>
+                    <p className="font-mono font-medium">RO46062613</p>
                   </div>
 
                   <div>
-                    <p className="text-gray-400 text-sm mb-2">Număr TVA:</p>
-                    <p className="font-semibold font-mono">RO46062613</p>
+                    <p className="text-xs text-[var(--text-muted)]">IBAN</p>
+                    <p className="font-mono font-medium break-all">RO50 INGB 0000 9999 1573 6030</p>
                   </div>
 
                   <div>
-                    <p className="text-gray-400 text-sm mb-2">IBAN:</p>
-                    <p className="font-semibold font-mono">RO50 INGB 0000 9999 1573 6030</p>
+                    <p className="text-xs text-[var(--text-muted)]">Bancă</p>
+                    <p className="font-medium">ING</p>
                   </div>
 
-                  <div>
-                    <p className="text-gray-400 text-sm mb-2">Banca:</p>
-                    <p className="font-semibold">ING</p>
-                  </div>
-
-                  <div className="bg-yellow-900/20 border border-yellow-700 rounded p-3 text-sm text-yellow-300 mt-4">
-                    <p>
-                      💡 Facturile sunt numerotate secvențial în format <code className="bg-black px-1 rounded">INV-YYYY-NNNNN</code>
-                    </p>
+                  <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-100/90">
+                    Numerotare tipică <code className="rounded bg-black/30 px-1">INV-YYYY-NNNNN</code>
                   </div>
                 </div>
               </div>
@@ -563,29 +575,27 @@ export default function AdminInvoicesPage() {
 
           {/* ANAF VIEW */}
           {viewTab === 'anaf' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* ANAF Submission */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                <h2 className="text-xl font-semibold mb-4">🏛️ Trimitere ANAF SPV</h2>
-                <p className="text-gray-400 mb-6">
-                  Trimite automat facturile la Sistemul de Plăți Vamsal (SPV) al ANAF fără intervenție manuală.
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-2 text-base font-semibold text-[var(--text-primary)]">Trimitere ANAF SPV</h2>
+                <p className="mb-6 text-sm text-[var(--text-tertiary)]">
+                  Fluxul depinde de certificat și configurarea serverului; selectează facturi din listă înainte.
                 </p>
 
-                <div className="space-y-4 mb-6">
-                  <div className="p-4 bg-purple-900/20 border border-purple-700 rounded">
-                    <p className="text-sm text-purple-300">
-                      📤 Facturi selectate pentru trimitere: <strong>{selectedInvoices.size}</strong>
-                    </p>
+                <div className="mb-6 space-y-4">
+                  <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 px-4 py-3 text-sm text-[var(--text-secondary)]">
+                    Selectate pentru trimitere:{' '}
+                    <span className="font-mono font-semibold text-[var(--text-primary)]">{selectedInvoices.size}</span>
                   </div>
 
                   {anafStatus && (
                     <div
-                      className={`p-4 rounded text-sm ${
-                        anafStatus.includes('✅')
-                          ? 'bg-green-900/20 border border-green-700 text-green-300'
-                          : anafStatus.includes('Processing')
-                          ? 'bg-blue-900/20 border border-blue-700 text-blue-300'
-                          : 'bg-red-900/20 border border-red-700 text-red-300'
+                      className={`rounded-xl border p-4 text-sm ${
+                        /procesează|processing/i.test(anafStatus)
+                          ? 'border-blue-500/25 bg-blue-500/10 text-blue-100/95'
+                          : /eroare|error|eșuat|failed/i.test(anafStatus)
+                          ? 'border-red-500/25 bg-red-500/10 text-red-100/95'
+                          : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100/95'
                       }`}
                     >
                       {anafStatus}
@@ -593,70 +603,46 @@ export default function AdminInvoicesPage() {
                   )}
 
                   <button
+                    type="button"
                     onClick={submitToANAF}
                     disabled={selectedInvoices.size === 0}
-                    className="w-full px-4 py-3 bg-purple-600 text-white font-semibold rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="w-full rounded-xl border border-violet-500/30 bg-violet-600/90 py-3 text-sm font-semibold text-white transition hover:bg-violet-600 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    🚀 Trimite {selectedInvoices.size > 0 ? selectedInvoices.size : ''} Facturi la ANAF SPV
+                    Trimite {selectedInvoices.size > 0 ? `${selectedInvoices.size} ` : ''}facturi
                   </button>
 
-                  <div className="bg-blue-900/20 border border-blue-700 rounded p-4 text-sm text-blue-300">
-                    <p className="font-semibold mb-2">⚙️ Proces automat:</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Validează format e-invoice</li>
-                      <li>Convertește la XML SPV</li>
-                      <li>Se conectează la ANAF</li>
-                      <li>Trimite secur cu certificat digital</li>
-                      <li>Primește răspuns și confirmare</li>
-                      <li>Actualizează status factură</li>
+                  <div className="rounded-xl border border-white/[0.08] bg-[var(--bg-primary)]/50 p-4 text-xs text-[var(--text-tertiary)]">
+                    <p className="mb-2 font-medium text-[var(--text-secondary)]">Pași estimați</p>
+                    <ol className="list-inside list-decimal space-y-1">
+                      <li>Validare payload</li>
+                      <li>Generare XML / e-factură</li>
+                      <li>Transmitere securizată</li>
+                      <li>Actualizare status în baza de date</li>
                     </ol>
                   </div>
                 </div>
               </div>
 
-              {/* ANAF Info */}
-              <div className="bg-gray-900 rounded-lg border border-gray-800 p-6">
-                <h2 className="text-xl font-semibold mb-4">ℹ️ Informații ANAF</h2>
+              <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Informații</h2>
 
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-gray-400 text-sm mb-2">Sistemul ANAF:</p>
-                    <p className="font-semibold">SPV - Sistemul de Plăți Vamsal</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-400 text-sm mb-2">Format:</p>
-                    <p className="font-semibold">e-Invoice (XML)</p>
-                  </div>
-
-                  <div>
-                    <p className="text-gray-400 text-sm mb-2">Securitate:</p>
-                    <p className="font-semibold">Certificate digital + Criptare TLS 1.2+</p>
-                  </div>
-
-                  <div className="bg-green-900/20 border border-green-700 rounded p-4 text-sm text-green-300 mt-4">
-                    <p className="font-semibold mb-2">✅ Beneficii trimitere automată:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Nu mai trebuie transmis manual</li>
-                      <li>Timestamps automate și verificate</li>
-                      <li>Audit trail complet</li>
-                      <li>Conformitate 100% ANAF</li>
-                      <li>Recuperare automată pe eșec</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-yellow-900/20 border border-yellow-700 rounded p-4 text-sm text-yellow-300">
-                    <p>
-                      📌 <strong>Notă:</strong> Implementarea ANAF SPV integrat necesită certificat digital valid și
-                      conectare la API-ul ANAF (în curs de dezvoltare)
-                    </p>
+                <div className="space-y-3 text-sm text-[var(--text-tertiary)]">
+                  <p>
+                    <span className="text-[var(--text-muted)]">Sistem:</span> SPV (conform documentației ANAF)
+                  </p>
+                  <p>
+                    <span className="text-[var(--text-muted)]">Format:</span> e-Invoice / XML
+                  </p>
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-100/90">
+                    Integrarea completă necesită certificat calificat și parametri de mediu — verifică echipa
+                    operațională înainte de producție.
                   </div>
                 </div>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </main>
     </>
   );
 }

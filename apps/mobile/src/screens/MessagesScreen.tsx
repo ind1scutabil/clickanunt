@@ -48,7 +48,7 @@ export function MessagesScreen({ onOpenConversation }: Props): React.JSX.Element
             style={styles.card}
             onPress={() =>
               onOpenConversation({
-                userId: item.participantId,
+                userId: item.participantId ?? '',
                 conversationId: item.id,
                 listingId: item.listingId,
                 title: item.participantName,

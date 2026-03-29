@@ -69,36 +69,40 @@ const CardComponent = React.forwardRef<HTMLDivElement, CardProps>(
     // Base styles
     const baseStyles = cn(
       'rounded-xl',
-      'transition-all duration-normal'
+      'transition-[box-shadow,transform,border-color,background-color] duration-normal ease-premium motion-reduce:transition-none'
     );
 
     // Variant styles
     const variantStyles = {
       default: cn(
         'bg-[#1A1D24]',
-        'border border-white/5'
+        'border border-white/[0.06]',
+        'shadow-[0_2px_8px_rgba(0,0,0,0.28),0_1px_0_rgba(255,255,255,0.03)_inset]'
       ),
       bordered: cn(
         'bg-[#1A1D24]',
-        'border border-white/10'
+        'border border-white/10',
+        'shadow-[0_2px_8px_rgba(0,0,0,0.26)]'
       ),
       flat: cn(
-        'bg-[#1A1D24]/70'
+        'bg-[#1A1D24]/70',
+        'border border-white/[0.04]'
       ),
       elevated: cn(
         'bg-[#1A1D24]',
-        'border border-white/5',
-        'shadow-[0_20px_60px_rgba(0,0,0,0.25)]'
+        'border border-white/[0.06]',
+        'shadow-[0_14px_44px_rgba(0,0,0,0.24),0_1px_0_rgba(255,255,255,0.04)_inset]'
       ),
     };
 
     // Interactive styles (hover effects)
     const interactiveStyles = isClickable && cn(
       'cursor-pointer',
-      'hover:border-white/10',
-      'hover:shadow-[0_24px_70px_rgba(0,0,0,0.3)]',
-      'hover:scale-[1.02]',
-      'active:scale-[0.99]'
+      'hover:border-white/12',
+      'hover:shadow-[0_22px_56px_rgba(0,0,0,0.36)]',
+      'hover:scale-[1.01] motion-reduce:hover:scale-100',
+      'active:scale-[0.995] motion-reduce:active:scale-100',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]'
     );
 
     // Padding styles
@@ -155,7 +159,7 @@ export const CardHeader: React.FC<{
   <div className={cn('flex items-start justify-between gap-4 mb-4', className)}>
     <div className="flex-1">
       <h3 className="text-xl font-semibold text-neutral-50">{title}</h3>
-      {subtitle && <p className="text-sm text-neutral-400 mt-1">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-sm text-neutral-300">{subtitle}</p>}
     </div>
     {action && <div className="flex-shrink-0">{action}</div>}
   </div>
@@ -170,7 +174,7 @@ export const CardBody: React.FC<{
   children: React.ReactNode;
   className?: string;
 }> = ({ children, className }) => (
-  <div className={cn('text-neutral-200', className)}>{children}</div>
+  <div className={cn('text-neutral-100', className)}>{children}</div>
 );
 
 CardBody.displayName = 'Card.Body';
@@ -185,7 +189,7 @@ export const CardFooter: React.FC<{
 }> = ({ children, align = 'right', className }) => (
   <div
     className={cn(
-      'flex items-center gap-3 mt-6 pt-4 border-t border-neutral-800',
+      'mt-6 flex items-center gap-3 border-t border-white/10 pt-4',
       align === 'left' && 'justify-start',
       align === 'center' && 'justify-center',
       align === 'right' && 'justify-end',

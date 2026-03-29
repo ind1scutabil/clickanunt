@@ -78,6 +78,9 @@ export async function POST(
         bannedAt: new Date(),
         bannedBy: user.id,
         banReason: reason,
+        moderationSuspendedUntil: null,
+        moderationSuspensionReason: null,
+        moderationSuspendedBy: null,
       },
     });
 

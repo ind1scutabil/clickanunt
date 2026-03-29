@@ -5,6 +5,7 @@ import { logger } from "@/lib/observability";
 import { verifyToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { reportCreateSchema } from "@/lib/security/validation-schemas";
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,15 +26,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { reporterId, listingId, reason, description } = security.data as {
-      reporterId: string;
+    const { listingId, reason, description } = security.data as {
       listingId: string;
       reason: string;
       description: string;
     };
 
-    // Validation
-    if (!reporterId || !reason || !description) {
+    const authHeader = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')?.trim();
+    const cookieToken = request.cookies.get('accessToken')?.value;
+    const accessToken = authHeader || cookieToken;
+    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
+    const reporterId = tokenPayload?.userId as string | undefined;
+
+    if (!reporterId) {
+      return NextResponse.json(
+        { error: 'Autentificare necesară pentru a raporta' },
+        { status: 401 }
+      );
+    }
+
+    if (!reason || !description) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -117,6 +129,14 @@ export async function POST(request: NextRequest) {
         reason,
         description
       }
+    });
+
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.report_created,
+      userId: reporterId,
+      listingId,
+      metadata: { reportId: report.id, reason },
+      request,
     });
 
     logger.info("Report created", { 

@@ -6,14 +6,12 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { refreshAccessToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
-import { refreshTokenSchema } from "@/lib/security/validation-schemas";
 
 export async function POST(request: NextRequest) {
   try {
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
       rateLimit: 'api',
-      schema: refreshTokenSchema,
     });
 
     if (!security.success) {
@@ -27,7 +25,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { refreshToken } = security.data as { refreshToken: string };
+    let bodyRefreshToken: string | null = null;
+    try {
+      const body = (await request.json()) as { refreshToken?: unknown };
+      if (typeof body?.refreshToken === 'string' && body.refreshToken.trim().length > 0) {
+        bodyRefreshToken = body.refreshToken.trim();
+      }
+    } catch {
+      // Allow empty body - we'll fallback to httpOnly cookie token
+    }
+
+    const cookieRefreshToken = request.cookies.get('refreshToken')?.value || null;
+    const refreshToken = bodyRefreshToken || cookieRefreshToken;
+
+    if (!refreshToken) {
+      return NextResponse.json(
+        { error: 'Refresh token required' },
+        { status: 401 }
+      );
+    }
 
     const result = await refreshAccessToken(refreshToken);
 

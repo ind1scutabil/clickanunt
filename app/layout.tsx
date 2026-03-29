@@ -4,7 +4,8 @@ import Footer from "./components/Footer";
 
 export const metadata: Metadata = {
   title: "ClickAnunț - Platforma de anunțuri gratuite din România",
-  description: "Cumpără și vinde orice în România. Peste 50.000 de anunțuri verificate pentru auto, imobiliare, electronice, modă și multe altele. Publicare gratuită pe www.clickanunt.ro",
+  description:
+    "Cumpără și vinde în România — auto, imobiliare, electronice, modă și multe altele. Anunțuri verificate, publicare gratuită pe www.clickanunt.ro",
   keywords: ["anunțuri gratuite", "anunțuri România", "vânzare", "cumpărare", "auto", "imobiliare", "electronice", "modă", "clickanunt"],
   authors: [{ name: "ClickAnunț" }],
   creator: "ClickAnunț",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
     url: '/',
     siteName: 'ClickAnunț',
     title: 'ClickAnunț - Platforma de anunțuri gratuite din România',
-    description: 'Cumpără și vinde orice în România. Peste 50.000 de anunțuri verificate. Publicare gratuită.',
+    description: 'Cumpără și vinde în România. Anunțuri verificate, publicare gratuită.',
     images: [
       {
         url: '/images/og-home.jpg',
@@ -35,12 +36,16 @@ export const metadata: Metadata = {
     site: '@clickanunt',
     creator: '@clickanunt',
     title: 'ClickAnunț - Platforma de anunțuri gratuite din România',
-    description: 'Cumpără și vinde orice în România. Peste 50.000 de anunțuri verificate.',
+    description: 'Cumpără și vinde în România. Anunțuri verificate.',
     images: ['/images/og-home.jpg'],
   },
-  verification: {
-    google: 'your-google-verification-code',
-  },
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? {
+        verification: {
+          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+        },
+      }
+    : {}),
 };
 
 export default function RootLayout({
@@ -50,10 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ro">
-      <body
-        className="antialiased flex flex-col min-h-screen"
-        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}
-      >
+      <body className="antialiased flex min-h-screen flex-col bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
         <div id="main-content" className="flex-grow">
           {children}
         </div>

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "dev:webpack": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
@@ -23,12 +24,17 @@
     "db:seed": "npx prisma db seed",
     "db:studio": "npx prisma studio",
     "db:backup": "./scripts/backup-db.sh",
-    "db:restore": "./scripts/restore-db.sh"
+    "db:restore": "./scripts/restore-db.sh",
+    "expire-promotions": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/expire-promotions.ts",
+    "verify:listing-asset": "node scripts/verify-default-listing-asset.mjs",
+    "sanitize:listing-photos:dry": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/sanitize-listing-photos.ts --dry-run",
+    "sanitize:listing-photos:execute": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/sanitize-listing-photos.ts --execute"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
+    "@clickanunt/api-contracts": "file:packages/api-contracts",
     "@aws-sdk/client-s3": "^3.540.0",
     "@aws-sdk/s3-request-presigner": "^3.540.0",
     "@prisma/adapter-pg": "^7.3.0",
@@ -59,6 +65,7 @@
     "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "recharts": "^2.15.4",
     "redis": "^5.10.0",
     "sharp": "^0.33.5",
     "speakeasy": "^2.0.0",

@@ -112,7 +112,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               // Base styles
               'w-full px-4 py-2.5 rounded-xl',
               'bg-neutral-850 text-neutral-50',
-              'border transition-colors duration-base',
+              'border transition-colors duration-normal ease-premium motion-reduce:transition-none',
               'cursor-pointer',
               'appearance-none', // Remove default arrow
               
@@ -124,12 +124,12 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
               // Focus state
               !disabled && !hasError && cn(
                 'focus:border-primary-500',
-                'focus:outline-none focus:ring-2 focus:ring-primary-500/20'
+                'focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)]'
               ),
               
               hasError && !disabled && cn(
                 'focus:border-error-500',
-                'focus:outline-none focus:ring-2 focus:ring-error-500/20'
+                'focus:outline-none focus:ring-2 focus:ring-error-500/25 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)]'
               ),
               
               // Disabled state

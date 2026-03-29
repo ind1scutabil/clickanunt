@@ -5,6 +5,10 @@ import Footer from "@/app/components/Footer";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { memoryStorage } from "@/lib/memory-storage";
+import {
+  listingPrimaryPhotoSrc,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+} from "@/lib/listing-photo-url";
 
 export default function MyListingsPage() {
   const router = useRouter();
@@ -13,6 +17,15 @@ export default function MyListingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isPromoting, setIsPromoting] = useState<string | null>(null);
+
+  const getListingTab = (listing: any): "active" | "pending" | "expired" | "draft" => {
+    const status = String(listing?.status || "active").toLowerCase();
+    if (status === "active") return "active";
+    if (status === "expired" || status === "sold" || status === "deleted") return "expired";
+    if (status === "draft") return "draft";
+    // hidden/rejected/paused/pending should be visible in "În așteptare" for owner feedback
+    return "pending";
+  };
 
   useEffect(() => {
     // Check authentication
@@ -51,10 +64,11 @@ export default function MyListingsPage() {
       } else {
         // Production: fetch from API
         const token = localStorage.getItem('accessToken');
-        const response = await fetch('/api/listings?userId=me', {
+        const response = await fetch('/api/listings?userId=me&status=all', {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
+          credentials: 'include',
         });
 
         if (!response.ok) {
@@ -146,10 +160,7 @@ export default function MyListingsPage() {
     }
   };
 
-  const filteredListings = listings.filter((listing) => {
-    const status = (listing.status || 'active').toLowerCase();
-    return status === activeTab;
-  });
+  const filteredListings = listings.filter((listing) => getListingTab(listing) === activeTab);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -183,7 +194,7 @@ export default function MyListingsPage() {
         {/* Tabs */}
         <div className="flex gap-4 mb-8 border-b border-slate-700/50">
           {(['active', 'pending', 'expired', 'draft'] as const).map((tab) => {
-            const count = listings.filter(l => ((l.status || 'active').toLowerCase()) === tab).length;
+            const count = listings.filter((l) => getListingTab(l) === tab).length;
             return (
               <button
                 key={tab}
@@ -258,19 +269,16 @@ export default function MyListingsPage() {
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Image */}
                   <div className="w-full md:w-64 h-48 rounded-xl overflow-hidden flex-shrink-0 bg-[#1A1A1A]">
-                    {(listing.photos?.[0] || listing.imageUrls?.[0]) ? (
-                      <img
-                        src={listing.photos?.[0] || listing.imageUrls?.[0]}
-                        alt={listing.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-500">
-                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
+                    <img
+                      src={listingPrimaryPhotoSrc(listing.photos, listing.imageUrls)}
+                      alt={listing.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.onerror = null;
+                        el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                      }}
+                    />
                   </div>
 
                   {/* Content */}
@@ -282,14 +290,24 @@ export default function MyListingsPage() {
                           {listing.price || `${listing.priceAmount?.toLocaleString()} ${listing.priceCurrency}`}
                         </div>
                       </div>
-                      {listing.status === "active" && (
+                      {getListingTab(listing) === "active" && (
                         <span className="px-4 py-2 bg-[#39FF14]/20 text-[#39FF14] rounded-full text-sm font-bold border border-[#39FF14]/30">
                           Activ
                         </span>
                       )}
-                      {listing.status === "pending" && (
+                      {getListingTab(listing) === "pending" && (
                         <span className="px-4 py-2 bg-[#8B5CF6]/20 text-[#8B5CF6] rounded-full text-sm font-bold border border-[#8B5CF6]/30">
                           În așteptare
+                        </span>
+                      )}
+                      {getListingTab(listing) === "expired" && (
+                        <span className="px-4 py-2 bg-gray-500/20 text-gray-300 rounded-full text-sm font-bold border border-gray-500/30">
+                          Expirat
+                        </span>
+                      )}
+                      {getListingTab(listing) === "draft" && (
+                        <span className="px-4 py-2 bg-slate-500/20 text-slate-300 rounded-full text-sm font-bold border border-slate-500/30">
+                          Ciornă
                         </span>
                       )}
                     </div>
@@ -344,6 +362,13 @@ export default function MyListingsPage() {
                       </div>
                     </div>
 
+                    {listing.moderationNotes && getListingTab(listing) !== "active" && (
+                      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+                        <p className="text-amber-300 text-sm font-bold mb-1">Motiv moderare</p>
+                        <p className="text-amber-100/90 text-sm">{listing.moderationNotes}</p>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex flex-wrap gap-3">
                       <Link
@@ -380,7 +405,7 @@ export default function MyListingsPage() {
                         </svg>
                         Editează
                       </Link>
-                      {!listing.isPromoted && (
+                      {!listing.isPromoted && getListingTab(listing) === "active" && (
                         <button
                           onClick={() => handlePromote(listing.id, 'top')}
                           disabled={isPromoting === listing.id}

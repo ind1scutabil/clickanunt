@@ -1,31 +1,36 @@
 /**
- * API Route: Health Check - Production Grade
- * Basic health check (app is up)
- * Use /api/health/db for database connectivity check
+ * Liveness — minimal checks for load balancers (no auth).
  */
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { logger } from "@/lib/logger";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const startTime = Date.now();
-  
-  const health = {
-    status: 'ok',
-    version: process.env.APP_VERSION || '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    responseTime: `${Date.now() - startTime}ms`,
-  };
-
-  logger.debug({ health }, 'Health check requested');
-  
-  return NextResponse.json(health, {
-    status: 200,
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-    },
-  });
+  try {
+    if (process.env.USE_IN_MEMORY_DB === "true") {
+      return NextResponse.json({
+        status: "ok",
+        mode: "memory",
+        timestamp: new Date().toISOString(),
+      });
+    }
+    await prisma.$queryRaw`SELECT 1`;
+    return NextResponse.json({
+      status: "ok",
+      database: "up",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      {
+        status: "error",
+        database: "down",
+        timestamp: new Date().toISOString(),
+      },
+      { status: 503 }
+    );
+  }
 }

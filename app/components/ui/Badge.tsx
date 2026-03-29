@@ -76,38 +76,38 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ) => {
     // Base styles
     const baseStyles = cn(
-      'inline-flex items-center justify-center gap-1.5',
-      'font-medium',
+      'inline-flex items-center justify-center gap-1',
+      'font-medium tabular-nums',
       'whitespace-nowrap',
-      'transition-colors duration-base',
-      pill ? 'rounded-full' : 'rounded'
+      'transition-colors duration-normal ease-premium',
+      pill ? 'rounded-full' : 'rounded-md'
     );
 
-    // Variant styles (solid)
+    // Variant styles (solid) — enterprise: muted surfaces, single accent (primary)
     const solidVariantStyles = {
-      default: 'bg-neutral-700 text-neutral-200',
-      primary: 'bg-primary-500 text-white',
-      success: 'bg-success-500 text-white',
-      error: 'bg-error-500 text-white',
-      warning: 'bg-warning-500 text-white',
-      info: 'bg-info-500 text-white',
+      default: 'bg-neutral-800 text-neutral-200 border border-white/5',
+      primary: 'bg-primary-600/90 text-white border border-primary-500/30',
+      success: 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/25',
+      error: 'bg-red-950/80 text-red-200 border border-red-500/25',
+      warning: 'bg-neutral-800 text-neutral-300 border border-amber-500/25',
+      info: 'bg-neutral-800 text-neutral-200 border border-neutral-600',
     };
 
     // Variant styles (outlined)
     const outlinedVariantStyles = {
-      default: 'bg-transparent border border-neutral-700 text-neutral-300',
-      primary: 'bg-transparent border border-primary-500 text-primary-400',
-      success: 'bg-transparent border border-success-500 text-success-400',
-      error: 'bg-transparent border border-error-500 text-error-400',
-      warning: 'bg-transparent border border-warning-500 text-warning-400',
-      info: 'bg-transparent border border-info-500 text-info-400',
+      default: 'border border-neutral-600 bg-transparent text-neutral-300',
+      primary: 'border border-primary-500/40 bg-primary-500/10 text-primary-300',
+      success: 'border border-emerald-500/30 bg-emerald-500/5 text-emerald-300',
+      error: 'border border-red-500/30 bg-red-500/5 text-red-300',
+      warning: 'border border-amber-500/25 bg-amber-500/5 text-amber-200/90',
+      info: 'border border-neutral-600 bg-neutral-900/50 text-neutral-300',
     };
 
-    // Size styles
+    // Size styles — unified chip scale
     const sizeStyles = {
-      sm: 'px-2 py-0.5 text-xs min-h-[20px]',
-      md: 'px-2.5 py-1 text-sm min-h-[24px]',
-      lg: 'px-3 py-1.5 text-base min-h-[32px]',
+      sm: 'px-2 py-0.5 text-[11px] leading-tight min-h-[22px]',
+      md: 'px-2.5 py-1 text-xs min-h-[24px]',
+      lg: 'px-3 py-1.5 text-sm min-h-[30px]',
     };
 
     // Icon size

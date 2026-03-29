@@ -57,49 +57,49 @@ export const Toast: React.FC<ToastProps> = ({
   // Variant config
   const variantConfig = {
     default: {
-      bg: 'bg-neutral-850 border-neutral-700',
+      bg: 'bg-zinc-900 border-zinc-600 shadow-xl',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      iconColor: 'text-neutral-400',
+      iconColor: 'text-zinc-300',
     },
     success: {
-      bg: 'bg-success-500/10 border-success-500/30',
+      bg: 'bg-emerald-950 border-emerald-500 shadow-xl',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      iconColor: 'text-success-500',
+      iconColor: 'text-emerald-300',
     },
     error: {
-      bg: 'bg-error-500/10 border-error-500/30',
+      bg: 'bg-red-950 border-red-500 shadow-xl',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      iconColor: 'text-error-500',
+      iconColor: 'text-red-300',
     },
     warning: {
-      bg: 'bg-warning-500/10 border-warning-500/30',
+      bg: 'bg-amber-950 border-amber-500 shadow-xl',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
       ),
-      iconColor: 'text-warning-500',
+      iconColor: 'text-amber-200',
     },
     info: {
-      bg: 'bg-info-500/10 border-info-500/30',
+      bg: 'bg-sky-950 border-sky-500 shadow-xl',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      iconColor: 'text-info-500',
+      iconColor: 'text-sky-200',
     },
   };
 
@@ -109,7 +109,7 @@ export const Toast: React.FC<ToastProps> = ({
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-3 p-4 rounded-lg border shadow-lg',
+        'flex items-start gap-3 p-4 rounded-xl border-2',
         'min-w-[320px] max-w-md',
         'transition-all duration-300',
         isLeaving ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0',
@@ -123,11 +123,11 @@ export const Toast: React.FC<ToastProps> = ({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-white text-sm">
+        <p className="font-semibold text-white text-sm drop-shadow-sm">
           {title}
         </p>
         {description && (
-          <p className="text-sm text-neutral-300 mt-1">
+          <p className="text-sm text-zinc-100 mt-1.5 leading-snug">
             {description}
           </p>
         )}
@@ -157,15 +157,19 @@ Toast.displayName = 'Toast';
 /**
  * ToastContainer - Container for toasts (top-right positioning)
  */
-export const ToastContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+export const ToastContainer: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className,
+}) => (
   <div
-    className="fixed top-4 right-4 z-toast flex flex-col gap-3 pointer-events-none"
+    className={cn(
+      'fixed top-4 right-4 z-[8000] flex flex-col gap-3 pointer-events-none sm:right-6',
+      className
+    )}
     aria-live="polite"
     aria-atomic="true"
   >
-    <div className="pointer-events-auto">
-      {children}
-    </div>
+    <div className="pointer-events-auto flex flex-col gap-3">{children}</div>
   </div>
 );
 

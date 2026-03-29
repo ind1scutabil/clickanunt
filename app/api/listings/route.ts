@@ -1,13 +1,17 @@
 export const runtime = "nodejs";
+import type { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { memoryStorage } from "@/lib/memory-storage";
 import {
   parsePaginationParams,
-  buildCursorWhere,
   buildPagination,
+  decodeListingFeedCursor,
+  buildListingFeedKeysetWhere,
+  encodeListingFeedCursor,
 } from "@/lib/pagination";
+import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { fullModeration, logModeration } from "@/lib/moderation";
 import { updateUserTrustScore, getRateLimit, canPerformAction, TRUST_LEVELS } from "@/lib/trustScore";
 import { detectScam } from "@/lib/scamDetection";
@@ -15,6 +19,15 @@ import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidSchema } from "@/lib/security/validation-schemas";
 import { verifyToken } from "@/lib/auth";
+import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
+import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import {
+  feedBoostKeysetPaginationEnabled,
+  parseListingFeedSort,
+  prismaOrderByForListingSort,
+} from "@/lib/listing-feed-sort";
+import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-query";
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,6 +46,10 @@ export async function GET(request: NextRequest) {
     const cookieToken = request.cookies.get("accessToken")?.value || null;
     const accessToken = bearerToken || cookieToken;
     const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
+    const tokenUserId =
+      (tokenPayload as { userId?: string; sub?: string } | null)?.userId ||
+      (tokenPayload as { userId?: string; sub?: string } | null)?.sub ||
+      null;
 
     // ✅ IN-MEMORY MODE: Return listings from memory storage
     if (process.env.USE_IN_MEMORY_DB === 'true') {
@@ -42,8 +59,8 @@ export async function GET(request: NextRequest) {
         if (!tokenPayload) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
-        const resolvedUserId = userIdParam === 'me' ? tokenPayload.userId : userIdParam;
-        if (resolvedUserId !== tokenPayload.userId && tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
+        const resolvedUserId = userIdParam === 'me' ? tokenUserId : userIdParam;
+        if (resolvedUserId !== tokenUserId && tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
           return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
         allListings = allListings.filter((listing: any) =>
@@ -51,53 +68,60 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      const listingsNormalized = allListings.map((listing: { photos?: unknown }) => ({
+        ...listing,
+        photos: normalizeListingPhotosArray(listing.photos),
+      }));
       return NextResponse.json({
-        listings: allListings,
+        listings: listingsNormalized,
         pagination: {
           hasMore: false,
-          total: allListings.length
+          total: listingsNormalized.length
         }
       });
     }
 
-    // Parse pagination parameters (cursor-based for millions of listings)
-    const { limit, cursor, direction } = parsePaginationParams(q);
+    const sortMode = parseListingFeedSort(query.sort);
+    const { limit: limitFromQuery, cursor: cursorParam } = parsePaginationParams(q);
+    const rawPage = Math.max(1, Math.min(parseInt(q.get("page") || "1", 10), 10_000));
+    const limitNum = limitFromQuery || 20;
 
-    const where: any = {};
-
-    // Status filter (only active by default, skip filter if "all")
     const statusParam = query.status || q.get("status") || "active";
+
+    let resolvedOwnerForFts: string | null = null;
+    const where: Prisma.ListingWhereInput = {};
+
     if (statusParam !== "all") {
       where.status = statusParam;
     }
 
-    // User filter (dashboard listings)
     if (userIdParam) {
       if (!tokenPayload) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      const resolvedUserId = userIdParam === 'me' ? tokenPayload.userId : userIdParam;
-      if (resolvedUserId !== tokenPayload.userId && tokenPayload.role !== 'admin' && tokenPayload.role !== 'owner') {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      const resolvedUserId = userIdParam === "me" ? tokenUserId : userIdParam;
+      if (
+        resolvedUserId !== tokenUserId &&
+        tokenPayload.role !== "admin" &&
+        tokenPayload.role !== "owner"
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       where.ownerUserId = resolvedUserId;
+      resolvedOwnerForFts = resolvedUserId;
     }
 
-    // Category filters
     if (query.category) where.category = { equals: query.category };
     if (query.subcategory) where.subcategory = { equals: query.subcategory };
-    
-    // Location filters
+
     if (query.county) where.county = { equals: query.county };
     if (query.city) where.city = { equals: query.city };
-    
-    // Auto-specific filters
+
     if (query.make) where.make = { equals: query.make };
     if (query.model) where.model = { equals: query.model };
     if (query.fuel) where.fuel = { equals: query.fuel };
     if (query.transmission) where.transmission = { equals: query.transmission };
 
-    // Price filters
     const minPrice = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
     const maxPrice = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
     if (minPrice || maxPrice) {
@@ -106,7 +130,6 @@ export async function GET(request: NextRequest) {
       if (maxPrice) where.priceAmount.lte = Number(maxPrice);
     }
 
-    // Year filter
     const year = query.year ?? q.get("year");
     const yearMin = query.yearMin ?? q.get("yearMin");
     const yearMax = query.yearMax ?? q.get("yearMax");
@@ -116,26 +139,125 @@ export async function GET(request: NextRequest) {
       if (yearMin) where.year.gte = Number(yearMin);
       if (yearMax) where.year.lte = Number(yearMax);
     }
-    
-    // Condition filter
+
     if (query.condition) where.condition = { equals: query.condition };
 
-    // Search query
-    const search = query.q || q.get("q");
-    if (search) {
-      where.OR = [
-        { title: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
+    const rawQ = (query.q ?? q.get("q") ?? "").trim();
+    const useFts = rawQ.length >= 2;
+
+    if (useFts) {
+      const tsq = buildRomanianTsQuery(rawQ);
+      if (!tsq) {
+        return NextResponse.json({
+          data: [],
+          pagination: {
+            hasMore: false,
+            nextCursor: null,
+            prevCursor: null,
+            count: 0,
+            page: rawPage,
+            usedOffset: true,
+            total: 0,
+            limit: limitNum,
+            pages: 0,
+          },
+        });
+      }
+
+      const offset = (rawPage - 1) * limitNum;
+      const y = year != null ? Number(year) : NaN;
+      const yMin = yearMin != null ? Number(yearMin) : NaN;
+      const yMax = yearMax != null ? Number(yearMax) : NaN;
+      const minP = minPrice != null && minPrice !== "" ? Number(minPrice) : null;
+      const maxP = maxPrice != null && maxPrice !== "" ? Number(maxPrice) : null;
+
+      const { ids, total } = await ftsSearchListingIds(
+        prisma,
+        tsq,
+        {
+          activeOnly: statusParam !== "all",
+          category: query.category ?? null,
+          subcategory: query.subcategory ?? null,
+          county: query.county ?? null,
+          city: query.city ?? null,
+          year: !Number.isNaN(y) ? y : null,
+          yearMin: !Number.isNaN(yMin) ? yMin : null,
+          yearMax: !Number.isNaN(yMax) ? yMax : null,
+          minPrice: minP != null && !Number.isNaN(minP) ? minP : null,
+          maxPrice: maxP != null && !Number.isNaN(maxP) ? maxP : null,
+          make: query.make ?? null,
+          model: query.model ?? null,
+          fuel: query.fuel ?? null,
+          transmission: query.transmission ?? null,
+          ownerUserId: resolvedOwnerForFts,
+        },
+        limitNum + 1,
+        offset
+      );
+
+      const hasMore = ids.length > limitNum;
+      const pageIds = hasMore ? ids.slice(0, limitNum) : ids;
+
+      const rows =
+        pageIds.length === 0
+          ? []
+          : await prisma.listing.findMany({
+              where: { id: { in: pageIds } },
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                    subscriptionTier: true,
+                    trustScore: true,
+                  },
+                },
+              },
+            });
+
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered = pageIds.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+
+      const listingsWithPhotos = ordered.map((l) => ({
+        ...l,
+        photos: normalizeListingPhotosArray(l.photos),
+      }));
+
+      const pages = total > 0 ? Math.ceil(total / limitNum) : 0;
+
+      return NextResponse.json({
+        data: listingsWithPhotos,
+        pagination: {
+          hasMore,
+          nextCursor: null,
+          prevCursor: null,
+          count: listingsWithPhotos.length,
+          page: rawPage,
+          usedOffset: true,
+          total,
+          limit: limitNum,
+          pages,
+        },
+      });
     }
 
-    // Apply cursor-based pagination
-    const finalWhere = buildCursorWhere(cursor, direction, where);
+    const useKeyset = feedBoostKeysetPaginationEnabled(sortMode);
+    const cursorPayload = useKeyset ? decodeListingFeedCursor(cursorParam) : null;
+    if (cursorParam && useKeyset && !cursorPayload) {
+      return NextResponse.json({ error: "Cursor invalid sau expirat" }, { status: 400 });
+    }
 
-    // Fetch limit + 1 to check if there are more results
+    const finalWhere = buildListingFeedKeysetWhere(cursorPayload, where);
+
+    const useOffsetPaging = !cursorPayload && rawPage > 1;
+    const skip = useOffsetPaging ? (rawPage - 1) * limitNum : undefined;
+
     const listings = await prisma.listing.findMany({
       where: finalWhere,
-      take: (limit || 20) + 1,
+      skip,
+      take: limitNum + 1,
       include: {
         owner: {
           select: {
@@ -148,17 +270,33 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: [
-        { isFeatured: "desc" },
-        { isPromoted: "desc" },  // Promoted listings first
-        { createdAt: "desc" },
-      ],
+      orderBy: prismaOrderByForListingSort(sortMode),
     });
 
-    // Build pagination response
-    const result = buildPagination(listings, limit || 20);
+    const listingsWithPhotos = listings.map((l) => ({
+      ...l,
+      photos: normalizeListingPhotosArray(l.photos),
+    }));
 
-    return NextResponse.json(result);
+    const encodeCursorFn = useKeyset
+      ? (last: (typeof listingsWithPhotos)[0]) =>
+          encodeListingFeedCursor({
+            feedBoost: last.feedBoost,
+            createdAt: last.createdAt,
+            id: last.id,
+          })
+      : () => null;
+
+    const result = buildPagination(listingsWithPhotos, limitNum, encodeCursorFn);
+
+    return NextResponse.json({
+      ...result,
+      pagination: {
+        ...result.pagination,
+        page: rawPage,
+        usedOffset: useOffsetPaging,
+      },
+    });
   } catch (error: any) {
     console.error("Listings fetch error:", error);
     return NextResponse.json(
@@ -197,22 +335,25 @@ export async function POST(request: Request) {
     const cookieToken = (request as NextRequest).cookies.get('accessToken')?.value || null;
     const accessToken = bearer || cookieToken;
     const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
-    const userId = tokenPayload?.userId;
-    
-    // ✅ Validate userId is a proper UUID (reject malformed IDs
-    const uuidValidation = listingCreateSchema.shape.ownerUserId.safeParse(userId);
-    if (!uuidValidation.success) {
-      logger.warn('Invalid userId format in JWT', { userId, error: uuidValidation.error });
-      return NextResponse.json(
-        { error: 'User ID format is invalid. Please log in again.' },
-        { status: 401 }
-      );
-    }
+    const userId =
+      (tokenPayload as { userId?: string; sub?: string } | null)?.userId ||
+      (tokenPayload as { userId?: string; sub?: string } | null)?.sub ||
+      null;
     
     // If no valid JWT token, reject the request
     if (!userId) {
       return NextResponse.json(
         { error: 'Autentificare necesară pentru a publica anunțuri' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Validate userId is a proper UUID (reject malformed IDs)
+    const uuidValidation = listingCreateSchema.shape.ownerUserId.safeParse(userId);
+    if (!uuidValidation.success) {
+      logger.warn('Invalid userId format in JWT', { userId, error: uuidValidation.error });
+      return NextResponse.json(
+        { error: 'User ID format is invalid. Please log in again.' },
         { status: 401 }
       );
     }
@@ -268,6 +409,28 @@ export async function POST(request: Request) {
     }
 
     const trustScore = user.trustScore || 50;
+
+    if (user.isBanned) {
+      return NextResponse.json(
+        {
+          error: 'Cont blocat',
+          message: 'Nu poți publica anunțuri — contul este blocat.',
+        },
+        { status: 403 }
+      );
+    }
+
+    if (isModerationSuspensionActive(user.moderationSuspendedUntil)) {
+      return NextResponse.json(
+        {
+          error: 'Cont suspendat temporar',
+          message:
+            'Nu poți publica anunțuri până la expirarea suspendării impuse de moderare. Contactează suportul dacă ai întrebări.',
+          suspendedUntil: user.moderationSuspendedUntil,
+        },
+        { status: 403 }
+      );
+    }
 
     // Check if user can publish listings
     if (!canPerformAction(trustScore, 'publish')) {
@@ -445,6 +608,7 @@ export async function POST(request: Request) {
       photos: cleanBody.photos ?? [],
       contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
       isFeatured: cleanBody.isFeatured ?? false,
+      feedBoost: computeFeedBoost(false, Boolean(cleanBody.isFeatured)),
       
       // Auto-specific fields (nullable)
       make: cleanBody.make,
@@ -487,6 +651,14 @@ export async function POST(request: Request) {
     };
 
     const listing = await prisma.listing.create({ data });
+
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.listing_created,
+      userId,
+      listingId: listing.id,
+      metadata: { moderationStatus, category: listing.category },
+      request: request as NextRequest,
+    });
 
     // Dacă e pending, creează ModerationQueue entry
     if (moderationStatus === 'pending') {

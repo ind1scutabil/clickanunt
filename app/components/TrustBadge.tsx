@@ -25,11 +25,15 @@ export function TrustBadge({
   
   // Determine trust level and color
   const getTrustLevel = (score: number) => {
-    if (score >= 90) return { level: 'Verificat', color: 'emerald', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' };
-    if (score >= 70) return { level: 'De încredere', color: 'green', bgColor: 'bg-green-50', textColor: 'text-green-700', borderColor: 'border-green-200' };
-    if (score >= 50) return { level: 'Neutru', color: 'gray', bgColor: 'bg-gray-50', textColor: 'text-gray-700', borderColor: 'border-gray-200' };
-    if (score >= 30) return { level: 'Suspicios', color: 'orange', bgColor: 'bg-orange-50', textColor: 'text-orange-700', borderColor: 'border-orange-200' };
-    return { level: 'Atenție', color: 'red', bgColor: 'bg-red-50', textColor: 'text-red-700', borderColor: 'border-red-200' };
+    if (score >= 90)
+      return { level: 'Verificat', color: 'emerald', bgColor: 'bg-neutral-100', textColor: 'text-neutral-800', borderColor: 'border-neutral-200' };
+    if (score >= 70)
+      return { level: 'De încredere', color: 'green', bgColor: 'bg-neutral-100', textColor: 'text-neutral-800', borderColor: 'border-neutral-200' };
+    if (score >= 50)
+      return { level: 'Neutru', color: 'gray', bgColor: 'bg-neutral-50', textColor: 'text-neutral-700', borderColor: 'border-neutral-200' };
+    if (score >= 30)
+      return { level: 'Suspicios', color: 'orange', bgColor: 'bg-neutral-100', textColor: 'text-neutral-700', borderColor: 'border-neutral-300' };
+    return { level: 'Atenție', color: 'red', bgColor: 'bg-neutral-100', textColor: 'text-red-800', borderColor: 'border-neutral-300' };
   };
   
   const trust = getTrustLevel(trustScore);
@@ -51,7 +55,7 @@ export function TrustBadge({
     <div className={`inline-flex items-center gap-2 ${className}`}>
       {/* Trust Score Badge */}
       <div
-        className={`inline-flex items-center gap-1.5 rounded-full border ${trust.bgColor} ${trust.textColor} ${trust.borderColor} ${sizeClasses[size]} font-medium`}
+        className={`inline-flex items-center gap-1.5 rounded-md border ${trust.bgColor} ${trust.textColor} ${trust.borderColor} ${sizeClasses[size]} font-medium`}
         title={showTooltip ? `Trust Score: ${trustScore}/100 - ${trust.level}` : undefined}
       >
         <svg className={iconSizes[size]} fill="currentColor" viewBox="0 0 20 20">
@@ -65,12 +69,12 @@ export function TrustBadge({
       {/* Verification Badge */}
       {verificationLevel !== 'none' && (
         <div
-          className={`inline-flex items-center gap-1.5 rounded-full border ${
-            verificationLevel === 'business' 
-              ? 'bg-purple-50 text-purple-700 border-purple-200'
+          className={`inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-neutral-100 ${
+            verificationLevel === 'business'
+              ? 'text-primary-800'
               : verificationLevel === 'phone'
-              ? 'bg-green-50 text-green-700 border-green-200'
-              : 'bg-blue-50 text-blue-700 border-blue-200'
+                ? 'text-neutral-800'
+                : 'text-neutral-800'
           } ${sizeClasses[size]} font-medium`}
           title={showTooltip ? verification.description : undefined}
         >

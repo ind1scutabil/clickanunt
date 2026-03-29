@@ -15,6 +15,7 @@ import { parseAndValidate } from '@/lib/security/validation-schemas';
 import { logger } from '@/lib/observability';
 import { verifyAccessToken } from '@/lib/security/tokens';
 import crypto from 'crypto';
+import { rateLimitPaymentRedis } from '@/lib/rateLimit-redis';
 
 export interface SecurityValidationResult {
   success: boolean;
@@ -140,7 +141,17 @@ export async function validateSecureRequest(
           rateLimitResult = rateLimitPresets.api(clientIp);
           break;
         case 'payment':
-          rateLimitResult = rateLimitPresets.payment(clientIp);
+          try {
+            rateLimitResult = await rateLimitPaymentRedis(clientIp);
+          } catch (e) {
+            // Keep checkout available even if Redis is temporarily unavailable.
+            logger.warn('Redis rate limiting unavailable; falling back to in-memory limits', {
+              ip: clientIp,
+              error: e instanceof Error ? e.message : String(e),
+              environment: process.env.NODE_ENV,
+            });
+            rateLimitResult = rateLimitPresets.payment(clientIp);
+          }
           break;
         case 'moderation':
           rateLimitResult = userId

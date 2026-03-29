@@ -4,6 +4,7 @@ import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
 import crypto from 'crypto';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { verify2FASchema } from '@/lib/security/validation-schemas';
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 
 export const runtime = 'nodejs';
 
@@ -91,6 +92,13 @@ export async function POST(request: NextRequest) {
     const refreshToken = generateToken();
     await deleteSession(sessionToken);
 
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.login_success,
+      userId: user.id,
+      metadata: { via: '2fa', ip: ip ?? null },
+      request,
+    });
+
     const response = NextResponse.json(
       {
         user,
@@ -101,9 +109,12 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    const cookieDomain = process.env.NODE_ENV === 'production' ? '.clickanunt.ro' : undefined;
+
     response.cookies.set('accessToken', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      domain: cookieDomain,
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
@@ -112,6 +123,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      domain: cookieDomain,
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 24 * 30,
       path: '/',

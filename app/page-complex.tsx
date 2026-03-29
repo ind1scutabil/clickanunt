@@ -8,62 +8,62 @@ export default function HomePage() {
     "Auto, moto și ambarcațiuni": { 
       icon: "🚗", 
       color: "from-blue-500 to-blue-700",
-      image: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Imobiliare": { 
       icon: "🏠", 
       color: "from-green-500 to-green-700",
-      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Electronice și electrocasnice": { 
       icon: "💻", 
       color: "from-purple-500 to-purple-700",
-      image: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Modă și frumusețe": { 
       icon: "👗", 
       color: "from-pink-500 to-pink-700",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Casă și grădină": { 
       icon: "🛋️", 
       color: "from-amber-500 to-amber-700",
-      image: "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Sport, timp liber și artă": { 
       icon: "⚽", 
       color: "from-red-500 to-red-700",
-      image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Copii și bebeluși": { 
       icon: "🧸", 
       color: "from-yellow-400 to-yellow-600",
-      image: "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Animale de companie": { 
       icon: "🐾", 
       color: "from-orange-500 to-orange-700",
-      image: "https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Locuri de muncă": { 
       icon: "💼", 
       color: "from-slate-500 to-slate-700",
-      image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Servicii și afaceri": { 
       icon: "🔧", 
       color: "from-cyan-500 to-cyan-700",
-      image: "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Agricultură": { 
       icon: "🌾", 
       color: "from-lime-500 to-lime-700",
-      image: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     },
     "Altele": { 
       icon: "📦", 
       color: "from-gray-500 to-gray-700",
-      image: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=400&h=300&fit=crop"
+      image: "/images/default-listing.jpg"
     }
   };
 

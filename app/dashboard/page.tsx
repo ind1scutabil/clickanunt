@@ -6,6 +6,9 @@ import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import { Card, Badge, Button, Tabs, Avatar } from "@/app/components/ui";
 import { ListingCard } from "@/app/components/composite";
+import { ViewsLast7DaysChart } from "@/app/components/dashboard/ViewsLast7DaysChart";
+import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -17,6 +20,7 @@ export default function DashboardPage() {
     totalViews: 0,
     messages: 0,
     favorites: 0,
+    viewsLast7Days: [] as { date: string; views: number }[],
   });
   const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -54,7 +58,16 @@ export default function DashboardPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.stats) {
-          setStats(data.stats);
+          const s = data.stats;
+          setStats({
+            activeListings: s.activeListings ?? 0,
+            totalViews: s.totalViews ?? 0,
+            messages: s.messages ?? 0,
+            favorites: s.favorites ?? 0,
+            viewsLast7Days: Array.isArray(s.viewsLast7Days)
+              ? s.viewsLast7Days
+              : [],
+          });
         }
       }
     } catch (error) {
@@ -108,25 +121,24 @@ export default function DashboardPage() {
       setListingsLoading(true);
       setListingsError(null);
 
-      const token = localStorage.getItem('accessToken');
       const userStr = localStorage.getItem('user');
-      const headers: Record<string, string> = {};
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      if (userStr) {
-        headers['X-User-Info'] = btoa(userStr);
-      }
-
-      const response = await fetch('/api/listings?userId=me&status=all', {
-        headers,
-        credentials: 'include',
-      });
+      const response = await fetchWithAuthRefresh(
+        '/api/listings?userId=me&status=all',
+        {
+          credentials: 'include',
+          cache: 'no-store',
+          headers: userStr ? { 'X-User-Info': btoa(userStr) } : {},
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch listings');
+        if (response.status === 401 || response.status === 403) {
+          router.push('/auth/login?redirect=/dashboard');
+          return;
+        }
+        setListings([]);
+        setListingsError('Nu am putut încărca anunțurile.');
+        return;
       }
 
       const data = await response.json();
@@ -135,7 +147,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to fetch listings:', error);
       setListings([]);
-      setListingsError('Nu am putut incarca anunturile.');
+      setListingsError('Nu am putut încărca anunțurile.');
     } finally {
       setListingsLoading(false);
     }
@@ -197,264 +209,299 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#0B0F17] relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-24 left-1/3 w-[32rem] h-[32rem] bg-cyan-500/10 rounded-full blur-[140px]"></div>
-        <div className="absolute bottom-0 right-1/4 w-[28rem] h-[28rem] bg-emerald-500/10 rounded-full blur-[140px]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_40%)]"></div>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 left-1/3 h-[28rem] w-[28rem] rounded-full bg-primary-600/10 blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.04),_transparent_45%)]" />
       </div>
       
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
-        {/* Page Header */}
-        <div className="mb-12">
-          <h1 className="text-5xl md:text-6xl font-black mb-4 text-white tracking-tight">
-            Dashboard <span className="bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">personal</span>
+      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:py-12">
+        <div className="mb-8 md:mb-10">
+          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            Dashboard
           </h1>
-          <p className="text-slate-300 text-lg">Control complet asupra anunțurilor, beneficiilor și activitatii contului.</p>
+          <p className="mt-2 max-w-xl text-base text-white/50">
+            Performanța anunțurilor și acces rapid la acțiunile tale.
+          </p>
         </div>
 
-        {/* User Profile Card */}
-        <Card variant="elevated" className="mb-12 bg-gradient-to-br from-slate-800/50 to-slate-900/50">
-          <Card.Body className="p-8">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-6">
-                <Avatar
-                  size="lg"
-                  initials={user.name ? user.name.split(' ').map((n: string) => n[0]).join('') : 'U'}
-                  status="online"
-                />
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-3xl font-black text-white">{user.name}</h2>
-                    {user.verified && (
-                      <Badge variant="success">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Verificat
-                      </Badge>
-                    )}
-                    {user.role === 'premium' && (
-                      <Badge variant="warning">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.538 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.783.57-1.838-.197-1.538-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.93 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        Premium
-                      </Badge>
-                    )}
+        {/* Hero */}
+        <section className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent p-6 shadow-[0_32px_120px_-40px_rgba(99,102,241,0.45)] backdrop-blur-2xl md:mb-10 md:p-10">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-600/20 blur-[100px]" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-500/10 blur-[90px]" />
+          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="relative shrink-0">
+                <div className="absolute inset-0 scale-110 rounded-full bg-gradient-to-tr from-violet-500/40 to-cyan-400/30 blur-xl" />
+                <div className="relative rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 p-[3px] shadow-lg shadow-violet-500/20">
+                  <div className="rounded-full bg-[#0B0F17] p-1">
+                    <Avatar
+                      size="xl"
+                      className="scale-110 sm:scale-125"
+                      initials={
+                        user.name
+                          ? user.name
+                              .split(" ")
+                              .map((n: string) => n[0])
+                              .join("")
+                          : "U"
+                      }
+                      status="online"
+                    />
                   </div>
-                  <p className="text-gray-400 font-medium mb-1">{user.email}</p>
-                  <p className="text-sm text-gray-500">Membru din februarie 2024</p>
                 </div>
               </div>
-              <Link href="/dashboard/account">
-                <Button variant="primary">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Editează profil
-                </Button>
+              <div className="min-w-0 flex-1">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  {user.verified ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
+                      <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Verificat
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-white/70">
+                      Activ
+                    </span>
+                  )}
+                  {user.role === "premium" && (
+                    <Badge variant="primary" outlined className="text-xs">
+                      Premium
+                    </Badge>
+                  )}
+                </div>
+                <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                  {user.name || "Utilizator"}
+                </h2>
+                <p className="mt-1 truncate text-sm text-white/45 md:text-base">
+                  {user.email}
+                </p>
+                <Link
+                  href="/dashboard/account"
+                  className="mt-4 inline-flex items-center text-sm font-medium text-violet-300/90 transition hover:text-white"
+                >
+                  Editează profilul
+                  <span className="ml-1" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              </div>
+            </div>
+            <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row sm:justify-end lg:w-auto lg:flex-col">
+              <Link
+                href="/listings/new"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 px-8 py-4 text-base font-semibold text-white shadow-[0_16px_48px_-12px_rgba(139,92,246,0.55)] transition hover:brightness-110 hover:shadow-[0_20px_56px_-12px_rgba(139,92,246,0.65)] sm:w-auto lg:w-full lg:min-w-[220px]"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Adaugă anunț
               </Link>
             </div>
-          </Card.Body>
-        </Card>
+          </div>
+        </section>
 
-        {/* Stats Grid - ENTERPRISE DESIGN */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-12">
-          {/* Active Listings */}
-          <Link href="/dashboard/listings">
-            <div className="group relative bg-gradient-to-br from-purple-600/10 via-purple-500/5 to-transparent backdrop-blur-xl border border-purple-500/20 rounded-3xl p-6 hover:border-purple-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-600/0 via-purple-500/0 to-transparent group-hover:from-purple-600/10 group-hover:via-purple-500/5 transition-all duration-500"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg shadow-purple-500/30">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-semibold text-green-400">Activ</span>
-                  </div>
-                </div>
-                
-                {statsLoading ? (
-                  <div className="animate-pulse">
-                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-20"></div>
-                    <div className="h-4 bg-white/5 rounded w-32"></div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
-                      {stats.activeListings}
-                    </div>
-                    <div className="text-sm font-medium text-purple-300">Anunțuri active</div>
-                    <div className="mt-3 flex items-center text-xs text-purple-400">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                      Gestionează →
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </Link>
-
-          {/* Total Views */}
-          <div className="relative bg-gradient-to-br from-blue-600/10 via-cyan-500/5 to-transparent backdrop-blur-xl border border-blue-500/20 rounded-3xl p-6 overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-start justify-between mb-6">
-                <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-lg shadow-blue-500/30">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        {/* KPI */}
+        <section className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mb-10 lg:grid-cols-4">
+          <Link href="/dashboard/listings" className="group block h-full">
+            <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-violet-400/25 hover:shadow-[0_28px_70px_-24px_rgba(99,102,241,0.35)] md:p-7">
+              <div className="mb-4 flex items-start justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-300/90">
+                  <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.75}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
                   </svg>
                 </div>
-                <div className="px-3 py-1 bg-blue-500/10 rounded-full">
-                  <span className="text-xs font-bold text-blue-400">Total</span>
-                </div>
               </div>
-              
               {statsLoading ? (
-                <div className="animate-pulse">
-                  <div className="h-10 bg-white/10 rounded-lg mb-2 w-28"></div>
-                  <div className="h-4 bg-white/5 rounded w-32"></div>
+                <div className="animate-pulse space-y-3">
+                  <div className="h-10 w-24 rounded-lg bg-white/10" />
+                  <div className="h-4 w-36 rounded bg-white/5" />
                 </div>
               ) : (
                 <>
-                  <div className="text-4xl font-black text-white mb-2">
-                    {stats.totalViews.toLocaleString()}
-                  </div>
-                  <div className="text-sm font-medium text-blue-300">Vizualizări totale</div>
-                  <div className="mt-3 text-xs text-blue-400">
-                    Toate anunțurile tale
-                  </div>
+                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                    {stats.activeListings}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-white/50">Anunțuri active</p>
+                  <p className="mt-4 text-xs font-medium text-violet-300/80 opacity-0 transition group-hover:opacity-100">
+                    Gestionează →
+                  </p>
                 </>
               )}
             </div>
+          </Link>
+
+          <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:border-cyan-400/20 md:p-7">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-300/80">
+              <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
+              </svg>
+            </div>
+            {statsLoading ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-10 w-32 rounded-lg bg-white/10" />
+                <div className="h-4 w-36 rounded bg-white/5" />
+              </div>
+            ) : (
+              <>
+                <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                  {stats.totalViews.toLocaleString("ro-RO")}
+                </p>
+                <p className="mt-2 text-sm font-medium text-white/50">Vizualizări totale</p>
+              </>
+            )}
           </div>
 
-          {/* Messages */}
-          <Link href="/messages">
-            <div className="group relative bg-gradient-to-br from-amber-600/10 via-orange-500/5 to-transparent backdrop-blur-xl border border-amber-500/20 rounded-3xl p-6 hover:border-amber-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-600/0 via-orange-500/0 to-transparent group-hover:from-amber-600/10 group-hover:via-orange-500/5 transition-all duration-500"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl shadow-lg shadow-amber-500/30 relative">
-                    <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    {!statsLoading && stats.messages > 0 && (
-                      <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
-                        {stats.messages > 9 ? '9+' : stats.messages}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {statsLoading ? (
-                  <div className="animate-pulse">
-                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-16"></div>
-                    <div className="h-4 bg-white/5 rounded w-24"></div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
-                      {stats.messages}
-                    </div>
-                    <div className="text-sm font-medium text-amber-300">
-                      {stats.messages === 1 ? 'Mesaj nou' : 'Mesaje noi'}
-                    </div>
-                    <div className="mt-3 flex items-center text-xs text-amber-400">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                      Vezi mesaje →
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </Link>
-
-          {/* Favorites */}
-          <Link href="/favorites">
-            <div className="group relative bg-gradient-to-br from-pink-600/10 via-rose-500/5 to-transparent backdrop-blur-xl border border-pink-500/20 rounded-3xl p-6 hover:border-pink-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
-              <div className="absolute bottom-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="p-3 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl shadow-lg shadow-pink-500/30">
-                    <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </div>
-                
-                {statsLoading ? (
-                  <div className="animate-pulse">
-                    <div className="h-10 bg-white/10 rounded-lg mb-2 w-16"></div>
-                    <div className="h-4 bg-white/5 rounded w-28"></div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
-                      {stats.favorites}
-                    </div>
-                    <div className="text-sm font-medium text-pink-300">
-                      {stats.favorites === 1 ? 'Favorit salvat' : 'Favorite salvate'}
-                    </div>
-                    <div className="mt-3 flex items-center text-xs text-pink-400">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                      Vezi colecția →
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </Link>
-
-          {/* Invoices - NEW */}
-          <Link href="/dashboard/invoices">
-            <div className="group relative bg-gradient-to-br from-emerald-600/10 via-teal-500/5 to-transparent backdrop-blur-xl border border-emerald-500/20 rounded-3xl p-6 hover:border-emerald-500/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl shadow-lg shadow-emerald-500/30">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
-                </div>
-                
-                <div className="text-4xl font-black text-white mb-2 group-hover:scale-105 transition-transform">
-                  📄
-                </div>
-                <div className="text-sm font-medium text-emerald-300">Facturile mele</div>
-                <div className="mt-3 flex items-center text-xs text-emerald-400">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+          <Link href="/dashboard/messages" className="group block h-full">
+            <div className="relative flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-fuchsia-400/25 hover:shadow-[0_28px_70px_-24px_rgba(192,38,211,0.25)] md:p-7">
+              <div className="mb-4 flex items-start justify-between">
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-fuchsia-500/15 text-fuchsia-300/85">
+                  <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.75}
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                    />
                   </svg>
-                  Vezi facturi →
+                  {!statsLoading && stats.messages > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg">
+                      {stats.messages > 9 ? "9+" : stats.messages}
+                    </span>
+                  )}
                 </div>
               </div>
+              {statsLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-10 w-16 rounded-lg bg-white/10" />
+                  <div className="h-4 w-28 rounded bg-white/5" />
+                </div>
+              ) : (
+                <>
+                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                    {stats.messages}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-white/50">Mesaje</p>
+                  <p className="mt-1 text-xs text-white/35">
+                    {stats.messages === 1
+                      ? "1 necitit"
+                      : stats.messages > 1
+                        ? `${stats.messages} necitite`
+                        : "Niciun mesaj nou"}
+                  </p>
+                  <p className="mt-3 text-xs font-medium text-fuchsia-300/80 opacity-0 transition group-hover:opacity-100">
+                    Deschide inbox →
+                  </p>
+                </>
+              )}
             </div>
           </Link>
-        </div>
+
+          <Link href="/dashboard/favorites" className="group block h-full">
+            <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-rose-400/25 md:p-7">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-300/85">
+                <svg className="h-6 w-6 opacity-90" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              {statsLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-10 w-16 rounded-lg bg-white/10" />
+                  <div className="h-4 w-32 rounded bg-white/5" />
+                </div>
+              ) : (
+                <>
+                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                    {stats.favorites}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-white/50">Favorite</p>
+                  <p className="mt-4 text-xs font-medium text-rose-300/80 opacity-0 transition group-hover:opacity-100">
+                    Vezi colecția →
+                  </p>
+                </>
+              )}
+            </div>
+          </Link>
+        </section>
+
+        {/* Analytics */}
+        <section className="mb-8 lg:mb-10">
+          <ViewsLast7DaysChart
+            data={stats.viewsLast7Days}
+            totalViewsHint={stats.totalViews}
+          />
+        </section>
+
+        {/* Quick actions */}
+        <section className="mb-10 md:mb-12">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_24px_80px_-32px_rgba(0,0,0,0.65)] backdrop-blur-xl md:p-8">
+            <h3 className="text-lg font-semibold text-white md:text-xl">Acțiuni rapide</h3>
+            <p className="mt-1 text-sm text-white/45">
+              Publică sau actualizează anunțurile în câteva secunde.
+            </p>
+            <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:gap-5">
+              <Link href="/listings/new" className="flex-1">
+                <span className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 md:py-5 md:text-lg">
+                  <svg className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Adaugă anunț
+                </span>
+              </Link>
+              <Link href="/dashboard/listings" className="flex-1">
+                <span className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 text-base font-semibold text-white shadow-inner transition hover:border-white/25 hover:bg-white/[0.09] md:py-5 md:text-lg">
+                  <svg className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                    />
+                  </svg>
+                  Gestionează anunțuri
+                </span>
+              </Link>
+            </div>
+            <div className="mt-5 text-center sm:text-left">
+              <Link
+                href="/dashboard/invoices"
+                className="text-sm font-medium text-white/40 transition hover:text-white/70"
+              >
+                Facturi și plăți →
+              </Link>
+            </div>
+          </div>
+        </section>
 
         {/* Tabs Section */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-12">
-          <Tabs.List className="bg-slate-900/60 border border-white/10 rounded-2xl p-2 gap-2">
+          <Tabs.List className="gap-2 rounded-2xl border border-white/10 bg-[#141824] p-2">
             <Tabs.Trigger value="overview" className="rounded-xl px-5 py-2.5 text-sm">
               Privire generala
             </Tabs.Trigger>
@@ -467,42 +514,8 @@ export default function DashboardPage() {
           </Tabs.List>
 
           <Tabs.Content value="overview" className="mt-8">
-            <div className="grid lg:grid-cols-12 gap-6">
-              <Card variant="elevated" className="lg:col-span-5 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
-                <Card.Body className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Actiuni rapide</h3>
-                      <p className="text-sm text-slate-400">Publica si gestioneaza anunturile in cateva secunde.</p>
-                    </div>
-                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <Link href="/listings/new" className="block">
-                      <Button variant="primary" size="lg" className="w-full justify-center">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Adauga anunt nou
-                      </Button>
-                    </Link>
-                    <Link href="/dashboard/listings" className="block">
-                      <Button variant="secondary" size="lg" className="w-full justify-center">
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Gestioneaza anunturi
-                      </Button>
-                    </Link>
-                  </div>
-                </Card.Body>
-              </Card>
-
-              <Card variant="elevated" className="lg:col-span-4 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
+            <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
+              <Card variant="elevated" className="border border-white/10 bg-[#141824]">
                 <Card.Body className="p-6">
                   <div className="flex items-center justify-between mb-6">
                     <div>
@@ -526,7 +539,7 @@ export default function DashboardPage() {
                 </Card.Body>
               </Card>
 
-              <Card variant="elevated" className="lg:col-span-3 bg-gradient-to-br from-slate-900/80 to-slate-950/80 border border-white/10">
+              <Card variant="elevated" className="border border-white/10 bg-[#141824]">
                 <Card.Body className="p-6">
                   <h3 className="text-lg font-bold text-white mb-4">Beneficii active</h3>
                   <div className="space-y-4 text-sm text-slate-300">
@@ -578,7 +591,7 @@ export default function DashboardPage() {
                   <h3 className="text-xl font-bold text-white">Anunturile mele</h3>
                   <p className="text-slate-400">Vezi rapid anunturile active si performanta lor.</p>
                 </div>
-                <Link href="/dashboard/listings" className="text-sm font-semibold text-cyan-300 hover:text-cyan-200">
+                <Link href="/dashboard/listings" className="text-sm font-semibold text-primary-400 transition hover:text-primary-300">
                   Vezi toate anunturile →
                 </Link>
               </div>
@@ -609,7 +622,7 @@ export default function DashboardPage() {
                       id={listing.id}
                       title={listing.title}
                       price={formatPrice(listing)}
-                      image={listing.photos?.[0] || listing.imageUrls?.[0]}
+                      image={listingPrimaryPhotoSrc(listing.photos, listing.imageUrls)}
                       category={listing.category}
                       location={formatLocation(listing)}
                       description={listing.description}

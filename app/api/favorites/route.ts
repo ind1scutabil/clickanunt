@@ -3,6 +3,8 @@ import { validateSecureRequest } from '@/lib/security/middleware';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
+import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 
 // GET /api/favorites - Get user's favorites
 export async function GET(req: NextRequest) {
@@ -24,22 +26,75 @@ export async function GET(req: NextRequest) {
       where: { userId },
       include: {
         listing: {
-          include: {
+          select: {
+            id: true,
+            title: true,
+            priceAmount: true,
+            priceCurrency: true,
+            photos: true,
+            city: true,
+            county: true,
+            category: true,
+            subcategory: true,
+            views: true,
+            isFeatured: true,
+            condition: true,
+            make: true,
+            model: true,
+            year: true,
+            mileage: true,
+            fuel: true,
+            transmission: true,
+            status: true,
+            createdAt: true,
             owner: {
               select: {
                 id: true,
                 email: true,
                 name: true,
                 businessName: true,
-              }
-            }
-          }
-        }
+              },
+            },
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ favorites });
+    const slim = favorites.map((f) => ({
+      id: f.id,
+      userId: f.userId,
+      listingId: f.listingId,
+      createdAt: f.createdAt.toISOString(),
+      listing: {
+        id: f.listing.id,
+        title: f.listing.title,
+        priceAmount: f.listing.priceAmount,
+        priceCurrency: f.listing.priceCurrency,
+        photos: normalizeListingPhotosArray(f.listing.photos).slice(0, 4),
+        city: f.listing.city,
+        county: f.listing.county,
+        category: f.listing.category,
+        subcategory: f.listing.subcategory,
+        views: f.listing.views,
+        isFeatured: f.listing.isFeatured,
+        condition: f.listing.condition,
+        make: f.listing.make,
+        model: f.listing.model,
+        year: f.listing.year,
+        mileage: f.listing.mileage,
+        fuel: f.listing.fuel,
+        transmission: f.listing.transmission,
+        status: f.listing.status,
+        createdAt: f.listing.createdAt.toISOString(),
+        owner: f.listing.owner,
+      },
+    }));
+
+    return NextResponse.json(
+      { favorites: slim },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error: any) {
     console.error('Error fetching favorites:', error);
     return NextResponse.json(
@@ -100,6 +155,13 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.listing_favorite_added,
+      userId,
+      listingId,
+      request: req,
+    });
+
     return NextResponse.json({ success: true, favorite });
   } catch (error: any) {
     if (error.code === 'P2002') {
@@ -140,6 +202,13 @@ export async function DELETE(req: NextRequest) {
         userId,
         listingId,
       }
+    });
+
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.listing_favorite_removed,
+      userId,
+      listingId,
+      request: req,
     });
 
     return NextResponse.json({ success: true });

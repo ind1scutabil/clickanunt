@@ -7,7 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { createPaymentIntent, PromotionPackage, isValidPromotionPackage } from '@/lib/stripe';
+import { computeExpectedFinalBaniForUiPackage, inferUiPackageIdFromStripeType } from '@/lib/promotion-packages';
 import { logger } from '@/lib/observability';
+import { validateSecureRequest } from '@/lib/security/middleware';
 // import { checkRateLimit } from '@/lib/rateLimit'; // Not implemented yet
 import { PaymentStatus } from '@prisma/client';
 
@@ -15,6 +17,21 @@ export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF + rate limiting for payment creation (protects promote actions)
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'payment',
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+        ? 403
+        : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
     // Rate limiting: TODO - implement rate limiting
     // const rateLimitResult = await checkRateLimit('payment_creation', req);
     // if (!rateLimitResult.success) {
@@ -38,7 +55,11 @@ export async function POST(req: NextRequest) {
 
     // Parse body
     const body = await req.json();
-    const { listingId, packageType } = body;
+    const { listingId, packageType, packageId } = body as {
+      listingId?: string;
+      packageType?: string;
+      packageId?: string;
+    };
 
     // Validare input
     if (!listingId || !packageType) {
@@ -85,6 +106,18 @@ export async function POST(req: NextRequest) {
       select: { email: true, name: true },
     });
 
+    let amountOverride: number | undefined;
+    const uiPid = packageId != null && typeof packageId === 'string' ? packageId.trim() : '';
+    if (uiPid) {
+      const resolved = await computeExpectedFinalBaniForUiPackage(decoded.userId, uiPid);
+      if ('error' in resolved) {
+        return NextResponse.json({ error: resolved.error }, { status: 400 });
+      }
+      amountOverride = resolved.bani;
+    }
+
+    const promotionUiMeta = uiPid || inferUiPackageIdFromStripeType(packageType) || '';
+
     // Creare PaymentIntent în Stripe
     const paymentIntent = await createPaymentIntent({
       userId: decoded.userId,
@@ -94,7 +127,9 @@ export async function POST(req: NextRequest) {
       metadata: {
         userName: user?.name || 'Unknown',
         listingTitle: listing.title.substring(0, 100),
+        ...(promotionUiMeta ? { promotionUiPackageId: promotionUiMeta } : {}),
       },
+      ...(amountOverride !== undefined ? { amount: amountOverride } : {}),
     });
 
     // Salvare Payment în DB
@@ -111,6 +146,8 @@ export async function POST(req: NextRequest) {
           packageType,
           listingTitle: listing.title,
           listingId,
+          promotionUiPackageId: promotionUiMeta,
+          finalAmount: paymentIntent.amount,
         },
       },
     });

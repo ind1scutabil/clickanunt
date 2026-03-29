@@ -1,27 +1,39 @@
 'use client';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
-import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { memoryStorage } from "@/lib/memory-storage";
+import {
+  normalizeListingPhotoUrl,
+  DEFAULT_LISTING_IMAGE_URL,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+  normalizeListingPhotosArray,
+} from "@/lib/listing-photo-url";
+import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
-function getCategoryImage(category: string): string {
-  const categoryImages: { [key: string]: string } = {
-    "Auto, moto și ambarcațiuni": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&h=600&fit=crop",
-    "Imobiliare": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop",
-    "Electronice și electrocasnice": "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&h=600&fit=crop",
-    "Modă și frumusețe": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600&fit=crop",
-    "Casă și grădină": "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=800&h=600&fit=crop",
-    "Sport, timp liber și artă": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&h=600&fit=crop",
-    "Copii și bebeluși": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&h=600&fit=crop",
-    "Animale de companie": "https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=800&h=600&fit=crop",
-    "Locuri de muncă": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=600&fit=crop",
-    "Servicii și afaceri": "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=800&h=600&fit=crop",
-    "Agricultură": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&h=600&fit=crop",
-    "Altele": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&h=600&fit=crop"
-  };
-  return categoryImages[category] || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&h=600&fit=crop";
+async function trackListingEngagement(
+  listingId: string,
+  eventType:
+    | "listing_contact_click"
+    | "listing_phone_click"
+    | "listing_whatsapp_click"
+) {
+  try {
+    const csrf = await getCsrfToken();
+    await fetch("/api/analytics/track", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrf ? { "x-csrf-token": csrf } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify({ eventType, listingId }),
+    });
+  } catch {
+    /* non-blocking */
+  }
 }
 
 function maskEmail(email: string): string {
@@ -44,6 +56,28 @@ export default function Page() {
   const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState<string>("inappropriate");
+  const [reportDescription, setReportDescription] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportFeedback, setReportFeedback] = useState<string | null>(null);
+
+  const photos = useMemo(
+    () => normalizeListingPhotosArray(listing?.photos),
+    [listing]
+  );
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+    setShowPhone(false);
+  }, [id]);
+
+  useEffect(() => {
+    setSelectedImageIndex((i) => {
+      if (photos.length === 0) return 0;
+      return Math.min(i, photos.length - 1);
+    });
+  }, [photos.length]);
 
   // Check if listing is in favorites
   useEffect(() => {
@@ -115,6 +149,7 @@ export default function Page() {
   };
 
   const shareOnWhatsApp = () => {
+    if (id) void trackListingEngagement(id, "listing_whatsapp_click");
     const text = encodeURIComponent(`${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}\n${window.location.href}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
@@ -181,11 +216,90 @@ export default function Page() {
   const isOwner = Boolean(currentUser?.id && ownerId && currentUser.id === ownerId);
   const isPrivileged = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canPromote = isOwner; // Only owner can promote their own listing
+  const isAutoListing = listing.category === "Auto, moto și ambarcațiuni";
   const sellerEmail = listing.owner?.email || '';
   const sellerName = listing.owner?.name || '';
   const sellerDisplayName = sellerName || (sellerEmail ? (isOwner || isPrivileged ? sellerEmail : maskEmail(sellerEmail)) : 'Vânzător verificat');
   const sellerInitial = sellerDisplayName.charAt(0).toUpperCase();
-  const sellerPhone = listing.contactPhone || listing.owner?.phone || listing.owner?.businessPhone || '';
+  const sellerPhone = (
+    listing.contactPhone ||
+    listing.owner?.phone ||
+    listing.owner?.businessPhone ||
+    ""
+  ).trim();
+  const phoneTelHref = sellerPhone ? phoneToTelHref(sellerPhone) : "";
+
+  const openMessages = () => {
+    if (!currentUser?.id) {
+      router.push(`/auth/login?returnUrl=${encodeURIComponent(`/listings/${id}/messages`)}`);
+      return;
+    }
+    router.push(`/listings/${id}/messages`);
+  };
+
+  const carHistoryBaseUrl = process.env.NEXT_PUBLIC_CARVERTICAL_URL || "https://www.carvertical.com/ro";
+  const carHistoryParams = new URLSearchParams();
+  if (listing.vin) carHistoryParams.set("vin", String(listing.vin));
+  if (listing.make) carHistoryParams.set("make", String(listing.make));
+  if (listing.model) carHistoryParams.set("model", String(listing.model));
+  if (listing.year) carHistoryParams.set("year", String(listing.year));
+  carHistoryParams.set("utm_source", "clickanunt");
+  carHistoryParams.set("utm_medium", "listing_page");
+  const carHistoryUrl = `${carHistoryBaseUrl}${carHistoryBaseUrl.includes("?") ? "&" : "?"}${carHistoryParams.toString()}`;
+  const rarAutoPassUrl = "https://apps.rarom.ro/autopass-client";
+  const similarAutoParams = new URLSearchParams();
+  similarAutoParams.set("category", "Auto, moto și ambarcațiuni");
+  if (listing.make) similarAutoParams.set("make", String(listing.make));
+  if (listing.model) similarAutoParams.set("model", String(listing.model));
+  const similarAutoUrl = `/listings?${similarAutoParams.toString()}`;
+  const avgFuelLPer100km =
+    Number(listing.attributes?.avgFuelLPer100km || listing.attributes?.consumption || 7.5) || 7.5;
+  const fuelPriceRonPerL = 7.3;
+  const kmPerMonth = 1000;
+  const monthlyFuelCost = Math.round((kmPerMonth / 100) * avgFuelLPer100km * fuelPriceRonPerL);
+  const yearlyTaxEstimate =
+    Number(listing.attributes?.yearlyTaxRon || listing.attributes?.impozitAnualRon || 240) || 240;
+
+  const submitReport = async () => {
+    if (reportDescription.trim().length < 10) {
+      setReportFeedback("Descrierea trebuie să aibă minim 10 caractere.");
+      return;
+    }
+    setReportLoading(true);
+    setReportFeedback(null);
+    try {
+      const csrfToken = await getCsrfToken();
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const res = await fetch("/api/reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          listingId: id,
+          reason: reportReason,
+          description: reportDescription.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Trimiterea raportului a eșuat");
+      }
+      setReportFeedback(data.message || "Raport trimis. Mulțumim!");
+      setReportDescription("");
+      setTimeout(() => {
+        setShowReportModal(false);
+        setReportFeedback(null);
+      }, 2000);
+    } catch (e: unknown) {
+      setReportFeedback(e instanceof Error ? e.message : "Eroare la trimitere");
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   return (
     <>
@@ -206,7 +320,7 @@ export default function Page() {
             </svg>
           </button>
           
-          {listing.photos && listing.photos.length > 1 && (
+          {photos.length > 1 && (
             <>
               <button 
                 className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
@@ -225,9 +339,9 @@ export default function Page() {
                 className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedImageIndex(prev => Math.min(listing.photos.length - 1, prev + 1));
+                  setSelectedImageIndex(prev => Math.min(photos.length - 1, prev + 1));
                 }}
-                disabled={selectedImageIndex === listing.photos.length - 1}
+                disabled={selectedImageIndex === photos.length - 1}
               >
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -237,18 +351,24 @@ export default function Page() {
           )}
           
           <div className="max-w-7xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
-            <Image 
-              src={(listing.photos && listing.photos[selectedImageIndex]) || getCategoryImage(listing.category)}
+            <img
+              key={`modal-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
+              src={
+                photos[selectedImageIndex]?.trim()
+                  ? normalizeListingPhotoUrl(photos[selectedImageIndex])
+                  : DEFAULT_LISTING_IMAGE_URL
+              }
               alt={listing.title}
-              width={1920}
-              height={1080}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-              priority
-              unoptimized={listing.photos && listing.photos[selectedImageIndex] ? true : false}
+              className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.onerror = null;
+                el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+              }}
             />
-            {listing.photos && listing.photos.length > 1 && (
+            {photos.length > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full px-4 py-2 text-white text-sm font-medium">
-                {selectedImageIndex + 1} / {listing.photos.length}
+                {selectedImageIndex + 1} / {photos.length}
               </div>
             )}
           </div>
@@ -266,13 +386,21 @@ export default function Page() {
                   className="relative aspect-video bg-gray-900/50 overflow-hidden cursor-pointer group"
                   onClick={() => setShowImageModal(true)}
                 >
-                  <Image 
-                    src={(listing.photos && listing.photos[selectedImageIndex]) || getCategoryImage(listing.category)}
+                  <img
+                    key={`hero-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
+                    src={
+                      photos[selectedImageIndex]?.trim()
+                        ? normalizeListingPhotoUrl(photos[selectedImageIndex])
+                        : DEFAULT_LISTING_IMAGE_URL
+                    }
                     alt={listing.title}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    priority
-                    unoptimized={listing.photos && listing.photos[selectedImageIndex] ? true : false}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-normal ease-premium group-hover:scale-105"
+                    loading="eager"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      el.onerror = null;
+                      el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-md rounded-full p-4">
@@ -282,11 +410,11 @@ export default function Page() {
                     </div>
                   </div>
                 </div>
-                {listing.photos && listing.photos.length > 1 && (
+                {photos.length > 1 && (
                   <div className="relative p-4 flex gap-2 overflow-x-auto bg-gray-900/30">
-                    {listing.photos.map((photo: string, i: number) => (
+                    {photos.map((photo: string, i: number) => (
                       <div 
-                        key={i} 
+                        key={`${i}-${photo}`} 
                         onClick={() => setSelectedImageIndex(i)}
                         className={`relative w-20 h-20 rounded-lg flex-shrink-0 overflow-hidden bg-gray-800 border-2 transition-all cursor-pointer ${
                           selectedImageIndex === i 
@@ -294,15 +422,19 @@ export default function Page() {
                             : 'border-gray-700/50 hover:border-[#6366F1]/70'
                         }`}
                       >
-                        <Image 
-                          src={photo}
+                        <img
+                          key={`thumb-img-${i}-${photo}`}
+                          src={photo?.trim() ? normalizeListingPhotoUrl(photo) : DEFAULT_LISTING_IMAGE_URL}
                           alt={`${listing.title} ${i + 1}`}
-                          fill
-                          className={`object-cover transition ${
+                          className={`absolute inset-0 h-full w-full object-cover transition ${
                             selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
                           }`}
-                          sizes="80px"
-                          unoptimized
+                          loading="lazy"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            el.onerror = null;
+                            el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                          }}
                         />
                       </div>
                     ))}
@@ -388,7 +520,7 @@ export default function Page() {
                     )}
                     
                     {/* Auto-specific fields */}
-                    {listing.category === "Auto, moto și ambarcațiuni" && (
+                    {isAutoListing && (
                       <>
                         {/* Basic Info */}
                         {listing.make && (
@@ -636,7 +768,10 @@ export default function Page() {
                     <div>
                       <p className="font-bold text-white text-lg">{sellerDisplayName}</p>
                       <p className="text-sm text-gray-400 flex items-center gap-1">
-                        <span>✅</span> Membru din 2024
+                        <span>✅</span>
+                        {listing?.owner?.createdAt
+                          ? `Membru din ${new Date(listing.owner.createdAt).toLocaleDateString("ro-RO", { month: "short", year: "numeric" })}`
+                          : "Cont verificat pe platformă"}
                       </p>
                     </div>
                   </div>
@@ -661,28 +796,155 @@ export default function Page() {
                       </div>
                     )}
                     
-                    <button 
-                      onClick={() => router.push(`/listings/${id}/messages`)}
-                      className="w-full bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] text-white py-4 rounded-xl font-bold hover:shadow-xl hover:shadow-[#6D5BFF]/30 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
-                      <span>💬</span>
-                      <span>Trimite mesaj</span>
-                    </button>
-                    <button 
-                      onClick={() => setShowPhone(true)}
-                      className="w-full bg-gray-900/70 border-2 border-[#00D4FF] text-[#00D4FF] py-4 rounded-xl font-bold hover:bg-[#00D4FF]/10 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
-                      <span>📞</span>
-                      <span>{showPhone ? (sellerPhone || 'Fără telefon') : 'Afișează telefon'}</span>
-                    </button>
+                    {!isOwner && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={openMessages}
+                          className="w-full bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] text-white py-4 rounded-xl font-bold hover:shadow-xl hover:shadow-[#6D5BFF]/30 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                        >
+                          <span>💬</span>
+                          <span>Trimite mesaj</span>
+                        </button>
+                        {sellerPhone ? (
+                          showPhone ? (
+                            <a
+                              href={`tel:${phoneTelHref}`}
+                              onClick={() => id && void trackListingEngagement(id, "listing_phone_click")}
+                              className="w-full bg-gray-900/70 border-2 border-emerald-500/60 text-emerald-300 py-4 rounded-xl font-bold hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                            >
+                              <span>📞</span>
+                              <span>{formatPhoneDisplay(sellerPhone)}</span>
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (id) void trackListingEngagement(id, "listing_contact_click");
+                                setShowPhone(true);
+                              }}
+                              className="w-full bg-gray-900/70 border-2 border-[#00D4FF] text-[#00D4FF] py-4 rounded-xl font-bold hover:bg-[#00D4FF]/10 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                            >
+                              <span>📞</span>
+                              <span>Afișează telefon</span>
+                            </button>
+                          )
+                        ) : (
+                          <p className="text-center text-gray-400 text-sm py-2 px-2 rounded-xl bg-gray-900/40 border border-gray-700/50">
+                            Vânzătorul nu a afișat telefon — folosește mesajul.
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {isOwner && (
+                      <p className="text-center text-gray-400 text-sm py-2">
+                        Acesta este anunțul tău. Răspunde la mesaje din Dashboard.
+                      </p>
+                    )}
                   </div>
 
-                  <button className="w-full mt-4 text-red-400 hover:text-red-300 text-sm font-medium flex items-center justify-center gap-2 py-3 px-4 bg-red-500/10 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all">
-                    <span>⚠️</span>
-                    <span>Raportează anunțul</span>
-                  </button>
+                  {!isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!currentUser?.id) {
+                          router.push(`/auth/login?returnUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}`);
+                          return;
+                        }
+                        setShowReportModal(true);
+                        setReportFeedback(null);
+                      }}
+                      className="w-full mt-4 text-red-400 hover:text-red-300 text-sm font-medium flex items-center justify-center gap-2 py-3 px-4 bg-red-500/10 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all"
+                    >
+                      <span>⚠️</span>
+                      <span>Raportează anunțul</span>
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {isAutoListing && (
+                <div className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 border-2 border-indigo-400/40 rounded-2xl p-5 backdrop-blur-xl">
+                  <h4 className="font-black text-indigo-200 mb-2 flex items-center gap-2 text-lg">
+                    <span>🛡️</span>
+                    <span>Verificare istoric auto</span>
+                  </h4>
+                  <p className="text-sm text-indigo-100/90 mb-4">
+                    Verifică rapid istoricul mașinii (daune, kilometraj, furt, status juridic) direct în platforma CarVertical.
+                  </p>
+                  <a
+                    href={carHistoryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-blue-500 hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
+                  >
+                    <span>🔎</span>
+                    <span>Verifică pe CarVertical</span>
+                  </a>
+                  {listing.vin ? (
+                    <p className="text-xs text-indigo-100/80 mt-3">
+                      VIN detectat pentru precompletare: <span className="font-mono">{listing.vin}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-indigo-100/80 mt-3">
+                      Nu există VIN în anunț. Utilizatorul poate continua verificarea manual pe pagina CarVertical.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {isAutoListing && (
+                <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-black/95 border border-cyan-400/30 rounded-2xl p-5 shadow-2xl">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_45%)] pointer-events-none"></div>
+                  <div className="relative">
+                    <h4 className="font-black text-cyan-100 mb-1 flex items-center gap-2 text-lg">
+                      <span>⚡</span>
+                      <span>Verificări utile auto</span>
+                    </h4>
+                    <p className="text-sm text-cyan-50/85 mb-4">
+                      Toolkit rapid pentru decizie: verificare oficială, cost estimat și comparație directă cu piața.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3">
+                        <p className="text-xs text-cyan-100/80">Cost combustibil / lună</p>
+                        <p className="text-base font-black text-white">{monthlyFuelCost.toLocaleString("ro-RO")} RON</p>
+                      </div>
+                      <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 p-3">
+                        <p className="text-xs text-indigo-100/80">Impozit estimat / an</p>
+                        <p className="text-base font-black text-white">{yearlyTaxEstimate.toLocaleString("ro-RO")} RON</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <a
+                        href={rarAutoPassUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/15 hover:bg-cyan-500/15 hover:border-cyan-300/40 transition-all text-white font-semibold"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span>🏛️</span>
+                          <span>Verifică RAR AutoPass</span>
+                        </span>
+                        <span aria-hidden>↗</span>
+                      </a>
+
+                      <Link
+                        href={similarAutoUrl}
+                        className="w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/15 hover:bg-indigo-500/20 hover:border-indigo-300/40 transition-all text-white font-semibold"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <span>📊</span>
+                          <span>Compară cu anunțuri similare</span>
+                        </span>
+                        <span aria-hidden>→</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Safety Tips */}
               <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-2xl p-5 backdrop-blur-xl">
@@ -770,9 +1032,9 @@ export default function Page() {
                 <div key={i} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition cursor-pointer group">
                   <div className="aspect-video bg-gray-200 overflow-hidden">
                     <img 
-                      src={getCategoryImage(listing.category)}
+                      src={DEFAULT_LISTING_IMAGE_URL}
                       alt={`Similar product ${i}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-normal ease-premium"
                     />
                   </div>
                   <div className="p-4">
@@ -786,6 +1048,64 @@ export default function Page() {
           </div>
         </div>
       </main>
+
+      {showReportModal && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => !reportLoading && setShowReportModal(false)}
+        >
+          <div
+            className="bg-gray-900 border border-gray-700 rounded-2xl max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-white mb-4">Raportează anunțul</h3>
+            <label className="block text-sm text-gray-400 mb-2">Motiv</label>
+            <select
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              className="w-full mb-4 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-white"
+            >
+              <option value="spam">Spam / înșelător</option>
+              <option value="fraud">Fraudă</option>
+              <option value="illegal">Conținut ilegal</option>
+              <option value="copyright">Drepturi de autor</option>
+              <option value="inappropriate">Conținut nepotrivit</option>
+              <option value="other">Altele</option>
+            </select>
+            <label className="block text-sm text-gray-400 mb-2">Detalii (min. 10 caractere)</label>
+            <textarea
+              value={reportDescription}
+              onChange={(e) => setReportDescription(e.target.value)}
+              rows={4}
+              className="w-full mb-4 px-3 py-2 rounded-lg bg-gray-800 border border-gray-600 text-white resize-none"
+              placeholder="Descrie problema..."
+            />
+            {reportFeedback && (
+              <p className={`text-sm mb-3 ${reportFeedback.includes("Mulțumim") || reportFeedback.includes("trimis") ? "text-green-400" : "text-red-400"}`}>
+                {reportFeedback}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={reportLoading}
+                onClick={() => setShowReportModal(false)}
+                className="flex-1 py-2 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                Anulează
+              </button>
+              <button
+                type="button"
+                disabled={reportLoading || reportDescription.trim().length < 10}
+                onClick={submitReport}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-500 disabled:opacity-50"
+              >
+                {reportLoading ? "Se trimite…" : "Trimite raportul"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

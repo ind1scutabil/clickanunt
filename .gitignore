@@ -1,7 +1,13 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
+# dependencies & generated output (release hygiene)
+node_modules/
+.next/
+dist/
+build/
+test-results/
+playwright-report/
+
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,11 +20,7 @@
 /coverage
 
 # next.js
-/.next/
 /out/
-
-# production
-/build
 
 # misc
 .DS_Store
@@ -33,6 +35,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# cleanup-seed-users.ts JSON backups (may contain PII)
+/scripts/exports/
+
 # vercel
 .vercel
 
@@ -41,3 +46,7 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# accidental backups / local debug artifacts
+*.bak
+*.backup

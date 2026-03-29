@@ -71,6 +71,7 @@ rsync -avz --delete \
   --exclude coverage \
   --exclude .swc \
   --exclude .DS_Store \
+  --exclude 'public/uploads/' \
   ./ ${SERVER}:${DEPLOY_DIR}/ 2>&1 | grep -E "^sending|^total|error" || true
 echo -e "${GREEN}✓ Files synced${NC}"
 

@@ -134,7 +134,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
     <div
       className={cn(
         'absolute z-dropdown mt-2 min-w-[200px]',
-        'bg-neutral-850 border border-neutral-700 rounded-lg shadow-xl',
+        'rounded-xl border border-white/10 bg-neutral-850 shadow-lg shadow-black/40',
         'py-1',
         'animate-fadeIn',
         align === 'left' ? 'left-0' : 'right-0',
@@ -177,7 +177,7 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
       className={cn(
         'w-full px-4 py-2.5 text-left',
         'flex items-center gap-3',
-        'transition-colors duration-base',
+        'transition-colors duration-normal ease-premium',
         danger
           ? 'text-error-400 hover:bg-error-500/10'
           : 'text-neutral-200 hover:bg-neutral-800',

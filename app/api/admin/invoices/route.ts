@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/observability';
+import { Permission, userHasPermission } from '@/lib/rbac';
 
 export const runtime = 'nodejs';
 
@@ -24,14 +25,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check admin permission
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+    const user = await prisma.user.findFirst({
+      where: { id: decoded.userId, deletedAt: null },
     });
 
-    if (!user || (user.role !== 'admin' && user.role !== 'owner')) {
+    if (!user || !userHasPermission(user, Permission.INVOICES_VIEW_ALL)) {
       return NextResponse.json(
-        { error: 'Only admins can view invoices' },
+        { error: 'Insufficient permissions to view invoices' },
         { status: 403 }
       );
     }

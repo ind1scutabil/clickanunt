@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default function LoginPage() {
-  const BUILD_ID = Date.now();
+  const isProduction = process.env.NODE_ENV === "production";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F1117] via-[#1A1D24] to-[#111827] flex items-center justify-center px-4 py-8">
@@ -68,12 +68,22 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-8 text-center text-[#9AA3B2] text-sm">
-          <p>Demo: Foloseste orice email pentru a te conecta</p>
-          <p className="mt-2 text-xs opacity-50">
-            build: {BUILD_ID}
+        {!isProduction && (
+          <div className="mt-8 text-center text-[#9AA3B2] text-sm">
+            <p>
+              Dev: după{" "}
+              <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs">npm run db:seed</code> —{" "}
+              <span className="text-[#C7CCD6]">admin@clickanunt.ro</span> /{" "}
+              <span className="text-[#C7CCD6]">admin123</span> (sau{" "}
+              <code className="text-xs">ADMIN_PASSWORD</code>).
+            </p>
+          </div>
+        )}
+        {isProduction && (
+          <p className="mt-8 text-center text-sm text-[#9AA3B2]">
+            Folosește emailul și parola asociate contului tău ClickAnunț.
           </p>
-        </div>
+        )}
       </div>
     </div>
   );

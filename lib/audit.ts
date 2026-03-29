@@ -23,6 +23,9 @@ export interface AuditLogEntry {
   details?: any;
   ipAddress?: string;
   userAgent?: string;
+  /** Merged into `details` as structured before/after for compliance review */
+  before?: unknown;
+  after?: unknown;
 }
 
 /**
@@ -30,13 +33,27 @@ export interface AuditLogEntry {
  */
 export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
   try {
+    const mergedDetails =
+      entry.before !== undefined || entry.after !== undefined
+        ? {
+            ...(entry.details &&
+            typeof entry.details === "object" &&
+            entry.details !== null &&
+            !Array.isArray(entry.details)
+              ? (entry.details as Record<string, unknown>)
+              : {}),
+            ...(entry.before !== undefined ? { before: entry.before } : {}),
+            ...(entry.after !== undefined ? { after: entry.after } : {}),
+          }
+        : entry.details;
+
     await prisma.auditLog.create({
       data: {
         userId: entry.userId || undefined,
         action: entry.action,
         resource: entry.resource,
         resourceId: entry.resourceId || undefined,
-        details: entry.details || undefined,
+        details: mergedDetails || undefined,
         ipAddress: entry.ipAddress || undefined,
         userAgent: entry.userAgent || undefined,
       },
@@ -258,6 +275,36 @@ export const auditActions = {
       resource: 'payment',
       resourceId: paymentId,
       details: { actor: { email: actor.email, role: actor.role }, reason },
+    }),
+
+  analyticsOrphanCleanup: (
+    actor: AuditActor,
+    orphanedBefore: {
+      orphanListingRefs: number;
+      orphanUserRefs: number;
+      orphanSessionRefs: number;
+    },
+    deleted: {
+      orphanListingRefs: number;
+      orphanUserRefs: number;
+      orphanSessionRefs: number;
+    },
+    remaining: {
+      orphanListingRefs: number;
+      orphanUserRefs: number;
+      orphanSessionRefs: number;
+    }
+  ) =>
+    createAuditLog({
+      userId: getActorId(actor),
+      action: 'analytics.orphan_cleanup',
+      resource: 'analytics_events',
+      details: {
+        actor: { email: actor.email, role: actor.role },
+        deletedEventRows: deleted,
+      },
+      before: orphanedBefore,
+      after: remaining,
     }),
 };
 

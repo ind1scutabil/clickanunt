@@ -3,38 +3,47 @@
  */
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
     console.log('[ADMIN/USERS] === NEW REQUEST ===');
-    console.log('[ADMIN/USERS] Request headers:', {
-      authorization: request.headers.get('authorization') ? 'present' : 'missing',
-      cookie: request.headers.get('cookie') ? 'present' : 'missing',
-      host: request.headers.get('host'),
-      origin: request.headers.get('origin'),
-      'user-agent': request.headers.get('user-agent'),
-    });
-
-    // TEMPORARY: Skip auth for testing
-    console.log('[ADMIN/USERS] TEMP: Skipping authentication for testing');
-    const user = { role: 'admin' as UserRole }; // Mock admin user
+    const adminUser = await getUserFromRequest(request);
+    if (!adminUser || !hasPermission(adminUser.role as UserRole, Permission.USERS_VIEW_ALL)) {
+      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
-    const isBanned = searchParams.get('isBanned');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const isBannedParam = searchParams.get('isBanned');
+    const sort = searchParams.get('sort') || 'created';
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10);
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    /** limit=0 sau NaN returna 0 rânduri — forțăm minim 1, max 2000 (moderare: mulți useri seed) */
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 2000) : 50;
+    const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (role) where.role = role;
-    if (isBanned !== null) where.isBanned = isBanned === 'true';
+    if (isBannedParam === 'true') where.isBanned = true;
+    else if (isBannedParam === 'false') where.isBanned = false;
 
-    console.log('[ADMIN/USERS] Query params:', { role, isBanned, limit, offset });
+    /** activity: ultimul login mai întâi (useri reali activi), apoi data creării */
+    const orderBy: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[] =
+      sort === 'activity'
+        ? [
+            { lastLoginAt: { sort: 'desc', nulls: 'last' } },
+            { createdAt: 'desc' },
+          ]
+        : { createdAt: 'desc' };
+
+    console.log('[ADMIN/USERS] Query params:', { role, isBanned: isBannedParam, sort, limit, offset });
     console.log('[ADMIN/USERS] Where clause:', where);
 
     console.log('[ADMIN/USERS] About to execute Prisma query...');
@@ -48,13 +57,24 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             email: true,
+            name: true,
+            phone: true,
+            phoneVerified: true,
+            emailVerified: true,
+            accountType: true,
             role: true,
             isBanned: true,
+            trustScore: true,
             createdAt: true,
             lastLoginAt: true,
+            lastActiveAt: true,
+            lastLoginIp: true,
             creditsBalance: true,
             freeBoostsRemaining: true,
             promotionDiscountPercent: true,
+            moderationSuspendedUntil: true,
+            moderationSuspensionReason: true,
+            moderationSuspendedBy: true,
             _count: {
               select: {
                 listings: true,
@@ -62,7 +82,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           take: limit,
           skip: offset,
         }),
@@ -79,16 +99,26 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             email: true,
+            name: true,
+            phone: true,
+            phoneVerified: true,
+            emailVerified: true,
+            accountType: true,
             role: true,
             isBanned: true,
+            trustScore: true,
             createdAt: true,
             lastLoginAt: true,
+            lastActiveAt: true,
+            lastLoginIp: true,
             creditsBalance: true,
             freeBoostsRemaining: true,
             promotionDiscountPercent: true,
-            // Remove _count temporarily
+            moderationSuspendedUntil: true,
+            moderationSuspensionReason: true,
+            moderationSuspendedBy: true,
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           take: limit,
           skip: offset,
         }),
@@ -111,6 +141,7 @@ export async function GET(request: NextRequest) {
       total,
       limit,
       offset,
+      sort,
     });
   } catch (error) {
     console.error('Get users error:', error);

@@ -4,17 +4,28 @@ const nextConfig: NextConfig = {
   reactStrictMode: false, // Disabled - causing hydration errors in production
   poweredByHeader: false,
   compress: true,
+
+  /** Client bundle trebuie să vadă același host CDN ca serverul pentru isValidListingPhotoUrl / cdnOrAppHostMatches */
+  env: {
+    NEXT_PUBLIC_CDN_URL: process.env.NEXT_PUBLIC_CDN_URL || process.env.CDN_URL || '',
+  },
   
   // Image optimization configuration
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com',
+        hostname: 'upload.wikimedia.org',
       },
       {
         protocol: 'https',
-        hostname: 'upload.wikimedia.org',
+        hostname: 'clickanunt.ro',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.clickanunt.ro',
+        pathname: '/**',
       },
     ],
     formats: ['image/webp', 'image/avif'],

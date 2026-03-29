@@ -152,6 +152,7 @@ rsync -avz --delete \
   --exclude .env.local \
   --exclude coverage \
   --exclude playwright-report \
+  --exclude 'public/uploads/' \
   "${LOCAL_DIR}/" "${SERVER}:${DEPLOY_DIR}/" 2>&1 | tail -5
 echo "${GREEN}✅ Files synced${NC}"
 echo ""

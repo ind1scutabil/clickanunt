@@ -1,16 +1,39 @@
 import { prisma } from "../lib/prisma";
+import bcrypt from "bcrypt";
+
+/**
+ * Seed complet (șterge anunțuri + utilizatori + creează demo).
+ * În producție este BLOCAT implicit — o singură rulare accidentală ar șterge utilizatori reali.
+ * Permis doar cu ALLOW_DANGEROUS_FULL_SEED=true (staging / reset controlat).
+ * Local: rulează când NODE_ENV nu e production (ex. npm run db:seed).
+ */
+function allowDestructiveFullSeed(): boolean {
+  if (process.env.ALLOW_DANGEROUS_FULL_SEED === "true") return true;
+  const isProdRuntime =
+    process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+  return !isProdRuntime;
+}
 
 async function main() {
-  console.log("Seeding database...");
+  if (!allowDestructiveFullSeed()) {
+    console.log(
+      "[seed] Refuzat: seed-ul destructiv nu rulează în producție. " +
+        "Utilizatorii reali se autentifică cu parolele din baza de date. " +
+        "Pentru reset controlat (staging), setează ALLOW_DANGEROUS_FULL_SEED=true."
+    );
+    return;
+  }
 
-  // Clear existing data (safe for development only)
+  console.log("Seeding database (mod dev / reset explicit)...");
+
+  // Clear existing data — doar când allowDestructiveFullSeed() e true
   await prisma.listing.deleteMany();
   await prisma.user.deleteMany();
 
   const alice = await prisma.user.create({
     data: {
       email: "alice@example.com",
-      password: "$2b$10$example.hashed.password.alice",
+      password: await bcrypt.hash("alice123", 10),
       role: "user",
       accountType: "private",
       verificationLevel: "none",
@@ -46,7 +69,7 @@ async function main() {
   const bob = await prisma.user.create({
     data: {
       email: "bob@dealer.example",
-      password: "$2b$10$example.hashed.password.bob",
+      password: await bcrypt.hash("bob123", 10),
       role: "dealer",
       accountType: "business",
       verificationLevel: "business",
@@ -95,7 +118,21 @@ async function main() {
     },
   });
 
-  console.log(`Created users: ${alice.email}, ${bob.email}`);
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@clickanunt.ro";
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+  const admin = await prisma.user.create({
+    data: {
+      email: adminEmail,
+      password: await bcrypt.hash(adminPassword, 10),
+      role: "admin",
+      accountType: "private",
+      verificationLevel: "none",
+      emailVerified: true,
+    },
+  });
+
+  console.log(`Created users: ${alice.email} (parola: alice123), ${bob.email} (parola: bob123)`);
+  console.log(`Admin: ${admin.email} (parola: ${adminPassword})`);
 }
 
 main()

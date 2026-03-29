@@ -35,44 +35,22 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Get all conversations for this user
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [
-          { participant1Id: userId },
-          { participant2Id: userId },
-        ],
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
         participant1: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            businessName: true,
-          },
+          select: { id: true, name: true, avatar: true, email: true, role: true },
         },
         participant2: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            businessName: true,
-          },
+          select: { id: true, name: true, avatar: true, email: true, role: true },
         },
         listing: {
-          select: {
-            id: true,
-            title: true,
-            photos: true,
-            priceAmount: true,
-            priceCurrency: true,
-          },
+          select: { id: true, title: true },
         },
         messages: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 1,
           select: {
             id: true,
@@ -82,29 +60,27 @@ export async function GET(request: NextRequest) {
             senderId: true,
             createdAt: true,
             sender: {
-              select: {
-                id: true,
-                name: true,
-                avatar: true,
+              select: { id: true, name: true, avatar: true },
+            },
+          },
+        },
+        _count: {
+          select: {
+            messages: {
+              where: {
+                receiverId: userId,
+                isRead: false,
               },
             },
           },
         },
       },
-      orderBy: {
-        lastMessageAt: 'desc',
-      },
+      orderBy: { lastMessageAt: "desc" },
     });
 
-    // Format conversations with the other participant's info
     const formattedConversations = conversations.map((conv) => {
-      const otherParticipant = conv.participant1Id === userId 
-        ? conv.participant2 
-        : conv.participant1;
-      
-      const unreadCount = conv.messages.filter(
-        (msg) => msg.receiverId === userId && !msg.isRead
-      ).length;
+      const otherParticipant =
+        conv.participant1Id === userId ? conv.participant1 : conv.participant2;
 
       return {
         id: conv.id,
@@ -112,12 +88,14 @@ export async function GET(request: NextRequest) {
         listing: conv.listing,
         lastMessage: conv.messages[0] || null,
         lastMessageAt: conv.lastMessageAt,
-        unreadCount,
+        unreadCount: conv._count.messages,
         createdAt: conv.createdAt,
       };
     });
-    
-    return NextResponse.json(formattedConversations);
+
+    return NextResponse.json(formattedConversations, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (error: unknown) {
     console.error("Error fetching conversations:", error);
     return NextResponse.json(

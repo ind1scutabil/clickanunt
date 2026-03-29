@@ -117,8 +117,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       // Layout
       'inline-flex items-center justify-center gap-2',
       'font-semibold',
-      'rounded-[12px]',
-      'transition-all duration-base',
+      'rounded-xl',
+      'transition-[color,background-color,border-color,box-shadow,transform] duration-normal ease-premium motion-reduce:transition-none',
       'whitespace-nowrap',
       
       // Disabled state
@@ -128,31 +128,35 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       fullWidth && 'w-full',
       
       // Focus ring
-      !isDisabled && 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]'
+      !isDisabled &&
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] focus-visible:transition-shadow'
     );
 
     // Variant styles
     const variantStyles = {
       primary: cn(
-        'bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] text-white',
-        'hover:from-[#5B4BFF] hover:to-[#4338CA]',
-        'shadow-[0_18px_50px_rgba(0,0,0,0.35)]'
+        'bg-primary-600 text-white',
+        'border border-primary-500/30',
+        'hover:bg-primary-500 active:bg-primary-700',
+        'shadow-md shadow-black/25',
+        'hover:shadow-lg hover:shadow-primary-500/12 motion-reduce:hover:shadow-md'
       ),
       secondary: cn(
         'bg-[#1C212B] text-white/90',
-        'border border-white/5',
-        'hover:bg-[#222836] hover:border-white/10',
+        'border border-white/10',
+        'hover:bg-neutral-850 hover:border-white/15 hover:shadow-md hover:shadow-black/20',
         'active:bg-[#242A34]'
       ),
       ghost: cn(
         'text-white/80',
-        'hover:text-white hover:bg-white/5',
+        'hover:bg-white/5 hover:text-white',
         'active:bg-white/10'
       ),
       destructive: cn(
-        'bg-error-500 text-white',
-        'hover:bg-error-600 active:bg-error-700',
-        'shadow-[0_10px_30px_rgba(0,0,0,0.3)]'
+        'bg-error-600 text-white',
+        'hover:bg-error-500 active:bg-error-700',
+        'shadow-md shadow-black/20',
+        'hover:shadow-lg hover:shadow-error-600/15 motion-reduce:hover:shadow-md'
       ),
       link: cn(
         'text-primary-500',

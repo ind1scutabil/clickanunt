@@ -1,14 +1,22 @@
 'use client';
-import { useState, useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
 import { useAdminAuth } from '@/lib/hooks/useAdminAuth';
-import { getCsrfToken } from '@/lib/security/csrf-client';
+import {
+  fetchWithAuthRefresh,
+  jsonMutationWithAuthRefresh,
+  postJsonWithAuthRefresh,
+  putJsonWithAuthRefresh,
+} from '@/lib/admin-fetch';
+import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
+import UserModerationEnterprise, {
+  type EnterpriseModerationUser as ModerationUser,
+} from '@/app/components/admin/UserModerationEnterprise';
+import { isModerationSuspensionActive } from '@/lib/user-moderation-status';
 
-type UserRole = 'admin' | 'user';
-type UserStatus = 'active' | 'banned';
 type PromotionType = 'top' | 'urgent' | 'featured' | 'refresh';
 
 type ModerationOwner = {
@@ -57,17 +65,6 @@ type ModerationOwner = {
   verificationLevel?: string;
 };
 
-type ModerationUser = {
-  id: string;
-  email: string;
-  role: UserRole;
-  status: UserStatus;
-  listings: number;
-  credits: number;
-  freePromotions: number;
-  discount: number;
-};
-
 type ModerationListing = {
   id: string;
   category?: string;
@@ -86,7 +83,11 @@ type ModerationListing = {
   flagReason?: string;
   views?: number;
   favorites?: number;
+  /** Status afișat (coadă sau DB) */
   status?: string;
+  /** Status din DB — pentru acțiuni admin */
+  listingStatus?: string;
+  isFeatured?: boolean;
   subcategory?: string;
   [key: string]: string | number | boolean | undefined | null | ModerationOwner;
 };
@@ -119,12 +120,29 @@ type ModerationAppeal = {
   response?: string;
 };
 
-export default function AdminModerationPage() {
+const MODERATION_TABS = [
+  'pending',
+  'approved',
+  'rejected',
+  'users',
+  'reports',
+  'appeals',
+  'invoices',
+] as const;
+type ModerationTab = (typeof MODERATION_TABS)[number];
+
+function AdminModerationPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthorized, isLoading } = useAdminAuth();
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState<ModerationTab>(() => {
+    const t = searchParams.get('tab');
+    if (t && (MODERATION_TABS as readonly string[]).includes(t)) return t as ModerationTab;
+    return 'pending';
+  });
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+
   // Clean database - no mock data
   const [pendingListings, setPendingListings] = useState<ModerationListing[]>([]);
   const [approvedListings, setApprovedListings] = useState<ModerationListing[]>([]);
@@ -138,10 +156,15 @@ export default function AdminModerationPage() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [appealsLoading, setAppealsLoading] = useState(false);
 
+  const [queueTotals, setQueueTotals] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [modToday, setModToday] = useState({ approved: 0, rejected: 0 });
+  const [reportsPendingTotal, setReportsPendingTotal] = useState(0);
+
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ModerationUser | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
+  const notificationIsError = notificationMessage.trim().startsWith('❌');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [userListings, setUserListings] = useState<ModerationListing[]>([]);
   const [userListingsLoading, setUserListingsLoading] = useState(false);
@@ -154,14 +177,29 @@ export default function AdminModerationPage() {
     expiryDays: 30
   });
 
+  const setModerationTab = useCallback(
+    (tab: ModerationTab) => {
+      setActiveTab(tab);
+      router.replace(`/admin/moderation?tab=${tab}`, { scroll: false });
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && (MODERATION_TABS as readonly string[]).includes(tab)) {
+      setActiveTab(tab as ModerationTab);
+    }
+  }, [searchParams]);
+
   const stats = {
-    totalListings: 0,
-    pendingReview: 0,
-    approvedToday: 0,
-    rejectedToday: 0,
+    totalListings: queueTotals.pending + queueTotals.approved + queueTotals.rejected,
+    pendingReview: queueTotals.pending,
+    approvedToday: modToday.approved,
+    rejectedToday: modToday.rejected,
     totalUsers: users.length,
-    bannedUsers: users.filter(u => u.status === 'banned').length,
-    reportedListings: 0
+    bannedUsers: users.filter((u) => u.status === 'banned').length,
+    reportedListings: reportsPendingTotal,
   };
 
   const formatOwnerValue = (value: unknown) => {
@@ -205,33 +243,25 @@ export default function AdminModerationPage() {
   };
 
   // Fetch users from API
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setUsersLoading(true);
       setUsersError('');
-      const token = localStorage.getItem('accessToken');
-      console.log('[DEBUG] fetchUsers - token exists:', !!token, 'length:', token?.length);
-      console.log('[DEBUG] fetchUsers - token preview:', token?.substring(0, 20) + '...');
-      
-      // Add timeout to prevent hanging
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/admin/users', {
-        credentials: 'include',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        signal: controller.signal,
-      });
-      
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetchWithAuthRefresh(
+        '/api/admin/users?limit=1000&sort=activity',
+        {
+          signal: controller.signal,
+          cache: 'no-store',
+        }
+      );
+
       clearTimeout(timeoutId);
-      console.log('[DEBUG] fetchUsers - response status:', response.status);
       if (!response.ok) {
         const errorData = await response.text();
-        console.log('[DEBUG] fetchUsers - error response:', errorData);
-        
-        // Show specific error messages
+
         if (response.status === 403) {
           setUsersError('Acces interzis - verificați autentificarea admin');
         } else if (response.status === 401) {
@@ -241,54 +271,79 @@ export default function AdminModerationPage() {
         } else {
           setUsersError(`Eroare API: ${response.status} - ${errorData}`);
         }
-        
+
         throw new Error(`HTTP ${response.status}: ${errorData}`);
       }
 
       const data = await response.json();
-      
-      if (data.success && data.users) {
-        const mappedUsers = data.users.map((user: any) => ({
-          id: user.id,
-          email: user.email,
-          role: user.role as UserRole,
-          status: user.isBanned ? 'banned' : 'active' as UserStatus,
-          listings: 0, // Temporarily set to 0 since _count is removed
-          credits: user.creditsBalance || 0,
-          freePromotions: user.freeBoostsRemaining || 0,
-          discount: user.promotionDiscountPercent || 0,
-        }));
-        setUsers(mappedUsers);
+      const rawList = Array.isArray(data.users) ? data.users : [];
+      if (data.success === false && typeof data.error === 'string') {
+        setUsersError(data.error);
+        return;
       }
+      const mappedUsers: ModerationUser[] = rawList.map((user: Record<string, unknown>) => {
+        const until = user.moderationSuspendedUntil as string | null | undefined;
+        let status: ModerationUser['status'] = 'active';
+        if (user.isBanned) status = 'banned';
+        else if (until && isModerationSuspensionActive(until)) status = 'suspended';
+
+        const count = user as { _count?: { listings?: number; reports?: number } };
+        return {
+          id: String(user.id ?? ''),
+          email: String(user.email ?? ''),
+          name: user.name != null && user.name !== '' ? String(user.name) : null,
+          role: String(user.role ?? 'user'),
+          status,
+          listings:
+            typeof count._count?.listings === 'number' ? count._count.listings : 0,
+          credits: Number(user.creditsBalance) || 0,
+          freePromotions: Number(user.freeBoostsRemaining) || 0,
+          discount: Number(user.promotionDiscountPercent) || 0,
+          trustScore: Number(user.trustScore) || 50,
+          accountType: String(user.accountType ?? 'private'),
+          phone: user.phone != null ? String(user.phone) : null,
+          phoneVerified: Boolean(user.phoneVerified),
+          emailVerified: Boolean(user.emailVerified),
+          createdAt:
+            user.createdAt != null
+              ? new Date(user.createdAt as string).toISOString()
+              : new Date().toISOString(),
+          lastLoginAt:
+            user.lastLoginAt != null ? new Date(user.lastLoginAt as string).toISOString() : null,
+          lastActiveAt:
+            user.lastActiveAt != null ? new Date(user.lastActiveAt as string).toISOString() : null,
+          lastLoginIp: user.lastLoginIp != null ? String(user.lastLoginIp) : null,
+          reportsCount:
+            typeof count._count?.reports === 'number' ? count._count.reports : 0,
+          moderationSuspendedUntil: until ? String(until) : null,
+          moderationSuspensionReason:
+            user.moderationSuspensionReason != null
+              ? String(user.moderationSuspensionReason)
+              : null,
+        };
+      });
+      setUsers(mappedUsers.filter((u) => u.id && u.email));
     } catch (error) {
       console.error('Error fetching users:', error);
       if (error instanceof Error && error.name === 'AbortError') {
         setUsersError('Request timeout - please try again');
-      } else {
+      } else if (!(error instanceof Error && error.message.startsWith('HTTP'))) {
         setUsersError('Failed to load users');
       }
     } finally {
       setUsersLoading(false);
     }
-  };
+  }, []);
 
   // Fetch listings for a specific user
   const fetchUserListings = async (userId: string) => {
     try {
-      console.log('[FETCH] Started for userId:', userId);
       setUserListingsLoading(true);
-      
-      const token = localStorage.getItem('accessToken');
-      
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(`/api/admin/users/${userId}/listings`, {
-        credentials: 'include',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+
+      const response = await fetchWithAuthRefresh(`/api/admin/users/${userId}/listings`, {
         signal: controller.signal,
       });
       
@@ -314,6 +369,7 @@ export default function AdminModerationPage() {
             subcategory: listing.subcategory,
             price: listing.price,
             priceCurrency: listing.priceCurrency,
+            listingStatus: typeof listing.status === 'string' ? listing.status : '',
             status: listing.queueStatus || listing.status,
             photos: Array.isArray(listing.photos) ? listing.photos.length : listing.photos ? 1 : 0,
             owner: listing.owner,
@@ -322,6 +378,8 @@ export default function AdminModerationPage() {
             notes: listing.notes,
             queueId: listing.queueId,
             moderator: listing.moderator,
+            isFeatured: !!listing.isFeatured,
+            views: typeof listing.views === 'number' ? listing.views : 0,
           }));
         setUserListings(transformedListings);
       } else {
@@ -362,6 +420,9 @@ export default function AdminModerationPage() {
       
       const data = await response.json();
       setReports(data.reports || []);
+      setReportsPendingTotal(
+        typeof data.total === 'number' ? data.total : Array.isArray(data.reports) ? data.reports.length : 0
+      );
     } catch (error) {
       console.error('Error fetching reports:', error);
       if (error instanceof Error && error.name === 'AbortError') {
@@ -523,21 +584,26 @@ export default function AdminModerationPage() {
   }, [router, isAuthorized, isLoading]);
 
   // Fetch listings from API
-  const fetchListings = async () => {
+  const fetchListings = async (opts?: { throwOnError?: boolean }) => {
+    const { throwOnError = false } = opts || {};
     try {
-      const token = localStorage.getItem('accessToken');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-      };
-
       // Add timeout to prevent hanging
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
       const [pendingResponse, approvedResponse, rejectedResponse] = await Promise.all([
-        fetch('/api/admin/moderation/queue?status=pending', { headers, credentials: 'include', signal: controller.signal }),
-        fetch('/api/admin/moderation/queue?status=approved', { headers, credentials: 'include', signal: controller.signal }),
-        fetch('/api/admin/moderation/queue?status=rejected', { headers, credentials: 'include', signal: controller.signal }),
+        fetchWithAuthRefresh('/api/admin/moderation/queue?status=pending', {
+          cache: 'no-store',
+          signal: controller.signal,
+        }),
+        fetchWithAuthRefresh('/api/admin/moderation/queue?status=approved', {
+          cache: 'no-store',
+          signal: controller.signal,
+        }),
+        fetchWithAuthRefresh('/api/admin/moderation/queue?status=rejected', {
+          cache: 'no-store',
+          signal: controller.signal,
+        }),
       ]);
 
       clearTimeout(timeoutId);
@@ -590,6 +656,11 @@ export default function AdminModerationPage() {
       setPendingListings(transformItems(pendingData.items || []));
       setApprovedListings(transformItems(approvedData.items || []));
       setRejectedListings(transformItems(rejectedData.items || []));
+      setQueueTotals({
+        pending: typeof pendingData.total === 'number' ? pendingData.total : 0,
+        approved: typeof approvedData.total === 'number' ? approvedData.total : 0,
+        rejected: typeof rejectedData.total === 'number' ? rejectedData.total : 0,
+      });
     } catch (error) {
       console.error('Error fetching listings:', error);
       if (error instanceof Error && error.name === 'AbortError') {
@@ -599,18 +670,48 @@ export default function AdminModerationPage() {
       setPendingListings([]);
       setApprovedListings([]);
       setRejectedListings([]);
+
+      if (throwOnError) throw error;
     }
   };
 
-  // Fetch users on mount and when authorized
+  // Listări, rapoarte, apeluri la încărcare
   useEffect(() => {
     if (!isLoading && isAuthorized) {
-      fetchUsers();
       fetchListings();
       fetchReports();
       fetchAppeals();
     }
   }, [isAuthorized, isLoading]);
+
+  useEffect(() => {
+    if (!isAuthorized || isLoading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetchWithAuthRefresh('/api/admin/analytics/summary');
+        if (cancelled || !r.ok) return;
+        const d = await r.json();
+        if (!d.success) return;
+        setModToday({
+          approved: typeof d.listings?.moderatedApprovedToday === 'number' ? d.listings.moderatedApprovedToday : 0,
+          rejected: typeof d.listings?.moderatedRejectedToday === 'number' ? d.listings.moderatedRejectedToday : 0,
+        });
+      } catch {
+        if (!cancelled) setModToday({ approved: 0, rejected: 0 });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthorized, isLoading]);
+
+  /** Preload users so "Utilizatori (N)" is correct without tab click. */
+  useEffect(() => {
+    if (isLoading || !isAuthorized) return;
+    if (users.length > 0 && activeTab !== 'users') return;
+    fetchUsers();
+  }, [activeTab, isAuthorized, isLoading, fetchUsers, users.length]);
 
   const renderGroupedListings = (
     listings: ModerationListing[],
@@ -619,9 +720,8 @@ export default function AdminModerationPage() {
   ) => {
     if (listings.length === 0) {
       return (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">🎉</div>
-          <p className="text-gray-400 text-lg">{emptyMessage}</p>
+        <div className="py-12 text-center">
+          <p className="text-lg text-[var(--text-tertiary)]">{emptyMessage}</p>
         </div>
       );
     }
@@ -639,12 +739,12 @@ export default function AdminModerationPage() {
           return (
             <div
               key={category}
-              className="bg-gradient-to-br from-gray-800/70 to-gray-900/70 backdrop-blur-xl rounded-2xl p-5 border border-gray-700/60"
+              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-5 shadow-[var(--shadow-md)]"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-black text-white">📁 {category}</h3>
-                <span className="text-xs bg-gray-700/60 px-3 py-1 rounded-full text-gray-200">
-                  {categoryCount} anunturi
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{category}</h3>
+                <span className="rounded-full border border-white/[0.08] bg-[var(--bg-primary)]/50 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                  {categoryCount} anunțuri
                 </span>
               </div>
 
@@ -658,37 +758,35 @@ export default function AdminModerationPage() {
                   return (
                     <div
                       key={userKey}
-                      className="bg-gradient-to-br from-gray-900/70 to-black/50 rounded-xl p-4 border border-gray-700/60"
+                      className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/45 p-4"
                     >
-                      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <div className="text-lg font-black text-white">
-                            👤 {owner?.email || 'Utilizator necunoscut'}
+                          <div className="text-lg font-semibold text-[var(--text-primary)]">
+                            {owner?.email || 'Utilizator necunoscut'}
                           </div>
-                          <div className="text-sm text-gray-400">
-                            ID: {ownerId}
-                          </div>
+                          <div className="text-sm text-[var(--text-tertiary)]">ID: {ownerId}</div>
                         </div>
-                        <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full font-bold">
-                          {group.listings.length} anunturi
+                        <span className="rounded-full border border-white/[0.08] bg-[var(--bg-elevated)]/80 px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+                          {group.listings.length} anunțuri
                         </span>
                       </div>
 
                       <details className="mb-4">
-                        <summary className="cursor-pointer text-sm text-gray-300 font-bold">
+                        <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
                           Detalii utilizator
                         </summary>
-                        <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {ownerFields.length === 0 ? (
-                            <div className="text-gray-500 text-sm">Detalii indisponibile</div>
+                            <div className="text-sm text-[var(--text-muted)]">Detalii indisponibile</div>
                           ) : (
                             ownerFields.map((field) => (
                               <div
                                 key={field.key}
-                                className="bg-gray-900/60 border border-gray-700/40 rounded-lg px-3 py-2 text-xs"
+                                className="rounded-lg border border-white/[0.06] bg-[var(--bg-elevated)]/50 px-3 py-2 text-xs"
                               >
-                                <div className="text-gray-500">{field.key}</div>
-                                <div className="text-gray-200 break-words">{field.value}</div>
+                                <div className="text-[var(--text-muted)]">{field.key}</div>
+                                <div className="break-words text-[var(--text-secondary)]">{field.value}</div>
                               </div>
                             ))
                           )}
@@ -699,35 +797,41 @@ export default function AdminModerationPage() {
                         {group.listings.map((listing) => (
                           <div
                             key={listing.id}
-                            className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-xl p-4 border ${
-                              listing.flagged ? 'border-red-500/50' : 'border-gray-700/50'
+                            className={`rounded-xl border bg-[var(--bg-elevated)]/80 p-4 ${
+                              listing.flagged ? 'border-red-500/40' : 'border-white/[0.08]'
                             }`}
                           >
                             {listing.flagged && (
-                              <div className="mb-3 p-2 bg-red-500/20 border border-red-500/50 rounded-lg text-sm">
-                                <span className="text-red-400 font-bold">🚨 Semnalat: {listing.flagReason}</span>
+                              <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/15 p-2 text-sm">
+                                <span className="font-medium text-red-300">Semnalat: {listing.flagReason}</span>
                               </div>
                             )}
 
-                            <div className="grid md:grid-cols-5 gap-4 items-start">
+                            <div className="grid items-start gap-4 md:grid-cols-5">
                               <div className="md:col-span-3">
-                                <h3 className="text-lg font-black text-white mb-2">{listing.title}</h3>
-                                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                  <span className="text-xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent">
+                                <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                                  {listing.title}
+                                </h3>
+                                <div className="mb-2 flex flex-wrap items-center gap-3">
+                                  <span className="text-xl font-semibold text-[var(--text-primary)]">
                                     {listing.price != null
                                       ? `${listing.price.toLocaleString()} ${listing.priceCurrency}`
                                       : '—'}
                                   </span>
-                                  <span className="text-xs bg-gray-700/50 px-2 py-1 rounded text-gray-300">📸 {listing.photos}</span>
+                                  <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-2 py-1 text-xs text-[var(--text-tertiary)]">
+                                    {listing.photos} foto
+                                  </span>
                                   {listing.subcategory ? (
-                                    <span className="text-xs bg-gray-700/50 px-2 py-1 rounded text-gray-300">{listing.subcategory}</span>
+                                    <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-2 py-1 text-xs text-[var(--text-tertiary)]">
+                                      {listing.subcategory}
+                                    </span>
                                   ) : null}
                                 </div>
-                                <div className="text-sm text-gray-400">
-                                  <p>👤 {listing.owner}</p>
-                                  <p>🕒 {listing.submittedAt}</p>
-                                  {listing.approvedAt ? <p>✅ {listing.approvedAt}</p> : null}
-                                  {listing.rejectedAt ? <p>❌ {listing.rejectedAt}</p> : null}
+                                <div className="text-sm text-[var(--text-tertiary)]">
+                                  <p>{listing.owner}</p>
+                                  <p>Trimis: {listing.submittedAt}</p>
+                                  {listing.approvedAt ? <p>Aprobat: {listing.approvedAt}</p> : null}
+                                  {listing.rejectedAt ? <p>Respins: {listing.rejectedAt}</p> : null}
                                 </div>
                               </div>
 
@@ -749,53 +853,163 @@ export default function AdminModerationPage() {
     );
   };
 
-  const approveListing = (id: string) => {
+  const approveListing = async (id: string) => {
     const listing = pendingListings.find(l => l.id === id);
-    if (listing) {
-      setPendingListings(pendingListings.filter(l => l.id !== id));
-      setApprovedListings([...approvedListings, { 
-        ...listing, 
-        status: 'approved', 
-        approvedAt: new Date().toISOString(),
-        views: 0,
-        favorites: 0
-      }]);
-      
-      // Update în memory storage
-      const listingData = memoryStorage.get(id);
-      if (listingData) {
-        memoryStorage.set(id, { ...listingData, status: 'active', moderationStatus: 'approved' });
+    if (!listing) return;
+
+    // IMPORTANT: endpointul cere id-ul din `moderation_queue` (queueId), nu `listingId`.
+    const queueId = listing.queueId || id;
+    const previousPending = pendingListings;
+    const previousApproved = approvedListings;
+
+    try {
+      // Optimistic UI, dar adevărul vine din backend.
+      setPendingListings(previousPending.filter(l => l.id !== id));
+      setApprovedListings([
+        ...previousApproved,
+        {
+          ...listing,
+          status: 'approved',
+          approvedAt: new Date().toISOString(),
+          views: 0,
+          favorites: 0,
+        },
+      ]);
+
+      const approveRes = await postJsonWithAuthRefresh(`/api/admin/moderation/${queueId}/approve`, {});
+      if (!approveRes.ok) {
+        const text = await approveRes.text().catch(() => '');
+        let message = `Eroare la aprobare (${approveRes.status})`;
+        try {
+          const payload = text ? JSON.parse(text) : null;
+          if (payload?.error) message = String(payload.error);
+          else if (typeof payload === 'string') message = payload;
+          else if (text) message = text;
+        } catch {
+          if (text) message = text;
+        }
+        throw new Error(message);
       }
+
+      // Re-sincronizează din backend ca userul să vadă instant `status=active`.
+      await fetchListings({ throwOnError: true });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Eroare la aprobare';
+      setNotificationMessage(`❌ ${msg}`);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3500);
+
+      // Rollback optimist.
+      setPendingListings(previousPending);
+      setApprovedListings(previousApproved);
     }
   };
 
-  const rejectListing = (id: string) => {
+  const rejectListing = async (id: string) => {
     const reason = prompt('Motivul respingerii:');
     if (!reason) return;
-    
+
     const listing = pendingListings.find(l => l.id === id);
-    if (listing) {
-      setPendingListings(pendingListings.filter(l => l.id !== id));
-      setRejectedListings([...rejectedListings, { 
-        ...listing, 
-        status: 'rejected', 
-        rejectedAt: new Date().toISOString(),
-        reason 
-      }]);
-      
-      // Update în memory storage
-      const listingData = memoryStorage.get(id);
-      if (listingData) {
-        memoryStorage.set(id, { ...listingData, status: 'rejected', moderationStatus: 'rejected', rejectionReason: reason });
+    if (!listing) return;
+
+    const queueId = listing.queueId || id;
+    const previousPending = pendingListings;
+    const previousRejected = rejectedListings;
+
+    try {
+      setPendingListings(previousPending.filter(l => l.id !== id));
+      setRejectedListings([
+        ...previousRejected,
+        {
+          ...listing,
+          status: 'rejected',
+          rejectedAt: new Date().toISOString(),
+          reason,
+        },
+      ]);
+
+      const rejectRes = await postJsonWithAuthRefresh(`/api/admin/moderation/${queueId}/reject`, { reason });
+      if (!rejectRes.ok) {
+        const text = await rejectRes.text().catch(() => '');
+        let message = `Eroare la respingere (${rejectRes.status})`;
+        try {
+          const payload = text ? JSON.parse(text) : null;
+          if (payload?.error) message = String(payload.error);
+          else if (text) message = text;
+        } catch {
+          if (text) message = text;
+        }
+        throw new Error(message);
       }
+
+      await fetchListings({ throwOnError: true });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Eroare la respingere';
+      setNotificationMessage(`❌ ${msg}`);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3500);
+
+      setPendingListings(previousPending);
+      setRejectedListings(previousRejected);
     }
   };
 
-  const deleteListing = (id: string) => {
-    if (!confirm('Ștergi definitiv acest anunț?')) return;
-    
-    setApprovedListings(approvedListings.filter(l => l.id !== id));
-    memoryStorage.delete(id);
+  const runListingModeration = async (
+    listingId: string,
+    body: { status?: string; isFeatured?: boolean; moderationNotes?: string }
+  ) => {
+    try {
+      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'PATCH', body as Record<string, unknown>);
+      const text = await res.text();
+      let payload: { error?: string } | null = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        payload = null;
+      }
+      if (!res.ok) {
+        throw new Error(payload?.error || `Eroare API (${res.status})`);
+      }
+      setNotificationMessage('✅ Anunț actualizat');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2800);
+      if (expandedUserId) {
+        fetchUserListings(expandedUserId);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Eroare';
+      setNotificationMessage(`❌ ${msg}`);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 4000);
+    }
+  };
+
+  const deleteListing = async (listingId: string) => {
+    if (!confirm('Ștergi definitiv acest anunț din baza de date?')) return;
+    try {
+      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'DELETE');
+      const text = await res.text();
+      let payload: { error?: string } | null = null;
+      try {
+        payload = text ? JSON.parse(text) : null;
+      } catch {
+        payload = null;
+      }
+      if (!res.ok) {
+        throw new Error(payload?.error || `Eroare API (${res.status})`);
+      }
+      setNotificationMessage('✅ Anunț șters');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2800);
+      if (expandedUserId) {
+        fetchUserListings(expandedUserId);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Eroare la ștergere';
+      setNotificationMessage(`❌ ${msg}`);
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 4000);
+    }
   };
 
   const banUser = async (userId: string) => {
@@ -805,29 +1019,34 @@ export default function AdminModerationPage() {
     if (!confirm('Blochezi acest utilizator?')) return;
     
     try {
-      const csrfToken = await getCsrfToken();
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/admin/users/${userId}/ban`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          reason: reason || 'Admin action',
-        }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/users/${userId}/ban`, {
+        reason: reason || 'Admin action',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to ban user');
+        const t = await response.text();
+        let err = 'Failed to ban user';
+        try {
+          const j = t ? JSON.parse(t) : null;
+          if (j?.error) err = String(j.error);
+        } catch {
+          /* ignore */
+        }
+        throw new Error(err);
       }
 
-      setUsers(users.map(u => 
-        u.id === userId ? { ...u, status: 'banned' } : u
-      ));
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                status: 'banned',
+                moderationSuspendedUntil: null,
+                moderationSuspensionReason: null,
+              }
+            : u
+        )
+      );
       
       setNotificationMessage('✅ Utilizator blocat cu succes');
       setShowNotification(true);
@@ -844,27 +1063,24 @@ export default function AdminModerationPage() {
     if (!confirm('Deblochezi acest utilizator?')) return;
     
     try {
-      const csrfToken = await getCsrfToken();
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/admin/users/${userId}/unban`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const response = await postJsonWithAuthRefresh(`/api/admin/users/${userId}/unban`, {});
 
       if (!response.ok) {
-        throw new Error('Failed to unban user');
+        const t = await response.text();
+        let err = 'Failed to unban user';
+        try {
+          const j = t ? JSON.parse(t) : null;
+          if (j?.error) err = String(j.error);
+        } catch {
+          /* ignore */
+        }
+        throw new Error(err);
       }
 
-      setUsers(users.map(u => 
-        u.id === userId ? { ...u, status: 'active' } : u
-      ));
-      
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, status: 'active' } : u))
+      );
+
       setNotificationMessage('✅ Utilizator deblocat cu succes');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
@@ -880,30 +1096,26 @@ export default function AdminModerationPage() {
     if (!confirm('Faci acest utilizator administrator?')) return;
     
     try {
-      const csrfToken = await getCsrfToken();
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          role: 'admin',
-        }),
+      const response = await putJsonWithAuthRefresh(`/api/admin/users/${userId}/role`, {
+        role: 'admin',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to promote user');
+        const t = await response.text();
+        let err = 'Failed to promote user';
+        try {
+          const j = t ? JSON.parse(t) : null;
+          if (j?.error) err = String(j.error);
+        } catch {
+          /* ignore */
+        }
+        throw new Error(err);
       }
 
-      setUsers(users.map(u => 
-        u.id === userId ? { ...u, role: 'admin' } : u
-      ));
-      
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: 'admin' } : u))
+      );
+
       setNotificationMessage('✅ Utilizator promovat la admin');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
@@ -912,6 +1124,81 @@ export default function AdminModerationPage() {
       setNotificationMessage('❌ Eroare la promovarea utilizatorului');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
+    }
+  };
+
+  const suspendUserApi = async (userId: string, durationHours: number, reason: string) => {
+    const response = await postJsonWithAuthRefresh(`/api/admin/users/${userId}/suspend`, {
+      durationHours,
+      reason,
+    });
+    if (!response.ok) {
+      const t = await response.text();
+      let err = 'Eroare la suspendare';
+      try {
+        const j = t ? JSON.parse(t) : null;
+        if (j?.error) err = String(j.error);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(err);
+    }
+    const until = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              status: 'suspended',
+              moderationSuspendedUntil: until,
+              moderationSuspensionReason: reason,
+            }
+          : u
+      )
+    );
+    setNotificationMessage('✅ Suspendare temporară aplicată');
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+  };
+
+  const unsuspendUserApi = async (userId: string) => {
+    const response = await postJsonWithAuthRefresh(`/api/admin/users/${userId}/unsuspend`, {});
+    if (!response.ok) {
+      const t = await response.text();
+      let err = 'Eroare';
+      try {
+        const j = t ? JSON.parse(t) : null;
+        if (j?.error) err = String(j.error);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(err);
+    }
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              status: 'active',
+              moderationSuspendedUntil: null,
+              moderationSuspensionReason: null,
+            }
+          : u
+      )
+    );
+    setNotificationMessage('✅ Suspendarea a fost ridicată');
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+  };
+
+  const toggleUserRow = (userId: string) => {
+    if (expandedUserId === userId) {
+      setExpandedUserId(null);
+      setUserListings([]);
+    } else {
+      setExpandedUserId(userId);
+      setUserListings([]);
+      fetchUserListings(userId);
     }
   };
 
@@ -944,25 +1231,96 @@ export default function AdminModerationPage() {
     setIsSavingBenefits(true);
 
     try {
-      const csrfToken = await getCsrfToken();
-      const token = localStorage.getItem('accessToken');
+      // Always refresh CSRF token before privileged writes (avoids stale cached token mismatch).
+      clearCsrfTokenCache();
 
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          creditsBonus: credits,
-          globalDiscount: discount,
-          freePromotions,
-          promotionType: creditsForm.promotionType,
-          expiryDays: creditsForm.expiryDays,
-        }),
-      });
+      // Avoid leaving the UI stuck if `/api/csrf` stalls.
+      const csrfToken = await Promise.race<string>([
+        getCsrfToken(),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
+        ),
+      ]);
+      let bearerToken = localStorage.getItem('accessToken');
+
+      // If backend stalls (DB/prisma issues), fail fast so `finally` resets loading.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const doRequest = async (tokenToUse: string) => {
+        return fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
+          method: 'POST',
+          credentials: 'include',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': tokenToUse,
+            ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+          },
+          body: JSON.stringify({
+            creditsBonus: credits,
+            globalDiscount: discount,
+            freePromotions,
+            promotionType: creditsForm.promotionType,
+            expiryDays: creditsForm.expiryDays,
+          }),
+        });
+      };
+
+      const fetchCsrfTokenFresh = async () => {
+        clearCsrfTokenCache();
+        return Promise.race<string>([
+          getCsrfToken(),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
+          ),
+        ]);
+      };
+
+      let response = await doRequest(csrfToken);
+      if (response.status === 403) {
+        // Read body once to decide if it's CSRF-related or auth-related.
+        const firstText = await response.text();
+        let firstPayload: any = null;
+        try {
+          firstPayload = firstText ? JSON.parse(firstText) : null;
+        } catch {
+          firstPayload = null;
+        }
+
+        // If auth is missing/invalid, refresh token (requires CSRF + refreshToken) then retry benefits.
+        if (firstPayload?.error === 'Acces interzis') {
+          const rt = localStorage.getItem('refreshToken');
+          if (rt) {
+            const csrfForRefresh = await fetchCsrfTokenFresh();
+            const refreshResp = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              credentials: 'include',
+              signal: controller.signal,
+              headers: {
+                'Content-Type': 'application/json',
+                'x-csrf-token': csrfForRefresh,
+              },
+              body: JSON.stringify({ refreshToken: rt }),
+            });
+
+            if (refreshResp.ok) {
+              const refreshJson: any = await refreshResp.json();
+              const newAccess = refreshJson?.accessToken as string | undefined;
+              if (newAccess) {
+                bearerToken = newAccess;
+                localStorage.setItem('accessToken', newAccess);
+              }
+            }
+          }
+        }
+
+        // Retry once with freshly fetched CSRF (covers rotated cookies / stale token cache).
+        const freshCsrfToken = await fetchCsrfTokenFresh();
+        response = await doRequest(freshCsrfToken);
+      }
+
+      clearTimeout(timeoutId);
 
       const responseText = await response.text();
       let payload: any = null;
@@ -976,7 +1334,13 @@ export default function AdminModerationPage() {
       }
 
       if (!response.ok) {
-        throw new Error(payload?.error || `Eroare API (${response.status})`);
+        const msg = payload?.error || `Eroare API (${response.status})`;
+        if (response.status === 403 && msg === 'Acces interzis') {
+          throw new Error(
+            'Sesiune expirată sau lipsă refresh token. Deloghează-te și autentifică-te din nou, apoi reîncearcă.'
+          );
+        }
+        throw new Error(msg);
       }
 
       const updatedUser = payload?.user;
@@ -1003,7 +1367,13 @@ export default function AdminModerationPage() {
       }, 3000);
     } catch (error: any) {
       console.error('Error saving benefits:', error);
-      setNotificationMessage(`❌ ${error?.message || 'Eroare la salvarea beneficiilor'}`);
+      if (error?.name === 'AbortError') {
+        setNotificationMessage('❌ Timeout la salvarea beneficiilor. Reîncearcă.');
+      } else if (typeof error?.message === 'string' && error.message.startsWith('Timeout: CSRF')) {
+        setNotificationMessage('❌ Nu am putut obține CSRF token. Reîncearcă.');
+      } else {
+        setNotificationMessage(`❌ ${error?.message || 'Eroare la salvarea beneficiilor'}`);
+      }
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
     } finally {
@@ -1013,12 +1383,13 @@ export default function AdminModerationPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
-            <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
-          </div>
-          <p className="text-gray-400 text-lg">Verificare acces admin...</p>
+          <div
+            className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+            aria-hidden
+          />
+          <p className="text-sm text-[var(--text-tertiary)]">Verificare acces admin…</p>
         </div>
       </div>
     );
@@ -1026,10 +1397,10 @@ export default function AdminModerationPage() {
 
   if (!isAuthorized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-8 text-center">
-          <p className="text-red-400 text-xl font-bold">🔒 Acces respins</p>
-          <p className="text-gray-400 mt-2">Nu ai permisiunea să accesezi această pagină.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4">
+        <div className="max-w-md rounded-2xl border border-red-500/30 bg-red-500/10 p-8 text-center">
+          <p className="text-lg font-semibold text-red-300">Acces respins</p>
+          <p className="mt-2 text-sm text-[var(--text-tertiary)]">Nu ai permisiunea pentru această pagină.</p>
         </div>
       </div>
     );
@@ -1041,147 +1412,211 @@ export default function AdminModerationPage() {
       
       {/* Notificare modernă */}
       {showNotification && (
-        <div className="fixed top-20 right-4 z-50 animate-slideDown">
-          <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-green-500 rounded-2xl px-6 py-4 shadow-2xl shadow-green-500/50 border border-green-400/50 backdrop-blur-xl flex items-center gap-3 max-w-md">
-            <div className="flex-shrink-0">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
+        <div className="animate-slideDown fixed right-4 top-20 z-[200] max-w-md">
+          <div
+            className={`flex items-center gap-3 rounded-2xl border px-5 py-4 shadow-[var(--shadow-xl)] backdrop-blur-md ${
+              notificationIsError
+                ? 'border-red-500/35 bg-red-950/90 text-red-50'
+                : 'border-emerald-500/35 bg-emerald-950/90 text-emerald-50'
+            }`}
+          >
+            <div className="shrink-0">
+              {notificationIsError ? (
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-10.293a1 1 0 00-1.414-1.414L10 8.586 7.707 6.293a1 1 0 00-1.414 1.414L8.586 10l-2.293 2.293a1 1 0 001.414 1.414L10 11.414l2.293 2.293a1 1 0 001.414-1.414L11.414 10l2.293-2.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              )}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold">{notificationMessage}</p>
-            </div>
+            <p className="min-w-0 flex-1 text-sm font-medium leading-snug">{notificationMessage}</p>
           </div>
         </div>
       )}
       
-      <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="mb-8 flex justify-between items-start">
+      <main className="min-h-screen bg-[var(--bg-primary)] pb-14 pt-20">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <header className="mb-10 flex flex-col gap-4 border-b border-[var(--border-primary)] pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-5xl font-black mb-4 bg-gradient-to-r from-[#6D5BFF] via-[#00D4FF] to-[#4E3CFF] bg-clip-text text-transparent">
-                🛡️ Admin - Moderare
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                Conținut
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+                Moderare
               </h1>
-              <p className="text-gray-400 text-lg">Control complet asupra anunțurilor și utilizatorilor</p>
+              <p className="mt-2 max-w-xl text-sm text-[var(--text-tertiary)]">
+                Anunțuri, utilizatori, raportări și fluxuri conexe.
+              </p>
             </div>
             <Link
               href="/admin/dashboard"
-              className="px-4 py-2 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#4E3CFF] hover:to-[#6D5BFF] text-white rounded-lg transition-all shadow-lg hover:shadow-[#6D5BFF]/50 font-semibold whitespace-nowrap"
+              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-[var(--bg-elevated)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
             >
-              ← Înapoi la Dashboard
+              ← Dashboard
             </Link>
+          </header>
+
+          <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => setModerationTab('pending')}
+              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">În așteptare</p>
+              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                {stats.pendingReview}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModerationTab('approved')}
+              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Aprobate azi</p>
+              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                {stats.approvedToday}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModerationTab('rejected')}
+              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Respinse azi</p>
+              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                {stats.rejectedToday}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setModerationTab('users')}
+              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Utilizatori (listă)</p>
+              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+                {stats.totalUsers}
+              </p>
+            </button>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-xl rounded-2xl p-6 border border-yellow-500/30">
-              <div className="text-3xl mb-2">⏳</div>
-              <div className="text-3xl font-black text-white">{stats.pendingReview}</div>
-              <div className="text-yellow-400 text-sm">În Așteptare</div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-green-500/20 to-emerald-600/20 backdrop-blur-xl rounded-2xl p-6 border border-green-500/30">
-              <div className="text-3xl mb-2">✅</div>
-              <div className="text-3xl font-black text-white">{stats.approvedToday}</div>
-              <div className="text-green-400 text-sm">Aprobate Azi</div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-red-500/20 to-pink-600/20 backdrop-blur-xl rounded-2xl p-6 border border-red-500/30">
-              <div className="text-3xl mb-2">❌</div>
-              <div className="text-3xl font-black text-white">{stats.rejectedToday}</div>
-              <div className="text-red-400 text-sm">Respinse Azi</div>
-            </div>
-            
-            <div className="bg-gradient-to-br from-blue-500/20 to-cyan-600/20 backdrop-blur-xl rounded-2xl p-6 border border-blue-500/30">
-              <div className="text-3xl mb-2">👥</div>
-              <div className="text-3xl font-black text-white">{stats.totalUsers}</div>
-              <div className="text-blue-400 text-sm">Utilizatori Activi</div>
-            </div>
-          </div>
-
-          {/* Search */}
           <div className="mb-6">
             <input
-              type="text"
-              placeholder="🔍 Caută anunț sau utilizator..."
+              type="search"
+              placeholder="Caută anunț sau utilizator…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-6 py-4 text-white placeholder-gray-500 focus:ring-2 focus:ring-[#6D5BFF] focus:border-transparent"
+              className="enterprise-input w-full rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-1 text-sm">
+          <div
+            className="mb-8 flex gap-2 overflow-x-auto pb-1 text-sm"
+            role="tablist"
+            aria-label="Secțiuni moderare"
+          >
             <button
-              onClick={() => setActiveTab('pending')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'pending'}
+              onClick={() => setModerationTab('pending')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'pending'
-                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              ⏳ În Așteptare ({pendingListings.length})
+              Așteptare ({pendingListings.length})
             </button>
             <button
-              onClick={() => setActiveTab('approved')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'approved'}
+              onClick={() => setModerationTab('approved')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'approved'
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              ✅ Aprobate ({approvedListings.length})
+              Aprobate ({approvedListings.length})
             </button>
             <button
-              onClick={() => setActiveTab('rejected')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'rejected'}
+              onClick={() => setModerationTab('rejected')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'rejected'
-                  ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              ❌ Respinse ({rejectedListings.length})
+              Respinse ({rejectedListings.length})
             </button>
             <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'users'}
+              onClick={() => setModerationTab('users')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'users'
-                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              👥 Utilizatori ({users.length})
+              Utilizatori ({users.length})
             </button>
             <button
-              onClick={() => setActiveTab('reports')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'reports'}
+              onClick={() => setModerationTab('reports')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'reports'
-                  ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              🚨 Raportări ({reports.length})
+              Raportări ({reports.length})
             </button>
             <button
-              onClick={() => setActiveTab('appeals')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'appeals'}
+              onClick={() => setModerationTab('appeals')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'appeals'
-                  ? 'bg-gradient-to-r from-violet-500 to-purple-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              ⚖️ Apeluri ({appeals.length})
+              Apeluri ({appeals.length})
             </button>
             <button
-              onClick={() => setActiveTab('invoices')}
-              className={`px-4 py-2 rounded-lg font-bold whitespace-nowrap transition-all ${
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'invoices'}
+              onClick={() => setModerationTab('invoices')}
+              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'invoices'
-                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                  : 'bg-gray-800/50 text-gray-400 hover:bg-gray-700/50'
+                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
-              💰 Facturi
+              Facturi
             </button>
           </div>
 
@@ -1189,40 +1624,91 @@ export default function AdminModerationPage() {
           {activeTab === 'reports' && (
             <div className="space-y-4">
               {reportsLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-full mb-4 animate-spin">
-                    <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
-                  </div>
-                  <p className="text-gray-400 text-lg">Se încarcă raportările...</p>
+                <div className="py-12 text-center">
+                  <div
+                    className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+                    aria-hidden
+                  />
+                  <p className="text-sm text-[var(--text-tertiary)]">Se încarcă raportările…</p>
                 </div>
               ) : reports.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🎉</div>
-                  <p className="text-gray-400 text-lg">Nu sunt raportări pendinente</p>
+                <div className="py-12 text-center">
+                  <p className="text-lg text-[var(--text-tertiary)]">Nu există raportări în așteptare</p>
                 </div>
               ) : (
                 reports.map(report => (
-                  <div key={report.id} className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-red-500/30">
-                    <div className="grid md:grid-cols-3 gap-6">
+                  <div
+                    key={report.id}
+                    className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]"
+                  >
+                    <div className="grid gap-6 md:grid-cols-3">
                       <div>
-                        <h3 className="text-xl font-black text-white mb-3">🚨 Raportare #{report.id.substring(0, 8)}</h3>
+                        <h3 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
+                          Raportare #{report.id.substring(0, 8)}
+                        </h3>
                         <div className="space-y-2 text-sm">
-                          <div><span className="text-gray-400">Raportator:</span><p className="text-white font-bold">{report.reporter?.email || 'N/A'}</p></div>
-                          <div><span className="text-gray-400">Motiv:</span><p className="text-white font-bold">{report.reason}</p></div>
-                          {report.description && <div><span className="text-gray-400">Descriere:</span><p className="text-gray-300">{report.description}</p></div>}
-                          <div><span className="text-gray-400">Data:</span><p className="text-white">{new Date(report.createdAt).toLocaleDateString('ro-RO')}</p></div>
+                          <div>
+                            <span className="text-[var(--text-muted)]">Raportator:</span>
+                            <p className="font-medium text-[var(--text-primary)]">
+                              {report.reporter?.email || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-muted)]">Motiv:</span>
+                            <p className="font-medium text-[var(--text-primary)]">{report.reason}</p>
+                          </div>
+                          {report.description && (
+                            <div>
+                              <span className="text-[var(--text-muted)]">Descriere:</span>
+                              <p className="text-[var(--text-secondary)]">{report.description}</p>
+                            </div>
+                          )}
+                          <div>
+                            <span className="text-[var(--text-muted)]">Data:</span>
+                            <p className="text-[var(--text-secondary)]">
+                              {new Date(report.createdAt).toLocaleDateString('ro-RO')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-blue-900/20 rounded-xl p-4 border border-blue-500/30">
-                        <h4 className="text-white font-black mb-3">📋 Anunț</h4>
+                      <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/50 p-4">
+                        <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Anunț</h4>
                         <div className="space-y-2 text-sm">
-                          <p><span className="text-gray-400">Titlu:</span><br/><span className="text-white font-bold">{report.listing?.title || 'N/A'}</span></p>
-                          <button onClick={() => router.push(`/listings/${report.listingId}`)} className="w-full mt-3 px-4 py-2 bg-blue-500/30 text-blue-400 rounded-lg font-bold hover:bg-blue-500/50 text-xs">👁️ Vezi</button>
+                          <p>
+                            <span className="text-[var(--text-muted)]">Titlu:</span>
+                            <br />
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {report.listing?.title || 'N/A'}
+                            </span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/listings/${report.listingId}`)}
+                            className="mt-3 w-full rounded-lg border border-white/[0.1] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
+                          >
+                            Vezi anunțul
+                          </button>
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <button onClick={() => {if(confirm('Rezolvă raportarea?')) resolveReport(report.id, 'Approved by admin');}} className="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 text-sm">✅ Rezolvă</button>
-                        <button onClick={() => {if(confirm('Respinge?')) dismissReport(report.id);}} className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-bold hover:bg-gray-600 text-sm">❌ Respinge</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('Rezolvă raportarea?')) resolveReport(report.id, 'Approved by admin');
+                          }}
+                          className="rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/25"
+                        >
+                          Rezolvă
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('Respinge?')) dismissReport(report.id);
+                          }}
+                          className="rounded-lg border border-white/[0.1] bg-[var(--bg-secondary)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.05]"
+                        >
+                          Respinge
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1235,37 +1721,74 @@ export default function AdminModerationPage() {
           {activeTab === 'appeals' && (
             <div className="space-y-4">
               {appealsLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 to-purple-500 rounded-full mb-4 animate-spin">
-                    <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
-                  </div>
-                  <p className="text-gray-400 text-lg">Se încarcă apelurile...</p>
+                <div className="py-12 text-center">
+                  <div
+                    className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+                    aria-hidden
+                  />
+                  <p className="text-sm text-[var(--text-tertiary)]">Se încarcă apelurile…</p>
                 </div>
               ) : appeals.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">⚖️</div>
-                  <p className="text-gray-400 text-lg">Nu sunt apeluri pendinente</p>
+                <div className="py-12 text-center">
+                  <p className="text-lg text-[var(--text-tertiary)]">Nu există apeluri în așteptare</p>
                 </div>
               ) : (
                 appeals.map(appeal => (
-                  <div key={appeal.id} className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30">
-                    <div className="grid md:grid-cols-3 gap-6">
+                  <div
+                    key={appeal.id}
+                    className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]"
+                  >
+                    <div className="grid gap-6 md:grid-cols-3">
                       <div>
-                        <h3 className="text-xl font-black text-white mb-3">⚖️ Apel #{appeal.id.substring(0, 8)}</h3>
+                        <h3 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
+                          Apel #{appeal.id.substring(0, 8)}
+                        </h3>
                         <div className="space-y-2 text-sm">
-                          <div><span className="text-gray-400">Utilizator:</span><p className="text-white font-bold">{appeal.user?.email || 'N/A'}</p></div>
-                          <div><span className="text-gray-400">Motiv:</span><p className="text-gray-300">{appeal.reason}</p></div>
-                          <div><span className="text-gray-400">Data:</span><p className="text-white">{new Date(appeal.createdAt).toLocaleDateString('ro-RO')}</p></div>
+                          <div>
+                            <span className="text-[var(--text-muted)]">Utilizator:</span>
+                            <p className="font-medium text-[var(--text-primary)]">{appeal.user?.email || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-muted)]">Motiv:</span>
+                            <p className="text-[var(--text-secondary)]">{appeal.reason}</p>
+                          </div>
+                          <div>
+                            <span className="text-[var(--text-muted)]">Data:</span>
+                            <p className="text-[var(--text-secondary)]">
+                              {new Date(appeal.createdAt).toLocaleDateString('ro-RO')}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-purple-900/20 rounded-xl p-4 border border-purple-500/30">
-                        <h4 className="text-white font-black mb-3">📝 Detalii</h4>
-                        <p className="text-gray-300 text-xs">Status: <span className="text-yellow-400 font-bold">Așteptare</span></p>
-                        <p className="text-gray-400 text-xs mt-2">Utilizatorul contestă o acțiune.</p>
+                      <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/50 p-4">
+                        <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Detalii</h4>
+                        <p className="text-xs text-[var(--text-secondary)]">
+                          Status:{' '}
+                          <span className="font-medium text-amber-300/90">În așteptare</span>
+                        </p>
+                        <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                          Utilizatorul contestă o acțiune.
+                        </p>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <button onClick={() => {if(confirm('Aprobă apelul?')) approveAppeal(appeal.id);}} className="px-4 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 text-sm">✅ Aprobă</button>
-                        <button onClick={() => {if(confirm('Respinge?')) rejectAppeal(appeal.id);}} className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 text-sm">❌ Respinge</button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('Aprobă apelul?')) approveAppeal(appeal.id);
+                          }}
+                          className="rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/25"
+                        >
+                          Aprobă
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('Respinge?')) rejectAppeal(appeal.id);
+                          }}
+                          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/20"
+                        >
+                          Respinge
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1277,39 +1800,41 @@ export default function AdminModerationPage() {
           {/* Invoices & Accounting */}
           {activeTab === 'invoices' && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-purple-500/30">
-                <h2 className="text-2xl font-black text-white mb-2">💰 Facturi & Contabilitate</h2>
-                <p className="text-gray-400 mb-6">
-                  Gestionează facturile emise, exportă CSV pentru contabilitate și trimite la ANAF.
+              <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                <h2 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">Facturi & contabilitate</h2>
+                <p className="mb-6 text-sm text-[var(--text-tertiary)]">
+                  Modul complet de facturare, export și ANAF este pe pagina dedicată.
                 </p>
 
-                <div className="grid md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-purple-900/20 border border-purple-700/40 rounded-xl p-4">
-                    <div className="text-sm text-purple-300">Acces rapid</div>
-                    <div className="text-white font-semibold">Listă facturi</div>
+                <div className="mb-6 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/50 px-4 py-3">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Listă</div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">Facturi & filtre</div>
                   </div>
-                  <div className="bg-blue-900/20 border border-blue-700/40 rounded-xl p-4">
-                    <div className="text-sm text-blue-300">Export</div>
-                    <div className="text-white font-semibold">CSV contabilitate</div>
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/50 px-4 py-3">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Export</div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">CSV / batch</div>
                   </div>
-                  <div className="bg-green-900/20 border border-green-700/40 rounded-xl p-4">
-                    <div className="text-sm text-green-300">ANAF</div>
-                    <div className="text-white font-semibold">Trimitere SPV</div>
+                  <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/50 px-4 py-3">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">ANAF</div>
+                    <div className="text-sm font-medium text-[var(--text-primary)]">Flux SPV</div>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
+                    type="button"
                     onClick={() => router.push('/admin/invoices')}
-                    className="px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 transition"
+                    className="rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110"
                   >
-                    📋 Deschide Facturi
+                    Deschide facturi
                   </button>
                   <button
-                    onClick={() => router.push('/admin/invoices?tab=export')}
-                    className="px-6 py-3 rounded-xl font-bold bg-gray-800/70 text-gray-200 hover:bg-gray-700/70 transition"
+                    type="button"
+                    onClick={() => router.push('/admin/invoices')}
+                    className="rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] px-6 py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
                   >
-                    📊 Export Contabilitate
+                    Spre export (din aceeași pagină)
                   </button>
                 </div>
               </div>
@@ -1320,53 +1845,58 @@ export default function AdminModerationPage() {
           {activeTab === 'pending' && (
             renderGroupedListings(
               pendingListings,
-              'Nu sunt anunturi in asteptare',
+              'Nu sunt anunțuri în așteptare',
               (listing) => (
                 <>
                   <button
+                    type="button"
                     onClick={() => router.push(`/listings/${listing.id}`)}
-                    className="w-full px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-white/[0.1] bg-[var(--bg-secondary)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
                   >
-                    👁️ Vezi
+                    Vezi
                   </button>
                   <button
+                    type="button"
                     onClick={() => approveListing(listing.id)}
-                    className="w-full px-3 py-2 bg-green-500/20 text-green-400 rounded-lg font-bold hover:bg-green-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-emerald-500/35 bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/25"
                   >
-                    ✅ Aprobă
+                    Aprobă
                   </button>
                   <button
+                    type="button"
                     onClick={() => rejectListing(listing.id)}
-                    className="w-full px-3 py-2 bg-red-500/20 text-red-400 rounded-lg font-bold hover:bg-red-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/20"
                   >
-                    ❌ Respinge
+                    Respinge
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
                         setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
                         setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('⏸️ Anunț suspendat');
+                        setNotificationMessage('Anunț suspendat');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
                   >
-                    ⏸️ Suspendă
+                    Suspendă
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
                         setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('🗑️ Anunț șters permanent');
+                        setNotificationMessage('Anunț șters permanent');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-red-900/40 text-red-300 rounded-lg font-bold hover:bg-red-900/60 transition-all text-sm border border-red-700/50"
+                    className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    🗑️ Șterge Permanent
+                    Șterge permanent
                   </button>
                 </>
               )
@@ -1377,40 +1907,43 @@ export default function AdminModerationPage() {
           {activeTab === 'approved' && (
             renderGroupedListings(
               approvedListings,
-              'Nu sunt anunturi aprobate',
+              'Nu sunt anunțuri aprobate',
               (listing) => (
                 <>
                   <button
+                    type="button"
                     onClick={() => router.push(`/listings/${listing.id}`)}
-                    className="w-full px-3 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold hover:bg-blue-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-white/[0.1] bg-[var(--bg-secondary)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
                   >
-                    👁️ Vezi
+                    Vezi
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
                         setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('⏸️ Anunț suspendat');
+                        setNotificationMessage('Anunț suspendat');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-yellow-500/20 text-yellow-400 rounded-lg font-bold hover:bg-yellow-500/30 transition-all text-sm"
+                    className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
                   >
-                    ⏸️ Suspendă
+                    Suspendă
                   </button>
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
                         setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('🗑️ Anunț șters permanent');
+                        setNotificationMessage('Anunț șters permanent');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-red-900/40 text-red-300 rounded-lg font-bold hover:bg-red-900/60 transition-all text-sm border border-red-700/50"
+                    className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    🗑️ Șterge
+                    Șterge
                   </button>
                 </>
               )
@@ -1421,21 +1954,22 @@ export default function AdminModerationPage() {
           {activeTab === 'rejected' && (
             renderGroupedListings(
               rejectedListings,
-              'Nu sunt anunturi respinse',
+              'Nu sunt anunțuri respinse',
               (listing) => (
                 <>
                   <button
+                    type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
                         setRejectedListings(rejectedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('🗑️ Anunț șters permanent');
+                        setNotificationMessage('Anunț șters permanent');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-red-900/40 text-red-300 rounded-lg font-bold hover:bg-red-900/60 transition-all text-sm border border-red-700/50"
+                    className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    🗑️ Șterge Permanent
+                    Șterge permanent
                   </button>
                 </>
               )
@@ -1445,251 +1979,373 @@ export default function AdminModerationPage() {
           {/* Users Management */}
           {activeTab === 'users' && (
             <div className="space-y-4">
-              {usersLoading ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full mb-4 animate-spin">
-                    <div className="w-14 h-14 bg-gray-900 rounded-full"></div>
-                  </div>
-                  <p className="text-gray-400 text-lg">Se încarcă utilizatorii...</p>
-                </div>
-              ) : usersError ? (
-                <div className="text-center py-12">
-                  <p className="text-red-400 text-lg">❌ {usersError}</p>
-                  <button
-                    onClick={fetchUsers}
-                    className="mt-4 px-6 py-2 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white rounded-lg font-bold hover:opacity-90"
-                  >
-                    🔄 Încearcă Din Nou
-                  </button>
-                </div>
-              ) : users.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-6xl mb-4">👥</div>
-                  <p className="text-gray-400 text-lg">Nu sunt utilizatori în sistem</p>
-                </div>
-              ) : (
-                users.map(user => (
-                  <div key={user.id} className="space-y-2">
-                    {/* User Card */}
-                    <div
-                      onClick={() => {
-                        if (expandedUserId === user.id) {
-                          setExpandedUserId(null);
-                          setUserListings([]); // Clear listings when collapsing
-                        } else {
-                          console.log('[CLICK HANDLER] Expanding user:', user.email, 'ID:', user.id);
-                          setExpandedUserId(user.id);
-                          setUserListings([]); // Clear old listings before fetching new ones
-                          console.log('[CLICK HANDLER] Calling fetchUserListings with:', user.id);
-                          fetchUserListings(user.id);
-                        }
-                      }}
-                      className={`bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border cursor-pointer transition-all ${
-                        user.status === 'banned' ? 'border-red-500/50' : 'border-gray-700/50'
-                      } ${expandedUserId === user.id ? 'ring-2 ring-cyan-400/50 border-cyan-400/50' : 'hover:border-cyan-400/30'}`}
-                    >
-                      <div className="flex items-center gap-6">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-black text-white">{user.email}</h3>
-                            {user.role === 'admin' && (
-                              <span className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-full text-xs font-bold">
-                                👑 ADMIN
-                              </span>
-                            )}
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              user.status === 'active' 
-                                ? 'bg-green-500/20 text-green-400' 
-                                : 'bg-red-500/20 text-red-400'
-                            }`}>
-                              {user.status === 'active' ? '✓ Activ' : '🚫 Blocat'}
-                            </span>
-                            {expandedUserId === user.id && (
-                              <span className="text-cyan-400 text-lg">▼</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 mb-3 text-sm">
-                            <span className="text-gray-400">📝 {user.listings} anunțuri</span>
-                            {user.credits > 0 && <span className="text-green-400 font-bold">💰 {user.credits} credite</span>}
-                            {user.discount > 0 && <span className="text-blue-400 font-bold">🎟️ {user.discount}% discount</span>}
-                            {user.freePromotions > 0 && <span className="text-yellow-400 font-bold">🎁 {user.freePromotions} promovări gratuite</span>}
-                          </div>
+              <UserModerationEnterprise
+                users={users}
+                loading={usersLoading}
+                error={usersError}
+                onRetry={fetchUsers}
+                searchQuery={userSearchQuery}
+                onSearchChange={setUserSearchQuery}
+                expandedUserId={expandedUserId}
+                onToggleRow={toggleUserRow}
+                onOpenCredits={openCreditsModal}
+                onBan={banUser}
+                onUnban={unbanUser}
+                onMakeAdmin={makeAdmin}
+                onSuspend={suspendUserApi}
+                onUnsuspend={unsuspendUserApi}
+              />
+              {expandedUserId &&
+                !usersLoading &&
+                !usersError &&
+                (() => {
+                  const detailUser = users.find((u) => u.id === expandedUserId);
+                  if (!detailUser) return null;
+                  const fmt = (iso: string | null | undefined) => {
+                    if (!iso) return '—';
+                    try {
+                      return new Date(iso).toLocaleString('ro-RO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      });
+                    } catch {
+                      return '—';
+                    }
+                  };
+                  const labelClass =
+                    'text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]';
+                  return (
+                    <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                      <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+                            Detalii utilizator
+                          </h3>
+                          <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">{detailUser.id}</p>
                         </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCreditsModal(user);
-                            }}
-                            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
-                          >
-                            💳 Credite & Beneficii
-                          </button>
-                          {user.role !== 'admin' && user.status === 'active' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  makeAdmin(user.id);
-                                }}
-                                className="px-6 py-3 bg-purple-500/20 text-purple-400 rounded-xl font-bold hover:bg-purple-500/30 transition-all"
-                              >
-                                👑 Fă Admin
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  banUser(user.id);
-                                }}
-                                className="px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-bold hover:bg-red-500/30 transition-all"
-                              >
-                                🚫 Blochează
-                              </button>
-                            </>
-                          )}
-                          {user.status === 'banned' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                unbanUser(user.id);
-                              }}
-                              className="px-6 py-3 bg-green-500/20 text-green-400 rounded-xl font-bold hover:bg-green-500/30 transition-all"
-                            >
-                              ✅ Deblochează
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleUserRow(detailUser.id)}
+                          className="self-start rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.05]"
+                        >
+                          Închide panoul
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Expanded User Listings */}
-                    {expandedUserId === user.id && (
-                      <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-cyan-400/30 ml-4 space-y-3">
+                      <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Email</dt>
+                          <dd className="mt-1 font-semibold text-[var(--text-primary)]">{detailUser.email}</dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Nume</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">{detailUser.name ?? '—'}</dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Telefon</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">
+                            {detailUser.phone ?? '—'}
+                            {detailUser.phoneVerified ? (
+                              <span className="ml-2 text-xs text-emerald-400">(verificat)</span>
+                            ) : null}
+                          </dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Cont</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">
+                            {detailUser.accountType} <span className="text-[var(--text-muted)]">·</span> încredere{' '}
+                            {detailUser.trustScore}
+                          </dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Verificări</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">
+                            email {detailUser.emailVerified ? 'da' : 'nu'} · telefon{' '}
+                            {detailUser.phoneVerified ? 'da' : 'nu'}
+                          </dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Raportări</dt>
+                          <dd className="mt-1 tabular-nums text-[var(--text-secondary)]">
+                            {detailUser.reportsCount}
+                          </dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Înregistrat</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.createdAt)}</dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Ultima autentificare</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.lastLoginAt)}</dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>Ultima activitate</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.lastActiveAt)}</dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                          <dt className={labelClass}>IP la login</dt>
+                          <dd className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
+                            {detailUser.lastLoginIp ?? '—'}
+                          </dd>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4 sm:col-span-2 xl:col-span-3">
+                          <dt className={labelClass}>Beneficii</dt>
+                          <dd className="mt-1 text-[var(--text-secondary)]">
+                            {detailUser.credits} credite · {detailUser.discount}% discount ·{' '}
+                            {detailUser.freePromotions} promoții gratuite
+                          </dd>
+                        </div>
+                        {(detailUser.moderationSuspensionReason || detailUser.moderationSuspendedUntil) && (
+                          <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 sm:col-span-2 xl:col-span-3">
+                            <dt className={labelClass}>Suspendare moderare</dt>
+                            <dd className="mt-1 text-sm text-amber-100/90">
+                              {detailUser.moderationSuspensionReason ? (
+                                <span className="block">{detailUser.moderationSuspensionReason}</span>
+                              ) : null}
+                              {detailUser.moderationSuspendedUntil ? (
+                                <span className="mt-1 block font-mono text-xs text-amber-200/80">
+                                  până la {fmt(detailUser.moderationSuspendedUntil)}
+                                </span>
+                              ) : null}
+                            </dd>
+                          </div>
+                        )}
+                      </dl>
+                      <div className="border-t border-white/[0.06] pt-2">
+                        <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
+                          Anunțuri utilizator
+                          {userListingsLoading ? (
+                            <span className="ml-2 font-normal text-[var(--text-muted)]">(se încarcă…)</span>
+                          ) : (
+                            <span className="ml-2 font-normal text-[var(--text-muted)]">
+                              ({userListings.length})
+                            </span>
+                          )}
+                        </h4>
                         {userListingsLoading ? (
-                          <div className="text-center py-8">
-                            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-full animate-spin mb-3">
-                              <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
-                            </div>
-                            <p className="text-gray-400">Se încarcă anunțurile...</p>
+                          <div className="py-8 text-center">
+                            <div
+                              className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+                              aria-hidden
+                            />
+                            <p className="text-sm text-[var(--text-tertiary)]">Se încarcă anunțurile…</p>
                           </div>
                         ) : userListings.length === 0 ? (
-                          <p className="text-gray-400 text-center py-4">📭 Nici un anunț</p>
+                          <p className="py-4 text-center text-[var(--text-tertiary)]">Niciun anunț</p>
                         ) : (
                           <div className="space-y-3">
-                            <h4 className="text-gray-300 font-bold text-sm">🎯 Anunțurile utilizatorului ({userListings.length}):</h4>
-                            {userListings.map(listing => (
-                              <div
-                                key={listing.id}
-                                className="bg-gray-900/70 rounded-xl p-4 border border-gray-700/50 hover:border-cyan-400/50 transition-all"
-                              >
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="flex-1">
-                                    <h5 className="font-bold text-white text-sm">{listing.title}</h5>
-                                    <div className="flex items-center gap-3 mt-1 text-xs">
-                                      <span className="text-gray-400">📂 {listing.category}</span>
-                                      {listing.price && <span className="text-green-400 font-bold">💵 {listing.price.toLocaleString('ro-RO')} RON</span>}
-                                      <span className={`px-2 py-1 rounded ${
-                                        listing.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
-                                        listing.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                                        'bg-red-500/20 text-red-400'
-                                      }`}>
-                                        {listing.status}
-                                      </span>
+                            {userListings.map((listing) => {
+                              const st = (listing.listingStatus || listing.status || '').toString();
+                              const btn =
+                                'rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs font-medium transition-colors';
+                              return (
+                                <div
+                                  key={listing.id}
+                                  className="rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/60 p-4 transition-colors hover:border-white/[0.12]"
+                                >
+                                  <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                                      <div className="min-w-0 flex-1">
+                                        <h5 className="break-words text-sm font-semibold text-[var(--text-primary)]">
+                                          {listing.title}
+                                        </h5>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                                          <span className="text-[var(--text-tertiary)]">{listing.category}</span>
+                                          {listing.price != null && (
+                                            <span className="font-medium text-emerald-300/90">
+                                              {listing.price.toLocaleString('ro-RO')} RON
+                                            </span>
+                                          )}
+                                          <span className="text-[var(--text-muted)]">
+                                            {listing.views ?? 0} vizualizări
+                                          </span>
+                                          {listing.isFeatured ? (
+                                            <span className="font-medium text-amber-300/90">Evidențiat</span>
+                                          ) : null}
+                                          <span
+                                            className={`rounded px-2 py-1 ${
+                                              listing.status === 'pending'
+                                                ? 'bg-yellow-500/15 text-yellow-300'
+                                                : listing.status === 'approved' || listing.status === 'active'
+                                                  ? 'bg-emerald-500/15 text-emerald-300'
+                                                  : listing.status === 'paused' || listing.status === 'draft'
+                                                    ? 'bg-white/[0.06] text-[var(--text-tertiary)]'
+                                                    : 'bg-red-500/15 text-red-300'
+                                            }`}
+                                          >
+                                            {listing.status}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-wrap justify-end gap-2">
+                                        <a
+                                          href={`/listings/${listing.id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`${btn} border-cyan-500/25 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/18`}
+                                        >
+                                          Vezi
+                                        </a>
+                                        <a
+                                          href={`/listings/${listing.id}/edit`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className={`${btn} border-indigo-500/25 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/18`}
+                                        >
+                                          Editează
+                                        </a>
+                                        {listing.queueId ? (
+                                          <>
+                                            {listing.status !== 'approved' && (
+                                              <button
+                                                type="button"
+                                                onClick={() => approveListing(listing.id)}
+                                                className={`${btn} border-emerald-500/35 bg-emerald-500/12 text-emerald-200 hover:bg-emerald-500/22`}
+                                              >
+                                                Aprobă
+                                              </button>
+                                            )}
+                                            {listing.status !== 'rejected' && (
+                                              <button
+                                                type="button"
+                                                onClick={() => rejectListing(listing.id)}
+                                                className={`${btn} border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/18`}
+                                              >
+                                                Respinge
+                                              </button>
+                                            )}
+                                          </>
+                                        ) : (
+                                          <>
+                                            {st === 'active' && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const notes = prompt('Motiv suspendare (vizibil utilizatorului):');
+                                                  if (notes === null) return;
+                                                  runListingModeration(listing.id, {
+                                                    status: 'paused',
+                                                    moderationNotes: notes || undefined,
+                                                  });
+                                                }}
+                                                className={`${btn} border-amber-500/35 bg-amber-500/12 text-amber-200 hover:bg-amber-500/22`}
+                                              >
+                                                Suspendă
+                                              </button>
+                                            )}
+                                            {(st === 'active' || st === 'paused') && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const notes = prompt('Motiv ascundere (vizibil utilizatorului):');
+                                                  if (notes === null) return;
+                                                  runListingModeration(listing.id, {
+                                                    status: 'hidden',
+                                                    moderationNotes: notes || undefined,
+                                                  });
+                                                }}
+                                                className={`${btn} border-white/[0.1] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:bg-white/[0.06]`}
+                                              >
+                                                Ascunde
+                                              </button>
+                                            )}
+                                            {(st === 'paused' || st === 'hidden') && (
+                                              <button
+                                                type="button"
+                                                onClick={() => runListingModeration(listing.id, { status: 'active' })}
+                                                className={`${btn} border-emerald-500/35 bg-emerald-500/12 text-emerald-200 hover:bg-emerald-500/22`}
+                                              >
+                                                Reactivează
+                                              </button>
+                                            )}
+                                            {(st === 'active' || st === 'paused') && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const notes = prompt('Motiv respingere (opțional):');
+                                                  if (notes === null) return;
+                                                  runListingModeration(listing.id, {
+                                                    status: 'rejected',
+                                                    moderationNotes: notes || undefined,
+                                                  });
+                                                }}
+                                                className={`${btn} border-rose-500/35 bg-rose-500/12 text-rose-200 hover:bg-rose-500/22`}
+                                              >
+                                                Respinge
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                runListingModeration(listing.id, { isFeatured: !listing.isFeatured })
+                                              }
+                                              className={`${btn} border-violet-500/35 bg-violet-500/12 text-violet-200 hover:bg-violet-500/22`}
+                                            >
+                                              {listing.isFeatured ? 'Fără evidențiere' : 'Evidențiază'}
+                                            </button>
+                                          </>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => deleteListing(listing.id)}
+                                          className={`${btn} border-red-800/45 bg-red-950/35 text-red-300 hover:bg-red-950/50`}
+                                        >
+                                          Șterge
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="flex gap-2">
-                                    {listing.queueId && (
-                                      <>
-                                        {listing.status !== 'approved' && (
-                                          <button
-                                            onClick={() => approveListing(listing.id)}
-                                            className="px-3 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold hover:bg-green-500/30 transition-all"
-                                          >
-                                            ✓ Aprobă
-                                          </button>
-                                        )}
-                                        {listing.status !== 'rejected' && (
-                                          <button
-                                            onClick={() => rejectListing(listing.id)}
-                                            className="px-3 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold hover:bg-red-500/30 transition-all"
-                                          >
-                                            ✗ Respinge
-                                          </button>
-                                        )}
-                                      </>
-                                    )}
-                                    {!listing.queueId && listing.status === 'active' && (
-                                      <span className="text-xs text-green-400 font-bold">✅ Activ</span>
-                                    )}
-                                    <button
-                                      onClick={() => {
-                                        if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
-                                          deleteListing(listing.id);
-                                        }
-                                      }}
-                                      className="px-3 py-1 bg-red-900/20 text-red-300 text-xs rounded font-bold hover:bg-red-900/30 transition-all"
-                                    >
-                                      🗑️ Șterge
-                                    </button>
-                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                ))
-              )}
+                    </div>
+                  );
+                })()}
             </div>
           )}
         </div>
 
         {/* Credits Modal */}
         {showCreditsModal && selectedUser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-3xl shadow-2xl border border-gray-700/50 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Close Button */}
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+            <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/[0.1] bg-[var(--bg-elevated)] shadow-[var(--shadow-xl)]">
               <button
+                type="button"
                 onClick={() => setShowCreditsModal(false)}
-                className="absolute top-4 right-4 w-10 h-10 bg-gray-800/80 hover:bg-red-500/20 rounded-full flex items-center justify-center text-gray-400 hover:text-red-400 transition-all z-10"
+                className="absolute top-3 right-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-[var(--bg-primary)] text-[var(--text-tertiary)] transition hover:border-red-500/30 hover:text-red-300"
+                aria-label="Închide"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
 
-              {/* Header */}
-              <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-8 rounded-t-3xl">
-                <h2 className="text-3xl font-black text-white mb-2">💳 Gestiune Beneficii</h2>
-                <p className="text-white/90">{selectedUser.email}</p>
+              <div className="border-b border-white/[0.08] px-6 py-6 sm:px-8">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]">Beneficii utilizator</h2>
+                <p className="mt-1 text-sm text-[var(--text-tertiary)]">{selectedUser.email}</p>
               </div>
 
-              {/* Content */}
-              <div className="p-8 space-y-6">
-                {/* Credits */}
-                <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl p-6 border border-green-500/30">
-                  <label className="block text-white font-black mb-3">💰 Adaugă Credite</label>
-                  <div className="flex gap-3 items-center">
+              <div className="space-y-5 p-6 sm:p-8">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-primary)]/50 p-5">
+                  <label className="mb-2 block text-xs font-medium text-[var(--text-tertiary)]">Credite (RON)</label>
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       min="0"
                       value={creditsForm.credits}
                       onChange={(e) => setCreditsForm({ ...creditsForm, credits: e.target.value })}
                       placeholder="0"
-                      className="flex-1 bg-gray-900/50 border-2 border-green-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500/20"
+                      className="enterprise-input flex-1 rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
                     />
-                    <span className="text-gray-400">RON</span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2">Utilizatorul va putea folosi acești credite pentru a plăti promovări</p>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">Folosite la promovări plătite.</p>
                 </div>
 
-                {/* Discount */}
-                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-600/10 rounded-2xl p-6 border border-blue-500/30">
-                  <label className="block text-white font-black mb-3">🎟️ Aplică Discount Global</label>
-                  <div className="flex gap-3 items-center">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-primary)]/50 p-5">
+                  <label className="mb-2 block text-xs font-medium text-[var(--text-tertiary)]">Discount global (%)</label>
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       min="0"
@@ -1697,90 +2353,96 @@ export default function AdminModerationPage() {
                       value={creditsForm.discount}
                       onChange={(e) => setCreditsForm({ ...creditsForm, discount: e.target.value })}
                       placeholder="0"
-                      className="flex-1 bg-gray-900/50 border-2 border-blue-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      className="enterprise-input flex-1 rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
                     />
-                    <span className="text-gray-400">%</span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2">{creditsForm.discount || 0}% reducere la toate promovările</p>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">{creditsForm.discount || 0}% reducere la promovări</p>
                 </div>
 
-                {/* Free Promotions */}
-                <div className="bg-gradient-to-br from-yellow-500/10 to-orange-600/10 rounded-2xl p-6 border border-yellow-500/30">
-                  <label className="block text-white font-black mb-3">🎁 Promovări Gratuite</label>
-                  
-                  <div className="space-y-3 mb-4">
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-primary)]/50 p-5">
+                  <label className="mb-3 block text-xs font-medium text-[var(--text-tertiary)]">Promovări gratuite</label>
+
+                  <div className="mb-4 space-y-3">
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Tip Promovare</label>
+                      <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Tip</label>
                       <select
                         value={creditsForm.promotionType}
                         onChange={(e) => setCreditsForm({ ...creditsForm, promotionType: e.target.value as PromotionType })}
-                        className="w-full bg-gray-900/50 border-2 border-yellow-600/50 rounded-xl px-4 py-2 text-white focus:border-yellow-500"
+                        className="enterprise-input w-full rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
                       >
-                        <option value="top">🔝 TOP Anunț</option>
-                        <option value="urgent">🔥 URGENT</option>
-                        <option value="featured">✨ Evidențiat</option>
-                        <option value="refresh">🔄 Reîmprospătare</option>
+                        <option value="top">TOP</option>
+                        <option value="urgent">URGENT</option>
+                        <option value="featured">Evidențiat</option>
+                        <option value="refresh">Reîmprospătare</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Număr de Promovări Gratuite</label>
+                      <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Număr</label>
                       <input
                         type="number"
                         min="0"
                         value={creditsForm.freePromotions}
                         onChange={(e) => setCreditsForm({ ...creditsForm, freePromotions: e.target.value })}
                         placeholder="0"
-                        className="w-full bg-gray-900/50 border-2 border-yellow-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+                        className="enterprise-input w-full rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-gray-300 text-sm mb-2">Expirare (zile)</label>
+                      <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Expirare (zile)</label>
                       <input
                         type="number"
                         min="1"
                         value={creditsForm.expiryDays}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setCreditsForm({ ...creditsForm, expiryDays: isNaN(val) ? 30 : val });
+                          const val = parseInt(e.target.value, 10);
+                          setCreditsForm({ ...creditsForm, expiryDays: Number.isNaN(val) ? 30 : val });
                         }}
                         placeholder="30"
-                        className="w-full bg-gray-900/50 border-2 border-yellow-600/50 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20"
+                        className="enterprise-input w-full rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
                       />
                     </div>
                   </div>
 
-                  <p className="text-sm text-gray-400">
-                    {creditsForm.freePromotions || 0} × {creditsForm.promotionType} - Expirează în {creditsForm.expiryDays} zile
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {creditsForm.freePromotions || 0} × {creditsForm.promotionType} · {creditsForm.expiryDays} zile
                   </p>
                 </div>
 
-                {/* Summary */}
-                <div className="bg-gradient-to-br from-purple-500/20 to-pink-600/20 rounded-2xl p-6 border border-purple-500/30">
-                  <p className="text-white font-bold mb-3">📊 Rezumat Beneficii</p>
-                  <div className="space-y-2 text-sm text-gray-300">
-                    <p>✓ Credite: <span className="font-bold text-green-400">{creditsForm.credits} RON</span></p>
-                    <p>✓ Discount Global: <span className="font-bold text-blue-400">{creditsForm.discount}%</span></p>
-                    <p>✓ Promovări Gratuite: <span className="font-bold text-yellow-400">{creditsForm.freePromotions} × {creditsForm.promotionType}</span></p>
-                    <p>✓ Valabil: <span className="font-bold text-gray-300">{creditsForm.expiryDays} zile</span></p>
+                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-primary)]/40 p-5">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Rezumat</p>
+                  <div className="space-y-1.5 text-sm text-[var(--text-tertiary)]">
+                    <p>
+                      Credite: <span className="font-medium text-[var(--text-primary)]">{creditsForm.credits} RON</span>
+                    </p>
+                    <p>
+                      Discount: <span className="font-medium text-[var(--text-primary)]">{creditsForm.discount}%</span>
+                    </p>
+                    <p>
+                      Promoții:{' '}
+                      <span className="font-medium text-[var(--text-primary)]">
+                        {creditsForm.freePromotions} × {creditsForm.promotionType}
+                      </span>
+                    </p>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-4 pt-4">
+                <div className="flex gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={() => setShowCreditsModal(false)}
-                    className="flex-1 py-4 bg-gray-800 border-2 border-gray-700 text-white rounded-xl font-bold hover:bg-gray-700 transition-all"
+                    className="flex-1 rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] py-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.05]"
                   >
                     Anulează
                   </button>
                   <button
+                    type="button"
                     onClick={handleSaveCredits}
                     disabled={isSavingBenefits}
-                    className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl font-black text-lg hover:shadow-2xl hover:shadow-amber-500/50 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="flex-1 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] py-3 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {isSavingBenefits ? '⏳ Se salvează...' : '✅ Salvează Beneficii'}
+                    {isSavingBenefits ? 'Se salvează…' : 'Salvează'}
                   </button>
                 </div>
               </div>
@@ -1789,5 +2451,25 @@ export default function AdminModerationPage() {
         )}
       </main>
     </>
+  );
+}
+
+export default function AdminModerationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[var(--bg-primary)]">
+          <div className="text-center">
+            <div
+              className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+              aria-hidden
+            />
+            <p className="text-sm text-[var(--text-tertiary)]">Se încarcă moderarea…</p>
+          </div>
+        </div>
+      }
+    >
+      <AdminModerationPageInner />
+    </Suspense>
   );
 }

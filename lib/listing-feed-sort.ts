@@ -1,0 +1,31 @@
+import type { Prisma } from '@prisma/client';
+
+/** Matches `searchListingsSchema.sort` in `lib/security/validation-schemas.ts`. */
+export type ListingFeedSort = 'newest' | 'featured' | 'priceAsc' | 'priceDesc';
+
+export function parseListingFeedSort(raw: string | undefined | null): ListingFeedSort {
+  if (raw === 'featured' || raw === 'priceAsc' || raw === 'priceDesc' || raw === 'newest') {
+    return raw;
+  }
+  return 'newest';
+}
+
+export function prismaOrderByForListingSort(sort: ListingFeedSort): Prisma.ListingOrderByWithRelationInput[] {
+  switch (sort) {
+    case 'featured':
+      return [{ feedBoost: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }];
+    case 'newest':
+      return [{ createdAt: 'desc' }, { id: 'desc' }];
+    case 'priceAsc':
+      return [{ priceAmount: 'asc' }, { id: 'desc' }];
+    case 'priceDesc':
+      return [{ priceAmount: 'desc' }, { id: 'desc' }];
+    default:
+      return [{ createdAt: 'desc' }, { id: 'desc' }];
+  }
+}
+
+/** Keyset cursor in `lib/pagination.ts` is only valid for featured (feedBoost) ordering. */
+export function feedBoostKeysetPaginationEnabled(sort: ListingFeedSort): boolean {
+  return sort === 'featured';
+}

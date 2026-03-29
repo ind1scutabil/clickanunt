@@ -304,8 +304,8 @@ function DemoContent() {
               <Card.Body>
                 <div className="flex items-start gap-4">
                   <img
-                    src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=300&h=200&fit=crop"
-                    alt="BMW X5"
+                    src="/images/default-listing.jpg"
+                    alt="Exemplu anunț"
                     className="w-48 h-32 object-cover rounded-lg"
                   />
                   <div className="flex-1">

@@ -10,10 +10,17 @@ import { logger } from '@/lib/observability';
 import { createInvoice, markInvoiceAsPaid, generateInvoiceItemsFromPayment } from '@/lib/invoice';
 import { sendInvoiceEmail, sendPaymentConfirmationEmail } from '@/lib/invoice-mailer';
 import { createAuditLog } from '@/lib/audit';
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import { getRedisClient } from '@/lib/redis';
 import Stripe from 'stripe';
+import {
+  getListingPromotionApplyFromUiPackage,
+  inferUiPackageIdFromStripeType,
+  PROMOTION_UI_IDS,
+  type PromotionUiId,
+} from '@/lib/promotion-packages';
 
 export const runtime = 'nodejs';
 
@@ -130,6 +137,16 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
+  // Idempotency guard (fail-closed on DB state): if we've already marked the payment,
+  // skip all side-effects (invoice creation, listing promotion, emails).
+  if (payment.status === PaymentStatus.succeeded) {
+    logger.info('Duplicate payment_intent.succeeded ignored (already succeeded)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
+
   // Determine payment method
   // Note: charges is not always available in PaymentIntent object
   // We'll fetch it separately or use payment_method
@@ -154,9 +171,13 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     }
   }
 
-  // Update payment status
-  await prisma.payment.update({
-    where: { id: payment.id },
+  // Update payment status atomically.
+  // This prevents duplicates under concurrent webhook delivery.
+  const updated = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      status: { not: PaymentStatus.succeeded },
+    },
     data: {
       status: PaymentStatus.succeeded,
       method: paymentMethod,
@@ -164,10 +185,35 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     },
   });
 
+  if (updated.count === 0) {
+    logger.info('Duplicate payment_intent.succeeded ignored (race condition)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
+
   logger.info('Payment status updated to succeeded', {
     paymentId: payment.id,
     method: paymentMethod,
   });
+
+  const pm = payment.metadata as Record<string, unknown> | null;
+  const promoListingIdEarly =
+    pm && typeof pm.listingId === 'string' ? pm.listingId : null;
+  if (payment.purpose === 'promote_listing' || payment.purpose === 'promotion') {
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.promotion_purchased,
+      userId: payment.userId,
+      listingId: promoListingIdEarly,
+      metadata: {
+        paymentId: payment.id,
+        amount,
+        currency,
+        purpose: payment.purpose,
+      },
+    });
+  }
 
   // Generare factură automată
   try {
@@ -275,43 +321,73 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   
   if (listingId) {
     try {
-      const packageType = (payment.metadata as any)?.packageType;
-      
-      // Map package types to configuration
-      const promotionConfig: Record<string, { type: string, days: number, featured: boolean }> = {
-        'top': { type: 'boost_7days', days: 7, featured: true },
-        'urgent': { type: 'boost_72h', days: 3, featured: false },
-        'featured': { type: 'featured', days: 5, featured: true },
-        'refresh': { type: 'boost_24h', days: 1, featured: false }
+      const meta = payment.metadata as Record<string, unknown> | null;
+      const stripePackageType =
+        meta && typeof meta.packageType === 'string' ? meta.packageType : '';
+      const rawUi = meta?.promotionUiPackageId;
+      let uiId: PromotionUiId | null =
+        typeof rawUi === 'string' && (PROMOTION_UI_IDS as readonly string[]).includes(rawUi)
+          ? (rawUi as PromotionUiId)
+          : null;
+      if (!uiId) {
+        uiId = inferUiPackageIdFromStripeType(stripePackageType);
+      }
+
+      const STRIPE_ONLY_FALLBACK: Record<string, { type: string; days: number; featured: boolean }> = {
+        homepage_banner_7_days: { type: 'featured', days: 7, featured: true },
       };
 
-      const config = promotionConfig[packageType] || promotionConfig['featured'];
-      const promotionEnd = new Date();
-      promotionEnd.setDate(promotionEnd.getDate() + config.days);
+      const { computeFeedBoost } = await import('@/lib/listing-feed-boost');
 
-      // Update listing with promotion
-      await prisma.listing.update({
-        where: { id: listingId },
-        data: {
-          isPromoted: true,
-          isFeatured: config.featured,
-          promotionType: config.type as any,
-          promotionStartedAt: new Date(),
-          promotionExpiresAt: promotionEnd,
-          updatedAt: new Date() // Refresh position in listings
-        }
-      });
+      let promotionTypeStr: string;
+      let featured: boolean;
+      let promotionEnd: Date;
 
-      logger.info('Listing promotion activated', {
-        listingId,
-        packageType,
-        promotionEnd,
-        promotionType: config.type,
-        isFeatured: config.featured
-      });
+      if (uiId) {
+        const apply = await getListingPromotionApplyFromUiPackage(uiId);
+        promotionTypeStr = apply.promotionType;
+        featured = apply.featured;
+        promotionEnd = new Date();
+        promotionEnd.setDate(promotionEnd.getDate() + apply.durationDays);
+      } else if (stripePackageType && STRIPE_ONLY_FALLBACK[stripePackageType]) {
+        const fb = STRIPE_ONLY_FALLBACK[stripePackageType];
+        promotionTypeStr = fb.type;
+        featured = fb.featured;
+        promotionEnd = new Date();
+        promotionEnd.setDate(promotionEnd.getDate() + fb.days);
+      } else {
+        logger.warn('Listing promotion skipped: unknown package mapping', {
+          listingId,
+          stripePackageType,
+        });
+        promotionTypeStr = '';
+        featured = false;
+        promotionEnd = new Date();
+      }
 
+      if (promotionTypeStr) {
+        await prisma.listing.update({
+          where: { id: listingId },
+          data: {
+            isPromoted: true,
+            isFeatured: featured,
+            feedBoost: computeFeedBoost(true, featured),
+            promotionType: promotionTypeStr as any,
+            promotionStartedAt: new Date(),
+            promotionExpiresAt: promotionEnd,
+            updatedAt: new Date(),
+          },
+        });
 
-        // Audit log
+        logger.info('Listing promotion activated', {
+          listingId,
+          stripePackageType,
+          promotionUiPackageId: uiId,
+          promotionEnd,
+          promotionType: promotionTypeStr,
+          isFeatured: featured,
+        });
+
         await createAuditLog({
           userId: payment.userId,
           action: 'promotion_activated',
@@ -319,11 +395,22 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
           resourceId: listingId,
           details: {
             paymentId: payment.id,
-            packageType: payment.metadata && typeof payment.metadata === 'object' && 'packageType' in payment.metadata 
-              ? payment.metadata.packageType 
-              : null
-          }
+            packageType: stripePackageType,
+            promotionUiPackageId: uiId,
+          },
         });
+
+        void recordAnalyticsEvent({
+          eventType: ANALYTICS_EVENT.promotion_activated,
+          userId: payment.userId,
+          listingId,
+          metadata: {
+            paymentId: payment.id,
+            packageType: promotionTypeStr,
+            source: 'stripe_webhook',
+          },
+        });
+      }
     } catch (error) {
       logger.error('Failed to update listing promotion', {
         error,
@@ -368,8 +455,19 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
-  await prisma.payment.update({
-    where: { id: payment.id },
+  if (payment.status === PaymentStatus.failed) {
+    logger.info('Duplicate payment_intent.payment_failed ignored (already failed)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
+
+  const updated = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      status: { not: PaymentStatus.failed },
+    },
     data: {
       status: PaymentStatus.failed,
       metadata: {
@@ -378,6 +476,14 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
       }
     },
   });
+
+  if (updated.count === 0) {
+    logger.info('Duplicate payment_intent.payment_failed ignored (race condition)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
 
   await createAuditLog({
     action: 'payment_failed',
@@ -405,10 +511,29 @@ async function handlePaymentCanceled(paymentIntent: Stripe.PaymentIntent) {
 
   if (!payment) return;
 
-  await prisma.payment.update({
-    where: { id: payment.id },
+  if (payment.status === PaymentStatus.cancelled) {
+    logger.info('Duplicate payment_intent.canceled ignored (already cancelled)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
+
+  const updated = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      status: { not: PaymentStatus.cancelled },
+    },
     data: { status: PaymentStatus.cancelled },
   });
+
+  if (updated.count === 0) {
+    logger.info('Duplicate payment_intent.canceled ignored (race condition)', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+    });
+    return;
+  }
 
   await createAuditLog({
     action: 'payment_cancelled',
@@ -438,8 +563,19 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
 
   if (!payment) return;
 
-  await prisma.payment.update({
-    where: { id: payment.id },
+  if (payment.status === PaymentStatus.refunded) {
+    logger.info('Duplicate charge.refunded ignored (already refunded)', {
+      paymentIntentId: payment_intent,
+      paymentId: payment.id,
+    });
+    return;
+  }
+
+  const updated = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      status: { not: PaymentStatus.refunded },
+    },
     data: {
       status: PaymentStatus.refunded,
       metadata: {
@@ -448,6 +584,14 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       }
     },
   });
+
+  if (updated.count === 0) {
+    logger.info('Duplicate charge.refunded ignored (race condition)', {
+      paymentIntentId: payment_intent,
+      paymentId: payment.id,
+    });
+    return;
+  }
 
   await createAuditLog({
     action: 'payment_refunded',

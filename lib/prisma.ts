@@ -1,4 +1,6 @@
 // Check if we should use in-memory DB BEFORE importing Prisma
+// Production: point DATABASE_URL at a pooler (PgBouncer, Neon, Supavisor) so serverless
+// or many Node workers do not exhaust Postgres max_connections at scale.
 import { PrismaClient } from "@prisma/client";
 
 const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';

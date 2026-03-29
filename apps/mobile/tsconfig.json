@@ -1,4 +1,9 @@
 {
-  "compilerOptions": {},
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@clickanunt/api-contracts": ["../../packages/api-contracts/index.ts"]
+    }
+  },
   "extends": "expo/tsconfig.base"
 }

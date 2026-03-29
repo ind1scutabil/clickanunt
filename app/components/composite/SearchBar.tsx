@@ -231,7 +231,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onFocus={() => isEnterpriseEnabled && setShowRecent(true)}
             placeholder={placeholder}
             aria-label="Search products or services"
-            className="h-[56px] w-full bg-[#0f172a] text-white placeholder:text-slate-400 border border-slate-700 rounded-xl px-5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+            className="h-[56px] w-full rounded-xl border border-white/[0.08] bg-[#0c1220] px-5 text-base text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.04),inset_0_-1px_2px_rgba(0,0,0,0.45)] transition-[box-shadow,border-color,background-color] duration-normal ease-premium placeholder:text-slate-500/75 placeholder:font-normal focus:border-primary-500/45 focus:bg-[#0a0f1a] focus:outline-none focus:ring-2 focus:ring-primary-500/35 focus:shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(139,92,246,0.12)]"
             style={{
               WebkitTextFillColor: 'white',
             }}
@@ -296,7 +296,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label="Category filter"
-            className="h-[56px] w-full sm:w-48 bg-[#0f172a] text-white border border-slate-700 rounded-xl px-5 text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition appearance-none"
+            className="h-[56px] w-full appearance-none rounded-xl border border-white/[0.08] bg-[#0c1220] px-5 text-base text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.04),inset_0_-1px_2px_rgba(0,0,0,0.45)] transition-[box-shadow,border-color,background-color] duration-normal ease-premium focus:border-primary-500/45 focus:bg-[#0a0f1a] focus:outline-none focus:ring-2 focus:ring-primary-500/35 focus:shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(139,92,246,0.12)] sm:w-48"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%94a3b8' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
@@ -316,7 +316,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           type="submit"
           aria-label="Search"
-          className="h-[56px] px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:opacity-90 transition whitespace-nowrap flex items-center justify-center gap-2"
+          className="flex h-[56px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-6 font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_4px_14px_rgba(88,28,135,0.35)] transition-[opacity,box-shadow,transform] duration-normal ease-premium hover:opacity-[0.96] hover:shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_6px_18px_rgba(88,28,135,0.4)] active:scale-[0.99]"
         >
           <SearchIcon />
           <span>Caută</span>

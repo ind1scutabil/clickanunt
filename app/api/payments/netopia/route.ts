@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createNetopiaClient, NETOPIA_STATUS } from '@/lib/netopia';
+import { validateSecureRequest } from '@/lib/security/middleware';
 
 // Create Netopia payment
 export async function POST(req: NextRequest) {
   try {
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'payment',
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError ? 429 : security.csrfError ? 403 : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
     const body = await req.json();
     const { userId, promotionId, amount, currency = 'RON' } = body;
 

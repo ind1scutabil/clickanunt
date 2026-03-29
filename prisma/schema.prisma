@@ -159,6 +159,11 @@ model User {
   bannedAt            DateTime?
   bannedBy            String?
   banReason           String?
+
+  // Suspendare temporară (moderare): nu poate publica anunțuri până la dată
+  moderationSuspendedUntil   DateTime?
+  moderationSuspensionReason String?  @db.Text
+  moderationSuspendedBy      String?
   
   // Seller Reputation & Activity
   lastActiveAt        DateTime @default(now())
@@ -193,6 +198,7 @@ model User {
   // Timestamps
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
 
   // Relations
   listings            Listing[]
@@ -206,11 +212,14 @@ model User {
   invoices            Invoice[]
   verificationRequests VerificationRequest[]
   notifications       UserNotification[]
+  pushDeviceTokens    PushDeviceToken[]
   createdBroadcasts   AdminBroadcast[] @relation("BroadcastCreator")
   sentMessages        Message[] @relation("MessageSender")
   receivedMessages    Message[] @relation("MessageReceiver")
   conversationsAsParticipant1 Conversation[] @relation("ConversationParticipant1")
   conversationsAsParticipant2 Conversation[] @relation("ConversationParticipant2")
+  analyticsSessions           AnalyticsSession[]
+  analyticsEvents             AnalyticsEvent[]
   
   @@index([email])
   @@index([role])
@@ -220,6 +229,8 @@ model User {
   @@index([accountType])
   @@index([verificationLevel])
   @@index([businessName])
+  @@index([moderationSuspendedUntil])
+  @@index([deletedAt])
   @@map("users")
 }
 
@@ -300,6 +311,9 @@ model Listing {
   status        ListingStatus @default(pending)
   views         Int           @default(0)
   isFeatured    Boolean       @default(false)
+
+  // feedBoost: ORDER BY + keyset pagination at scale (denormalized from promoted/featured)
+  feedBoost     Int           @default(0)
   
   // Promotion fields
   isPromoted        Boolean       @default(false)
@@ -325,18 +339,24 @@ model Listing {
   updatedAt         DateTime      @updatedAt
   publishedAt       DateTime?
   expiresAt         DateTime?
+  deletedAt         DateTime?
+
+  /// PostgreSQL full-text search (`tsvector`). Populated by trigger; queried in /api/search.
+  searchVector      Unsupported("tsvector")? @map("search_vector")
 
   // Relations
   reports           Report[]
   favorites         Favorite[]
   moderationQueue   ModerationQueue[]
   conversations     Conversation[]
+  analyticsEvents   AnalyticsEvent[]
   
   @@index([ownerUserId])
   @@index([category])
   @@index([status])
   @@index([createdAt])
   @@index([isPromoted])
+  @@index([isPromoted, promotionExpiresAt])
   @@index([scamScore])
   @@index([moderationStatus])
   // Search performance indexes
@@ -346,6 +366,8 @@ model Listing {
   @@index([category, city])
   @@index([status, priceAmount])
   @@index([status, createdAt])
+  @@index([status, feedBoost, createdAt, id])
+  @@index([deletedAt])
   @@map("listings")
 }
 
@@ -432,6 +454,82 @@ model ModerationQueue {
   @@index([status])
   @@index([priority])
   @@map("moderation_queue")
+}
+
+/// Sesiuni analitice (id generat pe client, persistat în storage)
+model AnalyticsSession {
+  id          String   @id
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipHash      String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now()) @updatedAt
+
+  events AnalyticsEvent[]
+
+  @@index([userId])
+  @@index([firstSeenAt])
+  @@map("analytics_sessions")
+}
+
+/// Evenimente de produs (funnel, control center, risc)
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  eventType String   @db.VarChar(80)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String?
+  session   AnalyticsSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([listingId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([userId, createdAt])
+  @@map("analytics_events")
+}
+
+/// Durable queue for async analytics ingestion (worker drains into analytics_events)
+model AnalyticsEventQueue {
+  id        String   @id @default(uuid())
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("analytics_event_queue")
+}
+
+/// Pre-aggregated daily metrics (filled by cron rollup from analytics_events)
+model AnalyticsDaily {
+  id                 String   @id @default(uuid())
+  day                DateTime @db.Date
+  listingViews       Int      @default(0)
+  contactClicks      Int      @default(0)
+  messagesSent       Int      @default(0)
+  searchesPerformed  Int      @default(0)
+  loginSuccess       Int      @default(0)
+  uniqueSessions     Int      @default(0)
+  updatedAt          DateTime @updatedAt
+
+  @@unique([day])
+  @@map("analytics_daily")
+}
+
+/// Server-side error capture (Sentry-compatible export optional)
+model SystemErrorLog {
+  id        String   @id @default(uuid())
+  source    String   @db.VarChar(120)
+  message   String   @db.Text
+  stack     String?  @db.Text
+  context   Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([source])
+  @@map("system_error_logs")
 }
 
 model AuditLog {
@@ -609,6 +707,20 @@ model UserNotification {
   @@map("user_notifications")
 }
 
+/// Expo / FCM-style device tokens for future push delivery (no external push calls yet).
+model PushDeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("push_device_tokens")
+}
+
 // ==================== MESSAGING SYSTEM ====================
 
 // Conversations - tracks message threads between users
@@ -661,6 +773,8 @@ model Message {
   @@index([receiverId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([conversationId, createdAt])
+  @@index([receiverId, isRead])
   @@map("messages")
 }
 

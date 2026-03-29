@@ -31,6 +31,7 @@ rsync -avz --delete \
   --exclude .git \
   --exclude coverage \
   --exclude .swc \
+  --exclude 'public/uploads/' \
   ./ root@46.225.69.155:/var/www/clickanunt/ 2>&1 | grep -E "sending|deleting|total|error" || true
 
 echo -e "${GREEN}✓ Files synced${NC}"

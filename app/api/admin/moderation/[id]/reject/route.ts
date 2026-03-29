@@ -10,6 +10,7 @@ import { hasPermission, Permission } from "@/lib/rbac";
 import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 export async function POST(
   request: NextRequest,
@@ -82,6 +83,14 @@ export async function POST(
         status: 'rejected',
         notes: reason,
       },
+    });
+
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.moderation_action,
+      userId: user.id,
+      listingId: item.listingId,
+      metadata: { decision: "rejected", moderationQueueId: id, reason },
+      request,
     });
 
     return NextResponse.json({

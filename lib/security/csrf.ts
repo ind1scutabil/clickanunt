@@ -49,64 +49,74 @@ export function validateCsrfToken(token: string, hashedToken: string): boolean {
  * Extract CSRF token from request
  */
 export function extractCsrfToken(request: NextRequest): string | null {
-  // Try header first (for AJAX requests)
-  const headerToken = request.headers.get('x-csrf-token');
-  if (headerToken) {
-    return headerToken;
-  }
-  
-  // Try cookie (double-submit pattern)
   const cookieToken = request.cookies.get('csrf-token')?.value;
-  if (cookieToken) {
-    return cookieToken;
-  }
-  
-  return null;
+  const headerToken = request.headers.get('x-csrf-token');
+  // Prefer the explicit header for privileged writes:
+  // - the frontend fetches a fresh CSRF token just-in-time and sends it via `x-csrf-token`
+  // - some clients can keep a stale `csrf-token` cookie even when `csrf-token-hash` rotates
+  return headerToken || cookieToken || null;
 }
 
 /**
  * Validate request origin
  */
+function isAllowedClickanuntHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === 'clickanunt.ro' || h === 'www.clickanunt.ro' || h.endsWith('.clickanunt.ro');
+}
+
 export function validateOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-  
-  const allowedOrigins = [
-    process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro',
-    'https://www.clickanunt.ro',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://46.225.69.155:3000',
-    'http://localhost',
-  ];
-  
-  // Check Origin header
-  if (origin) {
-    return allowedOrigins.some(allowed => {
-      // Allow if matches exactly or if origin is through Cloudflare
-      return origin.includes(allowed.replace('https://', '').replace('http://', '')) ||
-             origin.startsWith(allowed);
-    });
-  }
-  
-  // Fallback to Referer header
-  if (referer) {
+  const origin = request.headers.get('origin')?.trim();
+  const referer = request.headers.get('referer')?.trim();
+  const hostHeader = request.headers.get('host')?.split(':')[0];
+
+  const devHosts = new Set(['localhost', '127.0.0.1', '46.225.69.155']);
+
+  const hostFromHeader = (value: string): string | null => {
+    const v = value.trim();
+    if (!v || v === 'null') return null;
+
+    // If it looks like a URL, prefer URL parsing.
     try {
-      const refererUrl = new URL(referer);
-      return allowedOrigins.some(allowed => {
-        try {
-          const allowedUrl = new URL(allowed);
-          return refererUrl.origin === allowedUrl.origin ||
-                 referer.includes(allowed);
-        } catch {
-          return referer.includes(allowed);
-        }
-      });
+      if (v.includes('://')) return new URL(v).hostname;
     } catch {
-      return false;
+      // fallthrough
     }
+
+    // Otherwise try to extract hostname from raw header (host[:port][/...]).
+    const noProto = v.replace(/^https?:\/\//i, '');
+    const firstPart = noProto.split('/')[0] || '';
+    const host = firstPart.split(':')[0] || '';
+    return host ? host.toLowerCase() : null;
+  };
+
+  // Evaluate origin/referer independently; if `Origin` exists but doesn't match,
+  // we still accept the request when `Referer` is valid (common with some browsers/proxies).
+  let originAllowed = false;
+  let refererAllowed = false;
+
+  if (origin) {
+    const h = hostFromHeader(origin);
+    originAllowed =
+      !!h &&
+      (isAllowedClickanuntHost(h) || (process.env.NODE_ENV !== 'production' && devHosts.has(h)));
   }
-  
+
+  if (referer) {
+    const h = hostFromHeader(referer);
+    refererAllowed =
+      !!h &&
+      (isAllowedClickanuntHost(h) || (process.env.NODE_ENV !== 'production' && devHosts.has(h)));
+  }
+
+  if (originAllowed || refererAllowed) return true;
+
+  // Same request without Origin/Referer (some proxies / same-origin navigations)
+  if (hostHeader && isAllowedClickanuntHost(hostHeader)) return true;
+  if (hostHeader && process.env.NODE_ENV !== 'production' && devHosts.has(hostHeader.toLowerCase())) {
+    return true;
+  }
+
   // Allow if no origin/referer for same-site requests
   // (Cloudflare and some proxies might not send these)
   return true;
@@ -154,7 +164,9 @@ export async function validateCSRFToken(request: NextRequest): Promise<void> {
     throw new CSRFValidationError('CSRF token missing from request');
   }
 
-  if (!validateCsrfToken(token, storedHash)) {
+  const computedHash = hashCsrfToken(token);
+  const ok = crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(storedHash));
+  if (!ok) {
     throw new CSRFValidationError('CSRF token validation failed - token mismatch');
   }
 }

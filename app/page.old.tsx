@@ -45,18 +45,18 @@ export default function HomePage() {
   };
 
   const categoryImages: { [key: string]: string } = {
-    "Auto, moto și ambarcațiuni": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=1200&h=900&fit=crop",
-    "Imobiliare": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&h=900&fit=crop",
-    "Electronice și electrocasnice": "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1200&h=900&fit=crop",
-    "Modă și frumusețe": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=900&fit=crop",
-    "Casă și grădină": "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=1200&h=900&fit=crop",
-    "Sport, timp liber și artă": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1200&h=900&fit=crop",
-    "Copii și bebeluși": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=1200&h=900&fit=crop",
-    "Animale de companie": "https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=1200&h=900&fit=crop",
-    "Locuri de muncă": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=900&fit=crop",
-    "Servicii și afaceri": "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=1200&h=900&fit=crop",
-    "Agricultură": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1200&h=900&fit=crop",
-    "Altele": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1200&h=900&fit=crop"
+    "Auto, moto și ambarcațiuni": "/images/default-listing.jpg",
+    "Imobiliare": "/images/default-listing.jpg",
+    "Electronice și electrocasnice": "/images/default-listing.jpg",
+    "Modă și frumusețe": "/images/default-listing.jpg",
+    "Casă și grădină": "/images/default-listing.jpg",
+    "Sport, timp liber și artă": "/images/default-listing.jpg",
+    "Copii și bebeluși": "/images/default-listing.jpg",
+    "Animale de companie": "/images/default-listing.jpg",
+    "Locuri de muncă": "/images/default-listing.jpg",
+    "Servicii și afaceri": "/images/default-listing.jpg",
+    "Agricultură": "/images/default-listing.jpg",
+    "Altele": "/images/default-listing.jpg"
   };
 
   const popularCategories = new Set([
@@ -208,7 +208,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {ALL_CATEGORIES.map((categoryName) => {
             const data = categoryData[categoryName] || { icon: "📦", color: "from-gray-500 to-gray-700", count: "0" };
-            const image = categoryImages[categoryName] || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1200&h=900&fit=crop";
+            const image = categoryImages[categoryName] || "/images/default-listing.jpg";
             
             return (
               <Link

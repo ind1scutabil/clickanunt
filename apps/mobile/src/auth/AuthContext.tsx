@@ -1,7 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-import { authApi, setAccessToken } from '../api/client';
+import {
+  authApi,
+  clearStoredAuthTokens,
+  persistAuthTokens,
+  refreshSession,
+  setAccessToken,
+} from '../api/client';
 import { registerDeviceForPushNotifications } from '../notifications/push';
 import { addBreadcrumb, trackError, trackEvent } from '../telemetry';
 import type { User } from '../types';
@@ -33,12 +39,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         }
 
         setAccessToken(token);
-        const me = await authApi.me();
-        setUser(me);
-        addBreadcrumb('auth_bootstrap_success', 'auth');
+        try {
+          const me = await authApi.me();
+          setUser(me);
+          addBreadcrumb('auth_bootstrap_success', 'auth');
+        } catch {
+          const refreshed = await refreshSession();
+          if (refreshed) {
+            const me = await authApi.me();
+            setUser(me);
+            addBreadcrumb('auth_bootstrap_refresh_ok', 'auth');
+          } else {
+            await clearStoredAuthTokens();
+            setUser(null);
+            addBreadcrumb('auth_bootstrap_failed', 'auth');
+          }
+        }
       } catch {
-        await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-        setAccessToken(null);
+        await clearStoredAuthTokens();
         setUser(null);
         addBreadcrumb('auth_bootstrap_failed', 'auth');
       } finally {
@@ -67,8 +85,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         addBreadcrumb('login_attempt', 'auth');
         try {
           const result = await authApi.login(email, password);
-          setAccessToken(result.accessToken);
-          await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, result.accessToken);
+          if (!result.refreshToken) {
+            throw new Error('Răspuns autentificare incomplet');
+          }
+          await persistAuthTokens(result.accessToken, result.refreshToken);
           setUser(result.user);
           await trackEvent('login_success', { userId: result.user.id });
         } catch (error) {
@@ -77,8 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         }
       },
       logout: async () => {
-        await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-        setAccessToken(null);
+        await clearStoredAuthTokens();
         setUser(null);
         addBreadcrumb('logout', 'auth');
       },

@@ -108,7 +108,7 @@ ssh -o ConnectTimeout=10 -o BatchMode=yes ${SERVER} "echo '✅ SSH connection su
 
 # Step 9: Sync files to server
 echo -e "${BLUE}[8/12] Syncing files to server...${NC}"
-rsync -avz --delete --exclude node_modules --exclude .git --exclude .next --exclude coverage --exclude .swc \
+rsync -avz --delete --exclude node_modules --exclude .git --exclude .next --exclude coverage --exclude .swc --exclude 'public/uploads/' \
   ./ ${SERVER}:${DEPLOY_DIR}/ || {
     echo -e "${RED}❌ File sync failed${NC}"
     exit 1

@@ -2,6 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
+import {
+  listingPrimaryPhotoSrc,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+} from '@/lib/listing-photo-url';
+import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 
 export default function PromotePage() {
   const params = useParams();
@@ -16,7 +21,19 @@ export default function PromotePage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [userDiscount, setUserDiscount] = useState<number>(0);
 
-  const packages = [
+  type PromoPkg = {
+    id: string;
+    name: string;
+    icon: string;
+    color: string;
+    price: number;
+    duration: string;
+    features: string[];
+    description: string;
+    enabled: boolean;
+  };
+
+  const [packages, setPackages] = useState<PromoPkg[]>([
     {
       id: 'top',
       name: 'TOP Anunț',
@@ -24,15 +41,16 @@ export default function PromotePage() {
       color: 'from-yellow-500 to-orange-500',
       price: 49,
       duration: '7 zile',
+      enabled: true,
       features: [
         '⭐ Poziționare în TOP 3',
         '🎯 Evidențiere cu fundal auriu',
         '📍 Badge "TOP Anunț"',
         '🚀 Vizibilitate 5x mai mare',
         '📊 Statistici avansate',
-        '⚡ Refresh automat zilnic'
+        '⚡ Refresh automat zilnic',
       ],
-      description: 'Cel mai popular! Perfect pentru vânzări rapide'
+      description: 'Cel mai popular! Perfect pentru vânzări rapide',
     },
     {
       id: 'urgent',
@@ -41,15 +59,16 @@ export default function PromotePage() {
       color: 'from-red-500 to-pink-600',
       price: 29,
       duration: '3 zile',
+      enabled: true,
       features: [
         '🔥 Badge "URGENT" roșu',
         '⚡ Poziționare prioritară',
         '🎨 Fundal evidențiat',
         '👁️ Vizibilitate crescută 3x',
         '📈 Statistici standard',
-        '🔄 Un refresh manual'
+        '🔄 Un refresh manual',
       ],
-      description: 'Ideal pentru anunțuri urgente'
+      description: 'Ideal pentru anunțuri urgente',
     },
     {
       id: 'featured',
@@ -58,15 +77,16 @@ export default function PromotePage() {
       color: 'from-purple-500 to-indigo-600',
       price: 19,
       duration: '5 zile',
+      enabled: true,
       features: [
         '✨ Badge "Evidențiat"',
         '🎯 Afișare prioritară',
         '💎 Fundal premium',
         '👥 Vizibilitate 2x mai mare',
         '📊 Statistici de bază',
-        '🔄 Refresh la 48h'
+        '🔄 Refresh la 48h',
       ],
-      description: 'Opțiunea optimă calitate/preț'
+      description: 'Opțiunea optimă calitate/preț',
     },
     {
       id: 'refresh',
@@ -75,17 +95,18 @@ export default function PromotePage() {
       color: 'from-blue-500 to-cyan-500',
       price: 9,
       duration: 'Instant',
+      enabled: true,
       features: [
         '🔄 Reîmprospătare instant',
         '📍 Urcat în listă',
         '⏰ Actualizare dată',
         '👁️ Vizibilitate îmbunătățită',
         '✅ Activare imediată',
-        '💰 Cel mai accesibil'
+        '💰 Cel mai accesibil',
       ],
-      description: 'Perfect pentru actualizări rapide'
-    }
-  ];
+      description: 'Perfect pentru actualizări rapide',
+    },
+  ]);
 
   useEffect(() => {
     const loadListing = async () => {
@@ -117,6 +138,46 @@ export default function PromotePage() {
     }
   }, [id]);
 
+  useEffect(() => {
+    fetch('/api/promotion-packages', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('packages'))))
+      .then(
+        (data: {
+          packages: Array<{
+            id: string;
+            name: string;
+            priceRon: number;
+            durationDays: number;
+            enabled: boolean;
+          }>;
+        }) => {
+          const byId = new Map(data.packages.map((p) => [p.id, p]));
+          setPackages((prev) =>
+            prev.map((def) => {
+              const pub = byId.get(def.id);
+              if (!pub) return def;
+              return {
+                ...def,
+                name: pub.name,
+                price: pub.priceRon,
+                duration: pub.durationDays === 0 ? 'Instant' : `${pub.durationDays} zile`,
+                enabled: pub.enabled,
+              };
+            })
+          );
+        }
+      )
+      .catch(() => {
+        /* păstrăm valorile implicite */
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPackage) return;
+    const p = packages.find((x) => x.id === selectedPackage);
+    if (p && !p.enabled) setSelectedPackage('');
+  }, [packages, selectedPackage]);
+
   // Load user discount
   useEffect(() => {
     const loadUserDiscount = async () => {
@@ -125,7 +186,6 @@ export default function PromotePage() {
         if (response.ok) {
           const data = await response.json();
           setUserDiscount(data.promotionDiscountPercent || 0);
-          console.log('💰 User discount loaded:', data.promotionDiscountPercent);
         }
       } catch (error) {
         console.error('Error loading user discount:', error);
@@ -135,22 +195,21 @@ export default function PromotePage() {
     loadUserDiscount();
   }, []);
 
-  const calculateDiscountedPrice = (basePrice: number): number => {
-    if (userDiscount <= 0) return basePrice;
-    
-    const discountAmount = Math.floor((basePrice * userDiscount) / 100);
-    const finalPrice = basePrice - discountAmount;
-    
-    // Minimum 2 RON (Stripe requirement)
-    return Math.max(2, finalPrice);
-  };
+  /** Același calcul ca la create-intent / verificare PayPal–transfer (bani). */
+  const checkoutAmountBani = (basePriceRon: number) =>
+    applyUserPromotionDiscountToBaseBani(Math.round(basePriceRon * 100), userDiscount);
 
   const handlePromote = () => {
     if (!selectedPackage) {
       alert('Selectează un pachet de promovare!');
       return;
     }
-    
+    const sel = packages.find((p) => p.id === selectedPackage);
+    if (!sel?.enabled) {
+      alert('Acest pachet nu este disponibil momentan.');
+      return;
+    }
+
     setShowPaymentModal(true);
   };
 
@@ -160,30 +219,24 @@ export default function PromotePage() {
       return;
     }
 
-    const pkg = packages.find(p => p.id === selectedPackage);
-    if (!pkg) return;
+    const pkg = packages.find((p) => p.id === selectedPackage);
+    if (!pkg || !pkg.enabled) return;
 
-    // Calculate price with discount
-    const finalPrice = calculateDiscountedPrice(pkg.price);
+    const amountBani = checkoutAmountBani(pkg.price);
+    const priceParam = (amountBani / 100).toFixed(2);
 
-    console.log('💰 Payment calculation:', {
-      basePrice: pkg.price,
-      userDiscount,
-      finalPrice,
-    });
-
-    // Redirecționare în funcție de metoda de plată
     if (selectedPaymentMethod === 'card') {
-      router.push(`/listings/${id}/promote/payment/card?package=${selectedPackage}&price=${finalPrice}`);
+      router.push(
+        `/listings/${id}/promote/payment/card?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
+      );
     } else if (selectedPaymentMethod === 'paypal') {
-      // Simulare PayPal - în producție ar fi clientID și return URLs reale
-      const returnUrl = encodeURIComponent(`${window.location.origin}/listings/${id}/promote/payment/success?package=${selectedPackage}`);
-      const cancelUrl = encodeURIComponent(`${window.location.origin}/listings/${id}/promote`);
-      // În producție: window.location.href = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=YOUR_PAYPAL_EMAIL&item_name=${pkg.name}&amount=${finalPrice}&currency_code=RON&return=${returnUrl}&cancel_return=${cancelUrl}`;
-      // Pentru dev, mergem pe pagina de success direct
-      router.push(`/listings/${id}/promote/payment/paypal?package=${selectedPackage}&price=${finalPrice}`);
+      router.push(
+        `/listings/${id}/promote/payment/paypal?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
+      );
     } else if (selectedPaymentMethod === 'transfer') {
-      router.push(`/listings/${id}/promote/payment/transfer?package=${selectedPackage}&price=${finalPrice}`);
+      router.push(
+        `/listings/${id}/promote/payment/transfer?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
+      );
     }
   };
 
@@ -238,7 +291,11 @@ export default function PromotePage() {
       <Navbar />
       
       {/* Payment Modal */}
-      {showPaymentModal && selectedPkg && (
+      {showPaymentModal && selectedPkg && (() => {
+        const modalBaseBani = Math.round(selectedPkg.price * 100);
+        const modalTotalBani = applyUserPromotionDiscountToBaseBani(modalBaseBani, userDiscount);
+        const modalDiscountBani = Math.max(0, modalBaseBani - modalTotalBani);
+        return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <div className="relative bg-gradient-to-br from-gray-800 via-gray-900 to-black rounded-2xl shadow-2xl border border-gray-700/50 max-w-xl w-full max-h-[90vh] overflow-y-auto animate-slideUp">
             {/* Close Button */}
@@ -274,16 +331,18 @@ export default function PromotePage() {
                   <span className="text-white font-bold text-sm">{selectedPkg.duration}</span>
                 </div>
                 <div className="border-t border-gray-700/50 pt-3 mt-3">
-                  {userDiscount > 0 && (
+                  {modalDiscountBani > 0 && (
                     <>
                       <div className="flex justify-between items-center mb-1.5">
-                        <span className="text-gray-400 text-sm">Preț original:</span>
-                        <span className="text-gray-400 line-through text-sm">{selectedPkg.price} RON</span>
+                        <span className="text-gray-400 text-sm">Preț pachet:</span>
+                        <span className="text-gray-400 line-through text-sm">
+                          {(modalBaseBani / 100).toFixed(2)} RON
+                        </span>
                       </div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-green-400 font-bold text-sm">🎉 Discount ({userDiscount}%):</span>
+                        <span className="text-green-400 font-bold text-sm">🎉 Discount cont ({userDiscount}%):</span>
                         <span className="text-green-400 font-bold text-sm">
-                          -{Math.floor((selectedPkg.price * userDiscount) / 100)} RON
+                          -{(modalDiscountBani / 100).toFixed(2)} RON
                         </span>
                       </div>
                     </>
@@ -291,7 +350,7 @@ export default function PromotePage() {
                   <div className="flex justify-between items-center">
                     <span className="text-white font-black text-base">Total de plată:</span>
                     <span className={`text-2xl font-black bg-gradient-to-r ${selectedPkg.color} bg-clip-text text-transparent`}>
-                      {calculateDiscountedPrice(selectedPkg.price)} RON
+                      {(modalTotalBani / 100).toFixed(2)} RON
                     </span>
                   </div>
                 </div>
@@ -422,7 +481,8 @@ export default function PromotePage() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -440,9 +500,14 @@ export default function PromotePage() {
             <div className="flex items-center gap-4">
               <div className="w-24 h-24 bg-gray-700 rounded-xl overflow-hidden">
                 <img 
-                  src={listing.photos?.[0] || 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=200&h=200&fit=crop'} 
+                  src={listingPrimaryPhotoSrc(listing.photos)} 
                   alt={listing.title}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    el.onerror = null;
+                    el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                  }}
                 />
               </div>
               <div className="flex-1">
@@ -456,7 +521,9 @@ export default function PromotePage() {
 
           {/* Packages Grid - Enterprise Compact */}
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {packages.map((pkg) => (
+            {packages
+              .filter((pkg) => pkg.enabled)
+              .map((pkg) => (
               <div
                 key={pkg.id}
                 onClick={() => setSelectedPackage(pkg.id)}

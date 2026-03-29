@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
@@ -8,46 +8,56 @@ import Link from "next/link";
 import { ALL_CATEGORIES } from "@/lib/carData";
 import { SearchBar } from "@/app/components/composite";
 import { Button, Card, Badge } from "@/app/components/ui";
-import { CountUp } from "@/app/components/ui/CountUp";
 import { StatsStripSafe } from "@/app/components/enterprise";
 import { TrustBadges } from "@/app/components/enterprise";
 
 export default function HomePage() {
   const router = useRouter();
-  
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number> | null>(null);
+  const [categoryCountsError, setCategoryCountsError] = useState(false);
+
   useEffect(() => {
-    // Homepage is public to all users
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/stats/by-category", { cache: "no-store" });
+        if (!res.ok) {
+          if (!cancelled) {
+            setCategoryCounts({});
+            setCategoryCountsError(true);
+          }
+          return;
+        }
+        const data = (await res.json()) as { counts?: Record<string, number> };
+        if (!cancelled) {
+          setCategoryCounts(data.counts ?? {});
+          setCategoryCountsError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setCategoryCounts({});
+          setCategoryCountsError(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  
 
-  const categoryData: { [key: string]: { icon: string; color: string; count: string } } = {
-    "Auto, moto și ambarcațiuni": { icon: "🚗", color: "from-blue-500 to-blue-700", count: "15.234" },
-    "Imobiliare": { icon: "🏠", color: "from-green-500 to-green-700", count: "12.456" },
-    "Electronice și electrocasnice": { icon: "💻", color: "from-purple-500 to-purple-700", count: "8.932" },
-    "Modă și frumusețe": { icon: "👗", color: "from-pink-500 to-pink-700", count: "6.543" },
-    "Casă și grădină": { icon: "🛋️", color: "from-amber-500 to-amber-700", count: "4.321" },
-    "Sport, timp liber și artă": { icon: "⚽", color: "from-red-500 to-red-700", count: "3.876" },
-    "Copii și bebeluși": { icon: "🧸", color: "from-yellow-400 to-yellow-600", count: "2.987" },
-    "Animale de companie": { icon: "🐾", color: "from-orange-500 to-orange-700", count: "1.654" },
-    "Locuri de muncă": { icon: "💼", color: "from-slate-500 to-slate-700", count: "5.432" },
-    "Servicii și afaceri": { icon: "🔧", color: "from-cyan-500 to-cyan-700", count: "3.210" },
-    "Agricultură": { icon: "🌾", color: "from-lime-500 to-lime-700", count: "987" },
-    "Altele": { icon: "📦", color: "from-gray-500 to-gray-700", count: "1.234" }
-  };
-
-  const categoryImages: { [key: string]: string } = {
-    "Auto, moto și ambarcațiuni": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=1200&h=900&fit=crop",
-    "Imobiliare": "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&h=900&fit=crop",
-    "Electronice și electrocasnice": "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=1200&h=900&fit=crop",
-    "Modă și frumusețe": "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=900&fit=crop",
-    "Casă și grădină": "https://images.unsplash.com/photo-1556912172-45b7abe8b7e1?w=1200&h=900&fit=crop",
-    "Sport, timp liber și artă": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=1200&h=900&fit=crop",
-    "Copii și bebeluși": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=1200&h=900&fit=crop",
-    "Animale de companie": "https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=1200&h=900&fit=crop",
-    "Locuri de muncă": "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1200&h=900&fit=crop",
-    "Servicii și afaceri": "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=1200&h=900&fit=crop",
-    "Agricultură": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1200&h=900&fit=crop",
-    "Altele": "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1200&h=900&fit=crop"
+  const categoryData: { [key: string]: { icon: string; color: string } } = {
+    "Auto, moto și ambarcațiuni": { icon: "🚗", color: "from-blue-500 to-blue-700" },
+    "Imobiliare": { icon: "🏠", color: "from-green-500 to-green-700" },
+    "Electronice și electrocasnice": { icon: "💻", color: "from-purple-500 to-purple-700" },
+    "Modă și frumusețe": { icon: "👗", color: "from-pink-500 to-pink-700" },
+    "Casă și grădină": { icon: "🛋️", color: "from-amber-500 to-amber-700" },
+    "Sport, timp liber și artă": { icon: "⚽", color: "from-red-500 to-red-700" },
+    "Copii și bebeluși": { icon: "🧸", color: "from-yellow-400 to-yellow-600" },
+    "Animale de companie": { icon: "🐾", color: "from-orange-500 to-orange-700" },
+    "Locuri de muncă": { icon: "💼", color: "from-slate-500 to-slate-700" },
+    "Servicii și afaceri": { icon: "🔧", color: "from-cyan-500 to-cyan-700" },
+    "Agricultură": { icon: "🌾", color: "from-lime-500 to-lime-700" },
+    "Altele": { icon: "📦", color: "from-gray-500 to-gray-700" },
   };
 
   const popularCategories = new Set([
@@ -72,33 +82,63 @@ export default function HomePage() {
 
       <main className="min-h-screen bg-[#0F1117]">
         {/* Hero Section */}
-        <section className="relative min-h-[640px] flex items-center justify-center overflow-hidden pt-8">
-          {/* Background */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_55%)]" />
+        <section className="relative flex min-h-[640px] items-center justify-center overflow-hidden pt-12 pb-10 md:pt-16 md:pb-14">
+          {/* Background depth — subtle, non-interactive */}
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_58%)]" />
+            <div
+              className="absolute left-1/2 top-[12%] h-[min(380px,48vh)] w-[min(820px,100vw)] -translate-x-1/2 rounded-full bg-primary-600/[0.06] blur-[88px]"
+              aria-hidden
+            />
+            <div
+              className="absolute right-[8%] top-[20%] h-56 w-56 rounded-full bg-primary-500/[0.04] blur-3xl md:h-72 md:w-72"
+              aria-hidden
+            />
+            {/* Signature abstract layer — ultra-low opacity, non-interactive */}
+            <div
+              className="absolute -left-[8%] top-[18%] h-[min(420px,55vh)] w-[min(340px,42vw)] -rotate-[19deg] rounded-[42%] bg-gradient-to-br from-primary-400/[0.045] via-primary-600/[0.02] to-transparent blur-[90px]"
+              aria-hidden
+            />
+            <div
+              className="absolute -right-[6%] bottom-[8%] h-[min(360px,45vh)] w-[min(400px,48vw)] rotate-[14deg] rounded-[38%] bg-gradient-to-tl from-secondary-400/[0.035] via-secondary-500/[0.018] to-transparent blur-[100px]"
+              aria-hidden
+            />
+            <div
+              className="absolute left-1/2 top-[48%] h-[min(200px,24vh)] w-[min(720px,96vw)] -translate-x-1/2 rounded-[100%] bg-primary-500/[0.025] blur-[110px]"
+              aria-hidden
+            />
           </div>
-          
-          <div className="relative max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
-            {/* Title */}
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/5 bg-[#161B22] text-sm text-white/80 mb-6">
-                <span className="inline-block h-2 w-2 rounded-full bg-white/60" />
+
+          <div className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8">
+            {/* Title — focal point with soft radial behind copy */}
+            <div className="mb-16 text-center md:mb-20">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-[#161B22]/90 px-4 py-2 text-sm text-white/85 backdrop-blur-sm md:mb-10">
+                <span className="inline-block h-2 w-2 rounded-full bg-primary-400/80" />
                 Platformă enterprise pentru anunțuri verificate
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6 leading-tight text-white">
-                Găsește rapid
-                {" "}
-                <span className="text-indigo-300">oportunitățile potrivite</span>
-                <br />
-                <span className="text-white/70">în toată România, cu încredere</span>
-              </h1>
-              <p className="text-lg text-white/70 max-w-2xl mx-auto">
-                Peste <span className="text-white font-semibold">50.000</span> anunțuri verificate, filtre inteligente și protecție anti-fraudă.
+              <div className="relative mx-auto max-w-4xl px-2">
+                <div
+                  className="pointer-events-none absolute left-1/2 top-[42%] h-[min(220px,28vh)] w-[min(560px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-400/[0.09] blur-[72px]"
+                  aria-hidden
+                />
+                <h1 className="relative z-[1] mb-8 text-4xl font-bold leading-[1.1] tracking-tight text-white md:mb-10 md:text-5xl lg:text-[3.2rem]">
+                  Găsește rapid{" "}
+                  <span className="bg-gradient-to-r from-primary-50 via-primary-300 to-primary-700 bg-clip-text text-transparent">
+                    oportunitățile potrivite
+                  </span>
+                  <br />
+                  <span className="mt-1 inline-block text-[0.92em] font-semibold text-white/[0.66] md:text-[0.9em]">
+                    în toată România, cu încredere
+                  </span>
+                </h1>
+              </div>
+              <p className="mx-auto mt-2 max-w-2xl border-t border-white/[0.06] pt-8 text-base leading-relaxed text-white/55 md:text-lg md:pt-10">
+                Anunțuri verificate, filtre inteligente și protecție anti-fraudă — în toată România.
               </p>
             </div>
-            
+
             {/* Search Box - NEW DESIGN SYSTEM */}
-            <div className="max-w-4xl mx-auto mb-8">
+            <div className="mx-auto mb-10 max-w-4xl md:mb-12">
               <SearchBar
                 onSearch={handleSearch}
                 placeholder="Caută mașini, apartamente, telefoane..."
@@ -107,16 +147,99 @@ export default function HomePage() {
               />
             </div>
 
+            {/* Trust strip — minimal inline */}
+            <div
+              className="mx-auto mb-10 flex max-w-4xl flex-wrap items-center justify-center gap-x-7 gap-y-2.5 px-2 text-[11px] font-medium tracking-wide text-white/38 md:gap-x-10 md:text-xs md:text-white/42"
+              aria-label="Semnale de încredere"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 shrink-0 text-primary-400/55 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Anunțuri verificate
+              </span>
+              <span className="hidden h-3 w-px bg-white/[0.08] sm:block" aria-hidden />
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 shrink-0 text-primary-400/55 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-1.757-1.985L13 11l-4-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Protecție anti-fraudă
+              </span>
+              <span className="hidden h-3 w-px bg-white/[0.08] sm:block" aria-hidden />
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 shrink-0 text-primary-400/55 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Răspuns rapid
+              </span>
+              <span className="hidden h-3 w-px bg-white/[0.08] sm:block" aria-hidden />
+              <span className="inline-flex items-center gap-1.5">
+                <svg className="h-3.5 w-3.5 shrink-0 text-primary-400/55 md:h-4 md:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Suport dedicat
+              </span>
+            </div>
+
+            {/* Auto Verification - Prime Focus */}
+            <div className="max-w-4xl mx-auto mb-8">
+              <div className="relative overflow-hidden rounded-2xl border border-cyan-400/35 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-indigo-950/95 p-5 md:p-6 shadow-[0_20px_70px_rgba(0,0,0,0.35)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.20),transparent_45%)] pointer-events-none" />
+                <div className="relative">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <h3 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+                      <span>🛡️</span>
+                      Verificări Auto Premium
+                    </h3>
+                    <Badge outlined pill className="px-3 py-1 text-cyan-200 border-cyan-300/40">
+                      Recomandat înainte de cumpărare
+                    </Badge>
+                  </div>
+                  <p className="text-white/75 mb-4">
+                    Verifică istoricul mașinii, kilometrajul și semnalele de risc direct din dashboard, în 1 click.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <a
+                      href="https://www.carvertical.com/ro"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-between px-4 py-3 rounded-xl bg-cyan-500/15 border border-cyan-300/35 text-cyan-100 font-semibold hover:bg-cyan-500/25 transition-all"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span>🔎</span>
+                        CarVertical
+                      </span>
+                      <span aria-hidden>↗</span>
+                    </a>
+                    <a
+                      href="https://apps.rarom.ro/autopass-client"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-between px-4 py-3 rounded-xl bg-indigo-500/15 border border-indigo-300/35 text-indigo-100 font-semibold hover:bg-indigo-500/25 transition-all"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span>🏛️</span>
+                        RAR AutoPass
+                      </span>
+                      <span aria-hidden>↗</span>
+                    </a>
+                    <Link
+                      href="/listings?category=Auto%2C%20moto%20%C8%99i%20ambarca%C8%9Biuni"
+                      className="inline-flex items-center justify-between px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white font-semibold hover:bg-white/15 transition-all"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span>📊</span>
+                        Compară oferte auto
+                      </span>
+                      <span aria-hidden>→</span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Trust Badges - Enterprise Safety Layer */}
             <TrustBadges />
-
-            {/* Trust Signals */}
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm text-white/70">
-              <Badge outlined pill className="px-4 py-2">✔️ Anunțuri verificate</Badge>
-              <Badge outlined pill className="px-4 py-2">🔒 Protecție anti-fraudă</Badge>
-              <Badge outlined pill className="px-4 py-2">⚡ Răspuns rapid</Badge>
-              <Badge outlined pill className="px-4 py-2">⭐ Suport dedicat</Badge>
-            </div>
 
             {/* Quick Actions - NEW DESIGN SYSTEM */}
             <div className="flex flex-wrap justify-center gap-4 mt-8">
@@ -146,15 +269,24 @@ export default function HomePage() {
                 categoriile
               </span>
             </h2>
-            <p className="text-gray-400 text-xl">Descoperă mii de anunțuri în 12 categorii diverse</p>
+            <p className="text-gray-400 text-xl">
+              Răsfoiește anunțuri pe categorii — numerele afișate sunt din baza de date (anunțuri active).
+            </p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {ALL_CATEGORIES.map((categoryName) => {
-              const data = categoryData[categoryName] || { icon: "📦", color: "from-gray-500 to-gray-700", count: "0" };
-              const image = categoryImages[categoryName] || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1200&h=900&fit=crop";
+              const data = categoryData[categoryName] || { icon: "📦", color: "from-gray-500 to-gray-700" };
               const isPopular = popularCategories.has(categoryName);
-              
+              const count =
+                categoryCounts === null ? null : (categoryCounts[categoryName] ?? 0);
+              const countLabel =
+                categoryCountsError && categoryCounts !== null
+                  ? "Indisponibil"
+                  : count === null
+                    ? "…"
+                    : count.toLocaleString("ro-RO");
+
               return (
                 <Link
                   key={categoryName}
@@ -163,19 +295,14 @@ export default function HomePage() {
                   <Card 
                     variant="elevated" 
                     interactive
-                    className="group relative h-64 sm:h-72 overflow-hidden transition-all duration-500"
+                    className="group relative h-64 sm:h-72 overflow-hidden transition-all duration-normal ease-premium"
                   >
-                    {/* Background Image */}
-                    <img
-                      src={image}
-                      alt={categoryName}
-                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
+                    {/* Category background — gradient only (no external stock imagery) */}
+                    <div
+                      aria-hidden
+                      className={`absolute inset-0 bg-gradient-to-br ${data.color} opacity-95 transition-transform duration-normal ease-premium group-hover:scale-105`}
                     />
-
-                    {/* Overlays */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/20" />
-                    <div className="absolute inset-0 bg-black/10" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/40 to-black/15" />
                     
                     {/* Content */}
                     <div className="relative h-full p-6 flex flex-col justify-between">
@@ -193,16 +320,16 @@ export default function HomePage() {
                       <div>
                         <Badge variant="primary" size="sm" className="mb-4">
                           <span className="inline-block h-2 w-2 rounded-full bg-white mr-2" />
-                          {data.count} anunțuri
+                          {countLabel} anunțuri
                         </Badge>
 
-                        <h3 className="text-xl font-black text-white group-hover:text-[#8AB4FF] transition-colors mb-3">
+                        <h3 className="mb-3 text-xl font-black text-white transition-colors duration-normal ease-premium group-hover:text-[#8AB4FF]">
                           {categoryName}
                         </h3>
 
                         <div className="flex items-center gap-3 text-sm text-gray-200">
                           <span className="opacity-80">Vezi anunțuri</span>
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/5 border border-white/10 group-hover:bg-white/10 transition">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors duration-normal ease-premium group-hover:bg-white/10">
                             <svg className="w-4 h-4 text-[#8AB4FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>

@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { Toast, ToastContainer, ToastProps } from './Toast';
+import { cn } from '@/lib/design/utils';
 
 interface ToastOptions {
   title: string;
@@ -35,7 +36,11 @@ interface ToastContextValue {
 
 const ToastContext = React.createContext<ToastContextValue | null>(null);
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ToastProvider: React.FC<{
+  children: React.ReactNode;
+  /** Ex. `top-20` ca toast-urile să nu fie acoperite de navbar fix */
+  toastContainerClassName?: string;
+}> = ({ children, toastContainerClassName }) => {
   const [toasts, setToasts] = React.useState<Omit<ToastProps, 'onClose'>[]>([]);
 
   const showToast = React.useCallback((options: ToastOptions) => {
@@ -50,7 +55,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ toasts, showToast, removeToast }}>
       {children}
-      <ToastContainer>
+      <ToastContainer className={cn(toastContainerClassName)}>
         {toasts.map((toast) => (
           <Toast key={toast.id} {...toast} onClose={removeToast} />
         ))}

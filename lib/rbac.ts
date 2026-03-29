@@ -76,6 +76,10 @@ export enum Permission {
 
   // Analytics
   ANALYTICS_VIEW = 'analytics.view',
+
+  // System & billing
+  SYSTEM_HEALTH_VIEW = 'system.health',
+  INVOICES_VIEW_ALL = 'invoices.view.all',
 }
 
 // Maparea permisiunilor pe roluri
@@ -122,6 +126,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.REPORTS_RESOLVE, // Poate rezolva raportări simple
     Permission.APPEALS_VIEW_ALL,
     Permission.APPEALS_REVIEW, // Poate răspunde la contestații
+    Permission.SYSTEM_HEALTH_VIEW,
   ],
 
   // MODERATOR - moderator conținut
@@ -138,6 +143,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.REPORTS_VIEW,
     Permission.REPORTS_RESOLVE,
     Permission.APPEALS_VIEW_ALL,
+    Permission.SYSTEM_HEALTH_VIEW,
   ],
 
   // FINANCE - gestionare financiară
@@ -147,6 +153,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ANALYTICS_VIEW,
     Permission.LISTINGS_VIEW_ALL,
     Permission.USERS_VIEW_ALL,
+    Permission.INVOICES_VIEW_ALL,
+    Permission.SYSTEM_HEALTH_VIEW,
+    Permission.AUDIT_LOGS_VIEW,
   ],
 
   // ADMIN - administrator
@@ -194,6 +203,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PAYMENTS_VIEW_ALL,
     Permission.PAYMENTS_REFUND,
     Permission.ANALYTICS_VIEW,
+    Permission.INVOICES_VIEW_ALL,
+    Permission.SYSTEM_HEALTH_VIEW,
   ],
 
   // OWNER - control complet

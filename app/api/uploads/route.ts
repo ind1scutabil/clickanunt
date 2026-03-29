@@ -21,6 +21,12 @@ function getPublicBaseUrl(request: NextRequest): string {
   return 'https://www.clickanunt.ro';
 }
 
+/**
+ * Dev: localhost → URL publică corectă. HTTPS: upgrade.
+ * Domeniul nostru: aliniere www vs apex.
+ * NU înlocui hostul S3/R2/CDN cu hostname-ul site-ului — altfel toate URL-urile ar indica același origin
+ * și pozele multiple pot părea identice sau se încarcă greșit.
+ */
 function normalizePublicUrl(url: string, request: NextRequest): string {
   const baseUrl = getPublicBaseUrl(request);
   const base = new URL(baseUrl);
@@ -33,16 +39,23 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
       '46.225.69.155:3000',
     ]);
     if (localhostHosts.has(parsed.host)) {
-      return `${baseUrl}${parsed.pathname}`;
+      return `${baseUrl}${parsed.pathname}${parsed.search}`;
     }
 
-    const needsHostFix = parsed.host !== base.host;
-    const needsHttps = parsed.protocol !== 'https:';
-    if (needsHostFix || needsHttps) {
+    if (parsed.protocol !== 'https:') {
       parsed.protocol = 'https:';
-      parsed.host = base.host;
+    }
+
+    const h = parsed.hostname.toLowerCase();
+    const baseHost = base.hostname.toLowerCase();
+    const isOurSite = h === 'clickanunt.ro' || h === 'www.clickanunt.ro';
+
+    if (isOurSite && h !== baseHost) {
+      parsed.hostname = base.hostname;
       return parsed.toString();
     }
+
+    return parsed.toString();
   } catch {
     // Ignore URL parsing errors
   }

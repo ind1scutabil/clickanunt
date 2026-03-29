@@ -1,13 +1,10 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateUser } from "@/lib/auth";
-import { getClientIp } from "@/lib/rateLimit";
-import { sanitizeEmail } from "@/lib/sanitize";
-import { auditActions } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getFlag } from "@/lib/feature-flags";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { loginSchema } from "@/lib/security/validation-schemas";
+import { runSharedPasswordLogin } from "@/lib/auth/login-shared";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,53 +46,17 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = security.data as { email: string; password: string };
 
-    // Sanitizare email
-    const sanitizedEmail = sanitizeEmail(email);
-    if (!sanitizedEmail) {
-      return NextResponse.json(
-        { error: "Email invalid" },
-        { status: 400 }
-      );
+    const shared = await runSharedPasswordLogin(request, email, password);
+
+    if (shared.kind === "failure") {
+      return NextResponse.json(shared.body, { status: shared.status });
     }
 
-    const ip = getClientIp(request);
-
-    // Autentificare cu protecție bruteforce
-    const result = await authenticateUser(sanitizedEmail, password, ip);
-
-    if (!result.success) {
-      return NextResponse.json(
-        {
-          error: result.error,
-          locked: result.locked,
-          lockedUntil: result.lockedUntil,
-        },
-        { status: result.locked ? 423 : 401 }
-      );
+    if (shared.kind === "two_factor") {
+      return NextResponse.json(shared.body, { status: shared.status });
     }
 
-    // Audit log
-    if (result.user && typeof result.user.id === 'string' && typeof result.user.email === 'string') {
-      await auditActions.userLogin(result.user.id, result.user.email, ip);
-    }
-
-    // Check if user is admin and require 2FA
-    const isAdmin = result.user?.role === 'admin' || result.user?.email === 'admin@clickanunt.ro';
-    if (isAdmin && process.env.ADMIN_2FA_ENABLED === 'true') {
-      // Create temporary session token
-      const sessionToken = require('crypto').randomBytes(32).toString('hex');
-      // Store in temporary cache with 5 minute expiry
-      // In production, use Redis
-      
-      return NextResponse.json(
-        {
-          requiresTwoFactor: true,
-          sessionToken: sessionToken,
-          message: "2FA verification required for admin access",
-        },
-        { status: 206 } // 206 Partial Content - needs additional auth
-      );
-    }
+    const result = shared;
 
     // Setează cookie-uri HTTP-only pentru securitate
     const response = NextResponse.json(
@@ -109,10 +70,13 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
+    const cookieDomain = process.env.NODE_ENV === 'production' ? '.clickanunt.ro' : undefined;
+
     // Set access token cookie (7 zile) - Safari compatible
     response.cookies.set('accessToken', result.accessToken!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      domain: cookieDomain,
       sameSite: 'lax',  // Changed from 'strict' to allow fetch() requests
       maxAge: 60 * 60 * 24 * 7, // 7 zile
       path: '/',
@@ -123,6 +87,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('refreshToken', result.refreshToken!, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      domain: cookieDomain,
       sameSite: 'lax',  // Changed from 'strict' to allow fetch() requests
       maxAge: 60 * 60 * 24 * 30, // 30 zile
       path: '/',

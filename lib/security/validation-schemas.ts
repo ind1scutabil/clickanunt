@@ -32,13 +32,26 @@ export const nameSchema = z
   .max(100, 'Nume maxim 100 caractere')
   .trim();
 
-export const phoneSchema = z
-  .string()
-  .regex(/^[0-9\-\+\s()]{7,20}$/, 'Număr telefon invalid')
-  .optional()
-  .or(z.literal(''));
+/** Telefon (RO / internațional): cifre, +, spații, paranteze, puncte — min. 7 caractere semnificative */
+const PHONE_RE = /^[0-9+\-\s().]{7,32}$/;
+
+export const phoneSchema = z.string().regex(PHONE_RE, 'Număr telefon invalid');
+
+/** Câmp opțional sau gol în formulare */
+export const phoneOptionalSchema = z.union([phoneSchema, z.literal('')]).optional();
 
 export const uuidSchema = z.string().uuid('ID invalid');
+
+/** Real listing UUID or draft folder id `temp-<uuid>` used before publish. */
+export const listingUploadIdSchema = z.union([
+  uuidSchema,
+  z
+    .string()
+    .regex(
+      /^temp-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      'ID anunț invalid pentru încărcare'
+    ),
+]);
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -78,7 +91,7 @@ export const registerExtendedSchema = z.object({
   businessName: z.string().max(200).optional(),
   businessCUI: z.string().regex(/^\d{10}$/, 'CUI format invalid').optional(),
   businessRegCom: z.string().max(100).optional(),
-  businessPhone: phoneSchema.optional(),
+  businessPhone: phoneOptionalSchema,
   businessEmail: emailSchema.optional(),
   businessLocation: z.string().max(200).optional(),
   businessDescription: z.string().max(1000).optional(),
@@ -114,7 +127,10 @@ export const refreshTokenSchema = z.object({
 export const listingCreateSchema = z.object({
   ownerUserId: uuidSchema.optional(),
   title: z.string().min(5, 'Titlu minim 5 caractere').max(200, 'Titlu maxim 200 caractere'),
-  description: z.string().min(10, 'Descriere minim 10 caractere').max(10000, 'Descriere maxim 10000 caractere').optional().nullable(),
+  description: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(10, 'Descriere minim 10 caractere').max(10000, 'Descriere maxim 10000 caractere').optional().nullable()
+  ),
   category: z.string().min(1, 'Categorie necesară'),
   subcategory: z.string().optional().nullable(),
   priceAmount: z.coerce.number().min(0, 'Preț minim 0').max(99999999, 'Preț prea mare'),
@@ -126,7 +142,10 @@ export const listingCreateSchema = z.object({
   county: z.string().max(100).optional().nullable(),
   photos: z.array(z.string().url()).min(1, 'Minim o imagine').max(20, 'Maxim 20 imagini'),
   video: z.string().url().optional().nullable(),
-  contactPhone: phoneSchema.optional(),
+  contactPhone: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : typeof v === 'string' ? v.trim() : v),
+    phoneOptionalSchema
+  ),
   allowMessages: z.boolean().optional(),
   make: z.string().max(100).optional().nullable(),
   model: z.string().max(100).optional().nullable(),
@@ -155,8 +174,51 @@ export const listingCreateSchema = z.object({
   attributes: z.record(z.string(), z.unknown()).optional(),
 }).strict();
 
+const listingEditYearSchema = z.preprocess(
+  (v) => {
+    if (v === '' || v === '0' || v === 0 || v === null || v === undefined) return null;
+    if (typeof v === 'string' && v.trim() === '') return null;
+    return v;
+  },
+  z.coerce.number().int().min(1900).max(new Date().getFullYear() + 1).optional().nullable()
+);
+
+const listingEditFuelSchema = z.preprocess(
+  (v) => {
+    if (v === '' || v === null || v === undefined) return null;
+    if (typeof v !== 'string') return v;
+    const normalized = v.trim().toLowerCase();
+    const map: Record<string, string> = {
+      benzina: 'petrol',
+      benzină: 'petrol',
+      motorina: 'diesel',
+      motorină: 'diesel',
+      hibrid: 'hybrid',
+      gpl: 'lpg',
+    };
+    return map[normalized] || normalized;
+  },
+  z.enum(['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas']).optional().nullable()
+);
+
+const listingEditTransmissionSchema = z.preprocess(
+  (v) => {
+    if (v === '' || v === null || v === undefined) return null;
+    if (typeof v !== 'string') return v;
+    const normalized = v.trim().toLowerCase();
+    if (normalized === 'manuală' || normalized === 'manuala') return 'manual';
+    if (normalized === 'automată' || normalized === 'automata') return 'automatic';
+    return normalized;
+  },
+  z.enum(['manual', 'automatic']).optional().nullable()
+);
+
 export const listingEditSchema = listingCreateSchema.partial().extend({
   id: uuidSchema.optional(),
+  status: z.enum(['draft', 'pending', 'active', 'paused', 'expired', 'sold', 'deleted', 'rejected', 'hidden']).optional(),
+  year: listingEditYearSchema,
+  fuel: listingEditFuelSchema,
+  transmission: listingEditTransmissionSchema,
 }).strict();
 
 export const listingDeleteSchema = z.object({
@@ -255,7 +317,7 @@ export const userProfileSchema = z.object({
   name: nameSchema.optional(),
   bio: z.string().max(500).optional(),
   avatar: z.string().url().optional(),
-  phone: phoneSchema.optional(),
+  phone: phoneOptionalSchema,
   city: z.string().max(100).optional(),
   county: z.string().max(100).optional(),
   website: z.string().url().optional(),
@@ -298,7 +360,7 @@ export const imageUploadSchema = z.object({
 export const uploadBase64Schema = z.object({
   filename: z.string().optional(), // Optional - server generates safe filename anyway
   data: z.string().min(1, 'Base64 data required'),
-  listingId: z.string().optional(), // Changed from .uuid() to accept any string for debugging
+  listingId: listingUploadIdSchema.optional(),
   type: z.enum(['image', 'video']).optional(),
 }).strict();
 

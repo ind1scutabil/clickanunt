@@ -3,8 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
-import { clearCsrfTokenCache, getCsrfToken } from "@/lib/security/csrf-client";
+import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import { displayNameForMessagingUser } from "@/lib/messaging-display";
 
 interface Message {
   id: string;
@@ -12,6 +12,8 @@ interface Message {
     id: string;
     name: string;
     avatar?: string;
+    email?: string | null;
+    role?: string | null;
   };
   recipient: {
     id: string;
@@ -33,6 +35,8 @@ interface Conversation {
     id: string;
     name: string;
     avatar?: string;
+    email?: string | null;
+    role?: string | null;
   };
   listing?: {
     id: string;
@@ -48,7 +52,8 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  /** Doar lista din stânga — nu blocăm întreaga pagină la navigare */
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -59,15 +64,71 @@ export default function MessagesPage() {
   const lastAppliedMessagesSeqRef = useRef(0);
   const isSendingRef = useRef(false);
 
-  // Real-time polling interval refs
+  /** Fallback când SSE nu e disponibil; cu SSE activ, intervalele sunt oprite */
+  const CONV_POLL_MS = 8_000;
+  const MSG_POLL_MS = 5_000;
+
   const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
   const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);
+  /** SSE activ → nu mai pornim polling în handleSelectConversation */
+  const sseLiveRef = useRef(false);
+  const fetchMessagesRefForSse = useRef<
+    (userId: string, listingId?: string, conversationId?: string) => Promise<void>
+  >(async () => {});
+
+  const sseHandlerRef = useRef<{
+    fetchConversations: (opts?: { startPolling?: boolean }) => Promise<void>;
+  }>({
+    fetchConversations: async () => {},
+  });
+  const startPollingFallbackRef = useRef<() => void>(() => {});
+
+  const clearFallbackPolling = () => {
+    if (conversationsPollingRef.current) {
+      clearInterval(conversationsPollingRef.current);
+      conversationsPollingRef.current = null;
+    }
+    if (messagesPollingRef.current) {
+      clearInterval(messagesPollingRef.current);
+      messagesPollingRef.current = null;
+    }
+  };
+
+  const startPollingFallback = () => {
+    if (conversationsPollingRef.current) return;
+    conversationsPollingRef.current = setInterval(async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const response = await fetchWithAuthRefresh("/api/messages/conversations");
+        if (response.ok) {
+          const data = await response.json();
+          const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+          setConversations(conversationsList);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, CONV_POLL_MS);
+
+    const sel = selectedConversationRef.current;
+    if (sel && !messagesPollingRef.current) {
+      messagesPollingRef.current = setInterval(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        const cur = selectedConversationRef.current;
+        if (!cur) return;
+        if (isSendingRef.current) return;
+        void fetchMessages(cur.otherParticipant.id, cur.listing?.id, cur.id, "poll");
+      }, MSG_POLL_MS);
+    }
+  };
+
+  startPollingFallbackRef.current = startPollingFallback;
 
   useEffect(() => {
     // Check authentication
     const token = localStorage.getItem('accessToken');
     if (!token) {
-      router.push('/auth/login?redirect=/dashboard/messages');
+      router.replace('/auth/login?redirect=/messages');
       return;
     }
 
@@ -81,12 +142,10 @@ export default function MessagesPage() {
       }
     }
 
-    fetchConversations();
+    void fetchConversations({ startPolling: true });
 
-    // Cleanup on unmount
     return () => {
-      if (conversationsPollingRef.current) clearInterval(conversationsPollingRef.current);
-      if (messagesPollingRef.current) clearInterval(messagesPollingRef.current);
+      clearFallbackPolling();
     };
   }, [router]);
 
@@ -123,64 +182,50 @@ export default function MessagesPage() {
     }
   }, [messages]);
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (opts?: { startPolling?: boolean }) => {
+    const startPolling = opts?.startPolling === true;
     try {
-      const token = localStorage.getItem('accessToken');
-      const headers: HeadersInit = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/messages/conversations', {
-        headers,
-        credentials: 'include',
-      });
+      const response = await fetchWithAuthRefresh("/api/messages/conversations");
 
       if (!response.ok) {
-        throw new Error('Failed to fetch conversations');
+        throw new Error("Failed to fetch conversations");
       }
 
       const data = await response.json();
       const conversationsList = Array.isArray(data) ? data : data.conversations || [];
       setConversations(conversationsList);
 
-      if (!selectedConversation && conversationsList.length > 0) {
+      const sel = selectedConversationRef.current;
+      if (!sel && conversationsList.length > 0) {
         await handleSelectConversation(conversationsList[0]);
-      } else if (selectedConversation && conversationsList.length > 0) {
-        // **CRITICAL FIX**: After message send, re-fetch messages for currently selected conversation
-        // This ensures the new message appears in the thread
-        await fetchMessages(selectedConversation.otherParticipant.id, selectedConversation.listing?.id, selectedConversation.id, 'manual');
+      } else if (sel && conversationsList.length > 0) {
+        await fetchMessages(
+          sel.otherParticipant.id,
+          sel.listing?.id,
+          sel.id,
+          "manual"
+        );
       }
-      setIsLoading(false);
+      setIsLoadingConversations(false);
     } catch (err) {
-      console.error('[Messages] Fetch error:', err);
-      setIsLoading(false);
+      console.error("[Messages] Fetch error:", err);
+      setIsLoadingConversations(false);
     }
 
-    // Start real-time polling for conversations (every 1500ms)
-    if (!conversationsPollingRef.current) {
+    if (startPolling && !conversationsPollingRef.current) {
       conversationsPollingRef.current = setInterval(async () => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
         try {
-          const token = localStorage.getItem('accessToken');
-          const headers: HeadersInit = {};
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
-          
-          const response = await fetch('/api/messages/conversations', {
-            headers,
-            credentials: 'include',
-          });
-
+          const response = await fetchWithAuthRefresh("/api/messages/conversations");
           if (response.ok) {
             const data = await response.json();
             const conversationsList = Array.isArray(data) ? data : data.conversations || [];
             setConversations(conversationsList);
           }
-        } catch (err) {
-          // Silent fail for polling
+        } catch {
+          /* polling */
         }
-      }, 1500);
+      }, CONV_POLL_MS);
     }
   };
 
@@ -194,23 +239,20 @@ export default function MessagesPage() {
       clearInterval(messagesPollingRef.current);
     }
     
-    // Start real-time polling for messages (every 800ms)
-    messagesPollingRef.current = setInterval(() => {
-      const currentConversation = selectedConversationRef.current;
-      if (!currentConversation) {
-        console.warn('[Messaging] No conversation in ref during poll');
-        return;
-      }
-      if (isSendingRef.current) {
-        return;
-      }
-      fetchMessages(
-        currentConversation.otherParticipant.id,
-        currentConversation.listing?.id,
-        currentConversation.id,
-        'poll'
-      );
-    }, 800);
+    if (!sseLiveRef.current) {
+      messagesPollingRef.current = setInterval(() => {
+        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+        const currentConversation = selectedConversationRef.current;
+        if (!currentConversation) return;
+        if (isSendingRef.current) return;
+        fetchMessages(
+          currentConversation.otherParticipant.id,
+          currentConversation.listing?.id,
+          currentConversation.id,
+          "poll"
+        );
+      }, MSG_POLL_MS);
+    }
   };
 
   const fetchMessages = async (
@@ -226,20 +268,12 @@ export default function MessagesPage() {
     const requestSeq = ++messagesRequestSeqRef.current;
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const headers: HeadersInit = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
       const params = new URLSearchParams();
       if (listingId) params.set('listingId', listingId);
       if (conversationId) params.set('conversationId', conversationId);
       const query = params.toString() ? `?${params.toString()}` : '';
 
-      const response = await fetch(`/api/messages/${userId}${query}`, {
-        headers,
-        credentials: 'include',
-      });
+      const response = await fetchWithAuthRefresh(`/api/messages/${userId}${query}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch messages');
@@ -310,6 +344,61 @@ export default function MessagesPage() {
     }
   };
 
+  sseHandlerRef.current = { fetchConversations };
+
+  fetchMessagesRefForSse.current = (userId, listingId, conversationId) =>
+    fetchMessages(userId, listingId, conversationId, "manual");
+
+  useEffect(() => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return;
+
+    const url = `/api/messages/events?token=${encodeURIComponent(token)}`;
+    let es: EventSource;
+    try {
+      es = new EventSource(url);
+    } catch {
+      startPollingFallbackRef.current();
+      return;
+    }
+
+    es.onopen = () => {
+      sseLiveRef.current = true;
+      clearFallbackPolling();
+    };
+
+    es.onmessage = (ev) => {
+      let d: { type?: string };
+      try {
+        d = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      if (d.type !== "message") return;
+      void sseHandlerRef.current.fetchConversations({ startPolling: false });
+      const sel = selectedConversationRef.current;
+      if (sel) {
+        void fetchMessagesRefForSse.current(
+          sel.otherParticipant.id,
+          sel.listing?.id,
+          sel.id
+        );
+      }
+    };
+
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        sseLiveRef.current = false;
+        startPollingFallbackRef.current();
+      }
+    };
+
+    return () => {
+      es.close();
+      sseLiveRef.current = false;
+    };
+  }, [router]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -352,48 +441,14 @@ export default function MessagesPage() {
 
     setIsSending(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      console.log('[SEND] TOKEN fetched from storage:', !!token);
-
-      const sendMessageRequest = async (csrfToken: string) => {
-        const body = {
+      const response = await postJsonWithAuthRefresh(
+        `/api/messages/${conversationSnapshot.otherParticipant.id}`,
+        {
           content: trimmedContent,
           listingId: conversationSnapshot.listing?.id,
           conversationId: conversationSnapshot.id,
-        };
-        console.log('[SEND] Preparing fetch to /api/messages/' + conversationSnapshot.otherParticipant.id);
-        console.log('[SEND] Body:', body);
-
-        const headers: HeadersInit = {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        };
-        if (token) {
-          headers.Authorization = `Bearer ${token}`;
         }
-
-        console.log('[SEND] Headers prepared, initiating fetch...');
-        return fetch(`/api/messages/${conversationSnapshot.otherParticipant.id}`, {
-          method: 'POST',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify(body),
-        });
-      };
-
-      let csrfToken = await getCsrfToken();
-      console.log('[SEND] CSRF token obtained');
-      
-      let response = await sendMessageRequest(csrfToken);
-      
-
-      if (response.status === 403) {
-        console.log('[SEND] CSRF 403, retrying with fresh token...');
-        clearCsrfTokenCache();
-        csrfToken = await getCsrfToken();
-        response = await sendMessageRequest(csrfToken);
-        console.log('[SEND] Retry response status:', response.status);
-      }
+      );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -434,8 +489,7 @@ export default function MessagesPage() {
         });
       }
 
-      // Re-sync conversations and messages after send
-      await fetchConversations();
+      await fetchConversations({ startPolling: false });
     } catch (err) {
       console.error('[Messaging] Error sending message:', err);
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessageId));
@@ -446,83 +500,99 @@ export default function MessagesPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#FF7900] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Se încarcă mesajele...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="enterprise-page-bg enterprise-mesh flex min-h-screen flex-col text-white">
       <Navbar />
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl font-black mb-2">
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6">
+        <header className="mb-8">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+            Inbox
+          </p>
+          <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">
             <span className="text-white">Mesajele </span>
-            <span className="neon-text bg-clip-text text-transparent bg-gradient-to-r from-[#FF7900] to-[#FFB84D]">
+            <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
               mele
             </span>
           </h1>
-          <p className="text-gray-400">Comunică cu cumpărătorii și vânzătorii</p>
-        </div>
+          <p className="text-[var(--text-secondary)]">Comunică cu cumpărători și vânzători</p>
+        </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px]">
+        <div className="grid h-[min(70vh,640px)] grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
           {/* Conversations List */}
-          <div className="glass-dark rounded-2xl border-2 border-[#2A2A2A] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-[#2A2A2A]">
-              <h2 className="text-xl font-bold">Conversații</h2>
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)] backdrop-blur-sm">
+            <div className="border-b border-white/[0.06] px-5 py-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                Conversații
+              </h2>
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {conversations.length === 0 ? (
-                <div className="p-6 text-center text-gray-400">
-                  <p>Nu ai conversații</p>
+              {isLoadingConversations ? (
+                <div className="space-y-3 p-4" aria-busy="true" aria-label="Se încarcă conversațiile">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="animate-pulse rounded-xl border border-white/[0.04] bg-white/[0.06] p-4"
+                    >
+                      <div className="mb-3 flex items-center gap-3">
+                        <div className="h-10 w-10 shrink-0 rounded-full bg-white/[0.08]" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="h-3.5 w-2/3 rounded bg-white/[0.1]" />
+                          <div className="h-2.5 w-1/3 rounded bg-white/[0.06]" />
+                        </div>
+                      </div>
+                      <div className="h-2.5 w-full rounded bg-white/[0.05]" />
+                    </div>
+                  ))}
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">
+                  <p>Nu există conversații încă.</p>
                 </div>
               ) : (
                 conversations.map((conv) => (
                   <button
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv)}
-                    className={`w-full p-4 border-b border-[#2A2A2A] text-left transition ${
+                    className={`w-full border-b border-white/[0.05] px-4 py-4 text-left transition ${
                       selectedConversation?.id === conv.id
-                        ? 'bg-[#FF7900]/20 border-[#FF7900]'
-                        : 'hover:bg-white/5'
+                        ? "bg-[var(--accent-primary)]/12 ring-1 ring-inset ring-[var(--accent-primary)]/35"
+                        : "hover:bg-white/[0.04]"
                     }`}
                   >
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="mb-2 flex items-center gap-3">
                       {conv.otherParticipant.avatar ? (
                         <img
                           src={conv.otherParticipant.avatar}
                           alt={conv.otherParticipant.name}
-                          className="w-10 h-10 rounded-full object-cover"
+                          className="h-10 w-10 rounded-full object-cover ring-1 ring-white/10"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#FF7900] to-[#FFB84D] flex items-center justify-center text-sm font-bold">
-                          {conv.otherParticipant.name.charAt(0).toUpperCase()}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-sm font-semibold text-white">
+                          {displayNameForMessagingUser(conv.otherParticipant).charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white truncate">{conv.otherParticipant.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-semibold text-white">
+                          {displayNameForMessagingUser(conv.otherParticipant)}
+                        </p>
                         {conv.unreadCount > 0 && (
-                          <span className="inline-block bg-[#FF7900] text-white text-xs px-2 py-1 rounded-full font-bold">
+                          <span className="mt-1 inline-flex rounded-full bg-[var(--accent-primary)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                             {conv.unreadCount} nou
                           </span>
                         )}
                       </div>
                     </div>
                     {conv.listing && (
-                      <p className="text-xs text-gray-400 mb-1 truncate">
-                        Re: {conv.listing.title} • #{conv.listing.id.slice(-6)}
+                      <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
+                        <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
+                        <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
                       </p>
                     )}
-                    <p className="text-xs text-gray-500">{new Date(conv.lastMessageAt).toLocaleString()}</p>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      {new Date(conv.lastMessageAt).toLocaleString("ro-RO")}
+                    </p>
                   </button>
                 ))
               )}
@@ -530,64 +600,71 @@ export default function MessagesPage() {
           </div>
 
           {/* Messages Area */}
-          <div className="md:col-span-2 glass-dark rounded-2xl border-2 border-[#2A2A2A] overflow-hidden flex flex-col">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)] backdrop-blur-sm md:col-span-2">
             {selectedConversation ? (
               <>
-                {/* Header */}
-                <div className="p-6 border-b border-[#2A2A2A] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
+                  <div className="flex min-w-0 items-center gap-3">
                     {selectedConversation.otherParticipant.avatar ? (
                       <img
                         src={selectedConversation.otherParticipant.avatar}
                         alt={selectedConversation.otherParticipant.name}
-                        className="w-12 h-12 rounded-full object-cover"
+                        className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-white/10"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#FF7900] to-[#FFB84D] flex items-center justify-center text-sm font-bold">
-                        {selectedConversation.otherParticipant.name.charAt(0).toUpperCase()}
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-sm font-semibold text-white">
+                        {displayNameForMessagingUser(selectedConversation.otherParticipant).charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <div>
-                      <p className="font-bold text-white">{selectedConversation.otherParticipant.name}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-white">
+                        {displayNameForMessagingUser(selectedConversation.otherParticipant)}
+                      </p>
                       {selectedConversation.listing && (
-                        <p className="text-xs text-gray-400">{selectedConversation.listing.title} • #{selectedConversation.listing.id.slice(-6)}</p>
+                        <p className="truncate text-xs text-[var(--text-tertiary)]">
+                          {selectedConversation.listing.title}{" "}
+                          <span className="text-[var(--text-muted)]">· #{selectedConversation.listing.id.slice(-6)}</span>
+                        </p>
                       )}
                     </div>
                   </div>
                   <Link
                     href={`/users/${selectedConversation.otherParticipant.id}/profile`}
-                    className="px-4 py-2 border-2 border-[#FF7900] text-[#FF7900] rounded-lg font-bold text-sm hover:bg-[#FF7900]/10 transition"
+                    className="shrink-0 rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                   >
                     Profil
                   </Link>
                 </div>
 
-                {/* Messages */}
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div ref={messagesContainerRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
                   {messages.length === 0 ? (
-                    <div className="text-center text-gray-400 py-8">
-                      <p>Niciun mesaj. Începe conversația!</p>
+                    <div className="py-12 text-center text-sm text-[var(--text-tertiary)]">
+                      <p>Niciun mesaj încă. Începe conversația.</p>
                     </div>
                   ) : (
                     messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex ${
-                          msg.sender.id === currentUserId
-                            ? 'justify-end'
-                            : 'justify-start'
-                        }`}
+                        className={`flex flex-col ${msg.sender.id === currentUserId ? "items-end" : "items-start"}`}
                       >
+                        {msg.sender.id !== currentUserId && (
+                          <span className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                            {displayNameForMessagingUser(msg.sender)}
+                          </span>
+                        )}
                         <div
-                          className={`max-w-xs px-4 py-2 rounded-xl ${
+                          className={`max-w-[min(100%,20rem)] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                             msg.sender.id === currentUserId
-                              ? 'bg-[#FF7900] text-white'
-                              : 'bg-[#2A2A2A] text-gray-200'
+                              ? "bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-white shadow-[var(--shadow-sm)]"
+                              : "border border-white/[0.08] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                           }`}
                         >
-                          <p>{msg.content}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {new Date(msg.createdAt).toLocaleTimeString('ro-RO')}
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          <p className="mt-2 text-[10px] font-medium opacity-70">
+                            {new Date(msg.createdAt).toLocaleTimeString("ro-RO", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </p>
                         </div>
                       </div>
@@ -595,10 +672,9 @@ export default function MessagesPage() {
                   )}
                 </div>
 
-                {/* Input */}
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-6 border-t border-[#2A2A2A] flex gap-3"
+                  className="flex gap-3 border-t border-white/[0.06] bg-[var(--bg-primary)]/40 px-5 py-4"
                   id="message-form"
                 >
                   <input
@@ -607,35 +683,39 @@ export default function MessagesPage() {
                     onChange={(e) => {
                       setNewMessage(e.target.value);
                     }}
-                    placeholder="Scrie mesajul..."
-                    className="flex-1 bg-[#2A2A2A] border-2 border-[#2A2A2A] rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#FF7900]"
+                    placeholder="Scrie un mesaj…"
+                    className="enterprise-input flex-1 rounded-xl px-4 py-3 text-sm text-white placeholder:text-[var(--text-muted)]"
                     id="message-input"
                   />
                   <button
                     type="submit"
                     disabled={isSending || !newMessage.trim()}
-                    className="px-6 py-2 bg-gradient-to-r from-[#FF7900] to-[#E66D00] text-white rounded-lg font-bold hover:shadow-lg hover:shadow-[#FF7900]/50 transition disabled:opacity-50"
+                    className="shrink-0 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
                     id="send-button"
                   >
-                    {isSending ? 'Se trimite...' : 'Trimite'}
+                    {isSending ? "Se trimite…" : "Trimite"}
                   </button>
                 </form>
               </>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                <p>Selectează o conversație</p>
+              <div className="flex h-full min-h-[240px] items-center justify-center px-6 text-sm text-[var(--text-tertiary)]">
+                <p>
+                  {isLoadingConversations
+                    ? "Se încarcă conversațiile…"
+                    : "Selectează o conversație din listă"}
+                </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Back Link */}
-        <Link href="/dashboard" className="text-[#FF7900] hover:text-[#FFB84D] font-bold mt-8">
+        <Link
+          href="/dashboard"
+          className="mt-8 inline-flex text-sm font-semibold text-[var(--accent-secondary)] transition hover:text-white"
+        >
           ← Înapoi la dashboard
         </Link>
       </div>
-
-      <Footer />
     </div>
   );
 }

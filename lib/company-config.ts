@@ -18,6 +18,7 @@ export const COMPANY_CONFIG = {
   // Informații bancară
   bank: 'ING',
   iban: 'RO50 INGB 0000 9999 1573 6030',
+  swift: 'INGBROBU',
   currency: 'RON',
   
   // TVA

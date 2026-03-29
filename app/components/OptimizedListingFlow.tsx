@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
 
 // Types
 interface DraftListing {
@@ -246,8 +248,8 @@ export default function OptimizedListingFlow() {
     }
     
     if (step === 2) {
-      if (!draft.description.trim() || draft.description.length < 20) {
-        newErrors.description = "Descrierea trebuie să aibă minim 20 de caractere";
+      if (!draft.description.trim() || draft.description.length < 10) {
+        newErrors.description = "Descrierea trebuie să aibă minim 10 caractere";
       }
     }
     
@@ -557,19 +559,23 @@ export default function OptimizedListingFlow() {
           : null;
       }
     
-      const csrfToken = await getCsrfToken();
-
       console.log('📤 Trimis payload la API:', payload);
+      let res = await postJsonWithAuthRefresh("/api/listings", payload as Record<string, unknown>);
 
-      const res = await fetch("/api/listings", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken,
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
+      // Fallback for stale localStorage token:
+      // retry once with cookie-based auth only (no Authorization header).
+      if (res.status === 401) {
+        const retryCsrf = await getCsrfToken();
+        res = await fetch("/api/listings", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": retryCsrf,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
 
       console.log('📥 Status răspuns API:', res.status);
 
@@ -1042,7 +1048,7 @@ export default function OptimizedListingFlow() {
               <textarea
                 value={draft.description}
                 onChange={(e) => updateField("description", e.target.value)}
-                placeholder="Descrie produsul tău în detaliu... (minim 20 de caractere)"
+                placeholder="Descrie produsul tău în detaliu... (minim 10 caractere)"
                 rows={6}
                 className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
                   errors.description ? "border-red-500" : "border-gray-800"
@@ -1050,8 +1056,8 @@ export default function OptimizedListingFlow() {
               />
               <div className="flex justify-between mt-2">
                 {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
-                <p className={`text-sm ml-auto ${draft.description.length >= 20 ? "text-green-500" : "text-gray-400"}`}>
-                  {draft.description.length} / 20 caractere
+                <p className={`text-sm ml-auto ${draft.description.length >= 10 ? "text-green-500" : "text-gray-400"}`}>
+                  {draft.description.length} / 10+ caractere
                 </p>
               </div>
             </div>
@@ -1492,7 +1498,7 @@ export default function OptimizedListingFlow() {
                 {draft.photos.length > 0 && (
                   <div className="mb-4 rounded-xl overflow-hidden">
                     <img 
-                      src={draft.photos[0]} 
+                      src={listingPrimaryPhotoSrc(draft.photos)} 
                       alt={draft.title}
                       className="w-full h-64 object-cover"
                     />

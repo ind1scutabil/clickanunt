@@ -3,6 +3,8 @@ import { verifyToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 import { prisma } from "@/lib/prisma";
+import { publishToUsers } from "@/lib/messaging-sse-hub";
+import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 /**
  * Send email notification for new message
@@ -124,55 +126,65 @@ export async function GET(
       }
     }
 
-    // Find exact conversation when conversationId is provided, otherwise scope by participant(+listing)
-    const conversation = await prisma.conversation.findFirst({
-      where: conversationIdParam
-        ? {
-            id: conversationIdParam,
-            OR: [
-              { participant1Id: currentUserId, participant2Id: otherUserId },
-              { participant1Id: otherUserId, participant2Id: currentUserId },
-            ],
-          }
-        : {
-            OR: [
-              { participant1Id: currentUserId, participant2Id: otherUserId },
-              { participant1Id: otherUserId, participant2Id: currentUserId },
-            ],
-            ...(listingIdParam ? { listingId: listingIdParam } : {}),
-          },
+    const messageInclude = {
+      orderBy: { createdAt: "asc" as const },
       include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            sender: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                avatar: true,
-              },
-            },
-            receiver: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                avatar: true,
-              },
-            },
-          },
+        sender: {
+          select: { id: true, name: true, avatar: true, email: true, role: true },
         },
-        participant1: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-          },
+        receiver: {
+          select: { id: true, name: true, avatar: true, email: true, role: true },
         },
       },
-    });
+    };
+
+    let conversation = null;
+
+    if (conversationIdParam) {
+      /** Preferă id-ul conversației — evită ratări când userId din URL nu coincide cu participantul (ex. race / bookmark). */
+      const byId = await prisma.conversation.findUnique({
+        where: { id: conversationIdParam },
+        include: {
+          messages: messageInclude,
+          participant1: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+          participant2: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+        },
+      });
+      if (byId) {
+        const isParticipant =
+          byId.participant1Id === currentUserId || byId.participant2Id === currentUserId;
+        if (!isParticipant) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        const otherParticipantId =
+          byId.participant1Id === currentUserId ? byId.participant2Id : byId.participant1Id;
+        if (otherParticipantId !== otherUserId) {
+          console.warn(
+            "[messages GET] userId path mismatch vs conversation participants",
+            { userId: otherUserId, expected: otherParticipantId, conversationId: conversationIdParam }
+          );
+        }
+        conversation = byId;
+      }
+    }
+
+    if (!conversation) {
+      conversation = await prisma.conversation.findFirst({
+        where: {
+          OR: [
+            { participant1Id: currentUserId, participant2Id: otherUserId },
+            { participant1Id: otherUserId, participant2Id: currentUserId },
+          ],
+          ...(listingIdParam ? { listingId: listingIdParam } : {}),
+        },
+        orderBy: { lastMessageAt: "desc" },
+        include: {
+          messages: messageInclude,
+          participant1: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+          participant2: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+        },
+      });
+    }
 
     if (!conversation) {
       // Return empty array if no conversation exists yet
@@ -292,57 +304,74 @@ export async function POST(
       );
     }
 
-    const receiverId = params.userId;
-    console.log('[MSG-POST] Sender:', senderId, '-> Receiver:', receiverId);
+    const pathUserId = params.userId;
+    console.log('[MSG-POST] Sender:', senderId, '-> Path userId:', pathUserId);
 
-    // Check if receiver exists
+    let conversation: Awaited<
+      ReturnType<typeof prisma.conversation.findUnique>
+    > | null = null;
+    let effectiveReceiverId: string;
+
+    if (conversationId) {
+      /** Ca la GET: id-ul thread-ului e sursa de adevăr; userId din URL poate fi desincronizat. */
+      const byId = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+      });
+      if (!byId) {
+        console.log('[MSG-POST] ❌ Conversation not found:', conversationId);
+        return NextResponse.json(
+          { error: "Conversation not found for selected thread" },
+          { status: 409 }
+        );
+      }
+      const isP1 = byId.participant1Id === senderId;
+      const isP2 = byId.participant2Id === senderId;
+      if (!isP1 && !isP2) {
+        console.log('[MSG-POST] ❌ Sender is not a participant');
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      effectiveReceiverId = isP1 ? byId.participant2Id : byId.participant1Id;
+      if (effectiveReceiverId !== pathUserId) {
+        console.warn("[MSG-POST] Path userId ≠ other participant; using conversation", {
+          pathUserId,
+          effectiveReceiverId,
+          conversationId,
+        });
+      }
+      conversation = byId;
+    } else {
+      effectiveReceiverId = pathUserId;
+      conversation = await prisma.conversation.findFirst({
+        where: {
+          OR: [
+            { participant1Id: senderId, participant2Id: effectiveReceiverId },
+            { participant1Id: effectiveReceiverId, participant2Id: senderId },
+          ],
+          ...(listingId ? { listingId } : { listingId: null }),
+        },
+      });
+    }
+
     const receiver = await prisma.user.findUnique({
-      where: { id: receiverId },
+      where: { id: effectiveReceiverId },
     });
 
     if (!receiver) {
-      console.log('[MSG-POST] ❌ Receiver not found:', receiverId);
+      console.log('[MSG-POST] ❌ Receiver not found:', effectiveReceiverId);
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
       );
     }
 
-    console.log('[MSG-POST] ✓ Receiver found:', receiver.email);
-
-    // Find or create conversation (prefer explicit conversationId when provided)
-    let conversation = conversationId
-      ? await prisma.conversation.findFirst({
-          where: {
-            id: conversationId,
-            OR: [
-              { participant1Id: senderId, participant2Id: receiverId },
-              { participant1Id: receiverId, participant2Id: senderId },
-            ],
-          },
-        })
-      : await prisma.conversation.findFirst({
-          where: {
-            OR: [
-              { participant1Id: senderId, participant2Id: receiverId },
-              { participant1Id: receiverId, participant2Id: senderId },
-            ],
-            ...(listingId ? { listingId } : { listingId: null }),
-          },
-        });
-
-    if (conversationId && !conversation) {
-      console.log('[MSG-POST] ❌ Conversation not found:', conversationId);
-      return NextResponse.json(
-        { error: "Conversation not found for selected thread" },
-        { status: 409 }
-      );
-    }
+    console.log('[MSG-POST] ✓ Receiver:', receiver.email);
 
     if (!conversation) {
       console.log('[MSG-POST] Creating new conversation...');
-      const participant1Id = senderId < receiverId ? senderId : receiverId;
-      const participant2Id = senderId < receiverId ? receiverId : senderId;
+      const participant1Id =
+        senderId < effectiveReceiverId ? senderId : effectiveReceiverId;
+      const participant2Id =
+        senderId < effectiveReceiverId ? effectiveReceiverId : senderId;
 
       conversation = await prisma.conversation.create({
         data: {
@@ -362,7 +391,7 @@ export async function POST(
       data: {
         conversationId: conversation.id,
         senderId,
-        receiverId,
+        receiverId: effectiveReceiverId,
         content: content.trim(),
       },
       include: {
@@ -372,6 +401,7 @@ export async function POST(
             name: true,
             email: true,
             avatar: true,
+            role: true,
           },
         },
         receiver: {
@@ -380,12 +410,25 @@ export async function POST(
             name: true,
             email: true,
             avatar: true,
+            role: true,
           },
         },
       },
     });
 
     console.log('[MSG-POST] ✓ Message created:', message.id);
+
+    void recordAnalyticsEvent({
+      eventType: ANALYTICS_EVENT.message_sent,
+      userId: senderId,
+      listingId: conversation.listingId ?? undefined,
+      metadata: {
+        conversationId: conversation.id,
+        messageId: message.id,
+        receiverUserId: effectiveReceiverId,
+      },
+      request,
+    });
 
     // Update conversation's lastMessageAt
     await prisma.conversation.update({
@@ -407,6 +450,15 @@ export async function POST(
 
     const elapsed = Date.now() - startTime;
     console.log(`[MSG-POST] ✅ SUCCESS - Message ${message.id} sent in ${elapsed}ms`);
+
+    publishToUsers([senderId, effectiveReceiverId], {
+      type: "message",
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      senderId,
+      receiverId: effectiveReceiverId,
+      messageId: message.id,
+    });
 
     return NextResponse.json({
       success: true,

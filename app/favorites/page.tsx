@@ -1,55 +1,61 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
 import { useState, useEffect } from "react";
+import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  listingPrimaryPhotoSrc,
+  LISTING_PHOTO_ONERROR_FALLBACK,
+} from "@/lib/listing-photo-url";
+import type { FavoriteWithListingDto } from "@clickanunt/api-contracts";
 
-interface Favorite {
-  id: string;
-  listing: {
-    id: string;
-    title: string;
-    priceAmount: number;
-    priceCurrency: string;
-    photos: string[];
-    city: string | null;
-    county: string | null;
-    category: string;
-    subcategory: string | null;
-    views: number;
-    isFeatured: boolean;
-    condition: string | null;
-    make: string | null;
-    model: string | null;
-    year: number | null;
-    mileage: number | null;
-    fuel: string | null;
-    transmission: string | null;
-    status: string;
-    createdAt: string;
-  };
-  createdAt: string;
-}
+type Favorite = FavoriteWithListingDto;
 
 export default function FavoritesPage() {
+  const router = useRouter();
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      router.push('/auth/login?redirect=/favorites');
+      return;
+    }
     fetchFavorites();
-  }, []);
+  }, [router]);
 
   const fetchFavorites = async () => {
     try {
-      const res = await fetch('/api/favorites');
-      if (!res.ok) throw new Error('Failed to fetch favorites');
-      
+      setError('');
+      const res = await fetchWithAuthRefresh('/api/favorites', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push('/auth/login?redirect=/favorites');
+          return;
+        }
+        let detail = 'Nu am putut încărca favoritele.';
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body?.error) detail = body.error;
+        } catch {
+          /* ignore */
+        }
+        setError(detail);
+        return;
+      }
+
       const data = await res.json();
       setFavorites(data.favorites || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching favorites:', err);
-      setError(err.message);
+      setError('Nu am putut încărca favoritele. Încearcă din nou.');
     } finally {
       setLoading(false);
     }
@@ -58,25 +64,26 @@ export default function FavoritesPage() {
   const removeFavorite = async (listingId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     try {
-      const csrfToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('csrf-token='))
-        ?.split('=')[1];
+      const res = await fetchWithAuthRefresh(
+        `/api/favorites?listingId=${encodeURIComponent(listingId)}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+          cache: 'no-store',
+        }
+      );
 
-      const res = await fetch(`/api/favorites?listingId=${listingId}`, {
-        method: 'DELETE',
-        headers: {
-          'X-CSRF-Token': csrfToken || '',
-        },
-      });
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          router.push('/auth/login?redirect=/favorites');
+        }
+        return;
+      }
 
-      if (!res.ok) throw new Error('Failed to remove favorite');
-
-      // Remove from local state
-      setFavorites(prev => prev.filter(fav => fav.listing.id !== listingId));
-    } catch (err: any) {
+      setFavorites((prev) => prev.filter((fav) => fav.listing.id !== listingId));
+    } catch (err) {
       console.error('Error removing favorite:', err);
     }
   };
@@ -102,114 +109,68 @@ export default function FavoritesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0B14] relative overflow-hidden">
-      {/* Animated gradient orbs background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] animate-pulse" style={{animationDelay: '2s'}}></div>
-      </div>
-      
+    <div className="enterprise-page-bg enterprise-mesh relative min-h-screen overflow-hidden">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
-        {/* Header with 3D effect */}
-        <div className="mb-12">
-          <h1 className="text-6xl font-black mb-4 relative">
-            <span className="text-white drop-shadow-2xl">Anunțurile mele </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-x drop-shadow-2xl">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 md:pb-16 md:pt-12">
+        <header className="mb-10 md:mb-12">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+            Salvate pentru tine
+          </p>
+          <h1 className="mb-3 text-3xl font-bold tracking-tight text-white md:text-4xl lg:text-5xl">
+            Anunțurile mele{" "}
+            <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
               favorite
             </span>
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 opacity-20 blur-3xl -z-10"></div>
           </h1>
-          <p className="text-gray-400 text-lg font-medium">
-            Aici găsești toate anunțurile salvate pentru mai târziu
+          <p className="text-lg text-[var(--text-secondary)]">
+            Acces rapid la anunțurile pe care le-ai salvat
           </p>
-        </div>
+        </header>
 
-        {/* Stats with 3D cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-orange-500/50 transition-all duration-300 hover:transform hover:scale-105">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-pink-500 rounded-2xl blur-lg opacity-50"></div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-orange-500 to-pink-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
-                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-4xl font-black text-white drop-shadow-lg">{favorites.length}</div>
-                  <div className="text-sm text-gray-400 font-semibold">Favorite totale</div>
-                </div>
-              </div>
+        <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+          <div className="enterprise-card enterprise-card-hover flex items-center gap-4 rounded-2xl p-5 md:p-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 ring-1 ring-rose-500/25">
+              <svg className="h-6 w-6 text-rose-300" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-white md:text-3xl">{favorites.length}</div>
+              <div className="text-sm font-medium text-[var(--text-tertiary)]">Favorite totale</div>
             </div>
           </div>
 
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:transform hover:scale-105">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl blur-lg opacity-50"></div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-4xl font-black text-white drop-shadow-lg">
-                    {favorites.reduce((sum, f) => sum + f.listing.views, 0).toLocaleString()}
-                  </div>
-                  <div className="text-sm text-gray-400 font-semibold">Vizualizări totale</div>
-                </div>
+          <div className="enterprise-card enterprise-card-hover flex items-center gap-4 rounded-2xl p-5 md:p-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 ring-1 ring-sky-500/25">
+              <svg className="h-6 w-6 text-sky-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-white md:text-3xl">
+                {favorites.reduce((sum, f) => sum + f.listing.views, 0).toLocaleString()}
               </div>
+              <div className="text-sm font-medium text-[var(--text-tertiary)]">Vizualizări totale</div>
             </div>
           </div>
 
-          <div className="group relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-            <div className="relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-6 border border-slate-700/50 hover:border-emerald-500/50 transition-all duration-300 hover:transform hover:scale-105">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 rounded-2xl blur-lg opacity-50"></div>
-                  <div className="relative w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-500 rounded-2xl flex items-center justify-center transform group-hover:rotate-12 transition-transform shadow-2xl">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-4xl font-black text-white drop-shadow-lg">
-                    {favorites.filter((f) => f.listing.isFeatured).length}
-                  </div>
-                  <div className="text-sm text-gray-400 font-semibold">Anunțuri premium</div>
-                </div>
+          <div className="enterprise-card enterprise-card-hover flex items-center gap-4 rounded-2xl p-5 md:p-6">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 ring-1 ring-emerald-500/25">
+              <svg className="h-6 w-6 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-2xl font-bold tabular-nums text-white md:text-3xl">
+                {favorites.filter((f) => f.listing.isFeatured).length}
               </div>
+              <div className="text-sm font-medium text-[var(--text-tertiary)]">Anunțuri evidențiate</div>
             </div>
           </div>
         </div>
@@ -225,9 +186,9 @@ export default function FavoritesPage() {
             <p className="text-red-400 text-lg">{error}</p>
           </div>
         ) : favorites.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#6366F1] to-[#7C3AED] rounded-full mb-6">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="enterprise-card rounded-3xl p-12 text-center md:p-16">
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--accent-primary)]/30 to-[var(--accent-secondary)]/20 ring-1 ring-white/10">
+              <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -236,31 +197,26 @@ export default function FavoritesPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-2xl font-black text-white mb-3">Niciun anunț favorit</h3>
-            <p className="text-gray-400 text-lg mb-8">
-              Salvează anunțurile care te interesează pentru a le accesa rapid
+            <h3 className="mb-2 text-xl font-semibold text-white md:text-2xl">Niciun anunț favorit</h3>
+            <p className="mx-auto mb-8 max-w-md text-[var(--text-secondary)]">
+              Salvează anunțurile care te interesează pentru acces rapid ulterior.
             </p>
             <Link
               href="/listings"
-              className="inline-flex items-center gap-3 bg-gradient-to-r from-[#6366F1] to-[#7C3AED] hover:from-[#7C3AED] hover:to-[#6366F1] text-white px-8 py-4 rounded-xl font-black text-lg transition-all shadow-[0_0_30px_rgba(255,121,0,0.5)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-8 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
-              Explorează anunțuri
+              Către anunțuri
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {favorites.map((favorite) => {
               const listing = favorite.listing;
-              const image = listing.photos[0] || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=300&fit=crop';
-              
+              const image = listingPrimaryPhotoSrc(listing.photos);
+
               return (
               <Link
                 key={favorite.id}
@@ -273,6 +229,11 @@ export default function FavoritesPage() {
                     src={image}
                     alt={listing.title}
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                    onError={(e) => {
+                      const el = e.currentTarget;
+                      el.onerror = null;
+                      el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#6366F1]/40 via-transparent to-[#B537F2]/40 mix-blend-color" />
@@ -391,8 +352,6 @@ export default function FavoritesPage() {
           </div>
         )}
       </div>
-
-      <Footer />
     </div>
   );
 }
