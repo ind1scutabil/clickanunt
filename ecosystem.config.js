@@ -19,6 +19,10 @@ module.exports = {
       NODE_ENV: 'production',
       PORT: 3000,
     },
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 3000,
+    },
     error_file: '/root/.pm2/logs/clickanunt-error.log',
     out_file: '/root/.pm2/logs/clickanunt-out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
@@ -26,7 +30,8 @@ module.exports = {
     
     // Graceful shutdown
     kill_timeout: 5000,
-    wait_ready: true,
+    // next start nu trimite process.send('ready') — wait_ready:true poate bloca reload PM2
+    wait_ready: false,
     listen_timeout: 10000,
     
     // Auto-restart on crash

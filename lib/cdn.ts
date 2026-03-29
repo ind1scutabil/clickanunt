@@ -180,11 +180,11 @@ export const NEXT_CONFIG_CDN = {
 };
 
 /**
- * Example middleware for setting cache headers
- * 
- * Place in middleware.ts:
- * 
- * export function middleware(request: NextRequest) {
+ * Example proxy hook for setting cache headers
+ *
+ * Place in proxy.ts:
+ *
+ * export function proxy(request: NextRequest) {
  *   const response = NextResponse.next();
  *   const cacheConfig = getCacheConfigForPath(request.nextUrl.pathname);
  *   

@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   
-  // Security headers - replaced deprecated middleware.ts
+  // Security headers (suplimentar față de proxy.ts la edge)
   async headers() {
     const baseHeaders: any = [
       {

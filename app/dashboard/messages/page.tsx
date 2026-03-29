@@ -52,8 +52,10 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  /** Doar lista din stânga — nu blocăm întreaga pagină la navigare */
+  /** Lista din stânga: nu așteptăm încărcarea mesajelor primei conversații */
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  /** Firul activ: mesaje în curs de încărcare (după selectare / auto-select) */
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -194,19 +196,19 @@ export default function MessagesPage() {
       const data = await response.json();
       const conversationsList = Array.isArray(data) ? data : data.conversations || [];
       setConversations(conversationsList);
+      setIsLoadingConversations(false);
 
       const sel = selectedConversationRef.current;
       if (!sel && conversationsList.length > 0) {
-        await handleSelectConversation(conversationsList[0]);
+        void handleSelectConversation(conversationsList[0]);
       } else if (sel && conversationsList.length > 0) {
-        await fetchMessages(
+        void fetchMessages(
           sel.otherParticipant.id,
           sel.listing?.id,
           sel.id,
           "manual"
         );
       }
-      setIsLoadingConversations(false);
     } catch (err) {
       console.error("[Messages] Fetch error:", err);
       setIsLoadingConversations(false);
@@ -232,7 +234,13 @@ export default function MessagesPage() {
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation);
     selectedConversationRef.current = conversation;
-    await fetchMessages(conversation.otherParticipant.id, conversation.listing?.id, conversation.id);
+    setMessages([]);
+    setIsLoadingThread(true);
+    try {
+      await fetchMessages(conversation.otherParticipant.id, conversation.listing?.id, conversation.id);
+    } finally {
+      setIsLoadingThread(false);
+    }
 
     // Clear old polling
     if (messagesPollingRef.current) {
@@ -637,7 +645,23 @@ export default function MessagesPage() {
                 </div>
 
                 <div ref={messagesContainerRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
-                  {messages.length === 0 ? (
+                  {isLoadingThread && messages.length === 0 ? (
+                    <div className="space-y-4 py-6" aria-busy="true" aria-label="Se încarcă mesajele">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className={`flex flex-col ${i % 2 === 0 ? "items-end" : "items-start"}`}
+                        >
+                          <div
+                            className={`h-14 max-w-[min(100%,18rem)] animate-pulse rounded-2xl ${
+                              i % 2 === 0 ? "bg-[var(--accent-primary)]/25" : "bg-white/[0.08]"
+                            }`}
+                            style={{ width: `${60 + (i % 3) * 12}%` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : messages.length === 0 ? (
                     <div className="py-12 text-center text-sm text-[var(--text-tertiary)]">
                       <p>Niciun mesaj încă. Începe conversația.</p>
                     </div>

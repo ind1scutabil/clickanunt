@@ -10,6 +10,7 @@ import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { registerSchema } from "@/lib/security/validation-schemas";
+import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,12 +108,13 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
 
-    const cookieDomain = process.env.NODE_ENV === 'production' ? '.clickanunt.ro' : undefined;
+    const cookieDomain = cookieDomainFromRequest(request);
+    const secureCookies = cookieSecureFromRequest(request);
 
     // Set access token cookie (7 zile) - Safari compatible
     response.cookies.set('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies,
       domain: cookieDomain,
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 zile
@@ -123,7 +125,7 @@ export async function POST(request: NextRequest) {
     // Set refresh token cookie (30 zile)
     response.cookies.set('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies,
       domain: cookieDomain,
       sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
       maxAge: 60 * 60 * 24 * 30, // 30 zile

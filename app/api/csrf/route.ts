@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generateCsrfToken, hashCsrfToken } from '@/lib/security/csrf';
+import { cookieDomainFromRequest, cookieSecureFromRequest } from '@/lib/cookie-domain';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const token = generateCsrfToken();
   const hashed = hashCsrfToken(token);
 
@@ -14,12 +15,12 @@ export async function GET() {
   response.headers.set('Pragma', 'no-cache');
   response.headers.set('Expires', '0');
 
-  const isProd = process.env.NODE_ENV === 'production';
-  const cookieDomain = isProd ? '.clickanunt.ro' : undefined;
+  const cookieDomain = cookieDomainFromRequest(request);
+  const secure = cookieSecureFromRequest(request);
 
   response.cookies.set('csrf-token', token, {
     httpOnly: false,
-    secure: isProd,
+    secure,
     domain: cookieDomain,
     sameSite: 'strict',
     path: '/',
@@ -28,7 +29,7 @@ export async function GET() {
 
   response.cookies.set('csrf-token-hash', hashed, {
     httpOnly: true,
-    secure: isProd,
+    secure,
     domain: cookieDomain,
     sameSite: 'strict',
     path: '/',

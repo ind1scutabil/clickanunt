@@ -1,6 +1,12 @@
 #!/bin/bash
 
 ###############################################################################
+# DEPRECATED pentru fluxul „fail-proof”: folosește Git-only pe VPS:
+#   ssh user@host 'cd /var/www/clickanunt && ./scripts/deploy-prod.sh'
+# sau din repo local: ./scripts/deploy-safe.sh (preflight + SSH → deploy-prod).
+# Acest script poate folosi rsync / flux vechi — nu îl folosi pentru producție
+# dacă politica este „zero deploy manual / zero rsync”.
+###############################################################################
 # Production Deployment Script
 # Deploys ClickAnunț to Hetzner VPS with zero-downtime reload
 ###############################################################################

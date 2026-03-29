@@ -156,6 +156,8 @@ export default function Navbar() {
       // Ignore network errors for logout
     } finally {
       localStorage.removeItem('user');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setIsLoggedIn(false);
       setUserEmail(null);
       setUserRole(null);
@@ -310,6 +312,8 @@ export default function Navbar() {
 
               <Link
                 href="/messages"
+                prefetch
+                onMouseEnter={() => isLoggedIn && router.prefetch("/messages")}
                 className="group hit-target relative flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[#0B1220] transition-colors duration-normal ease-premium hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 aria-label="Mesaje"
               >
@@ -544,7 +548,12 @@ export default function Navbar() {
                 <span className="text-xl">📋</span>
                 <span>Toate anunțurile</span>
               </Link>
-              <Link href="/messages" className="relative flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700">
+              <Link
+                href="/messages"
+                prefetch
+                onMouseEnter={() => isLoggedIn && router.prefetch("/messages")}
+                className="relative flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-neutral-100 hover:text-primary-700"
+              >
                 <span className="text-xl">💬</span>
                 <span>Mesaje</span>
                 {/* Badge will be dynamic when messaging system is implemented */}
