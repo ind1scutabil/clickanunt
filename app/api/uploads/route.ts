@@ -13,11 +13,21 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
 
 function getPublicBaseUrl(request: NextRequest): string {
-  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const forwardedProto = request.headers.get('x-forwarded-proto');
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
-  if (host) {
-    return `${proto}://${host}`;
-  }
+
+  // Local dev thường rulează pe HTTP, iar lipsa header-ului `x-forwarded-proto`
+  // face ca acest endpoint să construiască greșit URL-uri cu `https://localhost:...`,
+  // rezultând `ERR_CONNECTION_REFUSED` la încărcarea pozelor.
+  const protoFromHost =
+    host &&
+    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|46\.225\.69\.155)(:\d+)?$/i.test(host.trim())
+      ? 'http'
+      : 'https';
+
+  const proto = forwardedProto?.split(',')[0]?.trim() || protoFromHost;
+  if (host) return `${proto}://${host}`;
+
   return 'https://www.clickanunt.ro';
 }
 
@@ -32,27 +42,38 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
   const base = new URL(baseUrl);
   try {
     const parsed = new URL(url);
-    const localhostHosts = new Set([
-      'localhost:3000',
-      '127.0.0.1:3000',
-      '0.0.0.0:3000',
-      '46.225.69.155:3000',
-    ]);
-    if (localhostHosts.has(parsed.host)) {
-      return `${baseUrl}${parsed.pathname}${parsed.search}`;
-    }
+
+    const isLocalHost = (h: string) =>
+      h === 'localhost' ||
+      h === '127.0.0.1' ||
+      h === '0.0.0.0' ||
+      h === '::1' ||
+      h === '46.225.69.155';
+
+    const parsedHostname = parsed.hostname.toLowerCase();
+    const baseHostname = base.hostname.toLowerCase();
+    const baseIsLocal = isLocalHost(baseHostname);
+    const parsedIsLocal = isLocalHost(parsedHostname);
 
     if (parsed.protocol !== 'https:') {
       parsed.protocol = 'https:';
     }
 
-    const h = parsed.hostname.toLowerCase();
-    const baseHost = base.hostname.toLowerCase();
-    const isOurSite = h === 'clickanunt.ro' || h === 'www.clickanunt.ro';
+    const parsedHost = parsed.hostname.toLowerCase();
+    const isOurSite = parsedHost === 'clickanunt.ro' || parsedHost === 'www.clickanunt.ro';
 
-    if (isOurSite && h !== baseHost) {
+    if (isOurSite && parsedHostname !== baseHostname) {
       parsed.hostname = base.hostname;
+      // Dacă suntem pe local, refacem tot origin-ul (inclusiv protocolul) la baseUrl (de ex. http://localhost:3000)
+      if (baseIsLocal) {
+        return `${baseUrl}${parsed.pathname}${parsed.search}`;
+      }
       return parsed.toString();
+    }
+
+    // Dacă baseUrl e local, orice URL care ajunge (direct sau prin rescriere) la local trebuie să folosească HTTP.
+    if (baseIsLocal && (parsedIsLocal || isOurSite)) {
+      return `${baseUrl}${parsed.pathname}${parsed.search}`;
     }
 
     return parsed.toString();

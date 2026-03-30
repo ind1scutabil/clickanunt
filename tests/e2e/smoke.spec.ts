@@ -10,23 +10,22 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 test.describe('Production Smoke Tests', () => {
   
   test('Homepage loads successfully', async ({ page }) => {
-    await page.goto(BASE_URL);
-    
-    // Check title
-    await expect(page).toHaveTitle(/ClickAnunț/);
-    
-    // Check main elements
-    await expect(page.locator('h1')).toBeVisible();
-    await expect(page.locator('footer')).toBeVisible();
-    
-    // Check no console errors
     const errors: string[] = [];
-    page.on('console', msg => {
+    page.on('console', (msg) => {
       if (msg.type() === 'error') {
         errors.push(msg.text());
       }
     });
-    
+
+    await page.goto(BASE_URL);
+
+    // Check title
+    await expect(page).toHaveTitle(/ClickAnunț/);
+
+    // Check main elements
+    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('footer').first()).toBeVisible();
+
     expect(errors.length).toBe(0);
   });
 
@@ -112,11 +111,8 @@ test.describe('Production Smoke Tests', () => {
   });
 
   test('404 page works', async ({ page }) => {
-    await page.goto(`${BASE_URL}/this-page-does-not-exist`);
-    
-    // Should show 404 or redirect
-    const url = page.url();
-    expect(url.includes('404') || url.includes('not-found')).toBeTruthy();
+    const response = await page.goto(`${BASE_URL}/this-page-does-not-exist`);
+    expect(response?.status()).toBe(404);
   });
 
   test('Static assets load', async ({ page }) => {

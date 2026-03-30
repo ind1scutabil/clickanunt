@@ -17,8 +17,10 @@ export const test = base.extend<AuthFixture>({
     await page.fill('input[type="email"]', 'user@example.com');
     await page.fill('input[type="password"]', 'Password123!');
     await page.click('button[type="submit"]');
-    await page.waitForURL('/');
-    
+    await page.waitForURL(/\/(dashboard|admin\/dashboard)/, {
+      timeout: 30000,
+    });
+
     await use(page);
     await context.close();
   },
@@ -33,8 +35,10 @@ export const test = base.extend<AuthFixture>({
     await page.fill('input[type="email"]', 'admin@clickanunt.ro');
     await page.fill('input[type="password"]', 'AdminPassword123!');
     await page.click('button[type="submit"]');
-    await page.waitForURL('/');
-    
+    await page.waitForURL(/\/(dashboard|admin\/dashboard)/, {
+      timeout: 30000,
+    });
+
     await use(page);
     await context.close();
   },
@@ -49,8 +53,10 @@ export const test = base.extend<AuthFixture>({
       await page.fill('input[type="email"]', email);
       await page.fill('input[type="password"]', password);
       await page.click('button[type="submit"]');
-      await page.waitForURL('/');
-      
+      await page.waitForURL(/\/(dashboard|admin\/dashboard)/, {
+        timeout: 30000,
+      });
+
       return page;
     };
     

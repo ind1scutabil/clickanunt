@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
-import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
+import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/listing-photo-url";
 
 // Types
 interface DraftListing {
@@ -943,7 +943,19 @@ export default function OptimizedListingFlow() {
               <div className="grid grid-cols-4 gap-4 mb-4">
                 {draft.photos.map((url, idx) => (
                   <div key={idx} className="relative group aspect-square">
-                    <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-full object-cover rounded-xl"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        // Prevent infinite error loops when fallback also fails
+                        if (el.src !== LISTING_PHOTO_ONERROR_FALLBACK) {
+                          el.onerror = null;
+                          el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                        }
+                      }}
+                    />
                     <button
                       onClick={() => removePhoto(idx)}
                       className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold"
@@ -1399,7 +1411,18 @@ export default function OptimizedListingFlow() {
               <div className="grid grid-cols-5 gap-4">
                 {draft.photos.slice(0, 20).map((url, idx) => (
                   <div key={idx} className="relative group aspect-square">
-                    <img src={url} alt="" className="w-full h-full object-cover rounded-xl" />
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-full h-full object-cover rounded-xl"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        if (el.src !== LISTING_PHOTO_ONERROR_FALLBACK) {
+                          el.onerror = null;
+                          el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                        }
+                      }}
+                    />
                     <button
                       onClick={() => removePhoto(idx)}
                       className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white"

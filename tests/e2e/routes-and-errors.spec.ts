@@ -1,71 +1,68 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+async function clearSession(page: Page) {
+  await page.goto('/');
+  await page.context().clearCookies();
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+}
 
 test.describe('Route Protection & Errors', () => {
   test('should show 404 page for non-existent route', async ({ page }) => {
     const response = await page.goto('/this-page-does-not-exist');
-    
+
     expect(response?.status()).toBe(404);
-    
-    // Should show 404 content
+
     const notFoundText = page.locator('text=/404|not found|page not found/i');
-    expect(notFoundText).toBeVisible();
+    await expect(notFoundText).toBeVisible({ timeout: 15000 });
   });
 
   test('should redirect to login when accessing protected route', async ({ page }) => {
-    // Clear local storage to simulate logged out state
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     await page.goto('/dashboard');
-    
-    // Should redirect to login
-    const url = page.url();
-    expect(url.includes('/auth/login') || url.includes('/')).toBeTruthy();
+
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 20000 });
   });
 
   test('should redirect to login from /messages when not authenticated', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     await page.goto('/messages');
-    
-    const url = page.url();
-    expect(url.includes('/auth/login') || url.includes('/')).toBeTruthy();
+
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 20000 });
   });
 
   test('should redirect to login from /favorites when not authenticated', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     await page.goto('/favorites');
-    const url = page.url();
-    expect(url.includes('/auth/login') || url.includes('/')).toBeTruthy();
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 20000 });
   });
 
   test('should allow access to public pages without authentication', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     const response = await page.goto('/');
-    
+
     expect(response?.status()).toBe(200);
   });
 
   test('should allow access to /listings without authentication', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     const response = await page.goto('/listings');
-    
+
     expect(response?.status()).toBe(200);
   });
 
   test('should allow access to auth pages without authentication', async ({ page }) => {
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
-    
+    await clearSession(page);
+
     const response = await page.goto('/auth/login');
-    
+
     expect(response?.status()).toBe(200);
   });
 

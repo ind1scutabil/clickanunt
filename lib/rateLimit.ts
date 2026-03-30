@@ -87,20 +87,30 @@ export function rateLimit(
 /**
  * Preset-uri comune pentru rate limiting
  */
+const e2eUnlimited = (): RateLimitResult => ({
+  allowed: true,
+  remaining: 999,
+  resetTime: Date.now() + 60_000,
+});
+
 export const rateLimitPresets = {
   // Login: 5 încercări per 15 minute
   login: (ip: string) =>
-    rateLimit(`login:${ip}`, {
-      windowMs: 15 * 60 * 1000,
-      maxRequests: 5,
-    }),
+    process.env.E2E_DISABLE_RATE_LIMIT === "1"
+      ? e2eUnlimited()
+      : rateLimit(`login:${ip}`, {
+          windowMs: 15 * 60 * 1000,
+          maxRequests: 5,
+        }),
 
   // Register: 3 înregistrări per oră
   register: (ip: string) =>
-    rateLimit(`register:${ip}`, {
-      windowMs: 60 * 60 * 1000,
-      maxRequests: 3,
-    }),
+    process.env.E2E_DISABLE_RATE_LIMIT === "1"
+      ? e2eUnlimited()
+      : rateLimit(`register:${ip}`, {
+          windowMs: 60 * 60 * 1000,
+          maxRequests: 3,
+        }),
 
   // Create listing: 10 per oră per user
   createListing: (userId: string) =>

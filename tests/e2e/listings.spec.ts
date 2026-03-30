@@ -7,7 +7,9 @@ test.describe('Listings - Create, Edit, Delete', () => {
     await page.fill('input[type="email"]', 'user@example.com');
     await page.fill('input[type="password"]', 'Password123!');
     await page.click('button[type="submit"]');
-    await page.waitForURL('/');
+    await page.waitForURL(/\/(dashboard|admin\/dashboard)/, {
+      timeout: 30000,
+    });
   });
 
   test('should create new listing with valid data', async ({ page }) => {

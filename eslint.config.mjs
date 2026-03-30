@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Test and coverage files
     "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
     "tests/e2e/**",
     "tests/fixtures/**",
     // Legacy/demo/auxiliary files not part of production build

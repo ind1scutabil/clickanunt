@@ -53,7 +53,15 @@ function CheckoutForm({ listingId, onSuccess }: { listingId: string; onSuccess: 
         throw new Error(confirmError.message);
       }
     } catch (err: any) {
-      setError(err.message || 'A apărut o eroare la procesarea plății');
+      const rawMessage: string = err?.message || '';
+      // Stripe returnează acest mesaj în special când PAYMENT INTENT a fost creat în TEST mode.
+      if (/test mode/i.test(rawMessage) && /non-test card|used a non-test card/i.test(rawMessage)) {
+        setError(
+          'Plata a eșuat deoarece sistemul rulează în mod TEST. Pentru test folosește carduri de test; pentru carduri reale setează cheile LIVE Stripe.'
+        );
+      } else {
+        setError(err.message || 'A apărut o eroare la procesarea plății');
+      }
       setLoading(false);
     }
   };
