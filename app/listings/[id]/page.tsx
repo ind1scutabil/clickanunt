@@ -61,6 +61,8 @@ export default function Page() {
   const [reportDescription, setReportDescription] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
+  const [similarListings, setSimilarListings] = useState<any[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
 
   const photos = useMemo(
     () => normalizeListingPhotosArray(listing?.photos),
@@ -127,6 +129,48 @@ export default function Page() {
       loadListing();
     }
   }, [id]);
+
+  useEffect(() => {
+    const loadSimilarListings = async () => {
+      if (!listing?.id || !listing?.category) {
+        setSimilarListings([]);
+        return;
+      }
+
+      setSimilarLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("category", String(listing.category));
+        params.set("status", "active");
+        params.set("sort", "newest");
+        params.set("limit", "20");
+        if (listing.make) params.set("make", String(listing.make));
+        if (listing.model) params.set("model", String(listing.model));
+
+        const res = await fetch(`/api/listings?${params.toString()}`, {
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok) {
+          setSimilarListings([]);
+          return;
+        }
+
+        const data = await res.json();
+        const rows = Array.isArray(data?.data) ? data.data : [];
+        const filtered = rows
+          .filter((row: any) => row?.id && row.id !== listing.id)
+          .slice(0, 4);
+        setSimilarListings(filtered);
+      } catch {
+        setSimilarListings([]);
+      } finally {
+        setSimilarLoading(false);
+      }
+    };
+
+    loadSimilarListings();
+  }, [listing?.id, listing?.category, listing?.make, listing?.model]);
 
   const toggleFavorite = () => {
     const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -1027,24 +1071,50 @@ export default function Page() {
           {/* Similar Listings */}
           <div className="mt-12">
             <h2 className="text-2xl font-bold mb-6">Anunțuri similare</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition cursor-pointer group">
-                  <div className="aspect-video bg-gray-200 overflow-hidden">
-                    <img 
-                      src={DEFAULT_LISTING_IMAGE_URL}
-                      alt={`Similar product ${i}`}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-normal ease-premium"
-                    />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition">Produs similar #{i}</h3>
-                    <p className="text-xl font-bold text-blue-600">XX.XXX RON</p>
-                    <p className="text-sm text-gray-500 mt-2">📍 București</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {similarLoading ? (
+              <div className="text-gray-500">Se încarcă anunțurile similare...</div>
+            ) : similarListings.length === 0 ? (
+              <div className="text-gray-500">Nu există anunțuri similare disponibile momentan.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {similarListings.map((item) => {
+                  const similarPhotos = normalizeListingPhotosArray(item?.photos);
+                  const similarSrc =
+                    similarPhotos.length > 0 ? normalizeListingPhotoUrl(similarPhotos[0]) : DEFAULT_LISTING_IMAGE_URL;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/listings/${item.id}`}
+                      className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition cursor-pointer group block"
+                    >
+                      <div className="aspect-video bg-gray-200 overflow-hidden">
+                        <img
+                          src={similarSrc}
+                          alt={item.title || "Anunț similar"}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-normal ease-premium"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            el.onerror = null;
+                            el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                          }}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition">
+                          {item.title || "Anunț similar"}
+                        </h3>
+                        <p className="text-xl font-bold text-blue-600">
+                          {typeof item.priceAmount === "number" ? item.priceAmount.toLocaleString() : "—"} {item.priceCurrency || "RON"}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          📍 {item.city || item.county || "România"}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </main>
