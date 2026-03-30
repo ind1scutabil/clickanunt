@@ -16,6 +16,7 @@ import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promot
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const origin = new URL(request.url).origin;
     const idCheck = uuidSchema.safeParse(id);
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid listing id" }, { status: 400 });
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
       return NextResponse.json({
         ...listing,
-        photos: normalizeListingPhotosArray((listing as { photos?: unknown }).photos),
+        photos: normalizeListingPhotosArray((listing as { photos?: unknown }).photos, origin),
       });
     }
     
@@ -80,7 +81,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({
       ...listingFresh,
-      photos: normalizeListingPhotosArray(listingFresh.photos),
+      photos: normalizeListingPhotosArray(listingFresh.photos, origin),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

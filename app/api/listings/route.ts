@@ -32,6 +32,7 @@ import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-que
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
+    const origin = url.origin;
     const q = url.searchParams;
 
     const parsedQuery = parseAndValidateQuery(q, searchListingsSchema);
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
 
       const listingsNormalized = allListings.map((listing: { photos?: unknown }) => ({
         ...listing,
-        photos: normalizeListingPhotosArray(listing.photos),
+        photos: normalizeListingPhotosArray(listing.photos, origin),
       }));
       return NextResponse.json({
         listings: listingsNormalized,
@@ -222,7 +223,7 @@ export async function GET(request: NextRequest) {
 
       const listingsWithPhotos = ordered.map((l) => ({
         ...l,
-        photos: normalizeListingPhotosArray(l.photos),
+        photos: normalizeListingPhotosArray(l.photos, origin),
       }));
 
       const pages = total > 0 ? Math.ceil(total / limitNum) : 0;
@@ -275,7 +276,7 @@ export async function GET(request: NextRequest) {
 
     const listingsWithPhotos = listings.map((l) => ({
       ...l,
-      photos: normalizeListingPhotosArray(l.photos),
+      photos: normalizeListingPhotosArray(l.photos, origin),
     }));
 
     const encodeCursorFn = useKeyset

@@ -34,7 +34,7 @@ export function isDraftTempListingPhotoUrl(url: string): boolean {
   return /\/listings\/temp-/i.test(u);
 }
 
-function rewriteTempUploadsToServeUrl(raw: string): string {
+function rewriteTempUploadsToServeUrl(raw: string, originOverride?: string): string {
   const t = raw.trim();
   if (!/\/listings\/temp-/i.test(t) && !/\/uploads\/listings\/temp-/i.test(t) && !/^listings\/temp-/i.test(t) && !/^uploads\/listings\/temp-/i.test(t)) {
     return raw;
@@ -67,7 +67,7 @@ function rewriteTempUploadsToServeUrl(raw: string): string {
 
     if (!/^listings\/temp-/i.test(key)) return raw;
 
-    const origin = siteOriginForNormalization();
+    const origin = siteOriginForNormalization(originOverride);
     const servePath = `/api/uploads/serve?key=${encodeURIComponent(key)}`;
     return origin ? `${origin}${servePath}` : servePath;
   } catch {
@@ -82,7 +82,10 @@ export function setListingPhotoSiteOriginOverride(origin: string | null): void {
   listingPhotoSiteOriginOverride = origin?.replace(/\/$/, '') ?? null;
 }
 
-function siteOriginForNormalization(): string {
+function siteOriginForNormalization(originOverride?: string): string {
+  if (originOverride) {
+    return originOverride.replace(/\/$/, '');
+  }
   if (listingPhotoSiteOriginOverride) {
     return listingPhotoSiteOriginOverride;
   }
@@ -246,8 +249,8 @@ export function isValidListingPhotoUrl(raw: string): boolean {
  * Reface /uploads/... pe originea curentă când în DB e salvat alt host (www vs apex, localhost în prod).
  * URL-uri S3/R2 rămân neschimbate (path nu e de obicei /uploads/ pe același pattern local).
  */
-function rewriteUploadsToSiteOrigin(t: string): string {
-  const origin = siteOriginForNormalization();
+function rewriteUploadsToSiteOrigin(t: string, originOverride?: string): string {
+  const origin = siteOriginForNormalization(originOverride);
   if (!origin) {
     try {
       if (/^https?:\/\//i.test(t)) {
@@ -296,7 +299,10 @@ function rewriteUploadsToSiteOrigin(t: string): string {
   return t;
 }
 
-export function normalizeListingPhotoUrl(photo: string | undefined | null): string {
+export function normalizeListingPhotoUrl(
+  photo: string | undefined | null,
+  originOverride?: string
+): string {
   if (photo == null || typeof photo !== 'string') return '';
   const t = photo.trim();
   if (!t) return '';
@@ -304,27 +310,27 @@ export function normalizeListingPhotoUrl(photo: string | undefined | null): stri
 
   // If DB has historical "temp-..." upload paths, rewrite them to the
   // dynamic local-file serving route so they can display after deploy.
-  const rewritten = rewriteTempUploadsToServeUrl(t);
+  const rewritten = rewriteTempUploadsToServeUrl(t, originOverride);
   if (!isValidListingPhotoUrl(rewritten)) return '';
 
   if (rewritten.startsWith('//')) {
-    return rewriteUploadsToSiteOrigin(`https:${rewritten}`);
+    return rewriteUploadsToSiteOrigin(`https:${rewritten}`, originOverride);
   }
 
   if (/^https?:\/\//i.test(rewritten)) {
-    return rewriteUploadsToSiteOrigin(rewritten);
+    return rewriteUploadsToSiteOrigin(rewritten, originOverride);
   }
 
   if (rewritten.startsWith('/')) {
-    return rewriteUploadsToSiteOrigin(rewritten);
+    return rewriteUploadsToSiteOrigin(rewritten, originOverride);
   }
 
   if (/^uploads\//i.test(rewritten)) {
-    return rewriteUploadsToSiteOrigin(`/${rewritten}`);
+    return rewriteUploadsToSiteOrigin(`/${rewritten}`, originOverride);
   }
 
   if (/^listings\//i.test(rewritten)) {
-    return rewriteUploadsToSiteOrigin(`/${rewritten}`);
+    return rewriteUploadsToSiteOrigin(`/${rewritten}`, originOverride);
   }
 
   return rewritten;
@@ -346,7 +352,10 @@ function stringListFromUnknown(x: unknown): string {
 /**
  * Normalizează array-ul din API: doar URL-uri valide pentru afișare (fără stock / categorie).
  */
-export function normalizeListingPhotosArray(raw: unknown): string[] {
+export function normalizeListingPhotosArray(
+  raw: unknown,
+  originOverride?: string
+): string[] {
   if (raw == null) return [];
 
   let candidates: string[] = [];
@@ -371,7 +380,7 @@ export function normalizeListingPhotosArray(raw: unknown): string[] {
 
   const out: string[] = [];
   for (const c of candidates) {
-    const n = normalizeListingPhotoUrl(c);
+    const n = normalizeListingPhotoUrl(c, originOverride);
     if (n) out.push(n);
   }
   return out;

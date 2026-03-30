@@ -24,7 +24,9 @@ const searchSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const url = new URL(request.url);
+    const origin = url.origin;
+    const { searchParams } = url;
     const parsed = parseAndValidateQuery(searchParams, searchSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error || "Invalid query" }, { status: 400 });
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
           priceCurrency: row.priceCurrency,
           city: row.city,
           county: row.county,
-          photos: normalizeListingPhotosArray(row.photos),
+          photos: normalizeListingPhotosArray(row.photos, origin),
           createdAt: row.createdAt.toISOString(),
           isPromoted: row.isPromoted,
           rank: ranks[i] ?? 0,
