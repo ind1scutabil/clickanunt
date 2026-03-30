@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
       const cleanBuffer = await stripExifData(buf);
 
       // Generate storage key with SAFE filename (ignore original filename completely)
-      const id = listingId || `temp-${uuidv4()}`;
+      const id = listingId || uuidv4();
       const safeExt = 'jpg'; // Default safe extension
       const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = generateImageKey(id, "original", tempFilename);
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
 
     // For videos: direct upload to storage
     if (fileType === "video") {
-      const id = listingId || `temp-${uuidv4()}`;
+      const id = listingId || uuidv4();
       const safeExt = 'mp4'; // Default safe extension
       const tempFilename = `${uuidv4()}.${safeExt}`;
       const key = `listings/${id}/videos/${tempFilename}`;

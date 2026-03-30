@@ -646,8 +646,9 @@ export async function POST(request: Request) {
       moderationNotes: flags.length > 0 ? `Flags: ${flags.join(', ')}` : null,
       
       // Scam detection results (store for admin review)
+      // Prisma schema expects `scamFlags` as `String[]`, not full objects.
       scamScore: scamResult.score,
-      scamFlags: scamResult.flags && scamResult.flags.length > 0 ? scamResult.flags : [],
+      scamFlags: scamResult.flags?.length ? scamResult.flags.map((f) => f.description) : [],
     };
 
     const listing = await prisma.listing.create({ data });

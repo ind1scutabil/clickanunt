@@ -45,12 +45,13 @@ test.describe('Favorites', () => {
   test('should display empty state when no favorites', async ({ page }) => {
     await page.goto('/favorites');
     
-    const emptyState = page.locator('text=/no favorites|empty|explore/i');
+    // UI empty state (ro): "Niciun anunț favorit"
+    const emptyState = page.locator('text=/Niciun\\s+anunț\\s+favorit|no favorites|empty|explore/i');
     const favoritesList = page.locator('[data-testid="favorite-item"], .favorite-card');
     
     const count = await favoritesList.count();
     if (count === 0) {
-      expect(emptyState).toBeVisible();
+      await expect(emptyState).toBeVisible({ timeout: 10000 });
     }
   });
 

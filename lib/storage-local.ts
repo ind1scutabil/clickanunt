@@ -40,13 +40,14 @@ export async function uploadImageLocal(
     const fullPath = path.join(UPLOAD_DIR, key);
     await fs.writeFile(fullPath, file);
 
-    // Return absolute URL using public domain
-    // This ensures URLs pass Zod's .url() validation
+    // Return absolute URL using a backend-serving route.
+    // Next.js in production does not reliably serve runtime-written files under `public/` for nested paths,
+    // so we serve them via `/api/uploads/serve`.
     const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://clickanunt.ro';
     const cleanPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
     // Always use HTTPS for consistency
     const secureUrl = cleanPublicUrl.replace(/^http:/, 'https:');
-    return `${secureUrl}/uploads/${key}`;
+    return `${secureUrl}/api/uploads/serve?key=${encodeURIComponent(key)}`;
   } catch (error) {
     console.error('Error uploading image locally:', error);
     throw new Error('Failed to upload image locally');

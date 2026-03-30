@@ -128,11 +128,13 @@ function cdnOrAppHostMatches(hostname: string): boolean {
 export function isValidListingPhotoUrl(raw: string): boolean {
   const t = raw.trim();
   if (!t) return false;
+  // Draft upload keys (temp-*) must not be shown as final listing imagery.
   if (isDraftTempListingPhotoUrl(t)) return false;
   if (t.startsWith('blob:')) return true;
 
   if (isBlockedStockOrPlaceholderUrl(t)) return false;
 
+  if (t.startsWith('/api/uploads/serve')) return true;
   if (t.startsWith('/uploads/')) return true;
   if (/^uploads\//i.test(t)) return true;
 
@@ -157,6 +159,21 @@ export function isValidListingPhotoUrl(raw: string): boolean {
     if (isBlockedStockOrPlaceholderUrl(u.href)) return false;
 
     const path = u.pathname;
+
+    // Local-upload fallback: images are served through a backend route.
+    if (path.startsWith('/api/uploads/serve')) return true;
+
+    // Accept our own storage URL patterns even if CDN/app host matching envs are stale.
+    // uploadImage() stores objects under:
+    // - /listings/{listingId}/{thumb|medium|large|original}/{...}
+    // - local fallback stores under /uploads/{sameKey...}
+    // This makes the client robust to CDN host changes without requiring a full rebuild.
+    if (
+      /^\/(?:uploads\/)?listings\/[0-9a-fA-F-]{36}\/(thumb|medium|large|original)\/.+/i.test(path)
+    ) {
+      return true;
+    }
+
     if (path.startsWith('/uploads/')) return true;
 
     if (isOurSiteHost(u.hostname) && (path.startsWith('/uploads/') || path.includes('/listings/'))) {
@@ -209,6 +226,10 @@ function rewriteUploadsToSiteOrigin(t: string): string {
       const path = u.pathname + u.search;
       /** Poze servite din app la /uploads/ — refacem originul chiar dacă în DB e IP, localhost sau domeniu vechi */
       if (path.startsWith('/uploads/')) {
+        return `${origin}${path}`;
+      }
+      /** Local-upload fallback served via API route (must keep local http origin). */
+      if (path.startsWith('/api/uploads/serve')) {
         return `${origin}${path}`;
       }
       /** Poze la /listings/ servite de app pe apex/www — aliniere www/apex (nu rescriem cdn.*) */

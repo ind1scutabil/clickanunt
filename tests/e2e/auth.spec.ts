@@ -96,8 +96,8 @@ test.describe('Authentication - Login', () => {
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/auth/login');
 
-    await page.fill('input[type="email"]', 'invalid@example.com');
-    await page.fill('input[type="password"]', 'WrongPassword123!');
+  await page.fill('input[type="email"]', 'invalid@example.com');
+  await page.fill('input[type="password"]', 'WrongPassword123!');
 
     await page.locator('button[type="submit"]').click();
 
@@ -108,7 +108,7 @@ test.describe('Authentication - Login', () => {
 
   test('should stay on login when password is missing', async ({ page }) => {
     await page.goto('/auth/login');
-    await page.fill('input[type="email"]', 'any@example.com');
+  await page.fill('input[type="email"]', 'any@example.com');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/auth\/login/);
   });
@@ -119,8 +119,8 @@ test.describe('Authentication - 2FA', () => {
     await page.goto('/auth/login');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await page.fill('input[type="email"]', 'nonexistent-2fa-check@example.com');
-    await page.fill('input[type="password"]', strongPassword);
+  await page.fill('input[type="email"]', 'nonexistent-2fa-check@example.com');
+  await page.fill('input[type="password"]', strongPassword);
     await page.locator('button[type="submit"]').click();
     await expect(
       page.getByText(/incorect|incorrect|invalid|negăsit|not found|parolă|password|email/i).first()

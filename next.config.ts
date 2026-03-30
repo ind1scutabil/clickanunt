@@ -1,5 +1,19 @@
 import type { NextConfig } from "next";
 
+function getCdnHostname(): string | null {
+  const raw = process.env.NEXT_PUBLIC_CDN_URL || process.env.CDN_URL || "";
+  if (!raw) return null;
+  try {
+    const withProto = raw.startsWith("http") ? raw : `https://${raw}`;
+    const u = new URL(withProto);
+    return u.hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+const cdnHostname = getCdnHostname();
+
 const nextConfig: NextConfig = {
   reactStrictMode: false, // Disabled - causing hydration errors in production
   poweredByHeader: false,
@@ -27,6 +41,15 @@ const nextConfig: NextConfig = {
         hostname: 'www.clickanunt.ro',
         pathname: '/**',
       },
+      ...(cdnHostname
+        ? [
+            {
+              protocol: 'https',
+              hostname: cdnHostname,
+              pathname: '/**',
+            },
+          ]
+        : []),
     ],
     formats: ['image/webp', 'image/avif'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],

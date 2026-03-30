@@ -56,42 +56,40 @@ test.describe('Messaging', () => {
     
     // Wait for messages page to load
     await page.waitForSelector('text=Conversații', { timeout: 10000 });
-    
-    // Get first conversation if available
-    const conversationButton = page.locator('button').filter({ has: page.locator('text=') }).first();
-    const conversationVisible = await conversationButton.isVisible({ timeout: 5000 }).catch(() => false);
-    
-    if (conversationVisible) {
-      // Click first conversation
-      await conversationButton.click();
-      
-      // Wait for message input to appear
-      const messageInput = page.locator('input[placeholder*="mesaj"], input[placeholder*="Scrie"], #message-input');
-      await messageInput.waitFor({ timeout: 5000 });
-      
-      // Type test message
-      const testMessage = `Test message ${Date.now()}`;
-      await messageInput.fill(testMessage);
-      
-      // Find and click send button
-      const sendButton = page.locator('button:has-text("Trimite"), #send-button').last();
-      expect(await sendButton.isEnabled()).toBe(true);
-      
-      // Send the message
-      await sendButton.click();
-      
-      // Wait briefly for message to process
-      await page.waitForTimeout(1500);
-      
-      // **CRITICAL CHECK**: Verify message appears in conversation thread
-      // This is the test for the message delivery bug fix
-      const messageInThread = page.locator(`text=${testMessage}`);
-      expect(await messageInThread.isVisible({ timeout: 5000 })).toBe(true);
-      
-      console.log('[SMOKE-TEST] ✓ Message delivery successful: message appears in thread');
-    } else {
-      console.log('[SMOKE-TEST] ⚠️ No conversations available to test');
+
+    // If there are no conversations, the UI does not render any clickable <button> items.
+    // Rely on the presence/absence of conversation buttons (more reliable than matching exact empty-state copy).
+    const conversationButtons = page.locator('div.flex-1.overflow-y-auto > button');
+    const conversationCount = await conversationButtons.count();
+    if (conversationCount === 0) {
+      console.log('[SMOKE-TEST] ⚠️ No conversations available to test (empty inbox).');
+      return;
     }
+
+    // Select the first conversation button from the left list column.
+    await conversationButtons.first().click();
+
+    // Wait for message input to appear (only present after selecting a conversation)
+    const messageInput = page.locator('#message-input');
+    await messageInput.waitFor({ timeout: 5000 });
+
+    // Type test message
+    const testMessage = `Test message ${Date.now()}`;
+    await messageInput.fill(testMessage);
+
+    // Find and click send button
+    const sendButton = page.locator('#send-button');
+    expect(await sendButton.isEnabled()).toBe(true);
+    await sendButton.click();
+
+    // Wait briefly for message to process
+    await page.waitForTimeout(1500);
+
+    // **CRITICAL CHECK**: Verify message appears in conversation thread
+    const messageInThread = page.locator(`text=${testMessage}`);
+    expect(await messageInThread.isVisible({ timeout: 5000 })).toBe(true);
+
+    console.log('[SMOKE-TEST] ✓ Message delivery successful: message appears in thread');
   });
 
   test('should display empty messages state', async ({ page }) => {

@@ -1,5 +1,10 @@
-import { prisma } from "../lib/prisma";
+import { createRequire } from "module";
 import bcrypt from "bcrypt";
+
+// ts-node rulează în mod ESM și nu rezolvă specifier-ele fără extensie pentru fișiere TS.
+// Folosim `require` (CJS resolution) ca să putem încărca `lib/prisma.ts` fără a folosi importuri cu `.ts`.
+const require = createRequire(import.meta.url);
+const { prisma } = require("../lib/prisma") as { prisma: any };
 
 /**
  * Seed complet (șterge anunțuri + utilizatori + creează demo).
@@ -30,6 +35,19 @@ async function main() {
   await prisma.listing.deleteMany();
   await prisma.user.deleteMany();
 
+  // Test fixture used by Playwright e2e:
+  // tests/e2e/messages.spec.ts + tests/e2e/favorites.spec.ts
+  const e2eUser = await prisma.user.create({
+    data: {
+      email: "user@example.com",
+      password: await bcrypt.hash("Password123!", 10),
+      role: "user",
+      accountType: "private",
+      verificationLevel: "none",
+      emailVerified: true,
+    },
+  });
+
   const alice = await prisma.user.create({
     data: {
       email: "alice@example.com",
@@ -37,6 +55,7 @@ async function main() {
       role: "user",
       accountType: "private",
       verificationLevel: "none",
+      emailVerified: true,
       listings: {
         create: [
           {
@@ -73,6 +92,7 @@ async function main() {
       role: "dealer",
       accountType: "business",
       verificationLevel: "business",
+      emailVerified: true,
       listings: {
         create: [
           {
@@ -131,7 +151,9 @@ async function main() {
     },
   });
 
-  console.log(`Created users: ${alice.email} (parola: alice123), ${bob.email} (parola: bob123)`);
+  console.log(
+    `Created users: ${e2eUser.email} (parola: Password123!), ${alice.email} (parola: alice123), ${bob.email} (parola: bob123)`
+  );
   console.log(`Admin: ${admin.email} (parola: ${adminPassword})`);
 }
 
