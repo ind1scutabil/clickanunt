@@ -322,6 +322,19 @@ export function normalizeListingPhotoUrl(
   const rewritten = rewriteTempUploadsToServeUrl(t, originOverride);
   if (!isValidListingPhotoUrl(rewritten)) return '';
 
+  // Ensure internal serve-route URLs are returned as relative paths.
+  // This prevents accidental `http://...` absolute URLs (mixed content on HTTPS).
+  if (/^https?:\/\//i.test(rewritten)) {
+    try {
+      const u = new URL(rewritten);
+      if (u.pathname.startsWith('/api/uploads/serve')) {
+        return `${u.pathname}${u.search}`;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (rewritten.startsWith('//')) {
     return rewriteUploadsToSiteOrigin(`https:${rewritten}`, originOverride);
   }
