@@ -293,6 +293,11 @@ function rewriteUploadsToSiteOrigin(t: string, originOverride?: string): string 
       return u.toString();
     }
     if (t.startsWith('/')) {
+      // Keep internal serve routes relative to avoid accidentally forcing `http://...`
+      // on an HTTPS page.
+      if (t.startsWith('/api/uploads/serve') || t.startsWith('/uploads/')) {
+        return t;
+      }
       return `${origin}${t}`;
     }
     /** Cale relativă fără slash inițial (ex. uploads/listings/...) */
