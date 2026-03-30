@@ -69,7 +69,10 @@ function rewriteTempUploadsToServeUrl(raw: string, originOverride?: string): str
 
     const origin = siteOriginForNormalization(originOverride);
     const servePath = `/api/uploads/serve?key=${encodeURIComponent(key)}`;
-    return origin ? `${origin}${servePath}` : servePath;
+    const originLc = origin.toLowerCase();
+    const isLocalOrigin =
+      originLc.includes("localhost") || originLc.includes("127.0.0.1");
+    return origin && !isLocalOrigin ? `${origin}${servePath}` : servePath;
   } catch {
     return raw;
   }
@@ -269,16 +272,20 @@ function rewriteUploadsToSiteOrigin(t: string, originOverride?: string): string 
       const u = new URL(t);
       const path = u.pathname + u.search;
       /** Poze servite din app la /uploads/ — refacem originul chiar dacă în DB e IP, localhost sau domeniu vechi */
+      const originLc = origin.toLowerCase();
+      const isLocalOrigin =
+        originLc.includes('localhost') || originLc.includes('127.0.0.1');
+
       if (path.startsWith('/uploads/')) {
-        return `${origin}${path}`;
+        return isLocalOrigin ? path : `${origin}${path}`;
       }
       /** Local-upload fallback served via API route (must keep local http origin). */
       if (path.startsWith('/api/uploads/serve')) {
-        return `${origin}${path}`;
+        return isLocalOrigin ? path : `${origin}${path}`;
       }
       /** Poze la /listings/ servite de app pe apex/www — aliniere www/apex (nu rescriem cdn.*) */
       if (path.startsWith('/listings/') && isOurSiteAppHost(u.hostname)) {
-        return `${origin}${path}`;
+        return isLocalOrigin ? path : `${origin}${path}`;
       }
       u.protocol = 'https:';
       return u.toString();
