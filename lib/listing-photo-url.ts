@@ -72,7 +72,8 @@ function rewriteTempUploadsToServeUrl(raw: string, originOverride?: string): str
     const originLc = origin.toLowerCase();
     const isLocalOrigin =
       originLc.includes("localhost") || originLc.includes("127.0.0.1");
-    return origin && !isLocalOrigin ? `${origin}${servePath}` : servePath;
+    const isHttpOrigin = originLc.startsWith("http://");
+    return origin && !isLocalOrigin && !isHttpOrigin ? `${origin}${servePath}` : servePath;
   } catch {
     return raw;
   }
@@ -275,17 +276,18 @@ function rewriteUploadsToSiteOrigin(t: string, originOverride?: string): string 
       const originLc = origin.toLowerCase();
       const isLocalOrigin =
         originLc.includes('localhost') || originLc.includes('127.0.0.1');
+      const isHttpOrigin = originLc.startsWith('http://');
 
       if (path.startsWith('/uploads/')) {
-        return isLocalOrigin ? path : `${origin}${path}`;
+        return isLocalOrigin || isHttpOrigin ? path : `${origin}${path}`;
       }
       /** Local-upload fallback served via API route (must keep local http origin). */
       if (path.startsWith('/api/uploads/serve')) {
-        return isLocalOrigin ? path : `${origin}${path}`;
+        return isLocalOrigin || isHttpOrigin ? path : `${origin}${path}`;
       }
       /** Poze la /listings/ servite de app pe apex/www — aliniere www/apex (nu rescriem cdn.*) */
       if (path.startsWith('/listings/') && isOurSiteAppHost(u.hostname)) {
-        return isLocalOrigin ? path : `${origin}${path}`;
+        return isLocalOrigin || isHttpOrigin ? path : `${origin}${path}`;
       }
       u.protocol = 'https:';
       return u.toString();
