@@ -9,7 +9,12 @@ import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 // GET /api/favorites - Get user's favorites
 export async function GET(req: NextRequest) {
   try {
-    const origin = new URL(req.url).origin;
+    const u = new URL(req.url);
+    const proto = (req.headers.get("x-forwarded-proto") ?? "https").split(",")[0].trim();
+    const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? u.host)
+      .split(",")[0]
+      .trim();
+    const origin = `${proto}://${host}`;
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

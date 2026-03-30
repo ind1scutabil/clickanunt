@@ -25,7 +25,11 @@ const searchSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const origin = url.origin;
+    const proto = (request.headers.get("x-forwarded-proto") ?? "https").split(",")[0].trim();
+    const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host)
+      .split(",")[0]
+      .trim();
+    const origin = `${proto}://${host}`;
     const { searchParams } = url;
     const parsed = parseAndValidateQuery(searchParams, searchSchema);
     if (!parsed.success) {

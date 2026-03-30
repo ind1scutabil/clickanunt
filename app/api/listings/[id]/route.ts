@@ -16,7 +16,11 @@ import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promot
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const origin = new URL(request.url).origin;
+    const proto = (request.headers.get("x-forwarded-proto") ?? "https").split(",")[0].trim();
+    const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host)
+      .split(",")[0]
+      .trim();
+    const origin = `${proto}://${host}`;
     const idCheck = uuidSchema.safeParse(id);
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid listing id" }, { status: 400 });
