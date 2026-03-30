@@ -34,6 +34,47 @@ export function isDraftTempListingPhotoUrl(url: string): boolean {
   return /\/listings\/temp-/i.test(u);
 }
 
+function rewriteTempUploadsToServeUrl(raw: string): string {
+  const t = raw.trim();
+  if (!/\/listings\/temp-/i.test(t) && !/\/uploads\/listings\/temp-/i.test(t) && !/^listings\/temp-/i.test(t) && !/^uploads\/listings\/temp-/i.test(t)) {
+    return raw;
+  }
+
+  try {
+    let pathname = '';
+    if (/^https?:\/\//i.test(t)) {
+      pathname = new URL(t).pathname;
+    } else if (t.startsWith('//')) {
+      pathname = new URL(`https:${t}`).pathname;
+    } else if (t.startsWith('/')) {
+      pathname = t;
+    } else if (/^uploads\//i.test(t)) {
+      pathname = `/${t}`;
+    } else if (/^listings\//i.test(t)) {
+      pathname = `/${t}`;
+    } else {
+      return raw;
+    }
+
+    let key = '';
+    if (pathname.startsWith('/uploads/')) {
+      key = pathname.slice('/uploads/'.length);
+    } else if (pathname.startsWith('/listings/')) {
+      key = pathname.slice(1); // remove leading '/'
+    } else {
+      return raw;
+    }
+
+    if (!/^listings\/temp-/i.test(key)) return raw;
+
+    const origin = siteOriginForNormalization();
+    const servePath = `/api/uploads/serve?key=${encodeURIComponent(key)}`;
+    return origin ? `${origin}${servePath}` : servePath;
+  } catch {
+    return raw;
+  }
+}
+
 /** Set by React Native so /uploads/ paths rewrite to the same host as the API (iOS/Android parity with web). */
 let listingPhotoSiteOriginOverride: string | null = null;
 
@@ -260,29 +301,33 @@ export function normalizeListingPhotoUrl(photo: string | undefined | null): stri
   const t = photo.trim();
   if (!t) return '';
   if (t.startsWith('blob:')) return t;
-  if (!isValidListingPhotoUrl(t)) return '';
 
-  if (t.startsWith('//')) {
-    return rewriteUploadsToSiteOrigin(`https:${t}`);
+  // If DB has historical "temp-..." upload paths, rewrite them to the
+  // dynamic local-file serving route so they can display after deploy.
+  const rewritten = rewriteTempUploadsToServeUrl(t);
+  if (!isValidListingPhotoUrl(rewritten)) return '';
+
+  if (rewritten.startsWith('//')) {
+    return rewriteUploadsToSiteOrigin(`https:${rewritten}`);
   }
 
-  if (/^https?:\/\//i.test(t)) {
-    return rewriteUploadsToSiteOrigin(t);
+  if (/^https?:\/\//i.test(rewritten)) {
+    return rewriteUploadsToSiteOrigin(rewritten);
   }
 
-  if (t.startsWith('/')) {
-    return rewriteUploadsToSiteOrigin(t);
+  if (rewritten.startsWith('/')) {
+    return rewriteUploadsToSiteOrigin(rewritten);
   }
 
-  if (/^uploads\//i.test(t)) {
-    return rewriteUploadsToSiteOrigin(`/${t}`);
+  if (/^uploads\//i.test(rewritten)) {
+    return rewriteUploadsToSiteOrigin(`/${rewritten}`);
   }
 
-  if (/^listings\//i.test(t)) {
-    return rewriteUploadsToSiteOrigin(`/${t}`);
+  if (/^listings\//i.test(rewritten)) {
+    return rewriteUploadsToSiteOrigin(`/${rewritten}`);
   }
 
-  return t;
+  return rewritten;
 }
 
 function isArrayLikeRecord(val: unknown): val is Record<string, unknown> {

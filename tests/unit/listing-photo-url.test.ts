@@ -16,9 +16,10 @@ describe('listing photo policy', () => {
 
   it('rejects draft temp paths', () => {
     expect(isValidListingPhotoUrl('/uploads/listings/temp-abc-123/original/x.jpg')).toBe(false);
-    expect(
-      listingPrimaryPhotoSrc(['https://www.clickanunt.ro/uploads/listings/temp-550e8400-e29b-41d4-a716-446655440000/x.jpg'])
-    ).toBe(DEFAULT_LISTING_IMAGE_URL);
+    const src = listingPrimaryPhotoSrc([
+      'https://www.clickanunt.ro/uploads/listings/temp-550e8400-e29b-41d4-a716-446655440000/x.jpg',
+    ]);
+    expect(src).toMatch(/\/api\/uploads\/serve\?key=/);
   });
 
   it('rejects blocked external hosts', () => {
