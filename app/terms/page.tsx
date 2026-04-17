@@ -1,4 +1,8 @@
+import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+
 export default function TermsPage() {
+  const showCompanyLegal = isCompanyLegalDetailsPublic();
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -10,9 +14,23 @@ export default function TermsPage() {
             <h2 className="text-2xl font-semibold mb-4 text-white">1. Informații Generale</h2>
             <p className="mb-4">
               Prezentul document stabilește termenii și condițiile de utilizare a platformei de anunțuri clasificate
-              disponibilă la adresa www.clickanunt.ro (denumită în continuare "Platforma"), operată de
-              ENORE SALES TYPE S.R.L. cu sediul în Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34,
-              CUI 46062613, număr de înregistrare la Registrul Comerțului J20220000480181.
+              disponibilă la adresa www.clickanunt.ro (denumită în continuare &quot;Platforma&quot;), operată de un
+              operator comercial înregistrat în România
+              {showCompanyLegal ? (
+                <>
+                  : ENORE SALES TYPE S.R.L. cu sediul în Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4,
+                  Scara 2, Et 3, Ap 34, CUI 46062613, număr de înregistrare la Registrul Comerțului J20220000480181.
+                </>
+              ) : (
+                <>
+                  . Denumirea legală, sediul și identificatorii de înregistrare sunt disponibile la solicitare prin
+                  pagina de{" "}
+                  <a href="/contact" className="text-[#FF7900] hover:underline">
+                    contact
+                  </a>
+                  .
+                </>
+              )}
             </p>
             <p className="mb-4">
               Utilizarea Platformei presupune acceptarea integrală și neconditionată a prezentelor Termeni și Condiții.
@@ -106,18 +124,29 @@ export default function TermsPage() {
             </p>
             <div className="bg-blue-900/20 border border-blue-700 rounded p-4 mb-4">
               <h4 className="font-semibold text-white mb-3">Detalii Plăți și Facturare:</h4>
-              <div className="space-y-2 text-sm">
-                <p><strong>Entitate furnizor:</strong> ENORE SALES TYPE S.R.L.</p>
-                <p><strong>CUI (Cod Unic de Identificare):</strong> RO46062613</p>
-                <p><strong>Număr de înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
-                <p><strong>Înregistrare Registrul Comerțului:</strong> J20220000480181</p>
-                <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
-                <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
-                <p><strong>Banca:</strong> ING</p>
-                <p><strong>Monedă:</strong> RON</p>
-                <p><strong>Rata TVA:</strong> 19% (pe toate serviciile plătite)</p>
-                <p><strong>Contact plăți:</strong> billing@clickanunt.ro</p>
-              </div>
+              {showCompanyLegal ? (
+                <div className="space-y-2 text-sm">
+                  <p><strong>Entitate furnizor:</strong> ENORE SALES TYPE S.R.L.</p>
+                  <p><strong>CUI (Cod Unic de Identificare):</strong> RO46062613</p>
+                  <p><strong>Număr de înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
+                  <p><strong>Înregistrare Registrul Comerțului:</strong> J20220000480181</p>
+                  <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+                  <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
+                  <p><strong>Banca:</strong> ING</p>
+                  <p><strong>Monedă:</strong> RON</p>
+                  <p><strong>Rata TVA:</strong> 19% (pe toate serviciile plătite)</p>
+                  <p><strong>Contact plăți:</strong> billing@clickanunt.ro</p>
+                </div>
+              ) : (
+                <p className="text-sm">
+                  Datele complete de facturare (furnizor, sediu, cont bancar) se comunică pe email după procesarea plății
+                  sau la solicitare la{" "}
+                  <a href="mailto:billing@clickanunt.ro" className="text-[#FF7900] hover:underline">
+                    billing@clickanunt.ro
+                  </a>
+                  .
+                </p>
+              )}
             </div>
             <h3 className="text-xl font-semibold mb-3 text-gray-200">7.3 Rambursări</h3>
             <p className="mb-4">
@@ -187,7 +216,11 @@ export default function TermsPage() {
             <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
               <p className="mb-2"><strong>Email:</strong> admin@clickanunt.ro</p>
               <p className="mb-2"><strong>Telefon:</strong> +40 XXX XXX XXX</p>
-              <p className="mb-2"><strong>Adresă:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+              {showCompanyLegal && (
+                <p className="mb-2">
+                  <strong>Adresă:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34
+                </p>
+              )}
             </div>
           </section>
         </div>

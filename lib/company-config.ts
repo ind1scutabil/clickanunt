@@ -3,6 +3,15 @@
  * Folosit în facturi, emailuri, și alte comunicări oficiale
  */
 
+/**
+ * Când este `false` (implicit), paginile publice ascund denumirea legală, adresa și telefonul firmei
+ * (footer, contact, extrase din termeni/GDPR, JSON-LD). Pentru a le afișa din nou, setează în mediu:
+ * `NEXT_PUBLIC_SHOW_COMPANY_LEGAL_DETAILS=true`
+ */
+export function isCompanyLegalDetailsPublic(): boolean {
+  return process.env.NEXT_PUBLIC_SHOW_COMPANY_LEGAL_DETAILS === 'true';
+}
+
 export const COMPANY_CONFIG = {
   // Detalii legale
   name: 'ENORE SALES TYPE S.R.L.',

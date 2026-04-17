@@ -9,6 +9,8 @@
  * - Sitemap generation utilities
  */
 
+import { isCompanyLegalDetailsPublic } from '@/lib/company-config';
+
 interface SEOConfig {
   title: string;
   description: string;
@@ -148,7 +150,8 @@ export function generateListingStructuredData(listing: {
  */
 export function generateOrganizationStructuredData() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  
+  const showLegal = isCompanyLegalDetailsPublic();
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -158,7 +161,7 @@ export function generateOrganizationStructuredData() {
     description: 'Platforma de anunțuri gratuite din România',
     contactPoint: {
       '@type': 'ContactPoint',
-      telephone: '+40-784-712-496',
+      ...(showLegal ? { telephone: '+40-784-712-496' } : {}),
       contactType: 'customer service',
       email: 'contact@clickanunt.ro',
       availableLanguage: ['Romanian'],
@@ -168,11 +171,15 @@ export function generateOrganizationStructuredData() {
       'https://twitter.com/clickanunt',
       'https://www.instagram.com/clickanunt',
     ],
-    address: {
-      '@type': 'PostalAddress',
-      addressCountry: 'RO',
-      addressLocality: 'București',
-    },
+    ...(showLegal
+      ? {
+          address: {
+            '@type': 'PostalAddress',
+            addressCountry: 'RO',
+            addressLocality: 'București',
+          },
+        }
+      : {}),
   };
 }
 
@@ -199,7 +206,8 @@ export function generateBreadcrumbStructuredData(items: Array<{ name: string; ur
  */
 export function generateLocalBusinessStructuredData() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  
+  const showLegal = isCompanyLegalDetailsPublic();
+
   return {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
@@ -207,19 +215,23 @@ export function generateLocalBusinessStructuredData() {
     name: 'ClickAnunț',
     image: `${siteUrl}/images/logo.png`,
     url: siteUrl,
-    telephone: '+40-784-712-496',
+    ...(showLegal
+      ? {
+          telephone: '+40-784-712-496',
+          address: {
+            '@type': 'PostalAddress',
+            addressCountry: 'RO',
+            addressLocality: 'București',
+          },
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: 44.4268,
+            longitude: 26.1025,
+          },
+        }
+      : {}),
     email: 'contact@clickanunt.ro',
     priceRange: 'Gratuit',
-    address: {
-      '@type': 'PostalAddress',
-      addressCountry: 'RO',
-      addressLocality: 'București',
-    },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: 44.4268,
-      longitude: 26.1025,
-    },
     openingHoursSpecification: [
       {
         '@type': 'OpeningHoursSpecification',

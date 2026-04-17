@@ -1,4 +1,8 @@
+import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+
 export default function PrivacyPage() {
+  const showCompanyLegal = isCompanyLegalDetailsPublic();
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -18,14 +22,28 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mb-4 text-white">1. Operator de Date</h2>
             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 mb-4">
-              <p className="mb-2"><strong>Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
-              <p className="mb-2"><strong>Sediu social:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
-              <p className="mb-2"><strong>CUI/Cod fiscal:</strong> RO46062613</p>
-              <p className="mb-2"><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
-              <p className="mb-2"><strong>Reg. Com.:</strong> J20220000480181</p>
-              <p className="mb-2"><strong>Email contact general:</strong> contact@clickanunt.ro</p>
-              <p className="mb-2"><strong>Email contact GDPR:</strong> dpo@clickanunt.ro</p>
-              <p className="mb-2"><strong>Responsabil Protecția Datelor (DPO):</strong> dpo@clickanunt.ro</p>
+              {showCompanyLegal ? (
+                <>
+                  <p className="mb-2"><strong>Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
+                  <p className="mb-2"><strong>Sediu social:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+                  <p className="mb-2"><strong>CUI/Cod fiscal:</strong> RO46062613</p>
+                  <p className="mb-2"><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
+                  <p className="mb-2"><strong>Reg. Com.:</strong> J20220000480181</p>
+                  <p className="mb-2"><strong>Email contact general:</strong> contact@clickanunt.ro</p>
+                  <p className="mb-2"><strong>Email contact GDPR:</strong> dpo@clickanunt.ro</p>
+                  <p className="mb-2"><strong>Responsabil Protecția Datelor (DPO):</strong> dpo@clickanunt.ro</p>
+                </>
+              ) : (
+                <>
+                  <p className="mb-2">
+                    Operatorul platformei este o societate comercială înregistrată în România. Denumirea legală și adresa
+                    sediului social nu sunt afișate public în această versiune a documentului.
+                  </p>
+                  <p className="mb-2"><strong>Email contact general:</strong> contact@clickanunt.ro</p>
+                  <p className="mb-2"><strong>Email contact GDPR:</strong> dpo@clickanunt.ro</p>
+                  <p className="mb-2"><strong>Responsabil Protecția Datelor (DPO):</strong> dpo@clickanunt.ro</p>
+                </>
+              )}
             </div>
             <p className="text-sm text-gray-400">
               În cazul în care aveți întrebări sau solicitări legate de datele personale, ne puteți contacta

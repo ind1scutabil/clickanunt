@@ -8,7 +8,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState({
     name: "Ion Popescu",
     email: "ion.popescu@example.com",
-    phone: "+40 784 712 496",
+    phone: "+40 711 222 333",
     location: "București, România",
   });
 

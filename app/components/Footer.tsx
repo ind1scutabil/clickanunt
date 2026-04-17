@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
 
 export default function Footer() {
+  const showCompanyLegal = isCompanyLegalDetailsPublic();
   return (
     <footer className="mt-auto border-t border-white/10 bg-neutral-950 text-neutral-400">
       {/* Main Footer */}
@@ -130,9 +132,11 @@ export default function Footer() {
           <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 md:flex-row">
             <div>
               <p>&copy; 2026 ClickAnunț. Toate drepturile rezervate.</p>
-              <p className="text-xs mt-1">
-                ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181
-              </p>
+              {showCompanyLegal && (
+                <p className="text-xs mt-1">
+                  ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-6">
               <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-neutral-100">

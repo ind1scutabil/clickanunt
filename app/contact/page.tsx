@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import Navbar from "@/app/components/Navbar";
+import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+
+const showCompanyLegal = isCompanyLegalDetailsPublic();
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -202,20 +205,31 @@ export default function ContactPage() {
 
               <div className="enterprise-card rounded-2xl p-6 md:p-8">
                 <h2 className="mb-4 text-xl font-semibold text-white">Date societate</h2>
-                <div className="space-y-2 text-[var(--text-secondary)]">
-                  <p><strong className="text-[var(--text-primary)]">Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
-                  <p><strong>CUI/Cod fiscal:</strong> RO46062613</p>
-                  <p><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
-                  <p><strong>Reg. Com.:</strong> J20220000480181</p>
-                  <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
-                  <p><strong>Email principal:</strong> contact@clickanunt.ro</p>
-                  <div className="mt-4 border-t border-white/[0.06] pt-4">
-                    <p className="mb-2 text-sm text-[var(--text-tertiary)]"><strong className="text-[var(--text-primary)]">Detalii bancare</strong></p>
-                    <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
-                    <p><strong>Banca:</strong> ING</p>
-                    <p><strong>Valută:</strong> RON</p>
+                {showCompanyLegal ? (
+                  <div className="space-y-2 text-[var(--text-secondary)]">
+                    <p><strong className="text-[var(--text-primary)]">Denumire:</strong> ENORE SALES TYPE S.R.L.</p>
+                    <p><strong>CUI/Cod fiscal:</strong> RO46062613</p>
+                    <p><strong>Înregistrare TVA:</strong> RO46062613 (Plătitor de TVA)</p>
+                    <p><strong>Reg. Com.:</strong> J20220000480181</p>
+                    <p><strong>Sediu:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34</p>
+                    <p><strong>Email principal:</strong> contact@clickanunt.ro</p>
+                    <div className="mt-4 border-t border-white/[0.06] pt-4">
+                      <p className="mb-2 text-sm text-[var(--text-tertiary)]"><strong className="text-[var(--text-primary)]">Detalii bancare</strong></p>
+                      <p><strong>IBAN:</strong> RO50 INGB 0000 9999 1573 6030</p>
+                      <p><strong>Banca:</strong> ING</p>
+                      <p><strong>Valută:</strong> RON</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="text-[var(--text-secondary)]">
+                    Pentru moment, denumirea legală, adresa și datele de contact telefon ale operatorului nu sunt afișate public.
+                    Poți folosi{" "}
+                    <a href="mailto:contact@clickanunt.ro" className="text-[var(--accent-secondary)] hover:underline">
+                      contact@clickanunt.ro
+                    </a>{" "}
+                    pentru solicitări oficiale.
+                  </p>
+                )}
               </div>
 
               <div className="enterprise-card rounded-2xl border border-blue-500/20 bg-blue-950/20 p-6">
