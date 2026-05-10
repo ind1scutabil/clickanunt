@@ -10,6 +10,7 @@ import {
 import { connectMessageEventsSse } from '@/lib/message-events-sse-client';
 import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
 import { displayNameForMessagingUser } from '@/lib/messaging-display';
+import { messagingUserIdsEqual } from '@/lib/messaging-user-id';
 import type { ListingPublicDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
 
 type Message = MessageThreadRowDto;
@@ -64,7 +65,7 @@ export default function ListingMessagesPage() {
   const isOwnListing = Boolean(
     currentUser?.id &&
       messagingPeerId &&
-      messagingPeerId === currentUser.id
+      messagingUserIdsEqual(messagingPeerId, currentUser.id)
   );
 
   // Auto-scroll to bottom when new messages arrive
@@ -87,7 +88,9 @@ export default function ListingMessagesPage() {
       router.push('/auth/login');
       return;
     }
-    setCurrentUser({ ...parsed, id: resolvedUserId });
+    const meId =
+      typeof resolvedUserId === 'string' ? resolvedUserId.trim().toLowerCase() : resolvedUserId;
+    setCurrentUser({ ...parsed, id: meId });
 
     if (!id) {
       setLoading(false);
@@ -107,7 +110,7 @@ export default function ListingMessagesPage() {
 
         const ownerPeerId = data.owner?.id ?? data.ownerUserId;
         // Once we have the listing owner, fetch messages
-        if (ownerPeerId && ownerPeerId !== resolvedUserId) {
+        if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, resolvedUserId)) {
           fetchMessages(ownerPeerId, accessAfterSync, data.id);
         }
       } catch (err) {
@@ -207,8 +210,10 @@ export default function ListingMessagesPage() {
         if (!listingId || !ownerId || !currentUserId) return;
 
         const thisListingThread =
-          (d.senderId === ownerId && d.receiverId === currentUserId) ||
-          (d.receiverId === ownerId && d.senderId === currentUserId);
+          (messagingUserIdsEqual(d.senderId, ownerId) &&
+            messagingUserIdsEqual(d.receiverId, currentUserId)) ||
+          (messagingUserIdsEqual(d.receiverId, ownerId) &&
+            messagingUserIdsEqual(d.senderId, currentUserId));
         if (!thisListingThread) return;
 
         if (pinnedConv && d.conversationId && d.conversationId !== pinnedConv) {
@@ -273,6 +278,18 @@ export default function ListingMessagesPage() {
     };
   }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
 
+  /** Tab în fundal: polling e aproape oprit; la revenire încărcăm thread-ul imediat */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
+      if (!listing?.id || !messagingPeerId || isOwnListing) return;
+      const t = localStorage.getItem('accessToken');
+      void fetchMessagesRef.current(messagingPeerId, t, listing.id);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [listing?.id, messagingPeerId, isOwnListing]);
+
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser || !listing || sendingMessage) {
       return;
@@ -283,7 +300,7 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    if (peerId === currentUser.id) {
+    if (messagingUserIdsEqual(peerId, currentUser.id)) {
       setError('Nu poți trimite mesaje propriului anunț');
       return;
     }
@@ -451,7 +468,7 @@ export default function ListingMessagesPage() {
                   ) : (
                     <>
                       {messages.map((msg) => {
-                        const isOwn = msg.senderId === currentUser.id;
+                        const isOwn = messagingUserIdsEqual(msg.senderId, currentUser.id);
                         const senderLabel = displayNameForMessagingUser(msg.sender);
                         const senderInitial =
                           senderLabel.charAt(0).toUpperCase() ||

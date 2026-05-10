@@ -1,16 +1,16 @@
 /**
  * In-memory pub/sub pentru SSE (același proces Node).
  * La scale orizontal → Redis pub/sub; pentru un singur PM2 e suficient.
- *
- * Chei normalizate lowercase — evită ratări când JWT are alt casing decât id din Prisma.
  */
+
+import { canonicalMessagingUserId } from "@/lib/messaging-user-id";
 
 type Subscriber = (payload: Record<string, unknown>) => void;
 
 const subscribers = new Map<string, Set<Subscriber>>();
 
 function canonicalUserKey(userId: string): string {
-  return (userId || "").trim().toLowerCase();
+  return canonicalMessagingUserId(userId) ?? "";
 }
 
 export function subscribeUser(userId: string, onEvent: Subscriber): () => void {

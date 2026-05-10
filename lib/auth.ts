@@ -136,17 +136,22 @@ export async function decodeAccessJwtPayload(
   if (!payload || isRefreshPayload(payload)) {
     const flex = verifyJwtHs256AccessFlexible(normalized);
     if (flex) {
-      payload = {
-        userId: flex.userId,
-        email: flex.email,
-        role: flex.role ?? 'user',
-        type: 'access',
-      } as TokenPayload;
+      const flexUid = String(flex.userId ?? '').trim().toLowerCase();
+      if (flexUid) {
+        payload = {
+          userId: flexUid,
+          email: flex.email,
+          role: flex.role ?? 'user',
+          type: 'access',
+        } as TokenPayload;
+      }
     }
   }
 
   if (!payload || isRefreshPayload(payload)) return null;
-  const uid = payload.userId || (payload as { sub?: string }).sub;
+  const rawUid = payload.userId || (payload as { sub?: string }).sub;
+  const uid =
+    typeof rawUid === "string" ? rawUid.trim().toLowerCase() : "";
   if (!uid) return null;
 
   return { ...payload, userId: uid } as TokenPayload;

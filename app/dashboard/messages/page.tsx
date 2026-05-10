@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-fetch";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 import { displayNameForMessagingUser } from "@/lib/messaging-display";
+import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
 
 interface Message {
   id: string;
@@ -155,13 +156,13 @@ export default function MessagesPage() {
     if (userStr) {
       try {
         const user = JSON.parse(userStr) as { id?: string; userId?: string };
-        setCurrentUserId(
+        const rawMe =
           typeof user?.id === "string"
             ? user.id
             : typeof user?.userId === "string"
               ? user.userId
-              : null
-        );
+              : null;
+        setCurrentUserId(rawMe ? rawMe.trim().toLowerCase() : null);
       } catch {
         setCurrentUserId(null);
       }
@@ -347,7 +348,10 @@ export default function MessagesPage() {
         return;
       }
 
-      if (!conversationId && currentConversation.otherParticipant.id !== userId) {
+      if (
+        !conversationId &&
+        !messagingUserIdsEqual(currentConversation.otherParticipant.id, userId)
+      ) {
         return;
       }
 
@@ -362,7 +366,7 @@ export default function MessagesPage() {
           const hasServerConfirmedEquivalent = nextMessages.some((serverMessage: Message) => {
             if (!currentUserId) return false;
 
-            const isSameSender = serverMessage.sender.id === currentUserId;
+            const isSameSender = messagingUserIdsEqual(serverMessage.sender.id, currentUserId);
             const isSameContent = serverMessage.content === tempMessage.content;
             const serverTs = new Date(serverMessage.createdAt).getTime();
             const tempTs = new Date(tempMessage.createdAt).getTime();
@@ -435,6 +439,26 @@ export default function MessagesPage() {
       dispose();
       sseLiveRef.current = false;
     };
+  }, []);
+
+  /** Tab în fundal: browserul încetinește puternic setInterval; la revenire refacem sync imediat */
+  useEffect(() => {
+    const onVisibility = () => {
+      if (typeof document === "undefined" || document.visibilityState !== "visible") {
+        return;
+      }
+      void sseHandlerRef.current.fetchConversations({ startPolling: false });
+      const sel = selectedConversationRef.current;
+      if (sel) {
+        void fetchMessagesRefForSse.current(
+          sel.otherParticipant.id,
+          sel.listing?.id,
+          sel.id
+        );
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -700,16 +724,16 @@ export default function MessagesPage() {
                     messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex flex-col ${msg.sender.id === currentUserId ? "items-end" : "items-start"}`}
+                        className={`flex flex-col ${messagingUserIdsEqual(msg.sender.id, currentUserId) ? "items-end" : "items-start"}`}
                       >
-                        {msg.sender.id !== currentUserId && (
+                        {!messagingUserIdsEqual(msg.sender.id, currentUserId) && (
                           <span className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                             {displayNameForMessagingUser(msg.sender)}
                           </span>
                         )}
                         <div
                           className={`max-w-[min(100%,20rem)] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                            msg.sender.id === currentUserId
+                            messagingUserIdsEqual(msg.sender.id, currentUserId)
                               ? "bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-white shadow-[var(--shadow-sm)]"
                               : "border border-white/[0.08] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                           }`}
