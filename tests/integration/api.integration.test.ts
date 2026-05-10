@@ -6,7 +6,7 @@
  *
  * @jest-environment node
  */
-import { createCsrfSession } from "./helpers/csrf-session";
+import { createCsrfSession, mergeSetCookie } from "./helpers/csrf-session";
 
 const baseUrl = (process.env.API_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 
@@ -80,6 +80,62 @@ describe("API integration (server required)", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
+  });
+
+  it("authenticated GET /api/messages/[userId] accepts access cookie (not 401)", async () => {
+    const csrf = await createCsrfSession(baseUrl);
+    const email = process.env.E2E_USER_EMAIL ?? "user@example.com";
+    const password = process.env.E2E_USER_PASSWORD ?? "Password123!";
+    const loginRes = await fetch(url("/api/auth/login"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: csrf.origin,
+        "x-csrf-token": csrf.csrfToken,
+        ...(csrf.cookieHeader ? { Cookie: csrf.cookieHeader } : {}),
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    if (loginRes.status !== 200) {
+      console.warn(
+        `[integration] skip authenticated messages test — login returned ${loginRes.status} (${email}). Set E2E_USER_* or use seeded user.`,
+      );
+      return;
+    }
+    const mergedCookies = mergeSetCookie(csrf.cookieHeader, loginRes);
+    const meRes = await fetch(url("/api/users/me"), { headers: { Cookie: mergedCookies } });
+    if (!meRes.ok) {
+      console.warn("[integration] skip authenticated messages test — /api/users/me failed");
+      return;
+    }
+    const me = (await meRes.json()) as { id?: string };
+    const meId = me.id;
+    if (!meId) {
+      console.warn("[integration] skip authenticated messages test — user id missing");
+      return;
+    }
+    const listRes = await fetch(url("/api/listings"));
+    expect(listRes.status).toBe(200);
+    const feed = (await listRes.json()) as {
+      data?: Array<{ id?: string; ownerUserId?: string; owner?: { id?: string } }>;
+    };
+    const row = feed.data?.find((x) => {
+      const oid = x?.owner?.id ?? x?.ownerUserId;
+      return x?.id && oid && oid !== meId;
+    });
+    if (!row?.id) {
+      console.warn("[integration] skip authenticated messages test — no peer listing");
+      return;
+    }
+    const peerId = row.owner?.id ?? row.ownerUserId!;
+    const qs = `?listingId=${encodeURIComponent(row.id)}`;
+    const msgRes = await fetch(url(`/api/messages/${peerId}${qs}`), {
+      headers: { Cookie: mergedCookies },
+    });
+    expect(msgRes.status).toBe(200);
+    expect(msgRes.headers.get("content-type")).toMatch(/application\/json/);
+    const msgs = await msgRes.json();
+    expect(Array.isArray(msgs)).toBe(true);
   });
 
   it("POST /api/auth/register with CSRF creates user or conflicts", async () => {

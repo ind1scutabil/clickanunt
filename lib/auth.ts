@@ -5,6 +5,7 @@
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { normalizeJwtInput } from './jwt-normalize';
+import { verifyJwtHs256AccessFlexible } from '@/lib/security/tokens';
 import { db } from './db';
 import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
@@ -118,6 +119,40 @@ export async function verifyToken(token: string): Promise<TokenPayload | null> {
 }
 
 /**
+ * Access JWT efectiv pentru API: întâi Jose (issuer opțional), apoi fallback HS256 elastic
+ * (aceeași parolă `JWT_SECRET` ca `lib/security/tokens.ts`). Ignoră tokenuri `refresh`.
+ */
+export async function decodeAccessJwtPayload(
+  raw: string | null | undefined
+): Promise<TokenPayload | null> {
+  const normalized = normalizeJwtInput(typeof raw === 'string' ? raw : '');
+  if (!normalized) return null;
+
+  let payload = await verifyToken(normalized);
+
+  const isRefreshPayload = (p: TokenPayload | null) =>
+    !!(p && (p as { type?: string }).type === 'refresh');
+
+  if (!payload || isRefreshPayload(payload)) {
+    const flex = verifyJwtHs256AccessFlexible(normalized);
+    if (flex) {
+      payload = {
+        userId: flex.userId,
+        email: flex.email,
+        role: flex.role ?? 'user',
+        type: 'access',
+      } as TokenPayload;
+    }
+  }
+
+  if (!payload || isRefreshPayload(payload)) return null;
+  const uid = payload.userId || (payload as { sub?: string }).sub;
+  if (!uid) return null;
+
+  return { ...payload, userId: uid } as TokenPayload;
+}
+
+/**
  * Extrage token din headers (Bearer token)
  */
 export function extractTokenFromRequest(request: NextRequest): string | null {
@@ -132,13 +167,17 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
  * Verifică user din request - returnează payload sau user complet
  */
 export async function getUserFromRequest(request: NextRequest) {
-  const cookieToken = request.cookies.get('accessToken')?.value?.trim() || null;
+  const cookieToken = normalizeJwtInput(request.cookies.get('accessToken')?.value || '');
   const authHeader = request.headers.get('authorization');
-  const headerToken = authHeader?.startsWith('Bearer ')
-    ? authHeader.substring(7).trim() || null
-    : null;
+  let headerToken: string | null = null;
+  if (authHeader?.startsWith('Bearer ')) {
+    headerToken = normalizeJwtInput(authHeader.substring(7));
+  } else if (authHeader?.trim()) {
+    /** Unele cliente trimit JWT brut pe Authorization — același lucru îl permite și mesageria */
+    headerToken = normalizeJwtInput(authHeader);
+  }
 
-  /** Încearcă fiecare token distinct (Bearer apoi cookie); primul JWT valid + user în DB câștigă */
+  /** Încearcă fiecare token distinct (Bearer / header brut apoi cookie); primul access valid + user în DB */
   const raw = [headerToken, cookieToken].filter(
     (t): t is string => typeof t === 'string' && t.length > 0
   );
@@ -152,7 +191,7 @@ export async function getUserFromRequest(request: NextRequest) {
   }
 
   for (const token of candidates) {
-    const payload = await verifyToken(token);
+    const payload = await decodeAccessJwtPayload(token);
     if (!payload?.userId) continue;
     const user = await db.findUserById(payload.userId);
     if (user) return user;

@@ -37,3 +37,24 @@ export async function createCsrfSession(baseUrl: string): Promise<CsrfSession> {
     origin,
   };
 }
+
+/** Concatenează `Set-Cookie` din răspuns la `Cookie` existent pentru `fetch` următor. */
+export function mergeSetCookie(existing: string | undefined | null, res: Response): string {
+  const h = res.headers as Headers & { getSetCookie?: () => string[] };
+  const parts: string[] = [];
+  const base = typeof existing === "string" ? existing.trim() : "";
+  if (base) parts.push(base);
+  if (typeof h.getSetCookie === "function") {
+    for (const c of h.getSetCookie()) {
+      parts.push(c.split(";")[0].trim());
+    }
+  } else {
+    const sc = h.get("set-cookie");
+    if (sc) {
+      for (const c of sc.split(/,(?=[^;]+?=)/)) {
+        parts.push(c.trim().split(";")[0].trim());
+      }
+    }
+  }
+  return [...new Set(parts.filter(Boolean))].join("; ");
+}

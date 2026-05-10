@@ -1,18 +1,7 @@
 import type { NextRequest } from "next/server";
-import { verifyToken, type TokenPayload } from "@/lib/auth";
+import type { TokenPayload } from "@/lib/auth";
+import { decodeAccessJwtPayload } from "@/lib/auth";
 import { normalizeJwtInput } from "@/lib/jwt-normalize";
-import { verifyJwtHs256AccessFlexible } from "@/lib/security/tokens";
-
-function payloadFromFlexible(
-  flex: NonNullable<ReturnType<typeof verifyJwtHs256AccessFlexible>>
-): TokenPayload {
-  return {
-    userId: flex.userId,
-    email: flex.email,
-    role: flex.role ?? "user",
-    type: "access",
-  } as TokenPayload;
-}
 
 function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -27,49 +16,6 @@ function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[]
   return out;
 }
 
-function payloadExpSeconds(p: TokenPayload): number {
-  const e = (p as { exp?: unknown }).exp;
-  return typeof e === "number" ? e : 0;
-}
-
-/**
- * În caz sunt mai mulți candidați (SSE ?token=, Authorization, cookie), ia tokenul ACTIV cel mai bun
- * după `exp`; evită scenariile în care un access vechi în localStorage pare „prioritar” și ambele sunt trimise.
- */
-async function resolveBestAccessPayloadFromCandidates(
-  rawCandidates: Array<string | null | undefined>
-): Promise<TokenPayload | null> {
-  const candidates = uniqMessagingTokens(rawCandidates);
-  let best: TokenPayload | null = null;
-
-  for (const candidate of candidates) {
-    let payload = await verifyToken(candidate);
-    if (!payload) {
-      const flex = verifyJwtHs256AccessFlexible(candidate);
-      if (flex) payload = payloadFromFlexible(flex);
-    }
-    if (!payload) continue;
-    if ((payload as { type?: string }).type === "refresh") continue;
-
-    const userId =
-      payload.userId || (payload as { sub?: string }).sub;
-    if (!userId) continue;
-
-    if (!best) {
-      best = payload;
-      continue;
-    }
-    const expCand = payloadExpSeconds(payload);
-    const expBest = payloadExpSeconds(best);
-    /** Preferă expirarea mai mare (token mai proaspăt / durată mai lungă dată aceeași familie JWT). */
-    if (expCand > expBest) {
-      best = payload;
-    }
-  }
-
-  return best;
-}
-
 function bearerFromHeader(auth: string | null): string | null {
   const a = auth?.trim();
   if (!a) return null;
@@ -78,27 +24,22 @@ function bearerFromHeader(auth: string | null): string | null {
 }
 
 /**
- * Auth pentru rute mesaje: Authorization, cookie accessToken, sau ?token= (necesar pentru EventSource).
- * Ordine: query (SSE), cookie httpOnly, apoi Bearer.
+ * Auth SSE: ?token= (EventSource), cookie httpOnly, apoi Bearer / Authorization brut.
  */
 export async function getAuthUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const queryToken = request.nextUrl.searchParams.get("token")?.trim();
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  const payload = await resolveBestAccessPayloadFromCandidates([
-    queryToken,
-    cookieToken,
-    headerToken,
-  ]);
-  if (!payload) return null;
-  return payload.userId || (payload as { sub?: string }).sub || null;
+  for (const candidate of uniqMessagingTokens([queryToken, cookieToken, headerToken])) {
+    const payload = await decodeAccessJwtPayload(candidate);
+    if (payload?.userId) return payload.userId;
+  }
+  return null;
 }
 
 /**
- * GET/POST JSON mesaje — fără token în URL.
- * Bearer înainte de cookie: după `/api/auth/refresh` SPA actualizează localStorage dar cookie-ul
- * access poate fi încă vechi (până la Set-Cookie pe refresh); headerul reflectă tokenul nou.
+ * GET/POST JSON mesaje: Bearer înainte de cookie — după refresh SPA are Bearer nou, cookie poate întârzia.
  */
 export async function getMessagingApiAuthPayload(
   request: NextRequest
@@ -106,5 +47,9 @@ export async function getMessagingApiAuthPayload(
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  return resolveBestAccessPayloadFromCandidates([headerToken, cookieToken]);
+  for (const candidate of uniqMessagingTokens([headerToken, cookieToken])) {
+    const payload = await decodeAccessJwtPayload(candidate);
+    if (payload) return payload;
+  }
+  return null;
 }

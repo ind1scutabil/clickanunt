@@ -89,6 +89,14 @@ export async function GET(
     const payload = await getMessagingApiAuthPayload(request);
 
     if (!payload) {
+      const lid = request.nextUrl.searchParams.get("listingId");
+      console.warn("[api/messages] auth:no-payload", {
+        method: "GET",
+        peerUserId: params.userId,
+        listingId: lid ?? undefined,
+        hasAccessCookie: !!request.cookies.get("accessToken")?.value,
+        hasAuthorization: !!request.headers.get("authorization"),
+      });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -238,6 +246,12 @@ export async function POST(
     );
 
     if (!payload) {
+      console.warn("[api/messages] auth:no-payload", {
+        method: "POST",
+        peerUserId: params.userId,
+        hasAccessCookie: !!request.cookies.get("accessToken")?.value,
+        hasAuthorization: !!request.headers.get("authorization"),
+      });
       console.log('[MSG-POST] ❌ Authentication failed - no valid token');
       return NextResponse.json(
         { error: "Unauthorized" },

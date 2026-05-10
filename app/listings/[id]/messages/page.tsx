@@ -127,7 +127,27 @@ export default function ListingMessagesPage() {
     try {
       const query = listingId ? `?listingId=${encodeURIComponent(listingId)}` : '';
       const res = await fetchWithAuthRefresh(`/api/messages/${ownerId}${query}`);
-      if (!res.ok) throw new Error('Failed to fetch messages');
+      if (!res.ok) {
+        const raw = await res.text();
+        if (res.status === 401 || res.status === 403) {
+          let msg =
+            res.status === 401
+              ? 'Sesiunea a expirat sau nu ești autentificat. Delogare și login din nou, apoi reîncearcă.'
+              : 'Acces refuzat la conversație. Reîncearcă după reconectare.';
+          try {
+            const j = JSON.parse(raw) as { error?: string };
+            if (typeof j?.error === 'string' && j.error.includes('Forbidden')) {
+              msg = j.error;
+            }
+          } catch {
+            /* ignore */
+          }
+          setError(msg);
+          setMessages([]);
+          return;
+        }
+        throw new Error('Failed to fetch messages');
+      }
       const data = await res.json();
       setMessages(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -265,7 +285,12 @@ export default function ListingMessagesPage() {
         let errMsg = 'Failed to send message';
         try {
           const parsed = JSON.parse(raw) as { error?: string };
-          if (typeof parsed?.error === 'string') errMsg = parsed.error;
+          if (typeof parsed?.error === 'string') {
+            errMsg =
+              parsed.error === 'Unauthorized'
+                ? 'Nu ești autentificat sau sesiunea a expirat. Delogare, login și reîncearcă.'
+                : parsed.error;
+          }
         } catch {
           errMsg = res.status === 401 ? 'Nu ești autentificat sau sesiunea a expirat.' : raw.slice(0, 200);
         }
