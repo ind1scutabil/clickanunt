@@ -13,6 +13,8 @@ export function shouldAttemptTokenRefresh(
   if (status === 401) return true;
   if (status !== 403) return false;
   const err = (payload?.error ?? '').toString().trim();
+  /** Autentificat dar fără rol — refresh nu ajută */
+  if (err === 'Permisiuni insuficiente') return false;
   if (!err) {
     return /interzis|forbidden|unauthorized|expirat|token/i.test(rawText.slice(0, 500));
   }
@@ -67,6 +69,14 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
   return null;
 }
 
+/**
+ * Reîncearcă accessToken din cookie httpOnly (`/api/auth/refresh` cu body gol).
+ * Apel recomandat înainte de rute sensibile (ex. listă utilizatori admin).
+ */
+export async function syncSessionFromCookies(signal?: AbortSignal): Promise<void> {
+  await refreshAccessToken(signal);
+}
+
 export async function fetchWithAuthRefresh(
   url: string,
   options: RequestInit & { signal?: AbortSignal } = {}
@@ -112,7 +122,10 @@ export async function fetchWithAuthRefresh(
     newAccess ??
     (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
 
-  return doFetch(bearerToken);
+  const retry = await doFetch(bearerToken);
+  if (retry.ok) return retry;
+  /** Fără header Authorization — unele instalări trimit cookie valid dar Bearer invalid în SPA */
+  return doFetch(null);
 }
 
 /** POST JSON + CSRF + Bearer; retry după refresh la 401/403 */

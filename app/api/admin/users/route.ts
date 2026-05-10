@@ -15,8 +15,11 @@ export async function GET(request: NextRequest) {
   try {
     console.log('[ADMIN/USERS] === NEW REQUEST ===');
     const adminUser = await getUserFromRequest(request);
-    if (!adminUser || !hasPermission(adminUser.role as UserRole, Permission.USERS_VIEW_ALL)) {
-      return NextResponse.json({ error: 'Acces interzis' }, { status: 403 });
+    if (!adminUser) {
+      return NextResponse.json({ error: 'Neautentificat' }, { status: 401 });
+    }
+    if (!hasPermission(adminUser.role as UserRole, Permission.USERS_VIEW_ALL)) {
+      return NextResponse.json({ error: 'Permisiuni insuficiente' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

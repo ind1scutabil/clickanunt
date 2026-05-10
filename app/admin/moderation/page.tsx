@@ -10,6 +10,7 @@ import {
   jsonMutationWithAuthRefresh,
   postJsonWithAuthRefresh,
   putJsonWithAuthRefresh,
+  syncSessionFromCookies,
 } from '@/lib/admin-fetch';
 import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
 import UserModerationEnterprise, {
@@ -250,6 +251,8 @@ function AdminModerationPageInner() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+      await syncSessionFromCookies(controller.signal);
+
       const response = await fetchWithAuthRefresh(
         '/api/admin/users?limit=1000&sort=activity',
         {
@@ -263,9 +266,18 @@ function AdminModerationPageInner() {
         const errorData = await response.text();
 
         if (response.status === 403) {
-          setUsersError('Acces interzis - verificați autentificarea admin');
+          try {
+            const j = JSON.parse(errorData) as { error?: string };
+            setUsersError(
+              j?.error === 'Permisiuni insuficiente'
+                ? 'Contul nu poate lista utilizatori: rol insuficient în baza de date (necesar: admin, owner, moderator, suport sau finance). Deloghează-te, autentifică-te din nou sau actualizează rolul în DB.'
+                : 'Acces interzis - verificați autentificarea admin'
+            );
+          } catch {
+            setUsersError('Acces interzis - verificați autentificarea admin');
+          }
         } else if (response.status === 401) {
-          setUsersError('Neautorizat - token expirat sau invalid');
+          setUsersError('Sesiune expirată sau necunoscută pe server. Deloghează-te și autentifică-te din nou.');
         } else if (response.status >= 500) {
           setUsersError('Eroare server - contactați administratorul');
         } else {
