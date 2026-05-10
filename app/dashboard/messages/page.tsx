@@ -109,8 +109,20 @@ export default function MessagesPage() {
         const response = await fetchWithAuthRefresh("/api/messages/conversations");
         if (response.ok) {
           const data = await response.json();
-          const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+          const conversationsList: Conversation[] = Array.isArray(data)
+            ? data
+            : data.conversations || [];
           setConversations(conversationsList);
+          const sel = selectedConversationRef.current;
+          if (!sel && conversationsList.length > 0) {
+            void handleSelectConversation(conversationsList[0]);
+          } else if (sel && conversationsList.length > 0) {
+            const fresh = conversationsList.find((c) => c.id === sel.id);
+            if (fresh) {
+              setSelectedConversation(fresh);
+              selectedConversationRef.current = fresh;
+            }
+          }
         }
       } catch {
         /* ignore */
@@ -142,8 +154,14 @@ export default function MessagesPage() {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
-        const user = JSON.parse(userStr);
-        setCurrentUserId(user?.id || null);
+        const user = JSON.parse(userStr) as { id?: string; userId?: string };
+        setCurrentUserId(
+          typeof user?.id === "string"
+            ? user.id
+            : typeof user?.userId === "string"
+              ? user.userId
+              : null
+        );
       } catch {
         setCurrentUserId(null);
       }
@@ -199,7 +217,9 @@ export default function MessagesPage() {
       }
 
       const data = await response.json();
-      const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+      const conversationsList: Conversation[] = Array.isArray(data)
+        ? data
+        : data.conversations || [];
       setConversations(conversationsList);
       setIsLoadingConversations(false);
 
@@ -207,10 +227,16 @@ export default function MessagesPage() {
       if (!sel && conversationsList.length > 0) {
         void handleSelectConversation(conversationsList[0]);
       } else if (sel && conversationsList.length > 0) {
+        const fresh = conversationsList.find((c) => c.id === sel.id);
+        const thread = fresh ?? sel;
+        if (fresh) {
+          setSelectedConversation(fresh);
+          selectedConversationRef.current = fresh;
+        }
         void fetchMessages(
-          sel.otherParticipant.id,
-          sel.listing?.id,
-          sel.id,
+          thread.otherParticipant.id,
+          thread.listing?.id,
+          thread.id,
           "manual"
         );
       }
@@ -226,8 +252,20 @@ export default function MessagesPage() {
           const response = await fetchWithAuthRefresh("/api/messages/conversations");
           if (response.ok) {
             const data = await response.json();
-            const conversationsList = Array.isArray(data) ? data : data.conversations || [];
+            const conversationsList: Conversation[] = Array.isArray(data)
+              ? data
+              : data.conversations || [];
             setConversations(conversationsList);
+            const sel = selectedConversationRef.current;
+            if (!sel && conversationsList.length > 0) {
+              void handleSelectConversation(conversationsList[0]);
+            } else if (sel && conversationsList.length > 0) {
+              const fresh = conversationsList.find((c) => c.id === sel.id);
+              if (fresh) {
+                setSelectedConversation(fresh);
+                selectedConversationRef.current = fresh;
+              }
+            }
           }
         } catch {
           /* polling */
@@ -247,11 +285,6 @@ export default function MessagesPage() {
       setIsLoadingThread(false);
     }
 
-    // Clear old polling
-    if (messagesPollingRef.current) {
-      clearInterval(messagesPollingRef.current);
-    }
-    
     if (messagesPollingRef.current) {
       clearInterval(messagesPollingRef.current);
     }

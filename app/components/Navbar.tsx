@@ -46,7 +46,7 @@ export default function Navbar() {
     const token = localStorage.getItem("accessToken");
     if (!isLoggedIn || !token) return;
 
-    const POLL_MS = 8000;
+    const POLL_MS = 3000;
 
     const checkUnread = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
