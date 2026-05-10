@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ListingJsonLd } from "./ListingJsonLd";
+import { ListingBreadcrumbsNav } from "./ListingBreadcrumbsNav";
 import { prisma } from "@/lib/prisma";
 import { createPageMetadata } from "@/lib/seo";
-import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
-import { absoluteUrl } from "@/lib/site-url";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 
 function formatListingPriceLine(priceAmount: number, priceCurrency: string): string {
@@ -48,7 +47,6 @@ export async function generateMetadata({
       county: true,
       updatedAt: true,
       createdAt: true,
-      photos: true,
       priceAmount: true,
       priceCurrency: true,
       deletedAt: true,
@@ -70,8 +68,7 @@ export async function generateMetadata({
   const indexOk = isListingSeoIndexable(listing);
   const loc = listing.city || listing.county || "";
   const priceLine = formatListingPriceLine(listing.priceAmount, listing.priceCurrency);
-  const imgs = normalizeListingPhotosArray(listing.photos, absoluteUrl(""));
-  const ogImage = imgs[0] ?? "/images/og-default.jpg";
+  const ogImage = `/listings/${id}/opengraph-image`;
 
   const rawDesc = listing.description?.replace(/\s+/g, " ").trim() ?? "";
   const description =
@@ -107,6 +104,7 @@ export default async function ListingDetailLayout({
   return (
     <>
       <ListingJsonLd listingId={id} />
+      <ListingBreadcrumbsNav listingId={id} />
       {children}
     </>
   );

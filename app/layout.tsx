@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Footer from "./components/Footer";
+import { GoogleAnalytics } from "./components/analytics/GoogleAnalytics";
+import { MicrosoftClarity } from "./components/analytics/MicrosoftClarity";
 import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
 import { warnIfProductionSiteUrlMissing } from "@/lib/seo/site-url-guard";
 import { siteOrigin } from "@/lib/site-url";
@@ -31,7 +33,7 @@ export const metadata: Metadata = {
     description: 'Cumpără și vinde în România. Anunțuri verificate, publicare gratuită.',
     images: [
       {
-        url: '/images/og-home.jpg',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'ClickAnunț - Anunțuri gratuite în România',
@@ -44,7 +46,7 @@ export const metadata: Metadata = {
     creator: '@clickanunt',
     title: 'ClickAnunț - Platforma de anunțuri gratuite din România',
     description: 'Cumpără și vinde în România. Anunțuri verificate.',
-    images: ['/images/og-home.jpg'],
+    images: ['/opengraph-image'],
   },
   ...(googleVerification ||
   process.env.NEXT_PUBLIC_YANDEX_VERIFICATION ||
@@ -73,6 +75,9 @@ export default function RootLayout({
   return (
     <html lang="ro">
       <body className="antialiased flex min-h-screen flex-col bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
+        {/* Analytics: production + env only — see GROWTH_SEO_IMPLEMENTATION_REPORT.md */}
+        <GoogleAnalytics />
+        <MicrosoftClarity />
         <GlobalJsonLd />
         <div id="main-content" className="flex-grow">
           {children}

@@ -18,3 +18,8 @@ export function isListingSeoIndexable(l: ListingSeoEligibilityShape): boolean {
   if (l.moderationStatus === 'rejected' || l.moderationStatus === 'flagged') return false;
   return l.moderationStatus === 'approved';
 }
+
+/** schema.org Offer `availability` — only in-stock when publicly indexable. */
+export function listingSchemaAvailabilityUrl(l: ListingSeoEligibilityShape): string {
+  return isListingSeoIndexable(l) ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+}

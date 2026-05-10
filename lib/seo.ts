@@ -244,6 +244,22 @@ export function generateItemListStructuredData(opts: {
   };
 }
 
+/** FAQPage JSON-LD for hub pages (one script block; do not duplicate per question). */
+export function generateFaqPageStructuredData(items: Array<{ question: string; answer: string }>) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((q) => ({
+      '@type': 'Question',
+      name: q.question,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: q.answer,
+      },
+    })),
+  };
+}
+
 export function generateLocalBusinessStructuredData() {
   const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();

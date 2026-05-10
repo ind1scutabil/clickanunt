@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import HomePageClient from "@/app/components/HomePageClient";
-import { createPageMetadata } from "@/lib/seo";
+import { createPageMetadata, generateBreadcrumbStructuredData } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   return createPageMetadata({
@@ -17,10 +17,16 @@ export async function generateMetadata(): Promise<Metadata> {
       "electronice",
       "ClickAnunț",
     ],
-    ogImage: "/images/og-home.jpg",
+    ogImage: "/opengraph-image",
   });
 }
 
 export default function HomePage() {
-  return <HomePageClient />;
+  const homeCrumb = generateBreadcrumbStructuredData([{ name: "Acasă", url: "/" }]);
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homeCrumb) }} />
+      <HomePageClient />
+    </>
+  );
 }

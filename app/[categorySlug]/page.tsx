@@ -12,9 +12,15 @@ import {
   SEO_HIGHLIGHT_CITY_LABELS,
 } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
-import { createPageMetadata, generateBreadcrumbStructuredData, generateItemListStructuredData } from "@/lib/seo";
+import {
+  createPageMetadata,
+  generateBreadcrumbStructuredData,
+  generateFaqPageStructuredData,
+  generateItemListStructuredData,
+} from "@/lib/seo";
 import { absoluteUrl } from "@/lib/site-url";
 import { getActiveListingCountForHub, getListingPreviewsForHub } from "@/lib/seo/hub-queries";
+import { buildMarketHubFaqItems } from "@/lib/seo/market-hub-faq";
 
 type Props = { params: Promise<{ categorySlug: string }> };
 
@@ -57,6 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     canonicalPath: path,
     keywords: [shortCat, label, "anunțuri", "România", "ClickAnunț"],
     noindex: count === 0,
+    ogImage: `${path}/opengraph-image`,
   });
 }
 
@@ -104,6 +111,8 @@ export default async function MarketCategoryOnlyPage({ params }: Props) {
 
   const relatedCats = relatedCanonicalCategorySlugs(primary, 8);
   const pillarCityLinks = [...SEO_HIGHLIGHT_CITY_LABELS].slice(0, 12);
+  const faqItems = buildMarketHubFaqItems(label);
+  const faqJsonLd = count > 0 ? generateFaqPageStructuredData([...faqItems]) : null;
 
   return (
     <div className="min-h-screen bg-[#0F1117]">
@@ -123,6 +132,8 @@ export default async function MarketCategoryOnlyPage({ params }: Props) {
         categorySlug={primary}
         relatedCityLabels={[...pillarCityLinks]}
         relatedCategorySlugs={relatedCats}
+        faqItems={count > 0 ? faqItems : []}
+        faqJsonLd={faqJsonLd}
       />
       {count > 0 && (
         <section className="mx-auto mb-10 max-w-7xl px-4" aria-labelledby="explore-city-hubs-label">

@@ -3,7 +3,13 @@ import { notFound, permanentRedirect } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import ListingsView from "@/app/components/ListingsView";
 import { SeoMarketHubExtras } from "@/app/components/seo/SeoMarketHubExtras";
-import { createPageMetadata, generateBreadcrumbStructuredData, generateItemListStructuredData } from "@/lib/seo";
+import {
+  createPageMetadata,
+  generateBreadcrumbStructuredData,
+  generateFaqPageStructuredData,
+  generateItemListStructuredData,
+} from "@/lib/seo";
+import { buildMarketHubFaqItems } from "@/lib/seo/market-hub-faq";
 import {
   buildMarketIntro,
   canonicalCategorySlug,
@@ -60,6 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     canonicalPath: path,
     keywords: [shortCat, city, label, "anunțuri", "România", "ClickAnunț"],
     noindex: count === 0,
+    ogImage: `${path}/opengraph-image`,
   });
 }
 
@@ -82,7 +89,10 @@ export default async function MarketCategoryCityPage({ params }: Props) {
   const routeBase = `/${primary}/${citySlug}`;
   const intro = buildMarketIntro(label, city);
 
-  const previews = await getListingPreviewsForHub(label, city, 24);
+  const [count, previews] = await Promise.all([
+    getActiveListingCountForHub(label, city),
+    getListingPreviewsForHub(label, city, 24),
+  ]);
   const breadcrumbs = [
     { label: "Acasă", href: "/" },
     { label: label.split(",")[0]?.trim() ?? primary, href: `/${primary}` },
@@ -107,6 +117,8 @@ export default async function MarketCategoryCityPage({ params }: Props) {
 
   const relatedCityLabels = siblingCitiesForMarketSeo(city, 14);
   const relatedCats = relatedCanonicalCategorySlugs(primary, 8);
+  const faqItems = buildMarketHubFaqItems(label, city);
+  const faqJsonLd = count > 0 ? generateFaqPageStructuredData([...faqItems]) : null;
 
   return (
     <div className="min-h-screen bg-[#0F1117]">
@@ -126,6 +138,8 @@ export default async function MarketCategoryCityPage({ params }: Props) {
         categorySlug={primary}
         relatedCityLabels={[...relatedCityLabels]}
         relatedCategorySlugs={relatedCats}
+        faqItems={count > 0 ? faqItems : []}
+        faqJsonLd={faqJsonLd}
       />
       <ListingsView
         routeBase={routeBase}

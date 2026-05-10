@@ -80,6 +80,13 @@ export default function HomePageClient() {
   return (
     <>
       <Navbar />
+      <nav aria-label="Breadcrumb" className="bg-[#0F1117] px-4 pt-3">
+        <ol className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-2 text-sm text-white/45">
+          <li>
+            <span className="font-medium text-white/70">Acasă</span>
+          </li>
+        </ol>
+      </nav>
 
       <main className="min-h-screen bg-[#0F1117]">
         {/* Hero Section */}
