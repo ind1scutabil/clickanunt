@@ -6,7 +6,9 @@
 import bcrypt from 'bcrypt';
 import {
   emailsEquivalentForLogin,
+  gmailInboxCanonicalKey,
   loginEmailLookupCandidates,
+  preferUserAmongDuplicateEmails,
 } from './sanitize';
 
 interface IUser {
@@ -105,23 +107,43 @@ class MemoryDB {
   }
 
   async findUserByEmail(email: string) {
-    const candidates = loginEmailLookupCandidates(email);
+    const rawInput = email.trim();
+    if (!rawInput) return null;
+
+    const candidates = loginEmailLookupCandidates(rawInput);
     if (candidates.length === 0) return null;
 
+    const byId = new Map<string, IUser>();
+
+    const add = (u: IUser | null | undefined) => {
+      if (u && !u.deletedAt) byId.set(u.id, u);
+    };
+
     for (const c of candidates) {
-      const byKey =
-        this.usersByEmail.get(c) || this.usersByEmail.get(c.toLowerCase());
-      if (byKey && !byKey.deletedAt) return byKey;
+      add(this.usersByEmail.get(c) || this.usersByEmail.get(c.toLowerCase()));
     }
 
     for (const u of this.users.values()) {
       if (u.deletedAt) continue;
       if (candidates.some((c) => emailsEquivalentForLogin(u.email, c))) {
-        return u;
+        add(u);
       }
     }
 
-    return null;
+    const canonKey = gmailInboxCanonicalKey(rawInput);
+    if (canonKey) {
+      for (const u of this.users.values()) {
+        if (!u.deletedAt && gmailInboxCanonicalKey(u.email) === canonKey) {
+          add(u);
+        }
+      }
+    }
+
+    const rows = [...byId.values()];
+    if (rows.length === 0) return null;
+    if (rows.length === 1) return rows[0];
+
+    return preferUserAmongDuplicateEmails(rows, rawInput);
   }
 
   async findUserById(id: string) {

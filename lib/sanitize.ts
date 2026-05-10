@@ -69,6 +69,44 @@ export function loginEmailLookupCandidates(rawEmail: string): string[] {
   return [...out];
 }
 
+/**
+ * Cheie stabilă pentru inbox Google: același utilizator poate tasta local-part cu sau fără puncte.
+ * googlemail.com este tratat echivalent cu gmail.com (același inbox).
+ */
+export function gmailInboxCanonicalKey(email: string): string | null {
+  const m = email.trim().toLowerCase().match(/^([^@]+)@(gmail|googlemail)\.com$/i);
+  if (!m) return null;
+  const localFolded = m[1].replace(/\./g, "");
+  return `gmail:${localFolded}`;
+}
+
+/** Când există mai multe rânduri pentru același inbox Gmail (puncte), alege clar contul dorit. */
+export function preferUserAmongDuplicateEmails<
+  T extends { email: string; role: string; createdAt: Date },
+>(rows: T[], rawLogin: string): T {
+  if (rows.length === 0) {
+    throw new Error('preferUserAmongDuplicateEmails: no rows');
+  }
+  if (rows.length === 1) return rows[0];
+
+  const want = rawLogin.trim().toLowerCase();
+
+  const sorted = [...rows].sort((a, b) => {
+    const score = (u: T) => {
+      let s = 0;
+      if (u.email.toLowerCase() === want) s += 100;
+      if (u.role === 'admin') s += 40;
+      if (u.role === 'owner') s += 39;
+      return s;
+    };
+    const diff = score(b) - score(a);
+    if (diff !== 0) return diff;
+    return a.createdAt.getTime() - b.createdAt.getTime();
+  });
+
+  return sorted[0]!;
+}
+
 /** Potrivire login: insensibil la registru; Gmail/Googlemail ignoră punctele în local-part. */
 export function emailsEquivalentForLogin(a: string, b: string): boolean {
   const x = a.trim().toLowerCase();

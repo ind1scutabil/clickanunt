@@ -6,7 +6,11 @@
 
 import { prisma } from './prisma';
 import { db as memoryDb, DB as MemoryDB } from './db-fallback';
-import { loginEmailLookupCandidates } from './sanitize';
+import {
+  gmailInboxCanonicalKey,
+  loginEmailLookupCandidates,
+  preferUserAmongDuplicateEmails,
+} from './sanitize';
 
 const useMemory = process.env.USE_IN_MEMORY_DB === 'true' || !process.env.DATABASE_URL;
 
@@ -16,27 +20,59 @@ if (useMemory) {
 
 class PrismaDB {
   async findUserByEmail(email: string) {
-    const candidates = loginEmailLookupCandidates(email);
+    const rawInput = email.trim();
+    if (!rawInput) return null;
+
+    const candidates = loginEmailLookupCandidates(rawInput);
     if (candidates.length === 0) return null;
 
-    for (const c of candidates) {
-      const exact = await prisma!.user.findFirst({
-        where: { email: c, deletedAt: null },
-      });
-      if (exact) return exact;
-    }
+    const byId = new Map<
+      string,
+      NonNullable<Awaited<ReturnType<typeof prisma.user.findFirst>>>
+    >();
+
+    const addRows = (
+      rows: NonNullable<Awaited<ReturnType<typeof prisma.user.findMany>>> | null
+    ) => {
+      if (!rows) return;
+      for (const row of rows) {
+        byId.set(row.id, row);
+      }
+    };
 
     for (const c of candidates) {
-      const ins = await prisma!.user.findFirst({
+      addRows(await prisma!.user.findMany({ where: { deletedAt: null, email: c } }));
+      addRows(
+        await prisma!.user.findMany({
+          where: {
+            deletedAt: null,
+            email: { equals: c, mode: 'insensitive' },
+          },
+        })
+      );
+    }
+
+    const canonKey = gmailInboxCanonicalKey(rawInput);
+    if (canonKey) {
+      const gmailHits = await prisma!.user.findMany({
         where: {
           deletedAt: null,
-          email: { equals: c, mode: 'insensitive' },
+          OR: [
+            { email: { endsWith: '@gmail.com', mode: 'insensitive' } },
+            { email: { endsWith: '@googlemail.com', mode: 'insensitive' } },
+          ],
         },
       });
-      if (ins) return ins;
+      for (const u of gmailHits) {
+        if (gmailInboxCanonicalKey(u.email) === canonKey) byId.set(u.id, u);
+      }
     }
 
-    return null;
+    const rows = [...byId.values()];
+    if (rows.length === 0) return null;
+    if (rows.length === 1) return rows[0];
+
+    return preferUserAmongDuplicateEmails(rows, rawInput);
   }
 
   async findUserById(id: string) {
