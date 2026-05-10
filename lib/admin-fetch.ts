@@ -31,8 +31,11 @@ async function fetchCsrfTokenFresh(): Promise<string> {
 }
 
 async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> {
-  const rt = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
-  if (!rt) return null;
+  /** API-ul /api/auth/refresh acceptă refresh din body SAU din cookie httpOnly */
+  const rt =
+    typeof window !== 'undefined'
+      ? (localStorage.getItem('refreshToken') || '').trim() || null
+      : null;
   try {
     const csrfForRefresh = await fetchCsrfTokenFresh();
     const refreshResp = await fetch('/api/auth/refresh', {
@@ -43,13 +46,19 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
         'Content-Type': 'application/json',
         'x-csrf-token': csrfForRefresh,
       },
-      body: JSON.stringify({ refreshToken: rt }),
+      body: JSON.stringify(rt ? { refreshToken: rt } : {}),
     });
     if (!refreshResp.ok) return null;
-    const refreshJson = (await refreshResp.json()) as { accessToken?: string };
+    const refreshJson = (await refreshResp.json()) as {
+      accessToken?: string;
+      user?: Record<string, unknown>;
+    };
     const newAccess = refreshJson?.accessToken;
     if (newAccess && typeof window !== 'undefined') {
       localStorage.setItem('accessToken', newAccess);
+      if (refreshJson.user && typeof refreshJson.user === 'object') {
+        localStorage.setItem('user', JSON.stringify(refreshJson.user));
+      }
       return newAccess;
     }
   } catch {

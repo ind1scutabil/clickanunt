@@ -1288,29 +1288,30 @@ function AdminModerationPageInner() {
           firstPayload = null;
         }
 
-        // If auth is missing/invalid, refresh token (requires CSRF + refreshToken) then retry benefits.
+        // Refresh: body sau cookie httpOnly (localStorage poate să nu mai aibă refreshToken).
         if (firstPayload?.error === 'Acces interzis') {
-          const rt = localStorage.getItem('refreshToken');
-          if (rt) {
-            const csrfForRefresh = await fetchCsrfTokenFresh();
-            const refreshResp = await fetch('/api/auth/refresh', {
-              method: 'POST',
-              credentials: 'include',
-              signal: controller.signal,
-              headers: {
-                'Content-Type': 'application/json',
-                'x-csrf-token': csrfForRefresh,
-              },
-              body: JSON.stringify({ refreshToken: rt }),
-            });
+          const rt = (localStorage.getItem('refreshToken') || '').trim();
+          const csrfForRefresh = await fetchCsrfTokenFresh();
+          const refreshResp = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            credentials: 'include',
+            signal: controller.signal,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-csrf-token': csrfForRefresh,
+            },
+            body: JSON.stringify(rt ? { refreshToken: rt } : {}),
+          });
 
-            if (refreshResp.ok) {
-              const refreshJson: any = await refreshResp.json();
-              const newAccess = refreshJson?.accessToken as string | undefined;
-              if (newAccess) {
-                bearerToken = newAccess;
-                localStorage.setItem('accessToken', newAccess);
-              }
+          if (refreshResp.ok) {
+            const refreshJson: any = await refreshResp.json();
+            const newAccess = refreshJson?.accessToken as string | undefined;
+            if (newAccess) {
+              bearerToken = newAccess;
+              localStorage.setItem('accessToken', newAccess);
+            }
+            if (refreshJson?.user) {
+              localStorage.setItem('user', JSON.stringify(refreshJson.user));
             }
           }
         }

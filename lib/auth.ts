@@ -115,31 +115,33 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
  * Verifică user din request - returnează payload sau user complet
  */
 export async function getUserFromRequest(request: NextRequest) {
-  const cookieToken = request.cookies.get('accessToken')?.value;
+  const cookieToken = request.cookies.get('accessToken')?.value?.trim() || null;
   const authHeader = request.headers.get('authorization');
-  const headerToken = authHeader?.startsWith('Bearer ') 
-    ? authHeader.substring(7) 
+  const headerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7).trim() || null
     : null;
-  
-  /**
-   * Prefer Bearer (SPA) first. If Bearer este prezent dar invalid/expirat, folosim cookie-ul
-   * httpOnly doar dacă e diferit — evităm scenariul: localStorage stale + cookie fresh → 403 pe toate rutele admin.
-   */
-  const primaryToken = headerToken || cookieToken || null;
-  let payload = primaryToken ? await verifyToken(primaryToken) : null;
 
-  if (!payload && headerToken && cookieToken && headerToken !== cookieToken) {
-    payload = await verifyToken(cookieToken);
+  /** Încearcă fiecare token distinct (Bearer apoi cookie); primul JWT valid + user în DB câștigă */
+  const raw = [headerToken, cookieToken].filter(
+    (t): t is string => typeof t === 'string' && t.length > 0
+  );
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  for (const t of raw) {
+    if (!seen.has(t)) {
+      seen.add(t);
+      candidates.push(t);
+    }
   }
 
-  if (!payload) {
-    return null;
+  for (const token of candidates) {
+    const payload = await verifyToken(token);
+    if (!payload?.userId) continue;
+    const user = await db.findUserById(payload.userId);
+    if (user) return user;
   }
 
-  // Return user with full data from DB
-  const user = await db.findUserById(payload.userId);
-
-  return user;
+  return null;
 }
 
 /**
