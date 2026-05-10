@@ -6,7 +6,11 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const filePath = path.join(process.cwd(), "public", "googled18e6d3be78243a3.html");
+  const filePath = path.join(
+    process.cwd(),
+    "gsc-html-verification",
+    "googled18e6d3be78243a3.html",
+  );
   const body = (await readFile(filePath, "utf8")).replace(/\r\n/g, "\n");
   return new NextResponse(body, {
     status: 200,
