@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import {
@@ -59,6 +59,16 @@ export default function ListingMessagesPage() {
   /** Când SSE e conectat, polling-ul HTTP e oprit (fallback la deconectare) */
   const [sseConnected, setSseConnected] = useState(false);
 
+  const messagingPeerId = useMemo(
+    () => (listing ? listing.owner?.id ?? listing.ownerUserId : null),
+    [listing]
+  );
+  const isOwnListing = Boolean(
+    currentUser?.id &&
+      messagingPeerId &&
+      messagingPeerId === currentUser.id
+  );
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -73,8 +83,13 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    const parsed = JSON.parse(userStr) as CurrentUser;
-    setCurrentUser(parsed);
+    const parsed = JSON.parse(userStr) as CurrentUser & { userId?: string };
+    const resolvedUserId = parsed.id ?? parsed.userId;
+    if (!resolvedUserId) {
+      router.push('/auth/login');
+      return;
+    }
+    setCurrentUser({ ...parsed, id: resolvedUserId });
 
     if (!id) {
       setLoading(false);
@@ -92,9 +107,10 @@ export default function ListingMessagesPage() {
 
         const accessAfterSync = localStorage.getItem('accessToken') || token;
 
+        const ownerPeerId = data.owner?.id ?? data.ownerUserId;
         // Once we have the listing owner, fetch messages
-        if (data.owner?.id && data.owner.id !== parsed.id) {
-          fetchMessages(data.owner.id, accessAfterSync, data.id);
+        if (ownerPeerId && ownerPeerId !== resolvedUserId) {
+          fetchMessages(ownerPeerId, accessAfterSync, data.id);
         }
       } catch (err) {
         console.error('Error fetching listing:', err);
@@ -126,18 +142,18 @@ export default function ListingMessagesPage() {
   useEffect(() => {
     listingThreadRef.current = {
       listingId: listing?.id,
-      ownerId: listing?.owner?.id,
+      ownerId: messagingPeerId ?? undefined,
       currentUserId: currentUser?.id,
     };
-  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
+  }, [listing?.id, messagingPeerId, currentUser?.id]);
 
   // SSE: mesaje noi pentru acest anunț (+ reconectare cu token proaspăt)
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
-    if (!token || !listing?.id || !listing?.owner?.id || !currentUser?.id) {
+    if (!token || !listing?.id || !messagingPeerId || !currentUser?.id) {
       return;
     }
-    if (listing.owner.id === currentUser.id) {
+    if (isOwnListing) {
       return;
     }
 
@@ -174,15 +190,15 @@ export default function ListingMessagesPage() {
       dispose();
       setSseConnected(false);
     };
-  }, [listing?.id, listing?.owner?.id, currentUser?.id]);
+  }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
 
   // Fallback polling când SSE nu e activ
   useEffect(() => {
-    if (!listing?.id || !listing?.owner?.id || !currentUser?.id) {
+    if (!listing?.id || !messagingPeerId || !currentUser?.id) {
       return;
     }
 
-    if (listing.owner.id === currentUser.id) {
+    if (isOwnListing) {
       return;
     }
 
@@ -197,7 +213,7 @@ export default function ListingMessagesPage() {
     const pollMessages = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const token = localStorage.getItem("accessToken");
-      await fetchMessages(listing.owner!.id, token, listing.id);
+      await fetchMessages(messagingPeerId, token, listing.id);
     };
 
     void pollMessages();
@@ -216,14 +232,19 @@ export default function ListingMessagesPage() {
         pollingRef.current = null;
       }
     };
-  }, [listing?.id, listing?.owner?.id, currentUser?.id, sseConnected]);
+  }, [listing?.id, messagingPeerId, currentUser?.id, sseConnected, isOwnListing]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !currentUser || !listing?.owner || sendingMessage) {
+    if (!messageText.trim() || !currentUser || !listing || sendingMessage) {
       return;
     }
 
-    if (listing.owner.id === currentUser.id) {
+    const peerId = messagingPeerId;
+    if (!peerId) {
+      return;
+    }
+
+    if (peerId === currentUser.id) {
       setError('Nu poți trimite mesaje propriului anunț');
       return;
     }
@@ -234,7 +255,7 @@ export default function ListingMessagesPage() {
     try {
       await syncSessionFromCookies();
       const token = localStorage.getItem('accessToken');
-      const res = await postJsonWithAuthRefresh(`/api/messages/${listing.owner.id}`, {
+      const res = await postJsonWithAuthRefresh(`/api/messages/${peerId}`, {
         content: messageText.trim(),
         listingId: listing.id,
       });
@@ -259,7 +280,7 @@ export default function ListingMessagesPage() {
       }
 
       // Refresh conversation messages for the same listing immediately
-      await fetchMessages(listing.owner.id, token, listing.id);
+      await fetchMessages(peerId, token, listing.id);
       
       setMessageText('');
     } catch (err: any) {
@@ -304,7 +325,7 @@ export default function ListingMessagesPage() {
             <p className="text-gray-300 text-lg mb-2">Anunț negăsit</p>
             <p className="text-gray-500 text-sm">Acest anunț nu există sau a fost șters</p>
           </div>
-        ) : listing.owner?.id === currentUser.id ? (
+        ) : isOwnListing ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">📢</div>
             <p className="text-gray-300 text-lg mb-2">Acesta este anunțul tău</p>

@@ -161,6 +161,26 @@ const nextConfig: NextConfig = {
         // API routes with CORS for Safari (OPTIONS preflight handled in app/api/cors)
         source: '/api/:path*',
         headers: [
+          /**
+           * Rewrite Cache-Control vs catch-all `/:path*` above: public CDN/browser cache pe răspunsuri
+           * `/api/*` produce 401/JSON utilizator-specific și trebuie ne-stocate + Vary.
+           */
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
+          },
+          {
+            key: 'Vary',
+            value: 'Cookie, Authorization',
+          },
           {
             key: 'Access-Control-Allow-Credentials',
             value: 'true'
@@ -171,7 +191,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'X-Requested-With, Content-Type, Authorization'
+            value: 'X-Requested-With, Content-Type, Authorization, x-csrf-token'
           },
           {
             key: 'Access-Control-Max-Age',

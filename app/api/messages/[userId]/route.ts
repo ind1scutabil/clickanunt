@@ -8,6 +8,7 @@ import { publishToUsers } from "@/lib/messaging-sse-hub";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * Send email notification for new message
