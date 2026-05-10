@@ -133,7 +133,6 @@ export default function MessagesPage() {
     const sel = selectedConversationRef.current;
     if (sel && !messagesPollingRef.current) {
       messagesPollingRef.current = setInterval(() => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
         const cur = selectedConversationRef.current;
         if (!cur) return;
         if (isSendingRef.current) return;
@@ -292,7 +291,6 @@ export default function MessagesPage() {
       clearInterval(messagesPollingRef.current);
     }
     messagesPollingRef.current = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const currentConversation = selectedConversationRef.current;
       if (!currentConversation) return;
       if (isSendingRef.current) return;
@@ -461,6 +459,23 @@ export default function MessagesPage() {
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (!localStorage.getItem("accessToken")) return;
+      void sseHandlerRef.current.fetchConversations({ startPolling: false });
+      const sel = selectedConversationRef.current;
+      if (sel) {
+        void fetchMessagesRefForSse.current(
+          sel.otherParticipant.id,
+          sel.listing?.id,
+          sel.id
+        );
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {

@@ -126,8 +126,15 @@ export default function ListingMessagesPage() {
 
   const fetchMessages = async (ownerId: string, _token: string | null, listingId?: string) => {
     try {
-      const query = listingId ? `?listingId=${encodeURIComponent(listingId)}` : '';
-      const res = await fetchWithAuthRefresh(`/api/messages/${ownerId}${query}`);
+      /** conversationId din răspunsul anterior — evită findFirst greșit dacă există mai multe firuri între aceiași useri */
+      const params = new URLSearchParams();
+      if (listingId) params.set('listingId', listingId);
+      const cid = listingThreadRef.current.conversationId;
+      if (typeof cid === 'string' && cid.trim().length > 0) {
+        params.set('conversationId', cid.trim());
+      }
+      const q = params.toString();
+      const res = await fetchWithAuthRefresh(`/api/messages/${ownerId}${q ? `?${q}` : ''}`);
       if (!res.ok) {
         const raw = await res.text();
         if (res.status === 401 || res.status === 403) {
@@ -255,7 +262,6 @@ export default function ListingMessagesPage() {
 
     const POLL_MS = 3000;
     const pollMessages = async () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const t = localStorage.getItem("accessToken");
       await fetchMessages(messagingPeerId, t, listing.id);
     };
@@ -290,6 +296,16 @@ export default function ListingMessagesPage() {
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [listing?.id, messagingPeerId, isOwnListing]);
 
+  useEffect(() => {
+    const onFocus = () => {
+      if (!listing?.id || !messagingPeerId || isOwnListing) return;
+      const t = localStorage.getItem('accessToken');
+      void fetchMessagesRef.current(messagingPeerId, t, listing.id);
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [listing?.id, messagingPeerId, isOwnListing]);
+
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser || !listing || sendingMessage) {
       return;
@@ -311,9 +327,13 @@ export default function ListingMessagesPage() {
     try {
       await syncSessionFromCookies();
       const token = localStorage.getItem('accessToken');
+      const pinned = listingThreadRef.current.conversationId;
       const res = await postJsonWithAuthRefresh(`/api/messages/${peerId}`, {
         content: messageText.trim(),
         listingId: listing.id,
+        ...(typeof pinned === 'string' && pinned.trim().length > 0
+          ? { conversationId: pinned.trim() }
+          : {}),
       });
 
       if (!res.ok) {
