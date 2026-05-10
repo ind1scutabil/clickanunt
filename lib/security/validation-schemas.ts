@@ -6,6 +6,21 @@
  */
 
 import { z } from 'zod';
+import { isValidListingPhotoUrl } from '../listing-photo-url';
+
+/**
+ * URL pentru foto la create/edit/listing draft: permite https/http (CDN/stocare) și căi interne de upload
+ * (ex. `/api/uploads/serve?key=...`), conform `isValidListingPhotoUrl`; refuză blob:/data:/poze invalide.
+ */
+const listingSubmittedPhotoUrlSchema = z.string().min(1).refine(
+  (s) => {
+    const t = s.trim();
+    if (!t.length) return false;
+    if (t.startsWith('blob:') || t.startsWith('data:')) return false;
+    return isValidListingPhotoUrl(t);
+  },
+  { message: 'Invalid URL' }
+);
 
 /**
  * Shared/Common Schemas
@@ -140,7 +155,7 @@ export const listingCreateSchema = z.object({
   mileage: z.coerce.number().int().min(0).max(9999999).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
   county: z.string().max(100).optional().nullable(),
-  photos: z.array(z.string().url()).min(1, 'Minim o imagine').max(20, 'Maxim 20 imagini'),
+  photos: z.array(listingSubmittedPhotoUrlSchema).min(1, 'Minim o imagine').max(20, 'Maxim 20 imagini'),
   video: z.string().url().optional().nullable(),
   contactPhone: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : typeof v === 'string' ? v.trim() : v),
@@ -445,7 +460,7 @@ export const draftCreateSchema = z.object({
   category: z.string().max(100).optional(),
   description: z.string().max(10000).optional(),
   priceAmount: z.coerce.number().min(0).optional(),
-  photos: z.array(z.string().url()).max(20).optional(),
+  photos: z.array(listingSubmittedPhotoUrlSchema).max(20).optional(),
   county: z.string().max(100).optional(),
   city: z.string().max(100).optional(),
   make: z.string().max(100).optional(),
