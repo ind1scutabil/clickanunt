@@ -17,6 +17,30 @@ export function getStripePublishableKey(): string {
 }
 
 /**
+ * Când forțăm chei LIVE (blocăm sk_test_/pk_test_).
+ * - STRIPE_REQUIRE_LIVE=1 pe VPS (recomandat pentru clickanunt.ro)
+ * - sau NODE_ENV=production
+ * - sau URL-urile publice conțin clickanunt.ro
+ */
+export function isProductionStripeEnforcement(): boolean {
+  if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return false;
+  if (process.env.STRIPE_REQUIRE_LIVE === '1') return true;
+  if (process.env.NODE_ENV === 'production') return true;
+  const blob = [
+    process.env.NEXTAUTH_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXT_PUBLIC_BASE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_URL,
+  ]
+    .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+    .join(' ')
+    .toLowerCase();
+  if (blob.includes('clickanunt.ro')) return true;
+  return false;
+}
+
+/**
  * Log pe startup dacă în producție folosim chei de test sau mix live/test.
  * Suprimă cu STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 (ex. staging).
  */
@@ -26,8 +50,7 @@ export function getStripePublishableKey(): string {
  * Returnează motiv tehnic pentru log; răspunsul HTTP folosește mesaj pentru utilizator.
  */
 export function getStripeProductionPaymentBlockReason(): string | null {
-  if (process.env.NODE_ENV !== 'production') return null;
-  if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return null;
+  if (!isProductionStripeEnforcement()) return null;
 
   const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
   const pk = getStripePublishableKey();
@@ -48,8 +71,7 @@ export function getStripeProductionPaymentBlockReason(): string | null {
 }
 
 export function warnIfStripeMisconfiguredForProduction(): void {
-  if (process.env.NODE_ENV !== 'production') return;
-  if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return;
+  if (!isProductionStripeEnforcement()) return;
 
   const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
   const pk = getStripePublishableKey();

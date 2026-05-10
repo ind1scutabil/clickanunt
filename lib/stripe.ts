@@ -6,19 +6,46 @@
 import Stripe from 'stripe';
 import { logger } from './observability';
 
-// Verificare variabile de mediu
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
+/** Evită bootstrap la primul import: citește STRIPE_SECRET_KEY la runtime (după încărcarea .env de PM2). */
+const STRIPE_API_VERSION: Stripe.StripeConfig['apiVersion'] = '2026-01-28.clover';
+
+let stripeCachedKey: string | undefined;
+let stripeClient: Stripe | undefined;
+
+function getStripeSecretKey(): string {
+  const k = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!k) {
+    throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
+  }
+  return k;
+}
+
+export function getStripeServer(): Stripe {
+  const key = getStripeSecretKey();
+  if (!stripeClient || stripeCachedKey !== key) {
+    stripeCachedKey = key;
+    stripeClient = new Stripe(key, {
+      apiVersion: STRIPE_API_VERSION,
+      typescript: true,
+    });
+    logger.info('Stripe SDK initialized', {
+      mode: key.startsWith('sk_live_') ? 'live' : key.startsWith('sk_test_') ? 'test' : 'unknown',
+    });
+  }
+  return stripeClient;
 }
 
 if (!process.env.STRIPE_WEBHOOK_SECRET) {
   logger.warn('STRIPE_WEBHOOK_SECRET is not set - webhook verification will fail');
 }
 
-// Inițializare Stripe
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2026-01-28.clover',
-  typescript: true,
+/** Compat: delegare către clientul Stripe creat leneș (aceeași instanță). */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const client = getStripeServer();
+    const value = (client as unknown as Record<string, unknown>)[prop as string];
+    return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(client) : value;
+  },
 });
 
 // Tipuri pentru pachete de promovare
