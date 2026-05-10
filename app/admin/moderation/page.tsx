@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/app/components/Navbar';
@@ -167,6 +167,7 @@ function AdminModerationPageInner() {
   const [notificationMessage, setNotificationMessage] = useState('');
   const notificationIsError = notificationMessage.trim().startsWith('❌');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const userListingsSectionRef = useRef<HTMLHeadingElement | null>(null);
   const [userListings, setUserListings] = useState<ModerationListing[]>([]);
   const [userListingsLoading, setUserListingsLoading] = useState(false);
   const [isSavingBenefits, setIsSavingBenefits] = useState(false);
@@ -348,7 +349,7 @@ function AdminModerationPageInner() {
   }, []);
 
   // Fetch listings for a specific user
-  const fetchUserListings = async (userId: string) => {
+  const fetchUserListings = useCallback(async (userId: string): Promise<void> => {
     try {
       setUserListingsLoading(true);
       // Add timeout to prevent hanging
@@ -406,7 +407,7 @@ function AdminModerationPageInner() {
     } finally {
       setUserListingsLoading(false);
     }
-  };
+  }, []);
 
   // Fetch reports from API
   const fetchReports = async () => {
@@ -986,7 +987,7 @@ function AdminModerationPageInner() {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2800);
       if (expandedUserId) {
-        fetchUserListings(expandedUserId);
+        void fetchUserListings(expandedUserId);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Eroare';
@@ -1014,7 +1015,7 @@ function AdminModerationPageInner() {
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2800);
       if (expandedUserId) {
-        fetchUserListings(expandedUserId);
+        void fetchUserListings(expandedUserId);
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Eroare la ștergere';
@@ -1210,9 +1211,32 @@ function AdminModerationPageInner() {
     } else {
       setExpandedUserId(userId);
       setUserListings([]);
-      fetchUserListings(userId);
+      void fetchUserListings(userId);
     }
   };
+
+  const scrollToUserListingsSection = useCallback(() => {
+    const el = userListingsSectionRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, []);
+
+  const jumpToUserListings = useCallback(
+    async (user: ModerationUser) => {
+      const isSame = expandedUserId === user.id;
+      if (!isSame) {
+        setExpandedUserId(user.id);
+        setUserListings([]);
+        await fetchUserListings(user.id);
+      } else if (!userListingsLoading && userListings.length === 0) {
+        await fetchUserListings(user.id);
+      }
+      window.setTimeout(() => scrollToUserListingsSection(), isSame ? 50 : 180);
+    },
+    [expandedUserId, fetchUserListings, scrollToUserListingsSection, userListings.length, userListingsLoading]
+  );
 
   const openCreditsModal = (user: ModerationUser) => {
     setSelectedUser(user);
@@ -2002,6 +2026,7 @@ function AdminModerationPageInner() {
                 expandedUserId={expandedUserId}
                 onToggleRow={toggleUserRow}
                 onOpenCredits={openCreditsModal}
+                onViewUserListings={jumpToUserListings}
                 onBan={banUser}
                 onUnban={unbanUser}
                 onMakeAdmin={makeAdmin}
@@ -2028,7 +2053,7 @@ function AdminModerationPageInner() {
                   const labelClass =
                     'text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]';
                   return (
-                    <div className="space-y-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
+                    <div className="scroll-mt-24 space-y-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
                       <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
@@ -2124,7 +2149,10 @@ function AdminModerationPageInner() {
                         )}
                       </dl>
                       <div className="border-t border-white/[0.06] pt-2">
-                        <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">
+                        <h4
+                          ref={userListingsSectionRef}
+                          className="mb-3 scroll-mt-28 text-sm font-semibold text-[var(--text-primary)]"
+                        >
                           Anunțuri utilizator
                           {userListingsLoading ? (
                             <span className="ml-2 font-normal text-[var(--text-muted)]">(se încarcă…)</span>

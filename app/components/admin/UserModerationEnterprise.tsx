@@ -38,6 +38,8 @@ type Props = {
   expandedUserId: string | null;
   onToggleRow: (userId: string) => void;
   onOpenCredits: (user: EnterpriseModerationUser) => void;
+  /** Deschide panoul de detaliu și sare la lista de anunțuri (ex. din coloana „Anunțuri”). */
+  onViewUserListings: (user: EnterpriseModerationUser) => void;
   onBan: (userId: string) => void;
   onUnban: (userId: string) => void;
   onMakeAdmin: (userId: string) => void;
@@ -99,6 +101,7 @@ export default function UserModerationEnterprise({
   expandedUserId,
   onToggleRow,
   onOpenCredits,
+  onViewUserListings,
   onBan,
   onUnban,
   onMakeAdmin,
@@ -253,7 +256,7 @@ export default function UserModerationEnterprise({
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/50 shadow-[var(--shadow-md)]">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="sticky top-0 z-10 border-b border-white/[0.06] bg-[var(--bg-elevated)]">
               <tr>
                 <th className="px-4 py-3.5">{thBtn('email', 'Utilizator')}</th>
@@ -261,6 +264,7 @@ export default function UserModerationEnterprise({
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5">{thBtn('trust', 'Încredere')}</th>
                 <th className="px-4 py-3.5">{thBtn('listings', 'Anunțuri')}</th>
+                <th className="px-4 py-3.5">Beneficii</th>
                 <th className="px-4 py-3.5">{thBtn('created', 'Înregistrat')}</th>
                 <th className="px-4 py-3.5 text-right">Acțiuni rapide</th>
               </tr>
@@ -295,7 +299,39 @@ export default function UserModerationEnterprise({
                       {user.trustScore}
                     </td>
                     <td className="px-4 py-3 align-top tabular-nums text-[var(--text-secondary)]">
-                      {user.listings}
+                      {user.listings > 0 ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onViewUserListings(user);
+                          }}
+                          title="Deschide lista de anunțuri și instrumente de moderare"
+                          className="font-semibold text-cyan-300/95 underline decoration-cyan-500/50 underline-offset-2 transition hover:text-cyan-200"
+                        >
+                          {user.listings}
+                        </button>
+                      ) : (
+                        <span className="text-[var(--text-muted)]">0</span>
+                      )}
+                    </td>
+                    <td
+                      className="px-4 py-3 align-top text-xs text-[var(--text-secondary)]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="tabular-nums">{user.credits} RON</div>
+                        <div className="text-[var(--text-muted)]">
+                          −{user.discount}% · {user.freePromotions} promo
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onOpenCredits(user)}
+                          className="rounded-md border border-amber-500/35 bg-amber-500/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-100 transition hover:bg-amber-500/25"
+                        >
+                          Modifică
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3 align-top whitespace-nowrap text-xs text-[var(--text-tertiary)]">
                       {fmtDate(user.createdAt)}
@@ -307,8 +343,17 @@ export default function UserModerationEnterprise({
                           onClick={() => onOpenCredits(user)}
                           className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30"
                         >
-                          Credite
+                          Beneficii
                         </button>
+                        {user.listings > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => onViewUserListings(user)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-200 border border-cyan-500/35 hover:bg-cyan-500/25"
+                          >
+                            Anunțuri ({user.listings})
+                          </button>
+                        )}
                         {!isAdmin && user.status === 'active' && (
                           <>
                             <button
@@ -372,8 +417,9 @@ export default function UserModerationEnterprise({
       </div>
 
       <p className="px-1 text-xs text-[var(--text-muted)]">
-        Apasă pe un rând pentru profil detaliat și lista de anunțuri. Suspendarea temporară blochează publicarea de anunțuri
-        până la expirare.
+        Apasă pe rând pentru detalii. Când utilizatorul are anunțuri, <strong className="text-[var(--text-secondary)]">numărul din coloana Anunțuri</strong> și butonul{' '}
+        <strong className="text-[var(--text-secondary)]">Anunțuri (N)</strong> deschid panoul și derulează la listă (Vezi / Editează / moderare). Coloana{' '}
+        <strong className="text-[var(--text-secondary)]">Beneficii</strong> rezumă creditele; <strong className="text-[var(--text-secondary)]">Modifică</strong> sau butonul violet deschid același dialog de beneficii.
       </p>
 
       {/* Suspend modal */}
