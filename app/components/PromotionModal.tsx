@@ -4,7 +4,15 @@ import { useState } from "react";
 import { PROMOTION_PRICING, calculatePromotionPrice } from "@/lib/monetization";
 import { loadStripe } from "@stripe/stripe-js";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+async function loadStripeFromServerConfig() {
+  const res = await fetch("/api/payments/stripe-publishable-key", { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  const key = typeof data.publishableKey === "string" ? data.publishableKey : "";
+  if (!res.ok || !key) {
+    throw new Error("Plata cu cardul nu este configurată. Contactează suportul.");
+  }
+  return loadStripe(key);
+}
 
 interface PromotionModalProps {
   listingId: string;
@@ -63,10 +71,9 @@ export default function PromotionModal({
         return;
       }
 
-      // Redirect to Stripe Checkout
-      const stripe = await stripePromise;
+      const stripe = await loadStripeFromServerConfig();
       if (!stripe) {
-        throw new Error("Stripe not loaded");
+        throw new Error("Stripe nu s-a încărcat");
       }
 
       // Confirm payment with Stripe Elements

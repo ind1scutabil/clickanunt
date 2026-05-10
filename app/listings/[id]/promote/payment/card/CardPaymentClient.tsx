@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -131,8 +131,27 @@ export default function CardPaymentClient({
   const [error, setError] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const stripePromise = useMemo(() => {
-    return stripePublishableKey ? loadStripe(stripePublishableKey) : Promise.resolve(null);
+  /** Preferă prop (SSR din STRIPE_PUBLISHABLE_KEY); altfel citește aceeași valoare de pe server via API */
+  const [stripePromise, setStripePromise] = useState<ReturnType<typeof loadStripe>>(() =>
+    stripePublishableKey ? loadStripe(stripePublishableKey) : Promise.resolve(null)
+  );
+
+  useEffect(() => {
+    if (stripePublishableKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/payments/stripe-publishable-key', { cache: 'no-store' });
+        const data = await res.json();
+        const key = typeof data.publishableKey === 'string' ? data.publishableKey : '';
+        if (!cancelled && key) setStripePromise(loadStripe(key));
+      } catch {
+        /* ignore — afișează Stripe neinițiat */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [stripePublishableKey]);
 
   useEffect(() => {

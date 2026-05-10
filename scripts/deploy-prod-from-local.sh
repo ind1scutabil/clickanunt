@@ -93,4 +93,9 @@ log "✅ VPS finalizat."
 EOF
 
 banner "✅ deploy:prod COMPLET (local + VPS)"
+log ""
+log "Stripe producție: pe ${DEPLOY_SERVER}${DEPLOY_DIR} verifică .env că are STRIPE_SECRET_KEY=sk_live_…,"
+log "STRIPE_PUBLISHABLE_KEY=pk_live_… (aceeași pereche), webhook whsec pentru endpoint live."
+log "Dacă apare Link „testing / Enter 000000”, cheile sunt încă de test."
+
 exit 0

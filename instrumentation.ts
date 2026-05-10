@@ -5,14 +5,16 @@
  */
 
 import { enforceEnvironment } from './lib/env-validator';
+import { getStripePublishableKey, warnIfStripeMisconfiguredForProduction } from './lib/stripe-publishable-key';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     // Next.js automatically loads .env files, so no need for dotenv import
     console.log('🔧 Environment loaded:', {
       hasStripeSecret: !!process.env.STRIPE_SECRET_KEY,
-      hasStripePublic: !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      hasStripePublishable: !!getStripePublishableKey(),
     });
     enforceEnvironment();
+    warnIfStripeMisconfiguredForProduction();
   }
 }

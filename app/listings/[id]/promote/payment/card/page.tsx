@@ -1,4 +1,5 @@
 import CardPaymentClient from './CardPaymentClient';
+import { getStripePublishableKey } from '@/lib/stripe-publishable-key';
 
 function getFirstQueryValue(v: string | string[] | undefined) {
   if (Array.isArray(v)) return v[0];
@@ -22,8 +23,8 @@ export default async function CardPaymentPage({
   const packageId = getFirstQueryValue(resolvedSearchParams.package);
   const price = getFirstQueryValue(resolvedSearchParams.price);
 
-  // Read at server runtime so production live keys take effect without requiring a rebuild.
-  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  // Prefer STRIPE_PUBLISHABLE_KEY (runtime); fallback NEXT_PUBLIC_* for compat.
+  const stripePublishableKey = getStripePublishableKey();
 
   return (
     <CardPaymentClient
