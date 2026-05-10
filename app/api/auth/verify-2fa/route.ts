@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: secureCookies,
       domain: cookieDomain,
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: secureCookies,
       domain: cookieDomain,
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30,
       path: '/',
     });

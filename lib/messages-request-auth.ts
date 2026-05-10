@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { verifyToken, type TokenPayload } from "@/lib/auth";
+import { normalizeJwtInput } from "@/lib/jwt-normalize";
 
 function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const raw of tokens) {
-    const t = typeof raw === "string" ? raw.trim() : "";
-    if (!t || t === "null" || t === "undefined") continue;
+    const t = normalizeJwtInput(typeof raw === "string" ? raw : "");
+    if (!t) continue;
     if (seen.has(t)) continue;
     seen.add(t);
     out.push(t);

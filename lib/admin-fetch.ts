@@ -3,6 +3,13 @@
  * cache: no-store — evită răspunsuri goale din cache (CDN/browser).
  */
 import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
+import { normalizeJwtInput } from '@/lib/jwt-normalize';
+
+function accessTokenFromBrowserStorage(): string | null {
+  if (typeof window === 'undefined') return null;
+  const t = normalizeJwtInput(localStorage.getItem('accessToken') || '');
+  return t || null;
+}
 
 /** Răspunsuri API / proxy care merită încercat refresh token */
 export function shouldAttemptTokenRefresh(
@@ -36,7 +43,7 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
   /** API-ul /api/auth/refresh acceptă refresh din body SAU din cookie httpOnly */
   const rt =
     typeof window !== 'undefined'
-      ? (localStorage.getItem('refreshToken') || '').trim() || null
+      ? normalizeJwtInput(localStorage.getItem('refreshToken') || '') || null
       : null;
   try {
     const csrfForRefresh = await fetchCsrfTokenFresh();
@@ -57,7 +64,7 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
     };
     const newAccess = refreshJson?.accessToken;
     if (newAccess && typeof window !== 'undefined') {
-      localStorage.setItem('accessToken', newAccess);
+      localStorage.setItem('accessToken', normalizeJwtInput(newAccess) || newAccess);
       if (refreshJson.user && typeof refreshJson.user === 'object') {
         localStorage.setItem('user', JSON.stringify(refreshJson.user));
       }
@@ -81,7 +88,7 @@ export async function fetchWithAuthRefresh(
   url: string,
   options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<Response> {
-  let bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  let bearerToken = accessTokenFromBrowserStorage();
 
   const doFetch = (token: string | null) =>
     fetch(url, {
@@ -119,8 +126,7 @@ export async function fetchWithAuthRefresh(
 
   const newAccess = await refreshAccessToken(options.signal);
   bearerToken =
-    newAccess ??
-    (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+    newAccess ?? accessTokenFromBrowserStorage();
 
   const retry = await doFetch(bearerToken);
   if (retry.ok) return retry;
@@ -134,7 +140,7 @@ export async function postJsonWithAuthRefresh(
   body: Record<string, unknown>,
   options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<Response> {
-  let bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  let bearerToken = accessTokenFromBrowserStorage();
 
   const doPost = async (csrf: string, token: string | null) =>
     fetch(url, {
@@ -178,7 +184,7 @@ export async function postJsonWithAuthRefresh(
 
   const newAccess = await refreshAccessToken(options.signal);
   if (newAccess) bearerToken = newAccess;
-  else bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  else bearerToken = accessTokenFromBrowserStorage();
 
   csrf = await fetchCsrfTokenFresh();
   let retry = await doPost(csrf, bearerToken);
@@ -196,7 +202,7 @@ export async function putJsonWithAuthRefresh(
   body: Record<string, unknown>,
   options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<Response> {
-  let bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  let bearerToken = accessTokenFromBrowserStorage();
 
   const doPut = async (csrf: string, token: string | null) =>
     fetch(url, {
@@ -240,7 +246,7 @@ export async function putJsonWithAuthRefresh(
 
   const newAccess = await refreshAccessToken(options.signal);
   if (newAccess) bearerToken = newAccess;
-  else bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  else bearerToken = accessTokenFromBrowserStorage();
 
   csrf = await fetchCsrfTokenFresh();
   let retryPut = await doPut(csrf, bearerToken);
@@ -257,7 +263,7 @@ export async function jsonMutationWithAuthRefresh(
   method: 'PATCH' | 'DELETE',
   body?: Record<string, unknown>
 ): Promise<Response> {
-  let bearerToken = localStorage.getItem('accessToken');
+  let bearerToken = accessTokenFromBrowserStorage();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -311,7 +317,7 @@ export async function jsonMutationWithAuthRefresh(
 
   const newAccess = await refreshAccessToken(controller.signal);
   if (newAccess) bearerToken = newAccess;
-  else bearerToken = localStorage.getItem('accessToken');
+  else bearerToken = accessTokenFromBrowserStorage();
 
   const freshCsrf = await fetchCsrfTokenFresh();
   response = await doRequest(freshCsrf, bearerToken);

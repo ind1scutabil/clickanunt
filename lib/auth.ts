@@ -4,6 +4,7 @@
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { normalizeJwtInput } from './jwt-normalize';
 import { db } from './db';
 import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
@@ -77,26 +78,42 @@ export async function generateRefreshToken(userId: string, email: string, role: 
   return token;
 }
 
+export { normalizeJwtInput };
+
 /**
  * Verificare și decodare JWT token
  */
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET, {
-      issuer: 'autoplatform',
-      audience: 'autoplatform-users',
-    });
+  const normalized = normalizeJwtInput(token);
+  if (!normalized) return null;
 
+  const strictOpts = {
+    issuer: 'autoplatform',
+    audience: 'autoplatform-users',
+    clockTolerance: 120,
+  } as const;
+
+  try {
+    const { payload } = await jwtVerify(normalized, JWT_SECRET, strictOpts);
     return payload as TokenPayload;
-  } catch (error: any) {
-    console.error('[VERIFY_TOKEN_FAILED]', {
-      message: error?.message,
-      code: error?.code,
-      tokenLength: token?.length,
-      secretConfigured: !!process.env.JWT_SECRET,
-      timestamp: new Date().toISOString()
-    });
-    return null;
+  } catch {
+    try {
+      /** Tokenuri vechi / ceas server: fără issuer obligatoriu, tot HS256 + semnătură validă */
+      const { payload } = await jwtVerify(normalized, JWT_SECRET, {
+        clockTolerance: 120,
+      });
+      return payload as TokenPayload;
+    } catch (error: unknown) {
+      const err = error as { message?: string; code?: string };
+      console.error('[VERIFY_TOKEN_FAILED]', {
+        message: err?.message,
+        code: err?.code,
+        tokenLength: normalized.length,
+        secretConfigured: !!process.env.JWT_SECRET,
+        timestamp: new Date().toISOString(),
+      });
+      return null;
+    }
   }
 }
 

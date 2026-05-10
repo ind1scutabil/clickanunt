@@ -134,12 +134,17 @@ export default function LoginForm() {
 
       devLog('[2FA] Verifying 2FA code...');
 
+      const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/verify-2fa", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
         body: JSON.stringify({
           sessionToken,
-          twoFACode,
+          code: twoFACode,
         }),
       });
 

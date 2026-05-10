@@ -49,6 +49,7 @@ export default function SignupFormExtended() {
       const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/register", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           "x-csrf-token": csrfToken,
