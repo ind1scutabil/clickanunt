@@ -11,6 +11,8 @@ const createTransporter = () => {
   // Pentru production, folosește SMTP real (Gmail, SendGrid, Mailgun, etc.)
   
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // SMTP_FROM: dacă domeniul expeditor nu e validat / e suspendat la registrul DNS, folosește
+    // același adresă ca SMTP_USER (ex. Gmail) sau un domeniu SPF/DKIM configurat.
     // Production SMTP
     return nodemailer.createTransport({
       host: process.env.SMTP_HOST,

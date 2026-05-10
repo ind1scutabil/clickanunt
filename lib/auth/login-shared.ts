@@ -50,7 +50,9 @@ export async function runSharedPasswordLogin(
   }
 
   const isAdmin =
-    result.user?.role === "admin" || result.user?.email === "admin@clickanunt.ro";
+    result.user?.role === "admin" ||
+    result.user?.role === "owner" ||
+    result.user?.email === "daniel.enoiu29@gmail.com";
   if (isAdmin && process.env.ADMIN_2FA_ENABLED === "true") {
     const sessionToken = crypto.randomBytes(32).toString("hex");
     return {

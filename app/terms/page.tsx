@@ -1,4 +1,7 @@
-import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+import {
+  COMPANY_CONFIG,
+  isCompanyLegalDetailsPublic,
+} from "@/lib/company-config";
 
 export default function TermsPage() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
@@ -214,7 +217,7 @@ export default function TermsPage() {
               Pentru întrebări legate de acești Termeni și Condiții, ne puteți contacta la:
             </p>
             <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
-              <p className="mb-2"><strong>Email:</strong> admin@clickanunt.ro</p>
+              <p className="mb-2"><strong>Email:</strong> {COMPANY_CONFIG.emails.admin}</p>
               <p className="mb-2"><strong>Telefon:</strong> +40 XXX XXX XXX</p>
               {showCompanyLegal && (
                 <p className="mb-2">

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
+import { publicSiteOrigin } from '@/lib/public-site-url';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { COMPANY_CONFIG } from '@/lib/company-config';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Email invalid'),
@@ -25,10 +28,8 @@ export async function POST(request: NextRequest) {
     const { email } = validation.data;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Caută user
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-    });
+    // Caută user (ca la login: Gmail puncte + variante, nu doar findUnique exact)
+    const user = await db.findUserByEmail(normalizedEmail);
 
     // IMPORTANT: Returnăm mereu success pentru a nu expune dacă email-ul există
     // (best practice security)
@@ -60,7 +61,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Creează URL de reset
-    const resetUrl = `${process.env.NEXTAUTH_URL || 'https://www.clickanunt.ro'}/auth/reset-password?token=${resetToken}`;
+    const resetUrl = `${publicSiteOrigin()}/auth/reset-password?token=${resetToken}`;
+
+    const supportMail =
+      process.env.SUPPORT_EMAIL?.trim() || COMPANY_CONFIG.emails.support;
 
     // Trimite email
     try {
@@ -110,7 +114,7 @@ export async function POST(request: NextRequest) {
                   </ul>
                 </div>
                 
-                <p>Dacă ai probleme, contactează-ne la <a href="mailto:support@clickanunt.ro">support@clickanunt.ro</a></p>
+                <p>Dacă ai probleme, contactează-ne la <a href="mailto:${supportMail}">${supportMail}</a></p>
               </div>
               <div class="footer">
                 <p>© 2026 ClickAnunț - Platforma de anunțuri gratuite din România</p>

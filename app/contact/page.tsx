@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Navbar from "@/app/components/Navbar";
-import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+import {
+  COMPANY_CONFIG,
+  isCompanyLegalDetailsPublic,
+} from "@/lib/company-config";
 
 const showCompanyLegal = isCompanyLegalDetailsPublic();
 
@@ -17,7 +20,7 @@ export default function ContactPage() {
 
   const subjectToEmail: Record<string, { label: string; email: string; note?: string }> = {
     general: { label: "Contact general", email: "contact@clickanunt.ro" },
-    admin: { label: "Administrare platformă", email: "admin@clickanunt.ro" },
+    admin: { label: "Administrare platformă", email: COMPANY_CONFIG.emails.admin },
     support: { label: "Suport clienți", email: "support@clickanunt.ro" },
     billing: { label: "Facturare & plăți", email: "billing@clickanunt.ro" },
     technical: { label: "Suport tehnic", email: "support@clickanunt.ro" },
@@ -177,7 +180,7 @@ export default function ContactPage() {
                 <div className="space-y-5">
                   {[
                     { title: "Email general", mail: "contact@clickanunt.ro", color: "text-emerald-400/95" },
-                    { title: "Administrare", mail: "admin@clickanunt.ro", color: "text-violet-400/95" },
+                    { title: "Administrare", mail: COMPANY_CONFIG.emails.admin, color: "text-violet-400/95" },
                     { title: "Suport", mail: "support@clickanunt.ro", color: "text-sky-400/95" },
                     { title: "Facturare", mail: "billing@clickanunt.ro", color: "text-amber-400/95" },
                     { title: "GDPR / DPO", mail: "dpo@clickanunt.ro", color: "text-blue-400/95", note: "Responsabil protecția datelor" },

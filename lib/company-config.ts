@@ -37,7 +37,7 @@ export const COMPANY_CONFIG = {
   
   // Contact
   emails: {
-    admin: 'admin@clickanunt.ro',
+    admin: 'daniel.enoiu29@gmail.com',
     support: 'support@clickanunt.ro',
     billing: 'billing@clickanunt.ro',
     noreply: 'noreply@clickanunt.ro',

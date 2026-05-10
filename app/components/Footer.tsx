@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+import {
+  COMPANY_CONFIG,
+  isCompanyLegalDetailsPublic,
+} from "@/lib/company-config";
 
 export default function Footer() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
@@ -89,23 +92,23 @@ export default function Footer() {
             <h4 className="mb-4 font-semibold text-neutral-100">Contact</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="mailto:admin@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🛡️ admin@clickanunt.ro
+                <a href={`mailto:${COMPANY_CONFIG.emails.admin}`} className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                  🛡️ {COMPANY_CONFIG.emails.admin}
                 </a>
               </li>
               <li>
-                <a href="mailto:support@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🆘 support@clickanunt.ro
+                <a href={`mailto:${COMPANY_CONFIG.emails.support}`} className="transition-colors duration-normal ease-premium hover:text-secondary-400">
+                  🆘 {COMPANY_CONFIG.emails.support}
                 </a>
               </li>
               <li>
-                <a href="mailto:billing@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-warning-500">
-                  💳 billing@clickanunt.ro
+                <a href={`mailto:${COMPANY_CONFIG.emails.billing}`} className="transition-colors duration-normal ease-premium hover:text-warning-500">
+                  💳 {COMPANY_CONFIG.emails.billing}
                 </a>
               </li>
               <li>
-                <a href="mailto:contact@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-success-500">
-                  📧 contact@clickanunt.ro
+                <a href={`mailto:${COMPANY_CONFIG.emails.contact}`} className="transition-colors duration-normal ease-premium hover:text-success-500">
+                  📧 {COMPANY_CONFIG.emails.contact}
                 </a>
               </li>
               <li>
