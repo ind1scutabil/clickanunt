@@ -326,15 +326,20 @@ export async function GET(
     let deliveredBatch = { count: 0 };
     const visibleIds = messagesAsc.map((m) => m.id);
     if (visibleIds.length > 0) {
-      deliveredBatch = await prisma.message.updateMany({
-        where: {
-          conversationId: conversation.id,
-          id: { in: visibleIds },
-          receiverId: viewerCanon,
-          deliveredAt: null,
-        },
-        data: { deliveredAt: new Date() },
-      });
+      try {
+        deliveredBatch = await prisma.message.updateMany({
+          where: {
+            conversationId: conversation.id,
+            id: { in: visibleIds },
+            receiverId: viewerCanon,
+            deliveredAt: null,
+          },
+          data: { deliveredAt: new Date() },
+        });
+      } catch {
+        /** DB fără coloana `deliveredAt` (migrare neaplicată) — nu rupe întreg GET thread. */
+        deliveredBatch = { count: 0 };
+      }
     }
 
     if (readBatch.count > 0) {
