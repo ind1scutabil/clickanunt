@@ -20,6 +20,33 @@ export function getStripePublishableKey(): string {
  * Log pe startup dacă în producție folosim chei de test sau mix live/test.
  * Suprimă cu STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 (ex. staging).
  */
+/**
+ * Blochează crearea PaymentIntent în producție când Stripe e încă în mod test
+ * (carduri reale dau „test mode … non-test card”).
+ * Returnează motiv tehnic pentru log; răspunsul HTTP folosește mesaj pentru utilizator.
+ */
+export function getStripeProductionPaymentBlockReason(): string | null {
+  if (process.env.NODE_ENV !== 'production') return null;
+  if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return null;
+
+  const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
+  const pk = getStripePublishableKey();
+
+  if (sk.startsWith('sk_test_')) {
+    return 'STRIPE_SECRET_KEY este sk_test_* în producție — folosește sk_live_* în .env pe server.';
+  }
+  if (pk.startsWith('pk_test_')) {
+    return 'Cheia publică este pk_test_* în producție — setează STRIPE_PUBLISHABLE_KEY=pk_live_* (aceeași pereche ca sk_live).';
+  }
+  if (!pk && sk.startsWith('sk_live_')) {
+    return 'Lipsește cheia publică live (STRIPE_PUBLISHABLE_KEY sau NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_*).';
+  }
+  if (sk.startsWith('sk_live_') && pk.startsWith('pk_live_')) {
+    return null;
+  }
+  return 'Configurare Stripe în producție: secret/cheie publică trebuie să fie pereche sk_live_* + pk_live_*.';
+}
+
 export function warnIfStripeMisconfiguredForProduction(): void {
   if (process.env.NODE_ENV !== 'production') return;
   if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return;

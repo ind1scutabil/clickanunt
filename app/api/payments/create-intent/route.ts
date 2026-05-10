@@ -15,8 +15,12 @@ import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 import { logger } from '@/lib/observability';
 import { PaymentStatus } from '@prisma/client';
 import { verifyToken } from '@/lib/auth';
+import { getStripeProductionPaymentBlockReason } from '@/lib/stripe-publishable-key';
 
 export const runtime = 'nodejs';
+
+const STRIPE_USER_FACING_BLOCKED =
+  'Plățile cu card real nu sunt active momentan din cauza unei configurări incomplete. Încearcă mai târziu sau contactează suportul ClickAnunț.';
 
 function getSafePaymentErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
@@ -44,6 +48,14 @@ export async function POST(req: NextRequest) {
         ? 403
         : 400;
       return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const stripeBlockReason = getStripeProductionPaymentBlockReason();
+    if (stripeBlockReason) {
+      logger.error('Stripe: plata blocată în producție (trebuie chei LIVE în .env pe VPS)', {
+        detail: stripeBlockReason,
+      });
+      return NextResponse.json({ error: STRIPE_USER_FACING_BLOCKED }, { status: 503 });
     }
 
     // Parse body
