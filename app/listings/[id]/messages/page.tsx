@@ -47,6 +47,7 @@ export default function ListingMessagesPage() {
     listingId?: string;
     ownerId?: string;
     currentUserId?: string;
+    conversationId?: string | null;
   }>({});
 
   const [listing, setListing] = useState<Listing | null>(null);
@@ -56,9 +57,6 @@ export default function ListingMessagesPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Când SSE e conectat, polling-ul HTTP e oprit (fallback la deconectare) */
-  const [sseConnected, setSseConnected] = useState(false);
-
   const messagingPeerId = useMemo(
     () => (listing ? listing.owner?.id ?? listing.ownerUserId : null),
     [listing]
@@ -148,8 +146,17 @@ export default function ListingMessagesPage() {
         }
         throw new Error('Failed to fetch messages');
       }
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
+      const data = (await res.json()) as
+        | Message[]
+        | { messages?: Message[]; conversationId?: string | null; listingId?: string | null };
+      const list = Array.isArray(data) ? data : (data.messages ?? []);
+      setMessages(Array.isArray(list) ? list : []);
+      if (!Array.isArray(data) && data.conversationId) {
+        listingThreadRef.current = {
+          ...listingThreadRef.current,
+          conversationId: data.conversationId,
+        };
+      }
     } catch (err) {
       console.error('Error fetching messages:', err);
       // Don't show error for empty conversations
@@ -161,6 +168,7 @@ export default function ListingMessagesPage() {
 
   useEffect(() => {
     listingThreadRef.current = {
+      ...listingThreadRef.current,
       listingId: listing?.id,
       ownerId: messagingPeerId ?? undefined,
       currentUserId: currentUser?.id,
@@ -178,11 +186,12 @@ export default function ListingMessagesPage() {
     }
 
     const dispose = connectMessageEventsSse({
-      onOpen: () => setSseConnected(true),
-      onTransportEnded: () => setSseConnected(false),
+      onOpen: () => {},
+      onTransportEnded: () => {},
       onMessage: (ev) => {
         let d: {
           type?: string;
+          conversationId?: string;
           listingId?: string | null;
           senderId?: string;
           receiverId?: string;
@@ -194,10 +203,28 @@ export default function ListingMessagesPage() {
         }
         if (d.type !== "message") return;
         const ctx = listingThreadRef.current;
-        const { listingId, ownerId, currentUserId } = ctx;
+        const { listingId, ownerId, currentUserId, conversationId: pinnedConv } = ctx;
         if (!listingId || !ownerId || !currentUserId) return;
-        if (d.listingId == null || d.listingId !== listingId) return;
-        if (d.senderId !== currentUserId && d.receiverId !== currentUserId) return;
+
+        const thisListingThread =
+          (d.senderId === ownerId && d.receiverId === currentUserId) ||
+          (d.receiverId === ownerId && d.senderId === currentUserId);
+        if (!thisListingThread) return;
+
+        if (pinnedConv && d.conversationId && d.conversationId !== pinnedConv) {
+          return;
+        }
+
+        /** Înainte: `d.listingId == null` era true pentru câmp lipsă din JSON → respingeam tot SSE-ul */
+        const evListing = d.listingId ?? undefined;
+        if (
+          evListing != null &&
+          listingId != null &&
+          evListing !== listingId
+        ) {
+          return;
+        }
+
         void fetchMessagesRef.current(
           ownerId,
           localStorage.getItem("accessToken"),
@@ -208,11 +235,10 @@ export default function ListingMessagesPage() {
 
     return () => {
       dispose();
-      setSseConnected(false);
     };
   }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
 
-  // Fallback polling când SSE nu e activ
+  /** Polling scurt paralel SSE (în caz că proxy/browser pierde evenimentul) */
   useEffect(() => {
     if (!listing?.id || !messagingPeerId || !currentUser?.id) {
       return;
@@ -222,18 +248,11 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    if (sseConnected) {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-      return;
-    }
-
+    const POLL_MS = 3000;
     const pollMessages = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      const token = localStorage.getItem("accessToken");
-      await fetchMessages(messagingPeerId, token, listing.id);
+      const t = localStorage.getItem("accessToken");
+      await fetchMessages(messagingPeerId, t, listing.id);
     };
 
     void pollMessages();
@@ -244,7 +263,7 @@ export default function ListingMessagesPage() {
 
     pollingRef.current = setInterval(() => {
       void pollMessages();
-    }, 5000);
+    }, POLL_MS);
 
     return () => {
       if (pollingRef.current) {
@@ -252,7 +271,7 @@ export default function ListingMessagesPage() {
         pollingRef.current = null;
       }
     };
-  }, [listing?.id, messagingPeerId, currentUser?.id, sseConnected, isOwnListing]);
+  }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || !currentUser || !listing || sendingMessage) {
@@ -297,11 +316,21 @@ export default function ListingMessagesPage() {
         throw new Error(errMsg);
       }
 
-      const data = await res.json();
-      
-      // Add new message to list
+      const data = await res.json() as {
+        message?: Message;
+        conversationId?: string;
+      };
+
+      if (typeof data.conversationId === 'string') {
+        listingThreadRef.current = {
+          ...listingThreadRef.current,
+          conversationId: data.conversationId,
+        };
+      }
+
       if (data.message) {
-        setMessages((prev) => [...prev, data.message]);
+        const m = data.message as Message;
+        setMessages((prev) => [...prev, m]);
       }
 
       // Refresh conversation messages for the same listing immediately

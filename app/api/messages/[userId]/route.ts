@@ -189,8 +189,14 @@ export async function GET(
     }
 
     if (!conversation) {
-      // Return empty array if no conversation exists yet
-      return NextResponse.json([]);
+      return NextResponse.json(
+        {
+          conversationId: null as string | null,
+          listingId: listingIdParam ?? null,
+          messages: [],
+        },
+        { headers: { "Cache-Control": "private, no-store" } }
+      );
     }
 
     // Mark messages as read
@@ -206,7 +212,22 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(conversation.messages);
+    console.log("[api/messages] GET-thread", {
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      peerUserId: otherUserId,
+      viewerId: currentUserId,
+      messagesReturned: conversation.messages.length,
+    });
+
+    return NextResponse.json(
+      {
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        messages: conversation.messages,
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error: unknown) {
     console.error("Error fetching messages:", error);
     return NextResponse.json(
@@ -480,10 +501,18 @@ export async function POST(
     const elapsed = Date.now() - startTime;
     console.log(`[MSG-POST] ✅ SUCCESS - Message ${message.id} sent in ${elapsed}ms`);
 
+    console.log("[MSG-POST] sse-publish", {
+      createdMessageId: message.id,
+      conversationId: conversation.id,
+      listingId: conversation.listingId ?? null,
+      senderId,
+      receiverId: effectiveReceiverId,
+    });
+
     publishToUsers([senderId, effectiveReceiverId], {
       type: "message",
       conversationId: conversation.id,
-      listingId: conversation.listingId,
+      listingId: conversation.listingId ?? null,
       senderId,
       receiverId: effectiveReceiverId,
       messageId: message.id,

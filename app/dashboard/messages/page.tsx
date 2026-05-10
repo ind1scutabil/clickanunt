@@ -71,9 +71,9 @@ export default function MessagesPage() {
   const lastAppliedMessagesSeqRef = useRef(0);
   const isSendingRef = useRef(false);
 
-  /** Fallback când SSE nu e disponibil; cu SSE activ, intervalele sunt oprite */
-  const CONV_POLL_MS = 8_000;
-  const MSG_POLL_MS = 5_000;
+  /** Rulare în paralel cu SSE: backup 3s pentru sync instant dacă evenimentul rată */
+  const CONV_POLL_MS = 3_000;
+  const MSG_POLL_MS = 3_000;
 
   const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
   const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);
@@ -252,20 +252,21 @@ export default function MessagesPage() {
       clearInterval(messagesPollingRef.current);
     }
     
-    if (!sseLiveRef.current) {
-      messagesPollingRef.current = setInterval(() => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        const currentConversation = selectedConversationRef.current;
-        if (!currentConversation) return;
-        if (isSendingRef.current) return;
-        fetchMessages(
-          currentConversation.otherParticipant.id,
-          currentConversation.listing?.id,
-          currentConversation.id,
-          "poll"
-        );
-      }, MSG_POLL_MS);
+    if (messagesPollingRef.current) {
+      clearInterval(messagesPollingRef.current);
     }
+    messagesPollingRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const currentConversation = selectedConversationRef.current;
+      if (!currentConversation) return;
+      if (isSendingRef.current) return;
+      fetchMessages(
+        currentConversation.otherParticipant.id,
+        currentConversation.listing?.id,
+        currentConversation.id,
+        "poll"
+      );
+    }, MSG_POLL_MS);
   };
 
   const fetchMessages = async (
@@ -293,7 +294,11 @@ export default function MessagesPage() {
       }
 
       const data = await response.json();
-      const nextMessages = Array.isArray(data) ? data : data.messages || [];
+      const nextMessages = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { messages?: Message[] }).messages)
+          ? (data as { messages: Message[] }).messages
+          : [];
 
       if (requestSeq < lastAppliedMessagesSeqRef.current) {
         return;
@@ -368,7 +373,6 @@ export default function MessagesPage() {
     const dispose = connectMessageEventsSse({
       onOpen: () => {
         sseLiveRef.current = true;
-        clearFallbackPolling();
       },
       onTransportEnded: () => {
         sseLiveRef.current = false;

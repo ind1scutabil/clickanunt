@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    console.log("[api/messages/unread-count]", { userId, count });
+
     return NextResponse.json({ count }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error: unknown) {
     console.error("[unread-count]", error);

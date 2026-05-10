@@ -134,8 +134,11 @@ describe("API integration (server required)", () => {
     });
     expect(msgRes.status).toBe(200);
     expect(msgRes.headers.get("content-type")).toMatch(/application\/json/);
-    const msgs = await msgRes.json();
-    expect(Array.isArray(msgs)).toBe(true);
+    const envelope = (await msgRes.json()) as {
+      messages?: unknown[];
+      conversationId?: string | null;
+    };
+    expect(Array.isArray(envelope.messages)).toBe(true);
   });
 
   it("POST /api/auth/register with CSRF creates user or conflicts", async () => {

@@ -32,7 +32,16 @@ export type ConversationListItemDto = {
 export type ConversationsListResponseDto = ConversationListItemDto[];
 
 /**
- * GET /api/messages/:userId — JSON array of messages with sender/receiver includes.
+ * GET /api/messages/:userId — obiect `{ conversationId, listingId, messages }` (nu array brut).
+ */
+export type MessageThreadEnvelopeDto = {
+  conversationId: string | null;
+  listingId: string | null;
+  messages: MessageThreadRowDto[];
+};
+
+/**
+ * Linie mesaj în fir (include sender/receiver dacă API le returnează).
  */
 export type MessageThreadRowDto = {
   id: string;
@@ -47,4 +56,5 @@ export type MessageThreadRowDto = {
   receiver?: MessageParticipantDto;
 };
 
+/** @deprecated folosiți `MessageThreadEnvelopeDto`; păstrat pentru compat */
 export type MessageThreadResponseDto = MessageThreadRowDto[];

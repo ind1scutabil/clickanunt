@@ -456,10 +456,14 @@ export const messagesApi = {
     if (params?.listingId) query.set('listingId', params.listingId);
     if (params?.conversationId) query.set('conversationId', params.conversationId);
     const queryString = query.toString();
-    const data = await request<MessageThreadRowDto[]>(
+    type ThreadEnvelope =
+      | MessageThreadRowDto[]
+      | { messages?: MessageThreadRowDto[] };
+    const data = await request<ThreadEnvelope>(
       `/api/messages/${userId}${queryString ? `?${queryString}` : ''}`
     );
-    return data.map((item) => ({
+    const rows = Array.isArray(data) ? data : (data.messages ?? []);
+    return rows.map((item) => ({
       id: item.id,
       content: item.content,
       senderId: item.senderId,

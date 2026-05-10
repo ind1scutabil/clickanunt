@@ -83,6 +83,13 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    const unreadSum = formattedConversations.reduce((a, c) => a + c.unreadCount, 0);
+    console.log("[api/messages/conversations]", {
+      userId,
+      conversationsCount: formattedConversations.length,
+      unreadAcrossThreads: unreadSum,
+    });
+
     return NextResponse.json(formattedConversations, {
       headers: { "Cache-Control": "private, no-store" },
     });
