@@ -144,9 +144,10 @@ export default function AdminDashboard() {
         }
 
         const user = JSON.parse(userStr);
-        
+        const roleNorm = String(user.role || '').trim().toLowerCase();
+
         // CRITICAL: Only allow admin/owner role
-        if (user.role !== 'admin' && user.role !== 'owner') {
+        if (roleNorm !== 'admin' && roleNorm !== 'owner') {
           console.error('❌ SECURITY: Unauthorized admin access attempt!', {
             email: user.email,
             role: user.role,

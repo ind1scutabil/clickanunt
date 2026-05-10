@@ -9,10 +9,19 @@ import { TokenPayload } from './auth';
 // Helper type for user with role
 type UserWithRole = { role: UserRoleType } | TokenPayload;
 
-// Helper to extract role from user
+// Helper to extract role from user (normalize pentru consistență DB / JWT / localStorage)
 function getUserRole(user: UserWithRole): UserRoleType {
   const roleValue = 'role' in user ? user.role : null;
-  return (roleValue || 'user') as UserRoleType;
+  const raw =
+    typeof roleValue === 'string'
+      ? roleValue.trim().toLowerCase()
+      : roleValue != null
+        ? String(roleValue).trim().toLowerCase()
+        : '';
+  if (raw && Object.values(UserRole).includes(raw as UserRoleType)) {
+    return raw as UserRoleType;
+  }
+  return UserRole.user;
 }
 
 // Definim toate acțiunile posibile în sistem
@@ -214,9 +223,14 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 /**
  * Verifică dacă un rol are o permisiune
  */
-export function hasPermission(role: UserRole, permission: Permission): boolean {
-  const permissions = ROLE_PERMISSIONS[role];
-  return permissions.includes(permission);
+export function hasPermission(role: UserRole | string, permission: Permission): boolean {
+  const normalized =
+    typeof role === 'string'
+      ? role.trim().toLowerCase()
+      : String(role ?? '').trim().toLowerCase();
+  const key = (normalized || UserRole.user) as UserRole;
+  const permissions = ROLE_PERMISSIONS[key];
+  return Array.isArray(permissions) && permissions.includes(permission);
 }
 
 /**
@@ -283,14 +297,17 @@ export function requireRole(user: UserWithRole | null, minRole: UserRole): void 
  * Verifică dacă user-ul este OWNER
  */
 export function isOwner(user: UserWithRole | null): boolean {
-  return user?.role === UserRole.owner;
+  if (!user || !('role' in user) || user.role == null) return false;
+  return getUserRole(user) === UserRole.owner;
 }
 
 /**
  * Verifică dacă user-ul este ADMIN sau OWNER
  */
 export function isAdminOrOwner(user: UserWithRole | null): boolean {
-  return user?.role === UserRole.admin || user?.role === UserRole.owner;
+  if (!user) return false;
+  const r = getUserRole(user);
+  return r === UserRole.admin || r === UserRole.owner;
 }
 
 /**

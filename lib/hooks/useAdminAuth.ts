@@ -28,9 +28,12 @@ export function useAdminAuth() {
         }
 
         const parsedUser = JSON.parse(userStr) as User;
-        
-        // CRITICAL: Only admin/owner roles allowed
-        if (parsedUser.role !== 'admin' && parsedUser.role !== 'owner') {
+        const roleNorm = String(parsedUser.role || '')
+          .trim()
+          .toLowerCase();
+
+        // CRITICAL: Only admin/owner roles allowed (aliniat cu RBAC din backend)
+        if (roleNorm !== 'admin' && roleNorm !== 'owner') {
           console.error('❌ SECURITY: Unauthorized admin access attempt!', {
             email: parsedUser.email,
             role: parsedUser.role,

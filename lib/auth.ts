@@ -121,14 +121,16 @@ export async function getUserFromRequest(request: NextRequest) {
     ? authHeader.substring(7) 
     : null;
   
-  // Prefer explicit Bearer token (SPA) over cookie — stale httpOnly cookies break auth otherwise.
-  const token = headerToken || cookieToken;
+  /**
+   * Prefer Bearer (SPA) first. If Bearer este prezent dar invalid/expirat, folosim cookie-ul
+   * httpOnly doar dacă e diferit — evităm scenariul: localStorage stale + cookie fresh → 403 pe toate rutele admin.
+   */
+  const primaryToken = headerToken || cookieToken || null;
+  let payload = primaryToken ? await verifyToken(primaryToken) : null;
 
-  if (!token) {
-    return null;
+  if (!payload && headerToken && cookieToken && headerToken !== cookieToken) {
+    payload = await verifyToken(cookieToken);
   }
-
-  const payload = await verifyToken(token);
 
   if (!payload) {
     return null;
