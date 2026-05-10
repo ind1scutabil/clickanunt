@@ -15,7 +15,6 @@ import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 import { logger } from '@/lib/observability';
 import { PaymentStatus } from '@prisma/client';
 import { verifyToken } from '@/lib/auth';
-import { gateStripeProductionPayments } from '@/lib/stripe-publishable-key';
 
 export const runtime = 'nodejs';
 
@@ -45,15 +44,6 @@ export async function POST(req: NextRequest) {
         ? 403
         : 400;
       return NextResponse.json({ error: security.error }, { status });
-    }
-
-    const stripeGate = gateStripeProductionPayments();
-    if (!stripeGate.ok) {
-      logger.error('Stripe gate', { code: stripeGate.code, detail: stripeGate.logDetail });
-      return NextResponse.json(
-        { error: stripeGate.error, code: stripeGate.code },
-        { status: stripeGate.httpStatus }
-      );
     }
 
     // Parse body

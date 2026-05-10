@@ -18,13 +18,10 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3000,
-      /** Oprește sk_test_/pk_test_ pe site-ul public; setează în .env chei LIVE + pm2 reload */
-      STRIPE_REQUIRE_LIVE: '1',
     },
     env_production: {
       NODE_ENV: 'production',
       PORT: 3000,
-      STRIPE_REQUIRE_LIVE: '1',
     },
     error_file: '/root/.pm2/logs/clickanunt-error.log',
     out_file: '/root/.pm2/logs/clickanunt-out.log',
