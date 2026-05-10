@@ -49,6 +49,8 @@ export default function ListingMessagesPage() {
   const listingSseLiveRef = useRef(false);
   const listingPollInFlightRef = useRef(false);
   const listingInboxNotifyAtRef = useRef(0);
+  /** Blochează dubluri Enter/click înainte ca setState(sendingMessage) să se aplică în același tick. */
+  const listingOutboundInFlightRef = useRef(false);
   const fetchMessagesRef = useRef<
     (ownerId: string, _token: string | null, listingId?: string) => Promise<void>
   >(async () => {});
@@ -406,6 +408,11 @@ export default function ListingMessagesPage() {
       return;
     }
 
+    if (listingOutboundInFlightRef.current) {
+      return;
+    }
+    listingOutboundInFlightRef.current = true;
+
     setSendingMessage(true);
     setError(null);
 
@@ -463,6 +470,7 @@ export default function ListingMessagesPage() {
       console.error('Error sending message:', err);
       setError(err.message || 'Nu am putut trimite mesajul. Te rugăm să încerci din nou.');
     } finally {
+      listingOutboundInFlightRef.current = false;
       setSendingMessage(false);
     }
   };

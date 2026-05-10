@@ -39,7 +39,9 @@ export async function getAuthUserIdFromRequest(request: NextRequest): Promise<st
 }
 
 /**
- * GET/POST JSON mesaje: Bearer înainte de cookie — după refresh SPA are Bearer nou, cookie poate întârzia.
+ * GET/POST JSON mesaje: cookie httpOnly înainte de Bearer.
+ * Pe live, `localStorage` poate rămâne cu access expirat în timp ce cookie-ul `.clickanunt.ro`
+ * e încă valabil — ordinea veche (Bearer primul) ducea la 401 intermitent pe pagina anunțului.
  */
 export async function getMessagingApiAuthPayload(
   request: NextRequest
@@ -47,7 +49,7 @@ export async function getMessagingApiAuthPayload(
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  for (const candidate of uniqMessagingTokens([headerToken, cookieToken])) {
+  for (const candidate of uniqMessagingTokens([cookieToken, headerToken])) {
     const payload = await decodeAccessJwtPayload(candidate);
     if (payload) return payload;
   }
