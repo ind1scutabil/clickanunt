@@ -18,6 +18,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/privacy", changeFrequency: "yearly" as const, priority: 0.3 },
     { path: "/security", changeFrequency: "yearly" as const, priority: 0.35 },
     { path: "/business", changeFrequency: "monthly" as const, priority: 0.45 },
+    { path: "/harta-site", changeFrequency: "weekly" as const, priority: 0.55 },
   ];
 
   return paths.map((p) => ({

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CATEGORY_LABEL_BY_CANONICAL_SLUG } from '@/lib/seo/market-paths';
 import { slugifyRo } from '@/lib/seo/slug';
 import type { MarketHubFaqItem } from '@/lib/seo/market-hub-faq';
+import type { InternalNavLink } from '@/lib/seo/popular-internal-links';
 
 export type SeoBreadcrumbLink = { label: string; href: string };
 
@@ -13,6 +14,11 @@ type Props = {
   /** FAQ copy + matching JSON-LD (FAQPage) when non-empty */
   faqItems?: readonly MarketHubFaqItem[];
   faqJsonLd?: object | null;
+  popularSearchLinks?: readonly InternalNavLink[];
+  latestListingLinks?: readonly InternalNavLink[];
+  /** City hub only: other category hubs with same city slug */
+  sameCityOtherCategories?: readonly InternalNavLink[];
+  showTrustPanel?: boolean;
 };
 
 function shortCatLabel(canonicalSlug: string): string {
@@ -20,7 +26,38 @@ function shortCatLabel(canonicalSlug: string): string {
   return full?.split(',')[0]?.trim() ?? canonicalSlug;
 }
 
-/** Breadcrumbs + internal links for pillar and city hubs (server-rendered). */
+function LinkPills({
+  id,
+  title,
+  links,
+}: {
+  id: string;
+  title: string;
+  links: readonly InternalNavLink[];
+}) {
+  if (links.length === 0) return null;
+  return (
+    <section aria-labelledby={id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <h2 id={id} className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
+        {title}
+      </h2>
+      <ul className="flex flex-wrap gap-2">
+        {links.map((l, i) => (
+          <li key={`${l.href}-${i}`}>
+            <Link
+              href={l.href}
+              className="inline-flex rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-primary-400/35 hover:text-primary-100"
+            >
+              {l.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Breadcrumbs + crawlable internal linking for pillar and city hubs (server-rendered). */
 export function SeoMarketHubExtras({
   breadcrumbs,
   categorySlug,
@@ -28,6 +65,10 @@ export function SeoMarketHubExtras({
   relatedCategorySlugs,
   faqItems = [],
   faqJsonLd = null,
+  popularSearchLinks = [],
+  latestListingLinks = [],
+  sameCityOtherCategories = [],
+  showTrustPanel = true,
 }: Props) {
   return (
     <div className="mx-auto mb-10 max-w-7xl space-y-8 px-4">
@@ -62,7 +103,7 @@ export function SeoMarketHubExtras({
           {relatedCityLabels.length > 0 && (
             <section aria-labelledby="seo-related-cities" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <h2 id="seo-related-cities" className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
-                Orașe apropiate
+                Orașe în apropiere
               </h2>
               <ul className="flex flex-wrap gap-2">
                 {relatedCityLabels.map((city) => (
@@ -82,7 +123,7 @@ export function SeoMarketHubExtras({
           {relatedCategorySlugs.length > 0 && (
             <section aria-labelledby="seo-related-cats" className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <h2 id="seo-related-cats" className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
-                Alte categorii
+                Categorii înrudite
               </h2>
               <ul className="flex flex-wrap gap-2">
                 {relatedCategorySlugs.map((slug) => (
@@ -100,6 +141,56 @@ export function SeoMarketHubExtras({
           )}
         </div>
       )}
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <LinkPills id="seo-popular-searches" title="Căutări și filtre rapide" links={popularSearchLinks} />
+        <LinkPills id="seo-latest-listings" title="Cele mai recente în index" links={latestListingLinks} />
+      </div>
+
+      {sameCityOtherCategories.length > 0 ? (
+        <LinkPills
+          id="seo-same-city-cats"
+          title="Alte categorii în același oraș"
+          links={sameCityOtherCategories}
+        />
+      ) : null}
+
+      {showTrustPanel ? (
+        <section
+          aria-labelledby="seo-trust-heading"
+          className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] px-5 py-5"
+        >
+          <h2 id="seo-trust-heading" className="mb-2 text-sm font-semibold text-amber-100">
+            Încredere & siguranță
+          </h2>
+          <p className="mb-3 text-sm text-amber-50/90">
+            Nu trimite bani în avans; verifică produsul sau proprietatea înainte de plată. Raportează anunțurile suspecte
+            din pagina anunțului — moderarea analizează semnalările.
+          </p>
+          <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-medium text-amber-200/95">
+            <li>
+              <Link href="/security" className="hover:text-white hover:underline">
+                Siguranță
+              </Link>
+            </li>
+            <li>
+              <Link href="/contact" className="hover:text-white hover:underline">
+                Contact
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className="hover:text-white hover:underline">
+                Termeni
+              </Link>
+            </li>
+            <li>
+              <Link href="/about" className="hover:text-white hover:underline">
+                Despre noi
+              </Link>
+            </li>
+          </ul>
+        </section>
+      ) : null}
 
       {faqItems.length > 0 && (
         <section

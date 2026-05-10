@@ -19,13 +19,29 @@ import {
   generateItemListStructuredData,
 } from "@/lib/seo";
 import { absoluteUrl } from "@/lib/site-url";
-import { getActiveListingCountForHub, getListingPreviewsForHub } from "@/lib/seo/hub-queries";
+import {
+  getActiveListingCountForHub,
+  getHubListingStats,
+  getListingPreviewsForHub,
+} from "@/lib/seo/hub-queries";
 import { buildMarketHubFaqItems } from "@/lib/seo/market-hub-faq";
+import { buildProgrammaticHubParagraphs } from "@/lib/seo/programmatic-hub-copy";
+import { popularInternalLinksForCategoryHub } from "@/lib/seo/popular-internal-links";
 
-type Props = { params: Promise<{ categorySlug: string }> };
+type Props = {
+  params: Promise<{ categorySlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+function parsePage(sp: Record<string, string | string[] | undefined>): number {
+  const raw = sp.page;
+  const pageStr = Array.isArray(raw) ? raw[0] : raw;
+  return Math.max(1, Math.min(parseInt(pageStr || "1", 10), 500));
+}
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { categorySlug } = await params;
+  const sp = await searchParams;
   const canonicalSlug = canonicalCategorySlug(categorySlug);
   if (!canonicalSlug) {
     return createPageMetadata({
@@ -50,6 +66,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const path = `/${primary}`;
   const shortCat = label.split(",")[0]?.trim() ?? label;
   const count = await getActiveListingCountForHub(label);
+  const pageNum = parsePage(sp);
+  const canonicalPath = pageNum <= 1 ? path : `${path}?page=${pageNum}`;
 
   return createPageMetadata({
     title:
@@ -60,14 +78,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       count > 0
         ? `Listează anunțuri ${label.toLowerCase()} în toată România: căută pe oraș, filtrează după subcategorie și preț și publică gratuit pe www.clickanunt.ro.`
         : `Momentan nu există suficient conținut public în ${shortCat}; explorează alte categorii sau publică gratuit pe ClickAnunț.`,
-    canonicalPath: path,
+    canonicalPath,
     keywords: [shortCat, label, "anunțuri", "România", "ClickAnunț"],
     noindex: count === 0,
     ogImage: `${path}/opengraph-image`,
   });
 }
 
-export default async function MarketCategoryOnlyPage({ params }: Props) {
+export default async function MarketCategoryOnlyPage({ params }: Omit<Props, "searchParams">) {
   const { categorySlug } = await params;
 
   const canonicalSlug = canonicalCategorySlug(categorySlug);
@@ -84,10 +102,18 @@ export default async function MarketCategoryOnlyPage({ params }: Props) {
   const routeBase = `/${primary}`;
   const intro = buildNationwideMarketIntro(label);
 
-  const [count, previews] = await Promise.all([
+  const [count, previews, stats] = await Promise.all([
     getActiveListingCountForHub(label),
     getListingPreviewsForHub(label, undefined, 24),
+    getHubListingStats(label),
   ]);
+
+  const programmatic = buildProgrammaticHubParagraphs({ categoryLabel: label, stats });
+  const popularLinks = popularInternalLinksForCategoryHub(primary, label);
+  const latestLinks = previews.slice(0, 10).map((p) => ({
+    label: p.title,
+    href: `/listings/${p.id}`,
+  }));
 
   const breadcrumbs = [{ label: "Acasă", href: "/" }];
   const shortLab = label.split(",")[0]?.trim() ?? label;
@@ -134,6 +160,8 @@ export default async function MarketCategoryOnlyPage({ params }: Props) {
         relatedCategorySlugs={relatedCats}
         faqItems={count > 0 ? faqItems : []}
         faqJsonLd={faqJsonLd}
+        popularSearchLinks={popularLinks}
+        latestListingLinks={latestLinks}
       />
       {count > 0 && (
         <section className="mx-auto mb-10 max-w-7xl px-4" aria-labelledby="explore-city-hubs-label">
@@ -167,6 +195,9 @@ export default async function MarketCategoryOnlyPage({ params }: Props) {
           <>
             {intro.paragraphs.map((paragraph, idx) => (
               <p key={idx}>{paragraph}</p>
+            ))}
+            {programmatic.map((p, idx) => (
+              <p key={`prog-${idx}`}>{p}</p>
             ))}
           </>
         }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ListingJsonLd } from "./ListingJsonLd";
 import { ListingBreadcrumbsNav } from "./ListingBreadcrumbsNav";
+import { ListingRelatedCrawlLinks } from "@/app/components/seo/ListingRelatedCrawlLinks";
 import { prisma } from "@/lib/prisma";
 import { createPageMetadata } from "@/lib/seo";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -106,6 +107,7 @@ export default async function ListingDetailLayout({
       <ListingJsonLd listingId={id} />
       <ListingBreadcrumbsNav listingId={id} />
       {children}
+      <ListingRelatedCrawlLinks listingId={id} />
     </>
   );
 }

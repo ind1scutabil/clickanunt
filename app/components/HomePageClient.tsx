@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
@@ -12,7 +12,7 @@ import { Button, Card, Badge } from "@/app/components/ui";
 import { StatsStripSafe } from "@/app/components/enterprise";
 import { TrustBadges } from "@/app/components/enterprise";
 
-export default function HomePageClient() {
+export default function HomePageClient({ editorialStrip }: { editorialStrip?: ReactNode }) {
   const router = useRouter();
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number> | null>(null);
   const [categoryCountsError, setCategoryCountsError] = useState(false);
@@ -396,6 +396,8 @@ export default function HomePageClient() {
             </Card>
           </div>
         </section>
+
+        {editorialStrip}
 
         <Footer />
       </main>

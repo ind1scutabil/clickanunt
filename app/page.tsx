@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import HomePageClient from "@/app/components/HomePageClient";
+import { HomeEditorialSeoStrip } from "@/app/components/seo/HomeEditorialSeoStrip";
 import { createPageMetadata, generateBreadcrumbStructuredData } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,7 +27,7 @@ export default function HomePage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homeCrumb) }} />
-      <HomePageClient />
+      <HomePageClient editorialStrip={<HomeEditorialSeoStrip />} />
     </>
   );
 }

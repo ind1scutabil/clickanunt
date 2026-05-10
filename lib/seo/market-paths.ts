@@ -31,6 +31,7 @@ export const RESERVED_CATEGORY_SLUGS = new Set([
   'ui-demo',
   'users',
   'sitemap-serve',
+  'harta-site',
 ]);
 
 /** Orașe folosite la link-uri interne (pillar / footer / hub fără context județ). */

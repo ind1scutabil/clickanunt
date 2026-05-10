@@ -735,9 +735,11 @@ export default function ListingsView({
                     src={listingPrimaryPhotoSrc(listing.photos)}
                     alt={listing.title}
                     loading={index < 3 ? "eager" : "lazy"}
+                    decoding="async"
                     width={640}
                     height={360}
-                    className="w-full h-full object-cover transition-transform duration-normal ease-premium group-hover:scale-110"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    className="h-full w-full object-cover transition-transform duration-normal ease-premium group-hover:scale-110"
                     onError={(e) => {
                       const el = e.currentTarget;
                       el.onerror = null;
