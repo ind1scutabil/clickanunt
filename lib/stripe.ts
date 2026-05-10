@@ -29,7 +29,12 @@ export function getStripeServer(): Stripe {
       typescript: true,
     });
     logger.info('Stripe SDK initialized', {
-      mode: key.startsWith('sk_live_') ? 'live' : key.startsWith('sk_test_') ? 'test' : 'unknown',
+      mode:
+        key.startsWith('sk_live_') || key.startsWith('rk_live_')
+          ? 'live'
+          : key.startsWith('sk_test_') || key.startsWith('rk_test_')
+            ? 'test'
+            : 'unknown',
     });
   }
   return stripeClient;

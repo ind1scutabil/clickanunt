@@ -12,12 +12,9 @@ import { logger } from '@/lib/observability';
 import { validateSecureRequest } from '@/lib/security/middleware';
 // import { checkRateLimit } from '@/lib/rateLimit'; // Not implemented yet
 import { PaymentStatus } from '@prisma/client';
-import { getStripeProductionPaymentBlockReason } from '@/lib/stripe-publishable-key';
+import { gateStripeProductionPayments } from '@/lib/stripe-publishable-key';
 
 export const runtime = 'nodejs';
-
-const STRIPE_USER_FACING_BLOCKED =
-  'Plățile cu card real nu sunt active momentan din cauza unei configurări incomplete. Încearcă mai târziu sau contactează suportul ClickAnunț.';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,10 +33,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const stripeBlockReason = getStripeProductionPaymentBlockReason();
-    if (stripeBlockReason) {
-      logger.error('Stripe: plata blocată (POST /api/payments)', { detail: stripeBlockReason });
-      return NextResponse.json({ error: STRIPE_USER_FACING_BLOCKED }, { status: 503 });
+    const stripeGate = gateStripeProductionPayments();
+    if (!stripeGate.ok) {
+      logger.error('Stripe gate (POST /api/payments)', {
+        code: stripeGate.code,
+        detail: stripeGate.logDetail,
+      });
+      return NextResponse.json(
+        { error: stripeGate.error, code: stripeGate.code },
+        { status: stripeGate.httpStatus }
+      );
     }
 
     // Rate limiting: TODO - implement rate limiting

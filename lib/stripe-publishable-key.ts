@@ -16,6 +16,17 @@ export function getStripePublishableKey(): string {
   );
 }
 
+/** Cheie secretă standard */
+export function isStripeLiveSecretKey(secret: string): boolean {
+  const s = secret.trim();
+  return s.startsWith('sk_live_') || s.startsWith('rk_live_');
+}
+
+export function isStripeTestSecretKey(secret: string): boolean {
+  const s = secret.trim();
+  return s.startsWith('sk_test_') || s.startsWith('rk_test_');
+}
+
 /**
  * Când forțăm chei LIVE (blocăm sk_test_/pk_test_).
  * - STRIPE_REQUIRE_LIVE=1 pe VPS (recomandat pentru clickanunt.ro)
@@ -40,56 +51,97 @@ export function isProductionStripeEnforcement(): boolean {
   return false;
 }
 
+export type StripePaymentGateFailure = {
+  httpStatus: 503;
+  error: string;
+  code: string;
+  /** Doar pentru log server */
+  logDetail: string;
+};
+
+export type StripePaymentGateResult =
+  | { ok: true }
+  | ({ ok: false } & StripePaymentGateFailure);
+
 /**
- * Log pe startup dacă în producție folosim chei de test sau mix live/test.
- * Suprimă cu STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 (ex. staging).
+ * Blochează plata în producție când lipsesc chei LIVE sau sunt încă de test.
+ * Acceptă și chei Stripe „Restricted”: rk_live_* / rk_test_*.
  */
-/**
- * Blochează crearea PaymentIntent în producție când Stripe e încă în mod test
- * (carduri reale dau „test mode … non-test card”).
- * Returnează motiv tehnic pentru log; răspunsul HTTP folosește mesaj pentru utilizator.
- */
-export function getStripeProductionPaymentBlockReason(): string | null {
-  if (!isProductionStripeEnforcement()) return null;
+export function gateStripeProductionPayments(): StripePaymentGateResult {
+  if (!isProductionStripeEnforcement()) {
+    return { ok: true };
+  }
 
   const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
   const pk = getStripePublishableKey();
 
-  if (sk.startsWith('sk_test_')) {
-    return 'STRIPE_SECRET_KEY este sk_test_* în producție — folosește sk_live_* în .env pe server.';
+  if (!sk) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      code: 'stripe_secret_missing',
+      logDetail: 'STRIPE_SECRET_KEY lipsește din mediul procesului Node',
+      error:
+        'Plata nu este configurată corect pe server (lipsește cheia secretă Stripe). Contactează administratorul site-ului.',
+    };
   }
+
+  if (isStripeTestSecretKey(sk)) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      code: 'stripe_secret_test',
+      logDetail: 'STRIPE_SECRET_KEY este sk_test_/rk_test_ pe mediul unde se cere mod live',
+      error:
+        'Pe server sunt încă folosite chei Stripe de test. În fișierul .env din producție înlocuiește cu cheia secretă din modul Live din Dashboard Stripe (începe cu sk_live_ sau rk_live_), apoi rulează: pm2 reload ecosystem.config.js --update-env.',
+    };
+  }
+
   if (pk.startsWith('pk_test_')) {
-    return 'Cheia publică este pk_test_* în producție — setează STRIPE_PUBLISHABLE_KEY=pk_live_* (aceeași pereche ca sk_live).';
+    return {
+      ok: false,
+      httpStatus: 503,
+      code: 'stripe_publishable_test',
+      logDetail: 'Cheia publică este pk_test_*',
+      error:
+        'Cheia publică Stripe pe server este în mod test. În .env setează STRIPE_PUBLISHABLE_KEY=pk_live_… (aceeași cont Stripe, mod Live), apoi pm2 reload.',
+    };
   }
-  if (!pk && sk.startsWith('sk_live_')) {
-    return 'Lipsește cheia publică live (STRIPE_PUBLISHABLE_KEY sau NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_*).';
+
+  if (isStripeLiveSecretKey(sk) && pk.startsWith('pk_live_')) {
+    return { ok: true };
   }
-  if (sk.startsWith('sk_live_') && pk.startsWith('pk_live_')) {
-    return null;
+
+  if (isStripeLiveSecretKey(sk) && !pk) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      code: 'stripe_publishable_missing',
+      logDetail: 'Cheie secretă live dar lipsă STRIPE_PUBLISHABLE_KEY / NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+      error:
+        'Lipsește cheia publică live pe server (pk_live_…). În .env la /var/www/clickanunt adaugă STRIPE_PUBLISHABLE_KEY=pk_live_… copiată din Stripe Dashboard → API keys → Live, apoi: cd /var/www/clickanunt && pm2 reload ecosystem.config.js --update-env.',
+    };
   }
-  return 'Configurare Stripe în producție: secret/cheie publică trebuie să fie pereche sk_live_* + pk_live_*.';
+
+  return {
+    ok: false,
+    httpStatus: 503,
+    code: 'stripe_keys_unrecognized',
+    logDetail: `STRIPE_SECRET_KEY nu pare sk_live/sk_test/rk_live/rk_test (prefix: ${sk.slice(0, 12)}…) sau pk nu e pk_live`,
+    error:
+      'Configurația Stripe de pe server nu este recunoscută (pereche nevalidă). Verifică în .env: STRIPE_SECRET_KEY=sk_live_… sau rk_live_… și STRIPE_PUBLISHABLE_KEY=pk_live_… din același mod Live.',
+  };
+}
+
+/** @deprecated Folosește gateStripeProductionPayments() */
+export function getStripeProductionPaymentBlockReason(): string | null {
+  const g = gateStripeProductionPayments();
+  return g.ok ? null : g.logDetail;
 }
 
 export function warnIfStripeMisconfiguredForProduction(): void {
-  if (!isProductionStripeEnforcement()) return;
-
-  const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
-  const pk = getStripePublishableKey();
-  if (!sk || !pk) return;
-
-  const skLive = sk.startsWith('sk_live_');
-  const skTest = sk.startsWith('sk_test_');
-  const pkLive = pk.startsWith('pk_live_');
-  const pkTest = pk.startsWith('pk_test_');
-
-  if (skTest || pkTest) {
-    console.error(
-      '[STRIPE] Chei de test cu NODE_ENV=production — plățile nu sunt reale (ex. Link „Enter 000000”). ' +
-        'Setează pe server STRIPE_SECRET_KEY=sk_live_… și STRIPE_PUBLISHABLE_KEY=pk_live_…, apoi pm2 reload / redeploy.'
-    );
-  } else if (skLive !== pkLive) {
-    console.error(
-      '[STRIPE] Mismatch între STRIPE_SECRET_KEY și cheia publică (una live, alta test). Aliniază ambele la sk_live_/pk_live_.'
-    );
+  const g = gateStripeProductionPayments();
+  if (!g.ok) {
+    console.error('[STRIPE] Plățile live sunt blocate:', g.code, '—', g.logDetail);
   }
 }
