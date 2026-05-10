@@ -76,7 +76,7 @@ export const prisma: PrismaClient = useInMemory
 - app/api/admin/moderation/[id]/reject/route.ts
 - app/api/admin/moderation/[id]/approve/route.ts
 - app/api/admin/moderation/[id]/assign/route.ts
-- app/sitemap.xml/route.ts
+- (canonical sitemap: `app/sitemap.ts` + `app/sitemap-serve/*`; legacy `app/sitemap.xml/route.ts` eliminat pentru a evita duplicarea și URL-uri greșite)
 - lib/audit.ts
 - lib/health.ts
 - lib/trustScore.ts

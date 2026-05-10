@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
@@ -17,6 +17,16 @@ import {
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
 type Listing = ListingPublicDto;
+
+export interface ListingsViewProps {
+  /** Example: `/auto/bucuresti` — pagination & filters sync to this path segments. */
+  routeBase?: string;
+  initialCategory?: string;
+  initialCity?: string;
+  initialCounty?: string;
+  pageTitle?: string;
+  seoIntro?: ReactNode;
+}
 
 interface Filters {
   q?: string;
@@ -36,7 +46,14 @@ interface Filters {
   sortOrder?: string;
 }
 
-export default function ListingsView() {
+export default function ListingsView({
+  routeBase,
+  initialCategory,
+  initialCity,
+  initialCounty,
+  pageTitle,
+  seoIntro,
+}: ListingsViewProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasActiveSearch = Boolean(
@@ -63,6 +80,23 @@ export default function ListingsView() {
 
   const limit = 12;
 
+  const pushBrowsePath = useCallback(
+    (nextFilters: Filters, nextPage: number) => {
+      const params = new URLSearchParams();
+      Object.entries(nextFilters).forEach(([k, v]) => {
+        if (v !== undefined && v !== "" && k !== "sortBy" && k !== "sortOrder") {
+          params.set(k, String(v));
+        }
+      });
+      if (nextPage > 1) {
+        params.set("page", String(nextPage));
+      }
+      const path = routeBase ?? "/listings";
+      router.push(`${path}${params.toString() ? `?${params.toString()}` : ""}`, { scroll: false });
+    },
+    [routeBase, router]
+  );
+
   // Get available subcategories for selected category
   const availableSubcategories = useMemo(() => {
     return filters.category ? CATEGORIES[filters.category] || [] : [];
@@ -80,16 +114,28 @@ export default function ListingsView() {
 
   const isAutoCategory = filters.category === "Auto, moto și ambarcațiuni";
 
-  // Read URL params on mount
+  // Read URL params + optional SEO hub defaults
   useEffect(() => {
-    const searchQuery = searchParams.get('q') || searchParams.get('search');
-    const category = searchParams.get('category');
-    const subcategory = searchParams.get('subcategory');
-    const county = searchParams.get('county');
-    const city = searchParams.get('city');
-    
-    if (searchQuery || category || subcategory || county || city) {
-      setFilters(prev => ({
+    const searchQuery = searchParams.get("q") || searchParams.get("search");
+    const category = searchParams.get("category");
+    const subcategory = searchParams.get("subcategory");
+    const county = searchParams.get("county");
+    const city = searchParams.get("city");
+    const pageParam = parseInt(searchParams.get("page") || "1", 10);
+
+    const hasListingQuery =
+      Boolean(searchQuery) || Boolean(category) || Boolean(subcategory) || Boolean(county) || Boolean(city);
+
+    if (!hasListingQuery && routeBase && (initialCategory || initialCity || initialCounty)) {
+      setFilters((prev) => ({
+        ...prev,
+        ...(initialCategory ? { category: initialCategory } : {}),
+        ...(initialCounty ? { county: initialCounty } : {}),
+        ...(initialCity ? { city: initialCity } : {}),
+      }));
+      setIsFiltersOpen(false);
+    } else if (hasListingQuery) {
+      setFilters((prev) => ({
         ...prev,
         ...(searchQuery && { q: searchQuery }),
         ...(category && { category }),
@@ -99,7 +145,11 @@ export default function ListingsView() {
       }));
       setIsFiltersOpen(false);
     }
-  }, [searchParams]);
+
+    if (!Number.isNaN(pageParam) && pageParam > 0) {
+      setPage(pageParam);
+    }
+  }, [searchParams, routeBase, initialCategory, initialCity, initialCounty]);
 
   useEffect(() => {
     loadListings();
@@ -171,32 +221,36 @@ export default function ListingsView() {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     setPage(1);
-    
-    // Update URL with all active filters
-    const params = new URLSearchParams();
-    Object.entries(newFilters).forEach(([k, v]) => {
-      if (v && k !== 'sortBy' && k !== 'sortOrder') {
-        params.set(k, v.toString());
-      }
-    });
-    
-    router.push(`/listings${params.toString() ? '?' + params.toString() : ''}`, { scroll: false });
+
+    if (routeBase) {
+      pushBrowsePath(newFilters, 1);
+    } else {
+      const params = new URLSearchParams();
+      Object.entries(newFilters).forEach(([k, v]) => {
+        if (v && k !== "sortBy" && k !== "sortOrder") {
+          params.set(k, v.toString());
+        }
+      });
+
+      router.push(`/listings${params.toString() ? "?" + params.toString() : ""}`, { scroll: false });
+    }
   }
 
   function clearFilters() {
     setFilters({
-      sortBy: 'createdAt',
-      sortOrder: 'desc',
+      sortBy: "createdAt",
+      sortOrder: "desc",
     });
     setPage(1);
-    router.push('/listings', { scroll: false });
+    router.push(routeBase ? `${routeBase}` : "/listings", { scroll: false });
   }
 
   const totalPages = Math.ceil(total / limit);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
-      <h1 className="text-4xl font-bold tracking-tight text-white mb-8">Toate anunțurile</h1>
+      <h1 className="text-4xl font-bold tracking-tight text-white mb-4">{pageTitle ?? "Toate anunțurile"}</h1>
+      {seoIntro ? <div className="mb-8 text-sm leading-relaxed text-gray-400 max-w-3xl space-y-3">{seoIntro}</div> : null}
 
       {/* Filters */}
       {isFiltersOpen ? (
@@ -236,7 +290,7 @@ export default function ListingsView() {
                   if (category) {
                     router.push(`/listings?category=${encodeURIComponent(category)}`);
                   } else {
-                    router.push('/listings');
+                    router.push("/listings");
                   }
                 }}
                 className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
@@ -747,7 +801,11 @@ export default function ListingsView() {
           {totalPages > 1 && (
             <div className="flex justify-center items-center gap-3 py-8">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => {
+                  const np = Math.max(1, page - 1);
+                  setPage(np);
+                  if (routeBase) pushBrowsePath(filters, np);
+                }}
                 disabled={page === 1}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
               >
@@ -771,7 +829,10 @@ export default function ListingsView() {
                   return (
                     <button
                       key={pageNum}
-                      onClick={() => setPage(pageNum)}
+                      onClick={() => {
+                        setPage(pageNum);
+                        if (routeBase) pushBrowsePath(filters, pageNum);
+                      }}
                       className={`px-4 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 ${
                         page === pageNum
                           ? 'bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white shadow-lg shadow-blue-500/30'
@@ -785,7 +846,11 @@ export default function ListingsView() {
               </div>
 
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => {
+                  const np = Math.min(totalPages, page + 1);
+                  setPage(np);
+                  if (routeBase) pushBrowsePath(filters, np);
+                }}
                 disabled={page === totalPages}
                 className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
               >

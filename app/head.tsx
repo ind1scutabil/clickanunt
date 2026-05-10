@@ -1,20 +1,4 @@
-import { generateOrganizationStructuredData, generateLocalBusinessStructuredData } from "@/lib/seo";
-
+/** App Router ignores this file for `<head>`; JSON-LD lives in `GlobalJsonLd` + route layouts. */
 export default function Head() {
-  const structuredData = [
-    generateOrganizationStructuredData(),
-    generateLocalBusinessStructuredData(),
-  ];
-
-  return (
-    <>
-      {structuredData.map((data, index) => (
-        <script
-          key={`structured-data-${index}`}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-        />
-      ))}
-    </>
-  );
+  return null;
 }

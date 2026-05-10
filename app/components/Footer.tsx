@@ -3,6 +3,18 @@ import {
   COMPANY_CONFIG,
   isCompanyLegalDetailsPublic,
 } from "@/lib/company-config";
+import {
+  CATEGORY_LABEL_BY_CANONICAL_SLUG,
+  SEO_HIGHLIGHT_CITY_LABELS,
+} from "@/lib/seo/market-paths";
+import { slugifyRo } from "@/lib/seo/slug";
+
+const FOOTER_SEO_CATEGORY_SLUGS = ["auto", "imobiliare", "electronice", "locuri-de-munca", "servicii", "agricultura"] as const;
+
+function shortCatFromSlug(canonicalSlug: string): string {
+  const lab = CATEGORY_LABEL_BY_CANONICAL_SLUG[canonicalSlug];
+  return lab?.split(",")[0]?.trim() ?? canonicalSlug;
+}
 
 export default function Footer() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
@@ -125,6 +137,50 @@ export default function Footer() {
                 Luni - Vineri: 09:00 - 18:00
               </li>
             </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10 bg-neutral-950/80">
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            Anunțuri populare după categorie și oraș
+          </p>
+          <div className="flex flex-wrap gap-x-10 gap-y-8">
+            <div>
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
+                Categorii
+              </h4>
+              <ul className="flex flex-wrap gap-2">
+                {FOOTER_SEO_CATEGORY_SLUGS.map((slug) => (
+                  <li key={slug}>
+                    <Link
+                      href={`/${slug}`}
+                      className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-primary-400/40 hover:text-primary-50"
+                    >
+                      {shortCatFromSlug(slug)}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
+                Auto pe orașe
+              </h4>
+              <ul className="flex flex-wrap gap-2">
+                {SEO_HIGHLIGHT_CITY_LABELS.slice(0, 12).map((city) => (
+                  <li key={city}>
+                    <Link
+                      href={`/auto/${slugifyRo(city)}`}
+                      className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-secondary-400/40 hover:text-secondary-50"
+                    >
+                      {city}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

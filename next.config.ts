@@ -64,6 +64,16 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+
+  /** Pretty sitemap filenames → internal route handlers (see `SEO_IMPLEMENTATION_REPORT.md`). */
+  async rewrites() {
+    return [
+      { source: "/sitemap-categories.xml", destination: "/sitemap-serve/categories" },
+      { source: "/sitemap-cities.xml", destination: "/sitemap-serve/cities" },
+      { source: "/sitemap-listings.xml", destination: "/sitemap-serve/listings-index" },
+      { source: "/sitemap-listings-:chunk.xml", destination: "/sitemap-serve/listings/:chunk" },
+    ];
+  },
   
   // Security headers (suplimentar față de proxy.ts la edge)
   async headers() {

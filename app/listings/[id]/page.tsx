@@ -12,6 +12,8 @@ import {
 } from "@/lib/listing-photo-url";
 import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
+import { slugifyRo } from "@/lib/seo/slug";
 
 async function trackListingEngagement(
   listingId: string,
@@ -261,6 +263,20 @@ export default function Page() {
   const isPrivileged = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const canPromote = isOwner; // Only owner can promote their own listing
   const isAutoListing = listing.category === "Auto, moto și ambarcațiuni";
+  const categoryPillarSlug =
+    typeof listing.category === "string" ? primarySlugForCategoryLabel(listing.category) : null;
+  const seoCategoryHref = categoryPillarSlug
+    ? `/${categoryPillarSlug}`
+    : `/listings?category=${encodeURIComponent(String(listing.category))}`;
+  const seoCityHubHref =
+    categoryPillarSlug && listing.city
+      ? `/${categoryPillarSlug}/${slugifyRo(listing.city)}`
+      : listing.city
+        ? `/listings?${new URLSearchParams({
+            category: String(listing.category),
+            city: listing.city,
+          }).toString()}`
+        : null;
   const sellerEmail = listing.owner?.email || '';
   const sellerName = listing.owner?.name || '';
   const sellerDisplayName = sellerName || (sellerEmail ? (isOwner || isPrivileged ? sellerEmail : maskEmail(sellerEmail)) : 'Vânzător verificat');
@@ -493,9 +509,20 @@ export default function Page() {
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
                       <h1 className="text-4xl font-black text-white mb-3 leading-tight">{listing.title}</h1>
-                      <p className="text-gray-400 text-lg flex items-center gap-2">
-                        <span className="inline-block w-2 h-2 bg-[#00D4FF] rounded-full"></span>
-                        {listing.category} {listing.subcategory && `› ${listing.subcategory}`}
+                      <p className="text-gray-400 text-lg flex flex-wrap items-center gap-2">
+                        <span className="inline-block w-2 h-2 shrink-0 bg-[#00D4FF] rounded-full"></span>
+                        <Link
+                          href={seoCategoryHref}
+                          className="text-gray-400 transition-colors hover:text-cyan-300 hover:underline hover:underline-offset-4"
+                        >
+                          {listing.category}
+                        </Link>
+                        {listing.subcategory && (
+                          <>
+                            <span aria-hidden className="text-gray-600">›</span>
+                            <span>{listing.subcategory}</span>
+                          </>
+                        )}
                       </p>
                     </div>
                     {listing.isFeatured && (
@@ -559,7 +586,19 @@ export default function Page() {
                     {listing.city && (
                       <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
                         <span className="text-gray-400 font-medium">Oraș</span>
-                        <span className="text-white font-bold">🏙️ {listing.city}</span>
+                        <span className="text-white font-bold">
+                          🏙️{" "}
+                          {seoCityHubHref ? (
+                            <Link
+                              href={seoCityHubHref}
+                              className="transition-colors hover:text-cyan-200 hover:underline hover:underline-offset-4"
+                            >
+                              {listing.city}
+                            </Link>
+                          ) : (
+                            listing.city
+                          )}
+                        </span>
                       </div>
                     )}
                     

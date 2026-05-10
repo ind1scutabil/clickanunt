@@ -1,97 +1,120 @@
 /**
- * SEO Utilities for Enterprise-Level Optimization
- * 
- * Features:
- * - Dynamic meta tags per page
- * - OpenGraph and Twitter Card generation
- * - JSON-LD structured data
- * - Canonical URL management
- * - Sitemap generation utilities
+ * SEO utilities — metadata builders, structured data helpers, legacy XML generators.
  */
 
+import type { Metadata } from 'next';
 import { isCompanyLegalDetailsPublic } from '@/lib/company-config';
+import { absoluteUrl, siteOrigin } from '@/lib/site-url';
 
-interface SEOConfig {
+export interface PageSEOConfig {
   title: string;
   description: string;
   keywords?: string[];
-  canonical?: string;
+  /** Path only, e.g. "/auto/bucuresti" — combined with site origin for canonical. */
+  canonicalPath?: string;
+  /** Full canonical URL override (must be absolute if set). */
+  canonicalUrl?: string;
   ogImage?: string;
   ogType?: 'website' | 'article' | 'product';
   author?: string;
   publishedTime?: string;
   modifiedTime?: string;
   noindex?: boolean;
+  nofollow?: boolean;
 }
 
 /**
- * Generate complete metadata for Next.js pages
+ * Centralized Next.js `Metadata` factory (App Router).
+ * Title is suffixed with «| ClickAnunț» when the brand is not already present.
  */
-export function generateMetadata(config: SEOConfig) {
+export function createPageMetadata(config: PageSEOConfig): Metadata {
   const {
     title,
     description,
     keywords = [],
-    canonical,
+    canonicalPath = '/',
+    canonicalUrl,
     ogImage = '/images/og-default.jpg',
     ogType = 'website',
     author,
     publishedTime,
     modifiedTime,
     noindex = false,
+    nofollow = false,
   } = config;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  const fullTitle = title.includes('ClickAnunț') ? title : `${title} | ClickAnunț`;
-  const canonicalUrl = canonical || siteUrl;
+  const origin = siteOrigin();
+  const path = canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`;
+  const canonical = canonicalUrl ?? absoluteUrl(path === '//' ? '/' : path);
+
+  const hasBrand = title.includes('ClickAnunț') || title.includes('ClickAnunt');
+  const fullTitle = hasBrand ? title : `${title} | ClickAnunț`;
+
+  const ogImageAbs = ogImage.startsWith('http') ? ogImage : absoluteUrl(ogImage.startsWith('/') ? ogImage : `/${ogImage}`);
+  const openGraphType: 'website' | 'article' = ogType === 'article' ? 'article' : 'website';
 
   return {
     title: fullTitle,
     description,
-    keywords: keywords.join(', '),
-    authors: author ? [{ name: author }] : undefined,
-    robots: noindex ? 'noindex,nofollow' : 'index,follow',
-    
-    // Canonical URL
-    alternates: {
-      canonical: canonicalUrl,
+    ...(keywords.length ? { keywords } : {}),
+    authors: author ? [{ name: author }] : [{ name: 'ClickAnunț' }],
+    robots: {
+      index: !noindex,
+      follow: !(noindex || nofollow),
+      googleBot: { index: !noindex, follow: !(noindex || nofollow) },
     },
-
-    // OpenGraph
+    alternates: { canonical },
     openGraph: {
-      type: ogType,
+      type: openGraphType,
       locale: 'ro_RO',
-      url: canonicalUrl,
+      url: canonical,
       title: fullTitle,
       description,
       siteName: 'ClickAnunț',
       images: [
         {
-          url: ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`,
+          url: ogImageAbs,
           width: 1200,
           height: 630,
           alt: title,
         },
       ],
-      ...(publishedTime && { publishedTime }),
-      ...(modifiedTime && { modifiedTime }),
+      ...(publishedTime ? { publishedTime } : {}),
+      ...(modifiedTime ? { modifiedTime } : {}),
     },
-
-    // Twitter Card
     twitter: {
       card: 'summary_large_image',
       site: '@clickanunt',
       creator: '@clickanunt',
       title: fullTitle,
       description,
-      images: [ogImage.startsWith('http') ? ogImage : `${siteUrl}${ogImage}`],
+      images: [ogImageAbs],
     },
   };
 }
 
-/**
- * Generate JSON-LD structured data for listings
- */
+/** @deprecated Prefer `createPageMetadata` — old name avoided confusion with Next.js `generateMetadata`. */
+export function generateMetadataLegacy(config: PageSEOConfig): Metadata {
+  return createPageMetadata(config);
+}
+
+/** WebSite graph with SiteSearch → `/listings` (`q` matches `searchListingsSchema`). */
+export function generateWebSiteSearchStructuredData() {
+  const origin = siteOrigin();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'ClickAnunț',
+    url: origin,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${origin}/listings?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
+}
+
+/** JSON-LD for marketplace listing (classified-style Product + Offer). */
 export function generateListingStructuredData(listing: {
   id: string;
   title: string;
@@ -108,8 +131,8 @@ export function generateListingStructuredData(listing: {
   createdAt: string;
   updatedAt?: string;
 }) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  
+  const siteUrl = siteOrigin();
+
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -117,9 +140,8 @@ export function generateListingStructuredData(listing: {
     name: listing.title,
     description: listing.description || listing.title,
     url: `${siteUrl}/listings/${listing.id}`,
-    image: listing.photos?.map(photo => 
-      photo.startsWith('http') ? photo : `${siteUrl}${photo}`
-    ) || [],
+    image:
+      listing.photos?.map((photo) => (photo.startsWith('http') ? photo : `${siteUrl}${photo}`)) || [],
     offers: {
       '@type': 'Offer',
       price: listing.priceAmount,
@@ -127,17 +149,21 @@ export function generateListingStructuredData(listing: {
       availability: 'https://schema.org/InStock',
       url: `${siteUrl}/listings/${listing.id}`,
     },
-    brand: listing.make ? {
-      '@type': 'Brand',
-      name: listing.make,
-    } : undefined,
+    brand: listing.make
+      ? {
+          '@type': 'Brand',
+          name: listing.make,
+        }
+      : undefined,
     model: listing.model,
     productionDate: listing.year?.toString(),
-    mileageFromOdometer: listing.mileage ? {
-      '@type': 'QuantitativeValue',
-      value: listing.mileage,
-      unitCode: 'KMT',
-    } : undefined,
+    mileageFromOdometer: listing.mileage
+      ? {
+          '@type': 'QuantitativeValue',
+          value: listing.mileage,
+          unitCode: 'KMT',
+        }
+      : undefined,
     fuelType: listing.fuel,
     vehicleTransmission: listing.transmission,
     datePublished: listing.createdAt,
@@ -145,11 +171,8 @@ export function generateListingStructuredData(listing: {
   };
 }
 
-/**
- * Generate JSON-LD structured data for organization
- */
 export function generateOrganizationStructuredData() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
+  const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();
 
   return {
@@ -183,12 +206,9 @@ export function generateOrganizationStructuredData() {
   };
 }
 
-/**
- * Generate JSON-LD structured data for breadcrumbs
- */
 export function generateBreadcrumbStructuredData(items: Array<{ name: string; url: string }>) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  
+  const siteUrl = siteOrigin();
+
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -201,11 +221,31 @@ export function generateBreadcrumbStructuredData(items: Array<{ name: string; ur
   };
 }
 
-/**
- * Generate JSON-LD structured data for local business
- */
+/** ItemList grid / hub preview for JSON-LD (safe when items.length ≥ 1). */
+export function generateItemListStructuredData(opts: {
+  name: string;
+  description?: string;
+  canonicalUrlAbs: string;
+  items: Array<{ title: string; path: string }>;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: opts.name,
+    ...(opts.description ? { description: opts.description } : {}),
+    url: opts.canonicalUrlAbs,
+    numberOfItems: opts.items.length,
+    itemListElement: opts.items.map((it, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: it.title,
+      item: absoluteUrl(it.path.startsWith('/') ? it.path : `/${it.path}`),
+    })),
+  };
+}
+
 export function generateLocalBusinessStructuredData() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
+  const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();
 
   return {
@@ -243,23 +283,14 @@ export function generateLocalBusinessStructuredData() {
   };
 }
 
-/**
- * Generate JSON-LD script tags as string
- * Use dangerouslySetInnerHTML in components
- */
 export function generateStructuredDataScripts(data: object | object[]): string {
   const dataArray = Array.isArray(data) ? data : [data];
-  
+
   return dataArray
-    .map(item => 
-      `<script type="application/ld+json">${JSON.stringify(item, null, 0)}</script>`
-    )
+    .map((item) => `<script type="application/ld+json">${JSON.stringify(item, null, 0)}</script>`)
     .join('\n');
 }
 
-/**
- * Generate sitemap entries
- */
 export interface SitemapEntry {
   url: string;
   lastModified?: Date;
@@ -268,20 +299,22 @@ export interface SitemapEntry {
 }
 
 export function generateSitemapXML(entries: SitemapEntry[]): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
-  
-  const urls = entries.map(entry => {
-    const url = entry.url.startsWith('http') ? entry.url : `${siteUrl}${entry.url}`;
-    const lastmod = entry.lastModified ? entry.lastModified.toISOString().split('T')[0] : '';
-    
-    return `
+  const siteUrl = siteOrigin();
+
+  const urls = entries
+    .map((entry) => {
+      const url = entry.url.startsWith('http') ? entry.url : `${siteUrl}${entry.url}`;
+      const lastmod = entry.lastModified ? entry.lastModified.toISOString().split('T')[0] : '';
+
+      return `
   <url>
-    <loc>${url}</loc>
+    <loc>${escapeXml(url)}</loc>
     ${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}
     ${entry.changeFrequency ? `<changefreq>${entry.changeFrequency}</changefreq>` : ''}
     ${entry.priority !== undefined ? `<priority>${entry.priority}</priority>` : ''}
   </url>`;
-  }).join('');
+    })
+    .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -289,27 +322,47 @@ ${urls}
 </urlset>`;
 }
 
-/**
- * Generate robots.txt content
- */
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+export function generateSitemapIndexXml(locations: string[]): string {
+  const items = locations
+    .map(
+      (loc) => `
+  <sitemap>
+    <loc>${escapeXml(loc)}</loc>
+    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
+  </sitemap>`
+    )
+    .join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${items}
+</sitemapindex>`;
+}
+
 export function generateRobotsTxt(options: {
   disallow?: string[];
   allow?: string[];
-  sitemap?: string;
+  sitemap?: string | string[];
 } = {}): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro';
+  const siteUrl = siteOrigin();
   const {
     disallow = ['/api/', '/admin/', '/dashboard/'],
     allow = ['/'],
-    sitemap = `${siteUrl}/sitemap.xml`,
+    sitemap = [`${siteUrl}/sitemap.xml`],
   } = options;
 
-  const disallowRules = disallow.map(path => `Disallow: ${path}`).join('\n');
-  const allowRules = allow.map(path => `Allow: ${path}`).join('\n');
+  const disallowRules = disallow.map((path) => `Disallow: ${path}`).join('\n');
+  const allowRules = allow.map((path) => `Allow: ${path}`).join('\n');
+  const sm = Array.isArray(sitemap) ? sitemap : [sitemap];
+  const smBlock = sm.map((s) => `Sitemap: ${s}`).join('\n');
 
   return `User-agent: *
 ${allowRules}
 ${disallowRules}
 
-Sitemap: ${sitemap}`;
+${smBlock}`;
 }

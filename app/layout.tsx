@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Footer from "./components/Footer";
+import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
+import { warnIfProductionSiteUrlMissing } from "@/lib/seo/site-url-guard";
+import { siteOrigin } from "@/lib/site-url";
+
+const googleVerification =
+  process.env.GOOGLE_SITE_VERIFICATION?.trim() ||
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
 
 export const metadata: Metadata = {
   title: "ClickAnunț - Platforma de anunțuri gratuite din România",
@@ -11,7 +18,7 @@ export const metadata: Metadata = {
   creator: "ClickAnunț",
   publisher: "ClickAnunț",
   robots: "index, follow",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.clickanunt.ro'),
+  metadataBase: new URL(siteOrigin()),
   alternates: {
     canonical: '/',
   },
@@ -39,10 +46,18 @@ export const metadata: Metadata = {
     description: 'Cumpără și vinde în România. Anunțuri verificate.',
     images: ['/images/og-home.jpg'],
   },
-  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+  ...(googleVerification ||
+  process.env.NEXT_PUBLIC_YANDEX_VERIFICATION ||
+  process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
     ? {
         verification: {
-          google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+          ...(googleVerification ? { google: googleVerification } : {}),
+          ...(process.env.NEXT_PUBLIC_YANDEX_VERIFICATION
+            ? { yandex: process.env.NEXT_PUBLIC_YANDEX_VERIFICATION }
+            : {}),
+          ...(process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+            ? { other: { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION } }
+            : {}),
         },
       }
     : {}),
@@ -53,9 +68,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  warnIfProductionSiteUrlMissing();
+
   return (
     <html lang="ro">
       <body className="antialiased flex min-h-screen flex-col bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
+        <GlobalJsonLd />
         <div id="main-content" className="flex-grow">
           {children}
         </div>
