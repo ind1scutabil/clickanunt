@@ -94,14 +94,31 @@ const e2eUnlimited = (): RateLimitResult => ({
 });
 
 export const rateLimitPresets = {
-  // Login: 5 încercări per 15 minute
-  login: (ip: string) =>
-    process.env.E2E_DISABLE_RATE_LIMIT === "1"
-      ? e2eUnlimited()
-      : rateLimit(`login:${ip}`, {
-          windowMs: 15 * 60 * 1000,
-          maxRequests: 5,
-        }),
+  /**
+   * Login: două straturi — evită blocarea tuturor conturilor din același IP (NAT / Cloudflare / birou).
+   * 1) Plafon per IP (volum)
+   * 2) Plafon per IP + email (bruteforce pe un cont)
+   */
+  login: (ip: string, emailHint = "") => {
+    if (process.env.E2E_DISABLE_RATE_LIMIT === "1") return e2eUnlimited();
+
+    const suffix =
+      typeof emailHint === "string"
+        ? emailHint.trim().toLowerCase().slice(0, 254)
+        : "";
+    const credKey = `${ip}:${suffix || "_anonymous"}`;
+
+    const ipVolume = rateLimit(`login:ip_vol:${ip}`, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 120,
+    });
+    if (!ipVolume.allowed) return ipVolume;
+
+    return rateLimit(`login:cred:${credKey}`, {
+      windowMs: 15 * 60 * 1000,
+      maxRequests: 30,
+    });
+  },
 
   // Register: 3 înregistrări per oră
   register: (ip: string) =>

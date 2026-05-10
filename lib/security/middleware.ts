@@ -108,9 +108,29 @@ export async function validateSecureRequest(
       let rateLimitResult: RateLimitResult;
       
       switch (rateLimit) {
-        case 'login':
-          rateLimitResult = rateLimitPresets.login(clientIp);
+        case 'login': {
+          let loginHint = "";
+          const vd =
+            validatedData && typeof validatedData === "object"
+              ? (validatedData as Record<string, unknown>)
+              : null;
+          if (vd) {
+            const em = vd.email;
+            if (typeof em === "string" && em.trim()) {
+              loginHint = em;
+            } else if (typeof vd.sessionToken === "string" && vd.sessionToken) {
+              loginHint =
+                "2fa:" +
+                crypto
+                  .createHash("sha256")
+                  .update(vd.sessionToken)
+                  .digest("hex")
+                  .slice(0, 24);
+            }
+          }
+          rateLimitResult = rateLimitPresets.login(clientIp, loginHint);
           break;
+        }
         case 'register':
           rateLimitResult = rateLimitPresets.register(clientIp);
           break;
