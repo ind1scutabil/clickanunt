@@ -20,8 +20,8 @@ export async function ensureUploadDir(): Promise<void> {
 }
 
 /**
- * Upload image to local public folder
- * Returns absolute URL (http://domain.com/uploads/...)
+ * Upload image to local public folder.
+ * Întoarce `/api/uploads/serve?key=...` (same-origin); nu depinde de `NEXT_PUBLIC_*` pentru preview.
  */
 export async function uploadImageLocal(
   file: Buffer,
@@ -40,14 +40,10 @@ export async function uploadImageLocal(
     const fullPath = path.join(UPLOAD_DIR, key);
     await fs.writeFile(fullPath, file);
 
-    // Return absolute URL using a backend-serving route.
-    // Next.js in production does not reliably serve runtime-written files under `public/` for nested paths,
-    // so we serve them via `/api/uploads/serve`.
-    const publicUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://clickanunt.ro';
-    const cleanPublicUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
-    // Always use HTTPS for consistency
-    const secureUrl = cleanPublicUrl.replace(/^http:/, 'https:');
-    return `${secureUrl}/api/uploads/serve?key=${encodeURIComponent(key)}`;
+    // Rută relativă la același origin — evită poze rupte în formular dacă
+    // `NEXT_PUBLIC_*` e www dar user e pe apex (sau inverse), localhost în .env pe VPS, IP, etc.
+    // Browserul rezolvă `/api/uploads/serve` pe hostul paginii; fișierul e servit de același Node.
+    return `/api/uploads/serve?key=${encodeURIComponent(key)}`;
   } catch (error) {
     console.error('Error uploading image locally:', error);
     throw new Error('Failed to upload image locally');
