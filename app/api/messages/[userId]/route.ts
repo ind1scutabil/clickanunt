@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 import { prisma } from "@/lib/prisma";
@@ -82,16 +82,7 @@ export async function GET(
     if (!idCheck.success) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
     }
-    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
-    const cookieToken = request.cookies.get("accessToken")?.value;
-    const candidateTokens = [headerToken, cookieToken].filter(
-      (t): t is string => !!t && t !== "null" && t !== "undefined"
-    );
-    let payload = null;
-    for (const candidate of candidateTokens) {
-      payload = await verifyToken(candidate);
-      if (payload) break;
-    }
+    const payload = await getMessagingApiAuthPayload(request);
 
     if (!payload) {
       return NextResponse.json(
@@ -100,8 +91,7 @@ export async function GET(
       );
     }
 
-    const currentUserId = (payload as { userId?: string; sub?: string }).userId
-      || (payload as { sub?: string }).sub;
+    const currentUserId = payload.userId || (payload as { sub?: string }).sub;
     if (!currentUserId) {
       return NextResponse.json(
         { error: "Invalid token" },
@@ -235,18 +225,13 @@ export async function POST(
 
     console.log('[MSG-POST] Recipient userId:', params.userId);
 
-    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
-    const cookieToken = request.cookies.get("accessToken")?.value;
-    const candidateTokens = [headerToken, cookieToken].filter(
-      (t): t is string => !!t && t !== "null" && t !== "undefined"
+    const payload = await getMessagingApiAuthPayload(request);
+    console.log(
+      "[MSG-POST] Token sources - cookie:",
+      !!request.cookies.get("accessToken")?.value,
+      "header:",
+      !!request.headers.get("authorization")
     );
-    console.log('[MSG-POST] Token sources - header:', !!headerToken, 'cookie:', !!cookieToken);
-    
-    let payload = null;
-    for (const candidate of candidateTokens) {
-      payload = await verifyToken(candidate);
-      if (payload) break;
-    }
 
     if (!payload) {
       console.log('[MSG-POST] ❌ Authentication failed - no valid token');
@@ -294,8 +279,7 @@ export async function POST(
 
     console.log('[MSG-POST] Message content length:', content.trim().length, 'bytes');
 
-    const senderId = (payload as { userId?: string; sub?: string }).userId
-      || (payload as { sub?: string }).sub;
+    const senderId = payload.userId || (payload as { sub?: string }).sub;
     if (!senderId) {
       console.log('[MSG-POST] ❌ Could not extract senderId from token');
       return NextResponse.json(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTOTPLogin, useBackupCode as consumeBackupCode } from '@/lib/2fa';
 import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
-import crypto from 'crypto';
+import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { verify2FASchema } from '@/lib/security/validation-schemas';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
@@ -89,8 +89,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const accessToken = generateToken();
-    const refreshToken = generateToken();
+    const role = typeof user.role === "string" && user.role ? user.role : "user";
+    const accessToken = await generateAccessToken(user.id, user.email, role);
+    const refreshToken = await generateRefreshToken(user.id, user.email, role);
     await deleteSession(sessionToken);
 
     void recordAnalyticsEvent({
@@ -146,10 +147,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function generateToken(): string {
-  return crypto.randomBytes(32).toString('hex');
 }
 
 function getClientIp(request: Request): string {

@@ -181,7 +181,13 @@ export async function postJsonWithAuthRefresh(
   else bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
   csrf = await fetchCsrfTokenFresh();
-  return doPost(csrf, bearerToken);
+  let retry = await doPost(csrf, bearerToken);
+  if (retry.ok) return retry;
+  /** Fără Authorization — cookie httpOnly cu access token valid dar Bearer lipsă/invalid în SPA */
+  if (bearerToken) {
+    retry = await doPost(csrf, null);
+  }
+  return retry;
 }
 
 /** PUT JSON + CSRF + Bearer; retry după refresh la 401/403 */
@@ -237,7 +243,12 @@ export async function putJsonWithAuthRefresh(
   else bearerToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
   csrf = await fetchCsrfTokenFresh();
-  return doPut(csrf, bearerToken);
+  let retryPut = await doPut(csrf, bearerToken);
+  if (retryPut.ok) return retryPut;
+  if (bearerToken) {
+    retryPut = await doPut(csrf, null);
+  }
+  return retryPut;
 }
 
 /** PATCH / DELETE cu CSRF + refresh la 401/403 */

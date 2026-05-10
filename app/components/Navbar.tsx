@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
 import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 
 export default function Navbar() {
   const router = useRouter();
@@ -73,15 +74,11 @@ export default function Navbar() {
     schedule();
     document.addEventListener("visibilitychange", onVisibility);
 
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource(
-        `/api/messages/events?token=${encodeURIComponent(token)}`
-      );
-      es.onopen = () => {
+    const disposeSse = connectMessageEventsSse({
+      onOpen: () => {
         void checkUnread();
-      };
-      es.onmessage = (ev) => {
+      },
+      onMessage: (ev) => {
         let d: { type?: string };
         try {
           d = JSON.parse(ev.data);
@@ -90,15 +87,13 @@ export default function Navbar() {
         }
         if (d.type !== "message") return;
         void checkUnread();
-      };
-    } catch {
-      /* fallback: interval only */
-    }
+      },
+    });
 
     return () => {
       if (unreadTimerRef.current) clearInterval(unreadTimerRef.current);
       document.removeEventListener("visibilitychange", onVisibility);
-      es?.close();
+      disposeSse();
     };
   }, [isLoggedIn]);
 

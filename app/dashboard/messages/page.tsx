@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 import { displayNameForMessagingUser } from "@/lib/messaging-display";
 
 interface Message {
@@ -358,54 +359,42 @@ export default function MessagesPage() {
     fetchMessages(userId, listingId, conversationId, "manual");
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
+    if (!localStorage.getItem("accessToken")) return;
 
-    const url = `/api/messages/events?token=${encodeURIComponent(token)}`;
-    let es: EventSource;
-    try {
-      es = new EventSource(url);
-    } catch {
-      startPollingFallbackRef.current();
-      return;
-    }
-
-    es.onopen = () => {
-      sseLiveRef.current = true;
-      clearFallbackPolling();
-    };
-
-    es.onmessage = (ev) => {
-      let d: { type?: string };
-      try {
-        d = JSON.parse(ev.data);
-      } catch {
-        return;
-      }
-      if (d.type !== "message") return;
-      void sseHandlerRef.current.fetchConversations({ startPolling: false });
-      const sel = selectedConversationRef.current;
-      if (sel) {
-        void fetchMessagesRefForSse.current(
-          sel.otherParticipant.id,
-          sel.listing?.id,
-          sel.id
-        );
-      }
-    };
-
-    es.onerror = () => {
-      if (es.readyState === EventSource.CLOSED) {
+    const dispose = connectMessageEventsSse({
+      onOpen: () => {
+        sseLiveRef.current = true;
+        clearFallbackPolling();
+      },
+      onTransportEnded: () => {
         sseLiveRef.current = false;
         startPollingFallbackRef.current();
-      }
-    };
+      },
+      onMessage: (ev) => {
+        let d: { type?: string };
+        try {
+          d = JSON.parse(ev.data);
+        } catch {
+          return;
+        }
+        if (d.type !== "message") return;
+        void sseHandlerRef.current.fetchConversations({ startPolling: false });
+        const sel = selectedConversationRef.current;
+        if (sel) {
+          void fetchMessagesRefForSse.current(
+            sel.otherParticipant.id,
+            sel.listing?.id,
+            sel.id
+          );
+        }
+      },
+    });
 
     return () => {
-      es.close();
+      dispose();
       sseLiveRef.current = false;
     };
-  }, [router]);
+  }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

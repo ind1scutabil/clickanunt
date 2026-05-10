@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from '@/lib/admin-fetch';
+import { connectMessageEventsSse } from '@/lib/message-events-sse-client';
 import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
 import { displayNameForMessagingUser } from '@/lib/messaging-display';
 import type { ListingPublicDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
@@ -123,7 +124,7 @@ export default function ListingMessagesPage() {
     };
   }, [listing?.id, listing?.owner?.id, currentUser?.id]);
 
-  // SSE: mesaje noi pentru acest anunț
+  // SSE: mesaje noi pentru acest anunț (+ reconectare cu token proaspăt)
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
     if (!token || !listing?.id || !listing?.owner?.id || !currentUser?.id) {
@@ -133,52 +134,37 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    let es: EventSource;
-    try {
-      es = new EventSource(
-        `/api/messages/events?token=${encodeURIComponent(token)}`
-      );
-    } catch {
-      return;
-    }
-
-    es.onopen = () => {
-      setSseConnected(true);
-    };
-
-    es.onmessage = (ev) => {
-      let d: {
-        type?: string;
-        listingId?: string | null;
-        senderId?: string;
-        receiverId?: string;
-      };
-      try {
-        d = JSON.parse(ev.data);
-      } catch {
-        return;
-      }
-      if (d.type !== "message") return;
-      const ctx = listingThreadRef.current;
-      const { listingId, ownerId, currentUserId } = ctx;
-      if (!listingId || !ownerId || !currentUserId) return;
-      if (d.listingId == null || d.listingId !== listingId) return;
-      if (d.senderId !== currentUserId && d.receiverId !== currentUserId) return;
-      void fetchMessagesRef.current(
-        ownerId,
-        localStorage.getItem("accessToken"),
-        listingId
-      );
-    };
-
-    es.onerror = () => {
-      if (es.readyState === EventSource.CLOSED) {
-        setSseConnected(false);
-      }
-    };
+    const dispose = connectMessageEventsSse({
+      onOpen: () => setSseConnected(true),
+      onTransportEnded: () => setSseConnected(false),
+      onMessage: (ev) => {
+        let d: {
+          type?: string;
+          listingId?: string | null;
+          senderId?: string;
+          receiverId?: string;
+        };
+        try {
+          d = JSON.parse(ev.data);
+        } catch {
+          return;
+        }
+        if (d.type !== "message") return;
+        const ctx = listingThreadRef.current;
+        const { listingId, ownerId, currentUserId } = ctx;
+        if (!listingId || !ownerId || !currentUserId) return;
+        if (d.listingId == null || d.listingId !== listingId) return;
+        if (d.senderId !== currentUserId && d.receiverId !== currentUserId) return;
+        void fetchMessagesRef.current(
+          ownerId,
+          localStorage.getItem("accessToken"),
+          listingId
+        );
+      },
+    });
 
     return () => {
-      es.close();
+      dispose();
       setSseConnected(false);
     };
   }, [listing?.id, listing?.owner?.id, currentUser?.id]);

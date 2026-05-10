@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -8,16 +8,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
-    const headerToken = request.headers.get("authorization")?.replace("Bearer ", "")?.trim();
-    const cookieToken = request.cookies.get("accessToken")?.value;
-    const candidateTokens = [headerToken, cookieToken].filter(
-      (t): t is string => !!t && t !== "null" && t !== "undefined"
-    );
-    let payload = null;
-    for (const candidate of candidateTokens) {
-      payload = await verifyToken(candidate);
-      if (payload) break;
-    }
+    const payload = await getMessagingApiAuthPayload(request);
 
     if (!payload) {
       return NextResponse.json(
@@ -26,8 +17,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const userId = (payload as { userId?: string; sub?: string }).userId
-      || (payload as { sub?: string }).sub;
+    const userId = payload.userId || (payload as { sub?: string }).sub;
     if (!userId) {
       return NextResponse.json(
         { error: "Invalid token" },
