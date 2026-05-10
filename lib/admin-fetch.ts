@@ -159,8 +159,22 @@ export async function postJsonWithAuthRefresh(
     });
 
   let csrf = await fetchCsrfTokenFresh();
-  const postResponse = await doPost(csrf, bearerToken);
+  let postResponse = await doPost(csrf, bearerToken);
   if (postResponse.ok) return postResponse;
+
+  /** Unele sesiuni: hash CSRF și header se desincronizează (tab-uri / cache) — încă o rundă doar cu CSRF proaspăt înainte de refresh JWT. */
+  if (postResponse.status === 403) {
+    const probe = await postResponse.clone().text();
+    const csrfSuspect =
+      /csrf/i.test(probe) ||
+      (/missing|invalid/i.test(probe) && /token/i.test(probe));
+    if (csrfSuspect) {
+      csrf = await fetchCsrfTokenFresh();
+      const second = await doPost(csrf, bearerToken);
+      if (second.ok) return second;
+      postResponse = second;
+    }
+  }
 
   if (postResponse.status !== 401 && postResponse.status !== 403) {
     return postResponse;

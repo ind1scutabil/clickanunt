@@ -587,10 +587,15 @@ export default function MessagesPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const activeConversation = selectedConversationRef.current || selectedConversation;
+    /** Preferă state-ul vizibil în UI; ref-ul poate întârzia sincron după rerender-uri/poll-uri. */
+    const activeConversation = selectedConversation ?? selectedConversationRef.current;
     const trimmedContent = newMessage.trim();
 
-    if (!trimmedContent || !activeConversation) {
+    if (!trimmedContent) {
+      return;
+    }
+    if (!activeConversation) {
+      setSendError("Selectează mai întâi o conversație din listă.");
       return;
     }
 
@@ -612,6 +617,9 @@ export default function MessagesPage() {
     if (!options?.skipFingerprint) {
       const last = lastSendFingerprintRef.current;
       if (last && last.fp === fp && now - last.t < 900) {
+        setSendError(
+          "Aceeași comandă de trimitere a fost ignorată (< 1 s). Încearcă cu text ușor diferit sau după o secundă."
+        );
         return;
       }
       lastSendFingerprintRef.current = { t: now, fp };
