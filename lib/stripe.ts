@@ -5,15 +5,16 @@
 
 import Stripe from 'stripe';
 import { logger } from './observability';
+import { getStripeSecretKeyRuntime, getStripeWebhookSecretRuntime } from './stripe-env-runtime';
 
-/** Evită bootstrap la primul import: citește STRIPE_SECRET_KEY la runtime (după încărcarea .env de PM2). */
+/** Evită bootstrap la primul import: citește secretul la runtime (nu literale inliniate la build). */
 const STRIPE_API_VERSION: Stripe.StripeConfig['apiVersion'] = '2026-01-28.clover';
 
 let stripeCachedKey: string | undefined;
 let stripeClient: Stripe | undefined;
 
 function getStripeSecretKey(): string {
-  const k = process.env.STRIPE_SECRET_KEY?.trim();
+  const k = getStripeSecretKeyRuntime();
   if (!k) {
     throw new Error('STRIPE_SECRET_KEY is not set in environment variables');
   }
@@ -40,7 +41,7 @@ export function getStripeServer(): Stripe {
   return stripeClient;
 }
 
-if (!process.env.STRIPE_WEBHOOK_SECRET) {
+if (!getStripeWebhookSecretRuntime()) {
   logger.warn('STRIPE_WEBHOOK_SECRET is not set - webhook verification will fail');
 }
 
@@ -135,7 +136,8 @@ export function verifyWebhookSignature(
   payload: string | Buffer,
   signature: string
 ): Stripe.Event {
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  const whSecret = getStripeWebhookSecretRuntime();
+  if (!whSecret) {
     throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
   }
 
@@ -143,7 +145,7 @@ export function verifyWebhookSignature(
     const event = stripe.webhooks.constructEvent(
       payload,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET
+      whSecret
     );
 
     logger.info('Webhook signature verified', { eventType: event.type });

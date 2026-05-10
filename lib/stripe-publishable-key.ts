@@ -1,14 +1,11 @@
+import { getStripePublishableKeyRuntime, getStripeSecretKeyRuntime } from './stripe-env-runtime';
+
 /**
  * Cheie publică Stripe pentru inițializarea Stripe.js.
- *
- * Preferă STRIPE_PUBLISHABLE_KEY în .env (citire la runtime), apoi NEXT_PUBLIC_*.
+ * Citire dinamică — vezi stripe-env-runtime (evită inlining la next build).
  */
 export function getStripePublishableKey(): string {
-  return (
-    process.env.STRIPE_PUBLISHABLE_KEY?.trim() ||
-    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ||
-    ''
-  );
+  return getStripePublishableKeyRuntime();
 }
 
 export function isStripeLiveSecretKey(secret: string): boolean {
@@ -28,7 +25,7 @@ export function warnIfStripeMisconfiguredForProduction(): void {
   if (process.env.NODE_ENV !== 'production') return;
   if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return;
 
-  const sk = (process.env.STRIPE_SECRET_KEY || '').trim();
+  const sk = (getStripeSecretKeyRuntime() || '').trim();
   const pk = getStripePublishableKey();
   if (!sk || !pk) return;
 
