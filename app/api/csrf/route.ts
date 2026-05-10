@@ -18,11 +18,12 @@ export async function GET(request: NextRequest) {
   const cookieDomain = cookieDomainFromRequest(request);
   const secure = cookieSecureFromRequest(request);
 
+  /** lax — ca auth cookies; strict poate lipsi la prima navigare cross-site și blochează POST (mesaje etc.). */
   response.cookies.set('csrf-token', token, {
     httpOnly: false,
     secure,
     domain: cookieDomain,
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 2,
   });
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     httpOnly: true,
     secure,
     domain: cookieDomain,
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 2,
   });

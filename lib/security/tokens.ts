@@ -84,6 +84,39 @@ export function generateRefreshToken(payload: JwtPayload): string {
 }
 
 /**
+ * Verificare HS256 cu același JWT_SECRET, fără issuer/audience (fallback când jose eșuează la claim-uri).
+ * NU acceptă refresh (type === 'refresh').
+ */
+export function verifyJwtHs256AccessFlexible(token: string): JwtPayload | null {
+  const t = (token || "").trim();
+  if (!t) return null;
+  try {
+    const decoded = jwt.verify(t, JWT_SECRET, {
+      algorithms: ["HS256"],
+      clockTolerance: 180,
+    }) as Record<string, unknown>;
+
+    const typ = decoded.type as string | undefined;
+    if (typ === "refresh") return null;
+
+    const userId =
+      (typeof decoded.userId === "string" && decoded.userId) ||
+      (typeof decoded.sub === "string" && decoded.sub) ||
+      null;
+    if (!userId) return null;
+
+    return {
+      userId,
+      email: typeof decoded.email === "string" ? decoded.email : "",
+      role: typeof decoded.role === "string" ? decoded.role : undefined,
+      sessionId: typeof decoded.sessionId === "string" ? decoded.sessionId : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Verify access token
  */
 export function verifyAccessToken(token: string): JwtPayload | null {

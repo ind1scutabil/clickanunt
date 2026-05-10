@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { publishToUsers } from "@/lib/messaging-sse-hub";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
+export const runtime = "nodejs";
+
 /**
  * Send email notification for new message
  */

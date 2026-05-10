@@ -1,6 +1,18 @@
 import type { NextRequest } from "next/server";
 import { verifyToken, type TokenPayload } from "@/lib/auth";
 import { normalizeJwtInput } from "@/lib/jwt-normalize";
+import { verifyJwtHs256AccessFlexible } from "@/lib/security/tokens";
+
+function payloadFromFlexible(
+  flex: NonNullable<ReturnType<typeof verifyJwtHs256AccessFlexible>>
+): TokenPayload {
+  return {
+    userId: flex.userId,
+    email: flex.email,
+    role: flex.role ?? "user",
+    type: "access",
+  } as TokenPayload;
+}
 
 function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -32,7 +44,11 @@ export async function getAuthUserIdFromRequest(request: NextRequest): Promise<st
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
   for (const candidate of uniqMessagingTokens([queryToken, cookieToken, headerToken])) {
-    const payload = await verifyToken(candidate);
+    let payload = await verifyToken(candidate);
+    if (!payload) {
+      const flex = verifyJwtHs256AccessFlexible(candidate);
+      if (flex) payload = payloadFromFlexible(flex);
+    }
     if (!payload) continue;
     if ((payload as { type?: string }).type === "refresh") continue;
     const userId =
@@ -54,7 +70,11 @@ export async function getMessagingApiAuthPayload(
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
   for (const candidate of uniqMessagingTokens([headerToken, cookieToken])) {
-    const payload = await verifyToken(candidate);
+    let payload = await verifyToken(candidate);
+    if (!payload) {
+      const flex = verifyJwtHs256AccessFlexible(candidate);
+      if (flex) payload = payloadFromFlexible(flex);
+    }
     if (!payload) continue;
     if ((payload as { type?: string }).type === "refresh") continue;
     if (payload.userId || (payload as { sub?: string }).sub) {
