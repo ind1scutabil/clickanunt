@@ -301,7 +301,6 @@ export default function MessagesPage() {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") {
       return;
     }
-    if (sseLiveRef.current && !opts?.ignoreSse) return;
     if (conversationsPollInFlightRef.current) return;
     conversationsPollInFlightRef.current = true;
     try {
@@ -333,7 +332,7 @@ export default function MessagesPage() {
   const runMessagesPollTick = async () => {
     const cur = selectedConversationRef.current;
     if (!cur) return;
-    if (sseLiveRef.current || isSendingRef.current) return;
+    if (isSendingRef.current) return;
     if (messagesPollInFlightRef.current) return;
     messagesPollInFlightRef.current = true;
     try {
@@ -344,7 +343,7 @@ export default function MessagesPage() {
   };
 
   const ensurePollingIntervals = () => {
-    if (sseLiveRef.current) return;
+    /** Polling rămâne activ și când SSE e conectat — altfel UI-ul depinde integral de Redis/SSE și „îngheață”. */
     if (!conversationsPollingRef.current) {
       conversationsPollingRef.current = window.setInterval(
         () => {
@@ -438,11 +437,9 @@ export default function MessagesPage() {
       clearInterval(messagesPollingRef.current);
       messagesPollingRef.current = null;
     }
-    if (!sseLiveRef.current) {
-      messagesPollingRef.current = window.setInterval(() => {
-        void runMessagesPollTick();
-      }, MSG_FALLBACK_MS) as unknown as number;
-    }
+    messagesPollingRef.current = window.setInterval(() => {
+      void runMessagesPollTick();
+    }, MSG_FALLBACK_MS) as unknown as number;
   };
 
   sseHandlerRef.current = { fetchConversations };
@@ -461,7 +458,7 @@ export default function MessagesPage() {
         }
         sseEverOpenedRef.current = true;
         sseLiveRef.current = true;
-        clearFallbackPolling();
+        ensurePollingIntervalsRef.current();
       },
       onTransportEnded: () => {
         sseLiveRef.current = false;
@@ -526,9 +523,7 @@ export default function MessagesPage() {
           sel.id
         );
       }
-      if (!sseLiveRef.current) {
-        ensurePollingIntervalsRef.current();
-      }
+      ensurePollingIntervalsRef.current();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
@@ -546,9 +541,7 @@ export default function MessagesPage() {
           sel.id
         );
       }
-      if (!sseLiveRef.current) {
-        ensurePollingIntervalsRef.current();
-      }
+      ensurePollingIntervalsRef.current();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);

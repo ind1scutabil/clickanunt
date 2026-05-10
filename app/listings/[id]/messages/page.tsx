@@ -296,7 +296,7 @@ export default function ListingMessagesPage() {
     const POLL_MS = 2600;
 
     const pollMessages = async () => {
-      if (listingSseLiveRef.current) return;
+      /** Nu oprim polling când SSE e „online” — evenimentele se pot pierde; reconciliere periodică garantează thread-ul în DB. */
       if (listingPollInFlightRef.current) return;
       listingPollInFlightRef.current = true;
       const t = localStorage.getItem("accessToken");
