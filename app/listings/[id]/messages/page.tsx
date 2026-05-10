@@ -260,7 +260,7 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    const POLL_MS = 3000;
+    const POLL_MS = 2000;
     const pollMessages = async () => {
       const t = localStorage.getItem("accessToken");
       await fetchMessages(messagingPeerId, t, listing.id);

@@ -73,8 +73,8 @@ export default function MessagesPage() {
   const isSendingRef = useRef(false);
 
   /** Rulare în paralel cu SSE: backup 3s pentru sync instant dacă evenimentul rată */
-  const CONV_POLL_MS = 3_000;
-  const MSG_POLL_MS = 3_000;
+  const CONV_POLL_MS = 2_000;
+  const MSG_POLL_MS = 2_000;
 
   const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
   const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);

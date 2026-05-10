@@ -5,7 +5,8 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 import { prisma } from "@/lib/prisma";
 import { publishToUsers } from "@/lib/messaging-sse-hub";
-import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
+import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging-user-id";
+import { conversationParticipantSlots } from "@/lib/messaging-conversation-participants";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 export const runtime = "nodejs";
@@ -111,6 +112,8 @@ export async function GET(
         { status: 401 }
       );
     }
+    const viewerCanon =
+      canonicalMessagingUserId(currentUserId) ?? currentUserId.trim().toLowerCase();
     const otherUserId = params.userId;
     const listingIdParam = request.nextUrl.searchParams.get("listingId")?.trim();
     const conversationIdParam = request.nextUrl.searchParams.get("conversationId")?.trim();
@@ -155,13 +158,13 @@ export async function GET(
       });
       if (byId) {
         const isParticipant =
-          messagingUserIdsEqual(byId.participant1Id, currentUserId) ||
-          messagingUserIdsEqual(byId.participant2Id, currentUserId);
+          messagingUserIdsEqual(byId.participant1Id, viewerCanon) ||
+          messagingUserIdsEqual(byId.participant2Id, viewerCanon);
         if (!isParticipant) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
         const otherParticipantId =
-          messagingUserIdsEqual(byId.participant1Id, currentUserId)
+          messagingUserIdsEqual(byId.participant1Id, viewerCanon)
             ? byId.participant2Id
             : byId.participant1Id;
         if (!messagingUserIdsEqual(otherParticipantId, otherUserId)) {
@@ -175,13 +178,19 @@ export async function GET(
     }
 
     if (!conversation) {
+      /** Fără conversationId: NU lăsăm listingId „wildcard” — întorceam ultimul fir între pereche și stricam sync pe anunț/DM. */
+      const peerCanon =
+        canonicalMessagingUserId(otherUserId) ?? otherUserId.trim().toLowerCase();
+      const slots = conversationParticipantSlots(viewerCanon, peerCanon);
+      const listingFilter =
+        listingIdParam && listingIdParam.length > 0
+          ? ({ listingId: listingIdParam } as const)
+          : ({ listingId: null } as const);
       conversation = await prisma.conversation.findFirst({
         where: {
-          OR: [
-            { participant1Id: currentUserId, participant2Id: otherUserId },
-            { participant1Id: otherUserId, participant2Id: currentUserId },
-          ],
-          ...(listingIdParam ? { listingId: listingIdParam } : {}),
+          participant1Id: slots.participant1Id,
+          participant2Id: slots.participant2Id,
+          ...listingFilter,
         },
         orderBy: { lastMessageAt: "desc" },
         include: {
@@ -193,6 +202,14 @@ export async function GET(
     }
 
     if (!conversation) {
+      console.log("[MSG_DEBUG] FETCH MESSAGES", {
+        currentUserId: viewerCanon,
+        conversationId: null,
+        messageCount: 0,
+        listingIdParam: listingIdParam ?? null,
+        peerUserIdPath: otherUserId,
+        note: "no_conversation_match",
+      });
       return NextResponse.json(
         {
           conversationId: null as string | null,
@@ -207,7 +224,7 @@ export async function GET(
     await prisma.message.updateMany({
       where: {
         conversationId: conversation.id,
-        receiverId: currentUserId,
+        receiverId: viewerCanon,
         isRead: false,
       },
       data: {
@@ -220,8 +237,14 @@ export async function GET(
       conversationId: conversation.id,
       listingId: conversation.listingId,
       peerUserId: otherUserId,
-      viewerId: currentUserId,
+      viewerId: viewerCanon,
       messagesReturned: conversation.messages.length,
+    });
+    console.log("[MSG_DEBUG] FETCH MESSAGES", {
+      currentUserId: viewerCanon,
+      conversationId: conversation.id,
+      messageCount: conversation.messages.length,
+      listingId: conversation.listingId ?? null,
     });
 
     return NextResponse.json(
@@ -331,8 +354,11 @@ export async function POST(
       );
     }
 
+    const senderCanon =
+      canonicalMessagingUserId(senderId) ?? String(senderId).trim().toLowerCase();
+
     const pathUserId = params.userId;
-    console.log('[MSG-POST] Sender:', senderId, '-> Path userId:', pathUserId);
+    console.log('[MSG-POST] Sender:', senderCanon, '-> Path userId:', pathUserId);
 
     let conversation: Awaited<
       ReturnType<typeof prisma.conversation.findUnique>
@@ -351,8 +377,8 @@ export async function POST(
           { status: 409 }
         );
       }
-      const isP1 = messagingUserIdsEqual(byId.participant1Id, senderId);
-      const isP2 = messagingUserIdsEqual(byId.participant2Id, senderId);
+      const isP1 = messagingUserIdsEqual(byId.participant1Id, senderCanon);
+      const isP2 = messagingUserIdsEqual(byId.participant2Id, senderCanon);
       if (!isP1 && !isP2) {
         console.log('[MSG-POST] ❌ Sender is not a participant');
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -367,14 +393,17 @@ export async function POST(
       }
       conversation = byId;
     } else {
-      effectiveReceiverId = pathUserId;
+      effectiveReceiverId =
+        canonicalMessagingUserId(pathUserId) ?? pathUserId.trim().toLowerCase();
+      const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
+      const listingExact = listingId
+        ? ({ listingId } as const)
+        : ({ listingId: null } as const);
       conversation = await prisma.conversation.findFirst({
         where: {
-          OR: [
-            { participant1Id: senderId, participant2Id: effectiveReceiverId },
-            { participant1Id: effectiveReceiverId, participant2Id: senderId },
-          ],
-          ...(listingId ? { listingId } : { listingId: null }),
+          participant1Id: slots.participant1Id,
+          participant2Id: slots.participant2Id,
+          ...listingExact,
         },
       });
     }
@@ -395,18 +424,16 @@ export async function POST(
 
     if (!conversation) {
       console.log('[MSG-POST] Creating new conversation...');
-      const participant1Id =
-        senderId < effectiveReceiverId ? senderId : effectiveReceiverId;
-      const participant2Id =
-        senderId < effectiveReceiverId ? effectiveReceiverId : senderId;
-
-      const listingFilter = listingId ? { listingId } : { listingId: null };
+      const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
+      const listingFilter = listingId
+        ? ({ listingId } as const)
+        : ({ listingId: null } as const);
 
       try {
         conversation = await prisma.conversation.create({
           data: {
-            participant1Id,
-            participant2Id,
+            participant1Id: slots.participant1Id,
+            participant2Id: slots.participant2Id,
             listingId: listingId || null,
           },
         });
@@ -420,10 +447,8 @@ export async function POST(
           console.log('[MSG-POST] Race on conversation create — reloading row');
           conversation = await prisma.conversation.findFirst({
             where: {
-              OR: [
-                { participant1Id: senderId, participant2Id: effectiveReceiverId },
-                { participant1Id: effectiveReceiverId, participant2Id: senderId },
-              ],
+              participant1Id: slots.participant1Id,
+              participant2Id: slots.participant2Id,
               ...listingFilter,
             },
           });
@@ -444,7 +469,7 @@ export async function POST(
     const message = await prisma.message.create({
       data: {
         conversationId: conversation.id,
-        senderId,
+        senderId: senderCanon,
         receiverId: effectiveReceiverId,
         content: content.trim(),
       },
@@ -474,7 +499,7 @@ export async function POST(
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.message_sent,
-      userId: senderId,
+      userId: senderCanon,
       listingId: conversation.listingId ?? undefined,
       metadata: {
         conversationId: conversation.id,
@@ -509,15 +534,23 @@ export async function POST(
       createdMessageId: message.id,
       conversationId: conversation.id,
       listingId: conversation.listingId ?? null,
-      senderId,
+      senderId: senderCanon,
       receiverId: effectiveReceiverId,
     });
 
-    publishToUsers([senderId, effectiveReceiverId], {
+    console.log("[MSG_DEBUG] SEND MESSAGE", {
+      currentUserId: senderCanon,
+      senderId: senderCanon,
+      receiverId: effectiveReceiverId,
+      conversationId: conversation.id,
+      listingId: conversation.listingId ?? null,
+    });
+
+    publishToUsers([senderCanon, effectiveReceiverId], {
       type: "message",
       conversationId: conversation.id,
       listingId: conversation.listingId ?? null,
-      senderId,
+      senderId: senderCanon,
       receiverId: effectiveReceiverId,
       messageId: message.id,
     });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { prisma } from "@/lib/prisma";
-import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
+import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging-user-id";
 
 /**
  * GET /api/messages/conversations
@@ -25,10 +25,16 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
+    const userCanon =
+      canonicalMessagingUserId(userId) ?? userId.trim().toLowerCase();
+
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+        OR: [
+          { participant1Id: userCanon },
+          { participant2Id: userCanon },
+        ],
       },
       include: {
         participant1: {
@@ -59,7 +65,7 @@ export async function GET(request: NextRequest) {
           select: {
             messages: {
               where: {
-                receiverId: userId,
+                receiverId: userCanon,
                 isRead: false,
               },
             },
@@ -70,7 +76,10 @@ export async function GET(request: NextRequest) {
     });
 
     const formattedConversations = conversations.map((conv) => {
-      const otherParticipant = messagingUserIdsEqual(conv.participant1Id, userId)
+      const otherParticipant = messagingUserIdsEqual(
+        conv.participant1Id,
+        userCanon
+      )
         ? conv.participant2
         : conv.participant1;
 
@@ -87,9 +96,14 @@ export async function GET(request: NextRequest) {
 
     const unreadSum = formattedConversations.reduce((a, c) => a + c.unreadCount, 0);
     console.log("[api/messages/conversations]", {
-      userId,
+      userId: userCanon,
       conversationsCount: formattedConversations.length,
       unreadAcrossThreads: unreadSum,
+    });
+    console.log("[MSG_DEBUG] FETCH CONVERSATIONS", {
+      currentUserId: userCanon,
+      conversationCount: conversations.length,
+      conversationIds: conversations.map((c) => c.id),
     });
 
     return NextResponse.json(formattedConversations, {

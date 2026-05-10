@@ -35,7 +35,8 @@
     "verify:listing-asset": "node scripts/verify-default-listing-asset.mjs",
     "sanitize:listing-photos:dry": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/sanitize-listing-photos.ts --dry-run",
     "sanitize:listing-photos:execute": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/sanitize-listing-photos.ts --execute",
-    "unlock-login": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/reset-login.ts"
+    "unlock-login": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/reset-login.ts",
+    "debug:messaging": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/messaging-debug-two-users.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
