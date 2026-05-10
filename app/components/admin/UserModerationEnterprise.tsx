@@ -72,20 +72,20 @@ function fmtDate(iso: string | null | undefined) {
 function StatusBadge({ user }: { user: EnterpriseModerationUser }) {
   if (user.status === 'banned') {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide bg-red-500/20 text-red-300 border border-red-500/40">
+      <span className="inline-flex items-center gap-0.5 rounded-md border border-red-500/40 bg-red-500/18 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         Blocat
       </span>
     );
   }
   if (user.status === 'suspended') {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-200 border border-amber-500/40">
+      <span className="inline-flex items-center gap-0.5 rounded-md border border-amber-500/38 bg-amber-500/16 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         Suspendat
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide bg-emerald-500/15 text-emerald-300 border border-emerald-500/35">
+    <span className="inline-flex items-center gap-0.5 rounded-md border border-emerald-500/32 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
       Activ
     </span>
   );
@@ -170,35 +170,35 @@ export default function UserModerationEnterprise({
     <button
       type="button"
       onClick={() => toggleSort(key)}
-      className="inline-flex items-center gap-1 text-left font-semibold text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+      className="inline-flex items-center gap-0.5 text-left text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
     >
       {label}
       {sortKey === key && (
-        <span className="text-xs text-[var(--accent-primary)]">{sortDir === 'asc' ? '↑' : '↓'}</span>
+        <span className="text-[10px] text-[var(--accent-primary)]">{sortDir === 'asc' ? '↑' : '↓'}</span>
       )}
     </button>
   );
 
   if (loading) {
     return (
-      <div className="text-center py-16 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/60">
+      <div className="rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/60 py-12 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
         <div
-          className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+          className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
           aria-hidden
         />
-        <p className="text-sm text-[var(--text-tertiary)]">Se încarcă utilizatorii…</p>
+        <p className="text-xs text-[var(--text-tertiary)]">Se încarcă utilizatorii…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-16 rounded-2xl border border-red-500/25 bg-red-950/15">
-        <p className="text-red-300/90 mb-4 text-sm">{error}</p>
+      <div className="rounded-xl border border-red-500/25 bg-red-950/15 py-12 text-center">
+        <p className="mb-3 text-sm text-red-300/90">{error}</p>
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-6 py-2.5 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110"
+          className="rounded-lg bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-5 py-2 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110"
         >
           Reîncearcă
         </button>
@@ -208,36 +208,44 @@ export default function UserModerationEnterprise({
 
   if (users.length === 0) {
     return (
-      <div className="text-center py-16 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/50">
-        <p className="text-sm text-[var(--text-tertiary)]">Nu există utilizatori înregistrați.</p>
+      <div className="rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/50 py-12 text-center">
+        <p className="text-xs text-[var(--text-tertiary)]">Nu există utilizatori înregistrați.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div className="space-y-3">
+      {/* KPI strip — compact, „depth” subtil */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         {[
-          { label: 'Total conturi', value: stats.total },
-          { label: 'Active', value: stats.active },
-          { label: 'Suspendate', value: stats.suspended },
-          { label: 'Blocate', value: stats.banned },
+          { label: 'Total conturi', value: stats.total, accent: 'from-violet-500/18' },
+          { label: 'Active', value: stats.active, accent: 'from-emerald-500/18' },
+          { label: 'Suspendate', value: stats.suspended, accent: 'from-amber-500/16' },
+          { label: 'Blocate', value: stats.banned, accent: 'from-red-500/16' },
         ].map((k) => (
           <div
             key={k.label}
-            className="rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 p-4 shadow-[var(--shadow-sm)]"
+            className="group/kpi relative overflow-hidden rounded-lg border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)] to-black/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_36px_-28px_rgba(0,0,0,0.85)] ring-1 ring-black/15 transition hover:-translate-y-px"
           >
-            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-              {k.label}
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute -right-6 -top-8 h-20 w-20 rounded-full bg-gradient-to-br ${k.accent} to-transparent opacity-80 blur-2xl transition group-hover/kpi:opacity-100`}
+            />
+            <div className="relative">
+              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                {k.label}
+              </div>
+              <div className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
+                {k.value}
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums text-[var(--text-primary)]">{k.value}</div>
           </div>
         ))}
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg border border-white/[0.08] bg-[var(--bg-elevated)]/62 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="max-w-md flex-1">
           <label className="sr-only">Caută</label>
           <input
@@ -245,28 +253,28 @@ export default function UserModerationEnterprise({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Caută după email, nume sau telefon…"
-            className="enterprise-input w-full px-4 py-2.5 text-sm placeholder:text-[var(--text-muted)]"
+            className="enterprise-input w-full rounded-md border-white/[0.08] px-3 py-2 text-xs shadow-[inset_0_1px_2px_rgba(0,0,0,0.22)] placeholder:text-[var(--text-muted)]"
           />
         </div>
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="shrink-0 text-[11px] font-medium tabular-nums text-[var(--text-muted)]">
           {filteredSorted.length} din {users.length} afișați
         </p>
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/50 shadow-[var(--shadow-md)]">
+      <div className="overflow-hidden rounded-lg border border-white/[0.09] bg-[var(--bg-elevated)]/52 shadow-[0_22px_50px_-40px_rgba(124,92,246,0.45)] ring-1 ring-black/25">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="sticky top-0 z-10 border-b border-white/[0.06] bg-[var(--bg-elevated)]">
+          <table className="w-full min-w-[920px] text-left text-xs">
+            <thead className="sticky top-0 z-10 border-b border-white/[0.07] bg-[color-mix(in_oklab,var(--bg-elevated)_94%,transparent)] backdrop-blur-md">
               <tr>
-                <th className="px-4 py-3.5">{thBtn('email', 'Utilizator')}</th>
-                <th className="px-4 py-3.5">{thBtn('role', 'Rol')}</th>
-                <th className="px-4 py-3.5">Status</th>
-                <th className="px-4 py-3.5">{thBtn('trust', 'Încredere')}</th>
-                <th className="px-4 py-3.5">{thBtn('listings', 'Anunțuri')}</th>
-                <th className="px-4 py-3.5">Beneficii</th>
-                <th className="px-4 py-3.5">{thBtn('created', 'Înregistrat')}</th>
-                <th className="px-4 py-3.5 text-right">Acțiuni rapide</th>
+                <th className="px-3 py-2">{thBtn('email', 'Utilizator')}</th>
+                <th className="px-3 py-2">{thBtn('role', 'Rol')}</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">{thBtn('trust', 'Încredere')}</th>
+                <th className="px-3 py-2">{thBtn('listings', 'Anunțuri')}</th>
+                <th className="px-3 py-2">Beneficii</th>
+                <th className="px-3 py-2">{thBtn('created', 'Înregistrat')}</th>
+                <th className="px-3 py-2 text-right">Acțiuni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.06]">
@@ -277,28 +285,28 @@ export default function UserModerationEnterprise({
                   <tr
                     key={user.id}
                     className={`cursor-pointer transition-colors ${
-                      expanded ? 'bg-[var(--accent-primary)]/[0.08]' : 'hover:bg-white/[0.03]'
+                      expanded ? 'bg-[var(--accent-primary)]/[0.07]' : 'hover:bg-white/[0.025]'
                     }`}
                     onClick={() => onToggleRow(user.id)}
                   >
-                    <td className="px-4 py-3 align-top">
-                      <div className="font-semibold text-[var(--text-primary)]">{user.email}</div>
+                    <td className="px-3 py-2 align-top">
+                      <div className="text-[13px] font-semibold leading-tight text-[var(--text-primary)]">{user.email}</div>
                       {user.name && (
-                        <div className="mt-0.5 text-xs text-[var(--text-tertiary)]">{user.name}</div>
+                        <div className="mt-0.5 text-[11px] leading-snug text-[var(--text-tertiary)]">{user.name}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 align-top">
-                      <span className="text-xs font-medium text-[var(--text-secondary)]">
+                    <td className="px-3 py-2 align-top">
+                      <span className="font-medium text-[var(--text-secondary)]">
                         {ROLE_LABEL[user.role] ?? user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-3 py-2 align-top">
                       <StatusBadge user={user} />
                     </td>
-                    <td className="px-4 py-3 align-top tabular-nums text-[var(--text-secondary)]">
+                    <td className="px-3 py-2 align-top tabular-nums font-medium text-[var(--text-secondary)]">
                       {user.trustScore}
                     </td>
-                    <td className="px-4 py-3 align-top tabular-nums text-[var(--text-secondary)]">
+                    <td className="px-3 py-2 align-top tabular-nums font-medium text-[var(--text-secondary)]">
                       {user.listings > 0 ? (
                         <button
                           type="button"
@@ -307,7 +315,7 @@ export default function UserModerationEnterprise({
                             onViewUserListings(user);
                           }}
                           title="Deschide lista de anunțuri și instrumente de moderare"
-                          className="font-semibold text-cyan-300/95 underline decoration-cyan-500/50 underline-offset-2 transition hover:text-cyan-200"
+                          className="font-semibold text-cyan-300/95 underline decoration-cyan-500/45 underline-offset-2 transition hover:text-cyan-200"
                         >
                           {user.listings}
                         </button>
@@ -316,32 +324,32 @@ export default function UserModerationEnterprise({
                       )}
                     </td>
                     <td
-                      className="px-4 py-3 align-top text-xs text-[var(--text-secondary)]"
+                      className="px-3 py-2 align-top text-[11px] leading-snug text-[var(--text-secondary)]"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="space-y-1.5">
-                        <div className="tabular-nums">{user.credits} RON</div>
-                        <div className="text-[var(--text-muted)]">
+                      <div className="space-y-1">
+                        <div className="tabular-nums font-medium">{user.credits} RON</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">
                           −{user.discount}% · {user.freePromotions} promo
                         </div>
                         <button
                           type="button"
                           onClick={() => onOpenCredits(user)}
-                          className="rounded-md border border-amber-500/35 bg-amber-500/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-100 transition hover:bg-amber-500/25"
+                          className="rounded border border-amber-500/35 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-100 transition hover:bg-amber-500/24"
                         >
                           Modifică
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-xs text-[var(--text-tertiary)]">
+                    <td className="px-3 py-2 align-top whitespace-nowrap text-[11px] text-[var(--text-tertiary)]">
                       {fmtDate(user.createdAt)}
                     </td>
-                    <td className="px-4 py-3 align-top text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-wrap justify-end gap-1.5">
+                    <td className="max-w-[14rem] px-3 py-2 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-wrap justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => onOpenCredits(user)}
-                          className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-200 border border-amber-500/30 hover:bg-amber-500/30"
+                          className="rounded-md border border-amber-500/32 bg-amber-500/16 px-2 py-0.5 text-[10px] font-bold text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-500/26"
                         >
                           Beneficii
                         </button>
@@ -349,7 +357,7 @@ export default function UserModerationEnterprise({
                           <button
                             type="button"
                             onClick={() => onViewUserListings(user)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-200 border border-cyan-500/35 hover:bg-cyan-500/25"
+                            className="rounded-md border border-cyan-500/32 bg-cyan-500/12 px-2 py-0.5 text-[10px] font-bold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-cyan-500/22"
                           >
                             Anunțuri ({user.listings})
                           </button>
@@ -359,21 +367,21 @@ export default function UserModerationEnterprise({
                             <button
                               type="button"
                               onClick={() => setSuspendTarget(user)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-600/25 text-amber-100 border border-amber-500/40 hover:bg-amber-600/35"
+                              className="rounded-md border border-amber-500/40 bg-amber-600/22 px-2 py-0.5 text-[10px] font-bold text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-600/34"
                             >
                               Suspendă
                             </button>
                             <button
                               type="button"
                               onClick={() => onMakeAdmin(user.id)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-violet-500/20 text-violet-200 border border-violet-500/35"
+                              className="rounded-md border border-violet-500/34 bg-violet-500/16 px-2 py-0.5 text-[10px] font-bold text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-violet-500/26"
                             >
                               Admin
                             </button>
                             <button
                               type="button"
                               onClick={() => onBan(user.id)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-200 border border-red-500/35"
+                              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
                             >
                               Blocare
                             </button>
@@ -384,14 +392,14 @@ export default function UserModerationEnterprise({
                             <button
                               type="button"
                               onClick={() => onUnsuspend(user.id)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/35"
+                              className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
                             >
-                              Ridică suspendare
+                              Ridică
                             </button>
                             <button
                               type="button"
                               onClick={() => onBan(user.id)}
-                              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-red-500/20 text-red-200 border border-red-500/35"
+                              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
                             >
                               Blocare
                             </button>
@@ -401,7 +409,7 @@ export default function UserModerationEnterprise({
                           <button
                             type="button"
                             onClick={() => onUnban(user.id)}
-                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/35"
+                            className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
                           >
                             Deblocare
                           </button>
@@ -416,10 +424,10 @@ export default function UserModerationEnterprise({
         </div>
       </div>
 
-      <p className="px-1 text-xs text-[var(--text-muted)]">
-        Apasă pe rând pentru detalii. Când utilizatorul are anunțuri, <strong className="text-[var(--text-secondary)]">numărul din coloana Anunțuri</strong> și butonul{' '}
-        <strong className="text-[var(--text-secondary)]">Anunțuri (N)</strong> deschid panoul și derulează la listă (Vezi / Editează / moderare). Coloana{' '}
-        <strong className="text-[var(--text-secondary)]">Beneficii</strong> rezumă creditele; <strong className="text-[var(--text-secondary)]">Modifică</strong> sau butonul violet deschid același dialog de beneficii.
+      <p className="rounded-md border border-white/[0.05] bg-black/20 px-2.5 py-2 text-[10px] leading-relaxed text-[var(--text-muted)]">
+        Rând pentru detaliu · <strong className="text-[var(--text-secondary)]">Anunțuri</strong> /{' '}
+        <strong className="text-[var(--text-secondary)]">Anunțuri (N)</strong> · panoul de listă ·{' '}
+        <strong className="text-[var(--text-secondary)]">Beneficii</strong> / <strong className="text-[var(--text-secondary)]">Modifică</strong>.
       </p>
 
       {/* Suspend modal */}

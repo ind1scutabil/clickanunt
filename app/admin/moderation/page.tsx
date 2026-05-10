@@ -132,6 +132,51 @@ const MODERATION_TABS = [
 ] as const;
 type ModerationTab = (typeof MODERATION_TABS)[number];
 
+/** Motiv grafic izometric — exclusiv zona admin moderare (fără dependențe). */
+function ModerationCommandArt() {
+  return (
+    <svg
+      className="h-[5.25rem] w-[6rem] shrink-0 opacity-95 drop-shadow-[0_20px_42px_rgba(124,92,246,0.38)] transition-transform duration-300 group-hover:scale-[1.02]"
+      viewBox="0 0 120 104"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="moderation-suite-g1" x1="22" y1="8" x2="102" y2="96" gradientUnits="userSpaceOnUse">
+          <stop stopColor="rgb(139, 92, 246)" stopOpacity="0.55" />
+          <stop offset="1" stopColor="rgb(59, 130, 246)" stopOpacity="0.22" />
+        </linearGradient>
+        <linearGradient id="moderation-suite-g2" x1="36" y1="28" x2="86" y2="74" gradientUnits="userSpaceOnUse">
+          <stop stopColor="rgba(255,255,255,0.16)" />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </linearGradient>
+      </defs>
+      <path
+        opacity="0.4"
+        d="M60 6L112 36V72L60 102L8 72V36L60 6Z"
+        stroke="rgba(167,139,250,0.55)"
+        strokeWidth="1.1"
+      />
+      <path d="M60 14L104 41V71L60 98L16 71V41L60 14Z" fill="url(#moderation-suite-g1)" opacity="0.32" />
+      <path
+        d="M60 26L93 43V71L60 88L27 71V43L60 26Z"
+        fill="rgba(15,23,42,0.72)"
+        stroke="rgba(167,139,250,0.38)"
+        strokeWidth="1"
+      />
+      <path
+        d="M60 36L81 46.5V62.5L60 73L39 62.5V46.5L60 36Z"
+        fill="rgba(139,92,246,0.16)"
+        stroke="rgba(196,181,253,0.42)"
+        strokeWidth="0.85"
+      />
+      <path d="M50 54L61 58.5V70L50 75L39 70V58.5L50 54Z" fill="url(#moderation-suite-g2)" />
+      <ellipse cx="60" cy="98" rx="40" ry="5.5" fill="rgba(0,0,0,0.45)" opacity="0.35" />
+    </svg>
+  );
+}
+
 function AdminModerationPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -743,7 +788,7 @@ function AdminModerationPageInner() {
     const categories = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {categories.map((category) => {
           const usersGroup = grouped[category];
           const userKeys = Object.keys(usersGroup).sort((a, b) => a.localeCompare(b));
@@ -752,16 +797,16 @@ function AdminModerationPageInner() {
           return (
             <div
               key={category}
-              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-5 shadow-[var(--shadow-md)]"
+              className="rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)]/96 via-[var(--bg-elevated)]/92 to-black/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),var(--shadow-md)]"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-[var(--text-primary)]">{category}</h3>
-                <span className="rounded-full border border-white/[0.08] bg-[var(--bg-primary)]/50 px-3 py-1 text-xs text-[var(--text-secondary)]">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">{category}</h3>
+                <span className="rounded-full border border-white/[0.09] bg-black/35 px-2.5 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] backdrop-blur-sm">
                   {categoryCount} anunțuri
                 </span>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {userKeys.map((userKey) => {
                   const group = usersGroup[userKey];
                   const owner = group.owner;
@@ -771,32 +816,32 @@ function AdminModerationPageInner() {
                   return (
                     <div
                       key={userKey}
-                      className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/45 p-4"
+                      className="rounded-lg border border-white/[0.07] bg-[var(--bg-primary)]/48 p-3 shadow-inner"
                     >
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="text-lg font-semibold text-[var(--text-primary)]">
+                          <div className="text-sm font-semibold text-[var(--text-primary)]">
                             {owner?.email || 'Utilizator necunoscut'}
                           </div>
-                          <div className="text-sm text-[var(--text-tertiary)]">ID: {ownerId}</div>
+                          <div className="text-[11px] text-[var(--text-tertiary)]">ID: {ownerId}</div>
                         </div>
-                        <span className="rounded-full border border-white/[0.08] bg-[var(--bg-elevated)]/80 px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+                        <span className="rounded-full border border-white/[0.07] bg-[var(--bg-elevated)]/85 px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">
                           {group.listings.length} anunțuri
                         </span>
                       </div>
 
-                      <details className="mb-4">
-                        <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+                      <details className="mb-3">
+                        <summary className="cursor-pointer text-xs font-semibold text-[var(--text-secondary)]">
                           Detalii utilizator
                         </summary>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                           {ownerFields.length === 0 ? (
                             <div className="text-sm text-[var(--text-muted)]">Detalii indisponibile</div>
                           ) : (
                             ownerFields.map((field) => (
                               <div
                                 key={field.key}
-                                className="rounded-lg border border-white/[0.06] bg-[var(--bg-elevated)]/50 px-3 py-2 text-xs"
+                                className="rounded-md border border-white/[0.06] bg-[var(--bg-elevated)]/50 px-2.5 py-1.5 text-[11px]"
                               >
                                 <div className="text-[var(--text-muted)]">{field.key}</div>
                                 <div className="break-words text-[var(--text-secondary)]">{field.value}</div>
@@ -806,41 +851,41 @@ function AdminModerationPageInner() {
                         </div>
                       </details>
 
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {group.listings.map((listing) => (
                           <div
                             key={listing.id}
-                            className={`rounded-xl border bg-[var(--bg-elevated)]/80 p-4 ${
-                              listing.flagged ? 'border-red-500/40' : 'border-white/[0.08]'
+                            className={`rounded-lg border bg-[var(--bg-elevated)]/82 p-3 shadow-[0_12px_40px_-34px_rgba(0,0,0,0.85)] ${
+                              listing.flagged ? 'border-red-500/45 ring-1 ring-red-500/20' : 'border-white/[0.08]'
                             }`}
                           >
                             {listing.flagged && (
-                              <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/15 p-2 text-sm">
-                                <span className="font-medium text-red-300">Semnalat: {listing.flagReason}</span>
+                              <div className="mb-2 rounded-md border border-red-500/40 bg-red-500/14 px-2 py-1 text-xs">
+                                <span className="font-semibold text-red-200">Semnalat: {listing.flagReason}</span>
                               </div>
                             )}
 
-                            <div className="grid items-start gap-4 md:grid-cols-5">
+                            <div className="grid items-start gap-3 md:grid-cols-5">
                               <div className="md:col-span-3">
-                                <h3 className="mb-2 text-lg font-semibold text-[var(--text-primary)]">
+                                <h3 className="mb-1 text-sm font-semibold leading-snug text-[var(--text-primary)] md:text-[0.9375rem]">
                                   {listing.title}
                                 </h3>
-                                <div className="mb-2 flex flex-wrap items-center gap-3">
-                                  <span className="text-xl font-semibold text-[var(--text-primary)]">
+                                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                                  <span className="text-[0.9375rem] font-semibold tabular-nums text-[var(--text-primary)] md:text-base">
                                     {listing.price != null
                                       ? `${listing.price.toLocaleString()} ${listing.priceCurrency}`
                                       : '—'}
                                   </span>
-                                  <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-2 py-1 text-xs text-[var(--text-tertiary)]">
+                                  <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)]">
                                     {listing.photos} foto
                                   </span>
                                   {listing.subcategory ? (
-                                    <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-2 py-1 text-xs text-[var(--text-tertiary)]">
+                                    <span className="rounded border border-white/[0.06] bg-[var(--bg-primary)]/50 px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)]">
                                       {listing.subcategory}
                                     </span>
                                   ) : null}
                                 </div>
-                                <div className="text-sm text-[var(--text-tertiary)]">
+                                <div className="space-y-0.5 text-[11px] leading-relaxed text-[var(--text-tertiary)]">
                                   <p>{listing.owner}</p>
                                   <p>Trimis: {listing.submittedAt}</p>
                                   {listing.approvedAt ? <p>Aprobat: {listing.approvedAt}</p> : null}
@@ -848,7 +893,7 @@ function AdminModerationPageInner() {
                                 </div>
                               </div>
 
-                              <div className="md:col-span-2 flex flex-col gap-2">
+                              <div className="md:col-span-2 flex flex-col gap-1.5">
                                 {actionsRenderer(listing)}
                               </div>
                             </div>
@@ -1481,36 +1526,43 @@ function AdminModerationPageInner() {
         </div>
       )}
       
-      <main className="min-h-screen bg-[var(--bg-primary)] pb-14 pt-20">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <header className="mb-10 flex flex-col gap-4 border-b border-[var(--border-primary)] pb-8 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                Conținut
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-                Moderare
-              </h1>
-              <p className="mt-2 max-w-xl text-sm text-[var(--text-tertiary)]">
-                Anunțuri, utilizatori, raportări și fluxuri conexe.
-              </p>
+      <main className="relative min-h-screen overflow-x-hidden bg-[var(--bg-primary)] pb-10 pt-[4.65rem]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[min(38rem,60vh)] max-h-[520px] bg-[radial-gradient(ellipse_72%_56%_at_50%_-6%,rgba(124,92,246,0.20),transparent_58%),radial-gradient(ellipse_44%_36%_at_92%_12%,rgba(56,189,248,0.09),transparent_52%)]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6">
+          <header className="group mb-5 flex flex-col gap-3 border-b border-white/[0.07] pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+              <ModerationCommandArt />
+              <div className="min-w-0">
+                <p className="mb-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                  Panou operațional
+                </p>
+                <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-[1.65rem]">
+                  Moderare
+                </h1>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-[var(--text-tertiary)]">
+                  Coadă anunțuri, utilizatori, raportări și apeluri — același flux, layout mai dens pentru administrare zi de zi.
+                </p>
+              </div>
             </div>
             <Link
               href="/admin/dashboard"
-              className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-[var(--bg-elevated)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-white/[0.1] bg-[var(--bg-elevated)]/90 px-3.5 py-2 text-xs font-semibold text-[var(--text-secondary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm transition hover:border-[var(--border-focus)] hover:text-[var(--text-primary)]"
             >
               ← Dashboard
             </Link>
           </header>
 
-          <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <button
               type="button"
               onClick={() => setModerationTab('pending')}
-              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+              className="rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)] to-black/35 p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_36px_-22px_rgba(0,0,0,0.7)] ring-1 ring-black/10 transition hover:-translate-y-px hover:border-[var(--accent-primary)]/30 hover:shadow-[0_16px_44px_-20px_rgba(124,92,246,0.42)]"
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">În așteptare</p>
-              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">În așteptare</p>
+              <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
                 {stats.pendingReview}
               </p>
             </button>
@@ -1518,10 +1570,10 @@ function AdminModerationPageInner() {
             <button
               type="button"
               onClick={() => setModerationTab('approved')}
-              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+              className="rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)] to-black/35 p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_36px_-22px_rgba(0,0,0,0.7)] ring-1 ring-black/10 transition hover:-translate-y-px hover:border-emerald-500/35 hover:shadow-[0_16px_44px_-20px_rgba(16,185,129,0.28)]"
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Aprobate azi</p>
-              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Aprobate azi</p>
+              <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
                 {stats.approvedToday}
               </p>
             </button>
@@ -1529,10 +1581,10 @@ function AdminModerationPageInner() {
             <button
               type="button"
               onClick={() => setModerationTab('rejected')}
-              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+              className="rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)] to-black/35 p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_36px_-22px_rgba(0,0,0,0.7)] ring-1 ring-black/10 transition hover:-translate-y-px hover:border-amber-500/35 hover:shadow-[0_16px_44px_-20px_rgba(245,158,11,0.22)]"
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Respinse azi</p>
-              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Respinse azi</p>
+              <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
                 {stats.rejectedToday}
               </p>
             </button>
@@ -1540,27 +1592,27 @@ function AdminModerationPageInner() {
             <button
               type="button"
               onClick={() => setModerationTab('users')}
-              className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 text-left shadow-[var(--shadow-sm)] transition hover:border-[var(--border-focus)]"
+              className="rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)] to-black/35 p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_36px_-22px_rgba(0,0,0,0.7)] ring-1 ring-black/10 transition hover:-translate-y-px hover:border-cyan-500/35 hover:shadow-[0_16px_44px_-20px_rgba(6,182,212,0.24)]"
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Utilizatori (listă)</p>
-              <p className="mt-2 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">Utilizatori (listă)</p>
+              <p className="mt-1.5 font-mono text-xl font-semibold tabular-nums tracking-tight text-[var(--text-primary)]">
                 {stats.totalUsers}
               </p>
             </button>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <input
               type="search"
               placeholder="Caută anunț sau utilizator…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="enterprise-input w-full rounded-xl px-4 py-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className="enterprise-input w-full rounded-lg border-white/[0.09] px-3.5 py-2 text-sm text-[var(--text-primary)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 
           <div
-            className="mb-8 flex gap-2 overflow-x-auto pb-1 text-sm"
+            className="mb-5 flex flex-wrap gap-1 overflow-x-auto rounded-xl border border-white/[0.08] bg-black/30 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-md"
             role="tablist"
             aria-label="Secțiuni moderare"
           >
@@ -1569,10 +1621,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'pending'}
               onClick={() => setModerationTab('pending')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'pending'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Așteptare ({pendingListings.length})
@@ -1582,10 +1634,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'approved'}
               onClick={() => setModerationTab('approved')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'approved'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Aprobate ({approvedListings.length})
@@ -1595,10 +1647,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'rejected'}
               onClick={() => setModerationTab('rejected')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'rejected'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Respinse ({rejectedListings.length})
@@ -1608,10 +1660,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'users'}
               onClick={() => setModerationTab('users')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'users'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Utilizatori ({users.length})
@@ -1621,10 +1673,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'reports'}
               onClick={() => setModerationTab('reports')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'reports'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Raportări ({reports.length})
@@ -1634,10 +1686,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'appeals'}
               onClick={() => setModerationTab('appeals')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'appeals'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Apeluri ({appeals.length})
@@ -1647,10 +1699,10 @@ function AdminModerationPageInner() {
               role="tab"
               aria-selected={activeTab === 'invoices'}
               onClick={() => setModerationTab('invoices')}
-              className={`shrink-0 rounded-xl px-4 py-2.5 font-medium whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold tracking-tight whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
                 activeTab === 'invoices'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'bg-[color-mix(in_oklab,var(--accent-primary)_24%,transparent)] text-[var(--text-primary)] ring-1 ring-white/12 shadow-[0_8px_24px_-16px_rgba(124,92,246,0.55)]'
+                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.06] hover:text-[var(--text-secondary)]'
               }`}
             >
               Facturi
@@ -2015,7 +2067,7 @@ function AdminModerationPageInner() {
 
           {/* Users Management */}
           {activeTab === 'users' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <UserModerationEnterprise
                 users={users}
                 loading={usersLoading}
@@ -2053,32 +2105,32 @@ function AdminModerationPageInner() {
                   const labelClass =
                     'text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]';
                   return (
-                    <div className="scroll-mt-24 space-y-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
-                      <div className="flex flex-col gap-3 border-b border-white/[0.06] pb-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="scroll-mt-24 space-y-4 rounded-xl border border-white/[0.09] bg-gradient-to-br from-[var(--bg-elevated)]/96 to-black/35 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),var(--shadow-md)] ring-1 ring-black/20">
+                      <div className="flex flex-col gap-2 border-b border-white/[0.06] pb-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+                          <h3 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
                             Detalii utilizator
                           </h3>
-                          <p className="mt-1 font-mono text-xs text-[var(--text-muted)]">{detailUser.id}</p>
+                          <p className="mt-0.5 font-mono text-[11px] text-[var(--text-muted)]">{detailUser.id}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => toggleUserRow(detailUser.id)}
-                          className="self-start rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.05]"
+                          className="self-start rounded-lg border border-white/[0.1] bg-[var(--bg-secondary)] px-3 py-1.5 text-[11px] font-semibold text-[var(--text-secondary)] transition hover:bg-white/[0.05]"
                         >
                           Închide panoul
                         </button>
                       </div>
-                      <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-3">
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                      <dl className="grid grid-cols-1 gap-2 text-[13px] leading-snug sm:grid-cols-2 xl:grid-cols-3">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Email</dt>
                           <dd className="mt-1 font-semibold text-[var(--text-primary)]">{detailUser.email}</dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Nume</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">{detailUser.name ?? '—'}</dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Telefon</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">
                             {detailUser.phone ?? '—'}
@@ -2087,45 +2139,45 @@ function AdminModerationPageInner() {
                             ) : null}
                           </dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Cont</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">
                             {detailUser.accountType} <span className="text-[var(--text-muted)]">·</span> încredere{' '}
                             {detailUser.trustScore}
                           </dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Verificări</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">
                             email {detailUser.emailVerified ? 'da' : 'nu'} · telefon{' '}
                             {detailUser.phoneVerified ? 'da' : 'nu'}
                           </dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Raportări</dt>
                           <dd className="mt-1 tabular-nums text-[var(--text-secondary)]">
                             {detailUser.reportsCount}
                           </dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Înregistrat</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.createdAt)}</dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Ultima autentificare</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.lastLoginAt)}</dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>Ultima activitate</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">{fmt(detailUser.lastActiveAt)}</dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3">
                           <dt className={labelClass}>IP la login</dt>
                           <dd className="mt-1 font-mono text-xs text-[var(--text-secondary)]">
                             {detailUser.lastLoginIp ?? '—'}
                           </dd>
                         </div>
-                        <div className="rounded-xl border border-white/[0.06] bg-[var(--bg-primary)]/40 p-4 sm:col-span-2 xl:col-span-3">
+                        <div className="rounded-lg border border-white/[0.06] bg-[var(--bg-primary)]/45 p-3 sm:col-span-2 xl:col-span-3">
                           <dt className={labelClass}>Beneficii</dt>
                           <dd className="mt-1 text-[var(--text-secondary)]">
                             {detailUser.credits} credite · {detailUser.discount}% discount ·{' '}
@@ -2133,7 +2185,7 @@ function AdminModerationPageInner() {
                           </dd>
                         </div>
                         {(detailUser.moderationSuspensionReason || detailUser.moderationSuspendedUntil) && (
-                          <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 sm:col-span-2 xl:col-span-3">
+                          <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 sm:col-span-2 xl:col-span-3">
                             <dt className={labelClass}>Suspendare moderare</dt>
                             <dd className="mt-1 text-sm text-amber-100/90">
                               {detailUser.moderationSuspensionReason ? (
