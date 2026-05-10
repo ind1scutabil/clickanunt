@@ -5,6 +5,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 import { prisma } from "@/lib/prisma";
 import { publishToUsers } from "@/lib/messaging-sse-hub";
+import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 
 export const runtime = "nodejs";
@@ -154,13 +155,16 @@ export async function GET(
       });
       if (byId) {
         const isParticipant =
-          byId.participant1Id === currentUserId || byId.participant2Id === currentUserId;
+          messagingUserIdsEqual(byId.participant1Id, currentUserId) ||
+          messagingUserIdsEqual(byId.participant2Id, currentUserId);
         if (!isParticipant) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
         const otherParticipantId =
-          byId.participant1Id === currentUserId ? byId.participant2Id : byId.participant1Id;
-        if (otherParticipantId !== otherUserId) {
+          messagingUserIdsEqual(byId.participant1Id, currentUserId)
+            ? byId.participant2Id
+            : byId.participant1Id;
+        if (!messagingUserIdsEqual(otherParticipantId, otherUserId)) {
           console.warn(
             "[messages GET] userId path mismatch vs conversation participants",
             { userId: otherUserId, expected: otherParticipantId, conversationId: conversationIdParam }
@@ -347,14 +351,14 @@ export async function POST(
           { status: 409 }
         );
       }
-      const isP1 = byId.participant1Id === senderId;
-      const isP2 = byId.participant2Id === senderId;
+      const isP1 = messagingUserIdsEqual(byId.participant1Id, senderId);
+      const isP2 = messagingUserIdsEqual(byId.participant2Id, senderId);
       if (!isP1 && !isP2) {
         console.log('[MSG-POST] ❌ Sender is not a participant');
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       effectiveReceiverId = isP1 ? byId.participant2Id : byId.participant1Id;
-      if (effectiveReceiverId !== pathUserId) {
+      if (!messagingUserIdsEqual(effectiveReceiverId, pathUserId)) {
         console.warn("[MSG-POST] Path userId ≠ other participant; using conversation", {
           pathUserId,
           effectiveReceiverId,

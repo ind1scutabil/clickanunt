@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { prisma } from "@/lib/prisma";
+import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
 
 /**
  * GET /api/messages/conversations
@@ -69,8 +70,9 @@ export async function GET(request: NextRequest) {
     });
 
     const formattedConversations = conversations.map((conv) => {
-      const otherParticipant =
-        conv.participant1Id === userId ? conv.participant1 : conv.participant2;
+      const otherParticipant = messagingUserIdsEqual(conv.participant1Id, userId)
+        ? conv.participant2
+        : conv.participant1;
 
       return {
         id: conv.id,

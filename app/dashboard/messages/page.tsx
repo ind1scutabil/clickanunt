@@ -276,6 +276,8 @@ export default function MessagesPage() {
   };
 
   const handleSelectConversation = async (conversation: Conversation) => {
+    /** Evită respingerea primului GET din coadă dacă seq global e mare de la alt thread */
+    lastAppliedMessagesSeqRef.current = 0;
     setSelectedConversation(conversation);
     selectedConversationRef.current = conversation;
     setMessages([]);
@@ -334,16 +336,12 @@ export default function MessagesPage() {
           ? (data as { messages: Message[] }).messages
           : [];
 
-      if (requestSeq < lastAppliedMessagesSeqRef.current) {
-        return;
-      }
-
       const currentConversation = selectedConversationRef.current;
       if (!currentConversation) {
         return;
       }
 
-      // Ignore responses for an older selected conversation
+      // Înainte de filtrul după seq — răspunsurile întârziate pentru alt fir erau îngropate și puteau pierde snapshot-uri ok
       if (conversationId && currentConversation.id !== conversationId) {
         return;
       }
@@ -352,6 +350,10 @@ export default function MessagesPage() {
         !conversationId &&
         !messagingUserIdsEqual(currentConversation.otherParticipant.id, userId)
       ) {
+        return;
+      }
+
+      if (requestSeq < lastAppliedMessagesSeqRef.current) {
         return;
       }
 

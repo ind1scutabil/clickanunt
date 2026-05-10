@@ -164,11 +164,11 @@ export const rateLimitPresets = {
       maxRequests: 200,
     }),
 
-  // Mesaje: 10 per oră per IP / user
+  /** Mesaje: per user (normal); fallback IP doar dacă tokenul nu e decodabil în middleware */
   messages: (identifier: string, scope: 'ip' | 'user' = 'ip') =>
     rateLimit(`messages:${scope}:${identifier}`, {
       windowMs: 60 * 60 * 1000,
-      maxRequests: 10,
+      maxRequests: scope === 'user' ? 250 : 500,
     }),
 
   // Rapoarte: 5 per oră per IP

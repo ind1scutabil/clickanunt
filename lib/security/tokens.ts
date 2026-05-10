@@ -117,29 +117,55 @@ export function verifyJwtHs256AccessFlexible(token: string): JwtPayload | null {
 }
 
 /**
- * Verify access token
+ * Verify access token — trebuie aliniat cu tokenurile emise în `lib/auth.ts` (issuer autoplatform).
+ * Înainte verificarea folosea doar clickanunt.ro și eșua mereu pentru user reali astfel:
+ * middleware rate-limit pentru mesaje cădea pe IP (10/oră comun) în loc de per-utilizator.
  */
 export function verifyAccessToken(token: string): JwtPayload | null {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
-      issuer: 'clickanunt.ro',
-      audience: 'clickanunt-users',
-    }) as unknown as JwtPayload & { type: string };
-    
-    if (decoded.type !== 'access') {
-      return null;
+  const t = (token || "").trim();
+  if (!t) return null;
+
+  const strictPairs = [
+    { issuer: "clickanunt.ro", audience: "clickanunt-users" },
+    { issuer: "autoplatform", audience: "autoplatform-users" },
+  ] as const;
+
+  const normUserId = (u: unknown) =>
+    typeof u === "string" ? u.trim().toLowerCase() : u;
+
+  for (const { issuer, audience } of strictPairs) {
+    try {
+      const decoded = jwt.verify(t, JWT_SECRET, {
+        issuer,
+        audience,
+        clockTolerance: 120,
+      }) as unknown as JwtPayload & { type?: string };
+
+      if (decoded.type !== "access") continue;
+
+      const uid = normUserId(decoded.userId);
+      if (typeof uid !== "string" || !uid) continue;
+
+      return {
+        userId: uid,
+        email: decoded.email,
+        role: decoded.role,
+        sessionId: decoded.sessionId,
+      };
+    } catch {
+      /* try next issuer */
     }
-    
-    return {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      sessionId: decoded.sessionId,
-    };
-  } catch (error) {
-    console.error('Token verification error:', error);
-    return null;
   }
+
+  const flex = verifyJwtHs256AccessFlexible(t);
+  if (!flex?.userId) return null;
+
+  return {
+    userId: String(flex.userId).trim().toLowerCase(),
+    email: flex.email,
+    role: flex.role,
+    sessionId: flex.sessionId,
+  };
 }
 
 /**
