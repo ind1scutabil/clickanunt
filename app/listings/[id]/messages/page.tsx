@@ -177,8 +177,7 @@ export default function ListingMessagesPage() {
       }
     } catch (err) {
       console.error('Error fetching messages:', err);
-      // Don't show error for empty conversations
-      setMessages([]);
+      /** Nu ștergem thread-ul la erori tranzitorii (500, rețea) — comportament aliniat cu inbox-ul /dashboard/messages */
     }
   };
 
