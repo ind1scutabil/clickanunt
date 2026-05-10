@@ -3,7 +3,11 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
-import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  postJsonWithAuthRefresh,
+  syncSessionFromCookies,
+} from "@/lib/admin-fetch";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 import { displayNameForMessagingUser } from "@/lib/messaging-display";
 
@@ -438,6 +442,7 @@ export default function MessagesPage() {
 
     setIsSending(true);
     try {
+      await syncSessionFromCookies();
       const response = await postJsonWithAuthRefresh(
         `/api/messages/${conversationSnapshot.otherParticipant.id}`,
         {

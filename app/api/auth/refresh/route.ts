@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { refreshAccessToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
+import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,11 +55,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const json = NextResponse.json({
       success: true,
       accessToken: result.accessToken,
       user: result.user,
     });
+
+    /** Aliniază cookie httpOnly cu access-ul din JSON — altfel SPA rămâne proaspăt, cookie-ul rămâne expirat. */
+    if (result.accessToken) {
+      const cookieDomain = cookieDomainFromRequest(request);
+      const secureCookies = cookieSecureFromRequest(request);
+      json.cookies.set("accessToken", result.accessToken, {
+        httpOnly: true,
+        secure: secureCookies,
+        domain: cookieDomain,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+        path: "/",
+        priority: "high",
+      });
+    }
+
+    return json;
   } catch (error) {
     return NextResponse.json(
       { error: "Eroare la refresh token" },

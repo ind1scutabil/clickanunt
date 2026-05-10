@@ -2,7 +2,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
-import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from '@/lib/admin-fetch';
+import {
+  fetchWithAuthRefresh,
+  postJsonWithAuthRefresh,
+  syncSessionFromCookies,
+} from '@/lib/admin-fetch';
 import { connectMessageEventsSse } from '@/lib/message-events-sse-client';
 import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
 import { displayNameForMessagingUser } from '@/lib/messaging-display';
@@ -80,14 +84,17 @@ export default function ListingMessagesPage() {
     // Fetch listing
     const fetchListing = async () => {
       try {
+        await syncSessionFromCookies();
         const res = await fetch(`/api/listings/${id}`);
         if (!res.ok) throw new Error('Failed to fetch listing');
         const data = await res.json();
         setListing(data);
 
+        const accessAfterSync = localStorage.getItem('accessToken') || token;
+
         // Once we have the listing owner, fetch messages
         if (data.owner?.id && data.owner.id !== parsed.id) {
-          fetchMessages(data.owner.id, token, data.id);
+          fetchMessages(data.owner.id, accessAfterSync, data.id);
         }
       } catch (err) {
         console.error('Error fetching listing:', err);
@@ -225,6 +232,7 @@ export default function ListingMessagesPage() {
     setError(null);
 
     try {
+      await syncSessionFromCookies();
       const token = localStorage.getItem('accessToken');
       const res = await postJsonWithAuthRefresh(`/api/messages/${listing.owner.id}`, {
         content: messageText.trim(),
@@ -232,8 +240,15 @@ export default function ListingMessagesPage() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to send message');
+        const raw = await res.text();
+        let errMsg = 'Failed to send message';
+        try {
+          const parsed = JSON.parse(raw) as { error?: string };
+          if (typeof parsed?.error === 'string') errMsg = parsed.error;
+        } catch {
+          errMsg = res.status === 401 ? 'Nu ești autentificat sau sesiunea a expirat.' : raw.slice(0, 200);
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

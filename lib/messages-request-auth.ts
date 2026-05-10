@@ -23,7 +23,7 @@ function bearerFromHeader(auth: string | null): string | null {
 
 /**
  * Auth pentru rute mesaje: Authorization, cookie accessToken, sau ?token= (necesar pentru EventSource).
- * Ordine: query (SSE), cookie httpOnly, Bearer — cookie înainte de header evită Bearer desincron din localStorage.
+ * Ordine: query (SSE), cookie httpOnly, apoi Bearer.
  */
 export async function getAuthUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const queryToken = request.nextUrl.searchParams.get("token")?.trim();
@@ -33,6 +33,7 @@ export async function getAuthUserIdFromRequest(request: NextRequest): Promise<st
   for (const candidate of uniqMessagingTokens([queryToken, cookieToken, headerToken])) {
     const payload = await verifyToken(candidate);
     if (!payload) continue;
+    if ((payload as { type?: string }).type === "refresh") continue;
     const userId =
       payload.userId || (payload as { sub?: string }).sub;
     if (userId) return userId;
@@ -41,7 +42,9 @@ export async function getAuthUserIdFromRequest(request: NextRequest): Promise<st
 }
 
 /**
- * GET/POST JSON mesaje — fără token în URL. Preferă cookie httpOnly înaintea Bearer.
+ * GET/POST JSON mesaje — fără token în URL.
+ * Bearer înainte de cookie: după `/api/auth/refresh` SPA actualizează localStorage dar cookie-ul
+ * access poate fi încă vechi (până la Set-Cookie pe refresh); headerul reflectă tokenul nou.
  */
 export async function getMessagingApiAuthPayload(
   request: NextRequest
@@ -49,9 +52,11 @@ export async function getMessagingApiAuthPayload(
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  for (const candidate of uniqMessagingTokens([cookieToken, headerToken])) {
+  for (const candidate of uniqMessagingTokens([headerToken, cookieToken])) {
     const payload = await verifyToken(candidate);
-    if (payload?.userId || (payload as { sub?: string })?.sub) {
+    if (!payload) continue;
+    if ((payload as { type?: string }).type === "refresh") continue;
+    if (payload.userId || (payload as { sub?: string }).sub) {
       return payload;
     }
   }

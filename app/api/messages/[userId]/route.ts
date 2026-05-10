@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
@@ -357,14 +358,41 @@ export async function POST(
       const participant2Id =
         senderId < effectiveReceiverId ? effectiveReceiverId : senderId;
 
-      conversation = await prisma.conversation.create({
-        data: {
-          participant1Id,
-          participant2Id,
-          listingId: listingId || null,
-        },
-      });
-      console.log('[MSG-POST] ✓ Conversation created:', conversation.id);
+      const listingFilter = listingId ? { listingId } : { listingId: null };
+
+      try {
+        conversation = await prisma.conversation.create({
+          data: {
+            participant1Id,
+            participant2Id,
+            listingId: listingId || null,
+          },
+        });
+        console.log('[MSG-POST] ✓ Conversation created:', conversation.id);
+      } catch (e: unknown) {
+        /** Cursă: două cereri paralele creează același thread — unique @@([participants], listingId). */
+        if (
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === "P2002"
+        ) {
+          console.log('[MSG-POST] Race on conversation create — reloading row');
+          conversation = await prisma.conversation.findFirst({
+            where: {
+              OR: [
+                { participant1Id: senderId, participant2Id: effectiveReceiverId },
+                { participant1Id: effectiveReceiverId, participant2Id: senderId },
+              ],
+              ...listingFilter,
+            },
+          });
+          if (!conversation) {
+            throw e;
+          }
+          console.log('[MSG-POST] ✓ Using existing conversation after race:', conversation.id);
+        } else {
+          throw e;
+        }
+      }
     } else {
       console.log('[MSG-POST] ✓ Using existing conversation:', conversation.id);
     }
