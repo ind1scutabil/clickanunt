@@ -43,6 +43,50 @@ export function sanitizeEmail(email: string): string | null {
 }
 
 /**
+ * Variante de email de încercat la login (register poate salva altă formă canonică decât tastarea userului).
+ * Important: Gmail — normalizeEmail scoate punctele din local-part; în DB pot exista rânduri vechi cu puncte.
+ */
+export function loginEmailLookupCandidates(rawEmail: string): string[] {
+  const trimmed = rawEmail.trim();
+  if (!trimmed) return [];
+
+  const lower = trimmed.toLowerCase();
+  const out = new Set<string>();
+  out.add(trimmed);
+  out.add(lower);
+
+  if (validator.isEmail(lower)) {
+    const fullNorm = validator.normalizeEmail(trimmed);
+    if (fullNorm) out.add(fullNorm);
+
+    const g = lower.match(/^([^@]+)@(gmail|googlemail)\.com$/);
+    if (g) {
+      const keepDots = validator.normalizeEmail(trimmed, { gmail_remove_dots: false });
+      if (keepDots) out.add(keepDots);
+    }
+  }
+
+  return [...out];
+}
+
+/** Potrivire login: insensibil la registru; Gmail/Googlemail ignoră punctele în local-part. */
+export function emailsEquivalentForLogin(a: string, b: string): boolean {
+  const x = a.trim().toLowerCase();
+  const y = b.trim().toLowerCase();
+  if (x === y) return true;
+
+  const gx = /^([^@]+)@(gmail|googlemail)\.com$/i.exec(x);
+  const gy = /^([^@]+)@(gmail|googlemail)\.com$/i.exec(y);
+  if (gx && gy && gx[2] === gy[2]) {
+    const lx = gx[1].replace(/\./g, '');
+    const ly = gy[1].replace(/\./g, '');
+    return lx === ly;
+  }
+
+  return false;
+}
+
+/**
  * Validează URL
  */
 export function isValidUrl(url: string): boolean {

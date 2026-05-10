@@ -192,7 +192,8 @@ export async function authenticateUser(
     }
 
     // Verify password (malformed bcrypt hashes must not throw — treat as wrong password)
-    if (!user.password || typeof user.password !== 'string' || !user.password.startsWith('$2')) {
+    const pwdHashRaw = typeof user.password === 'string' ? user.password.trim() : '';
+    if (!pwdHashRaw || !pwdHashRaw.startsWith('$2')) {
       console.error('[AUTH] User has no valid bcrypt hash:', user.id);
       return {
         success: false,
@@ -202,7 +203,7 @@ export async function authenticateUser(
 
     let isValid = false;
     try {
-      isValid = await bcrypt.compare(password, user.password);
+      isValid = await bcrypt.compare(password, pwdHashRaw);
     } catch (e) {
       console.error('[AUTH] bcrypt.compare failed:', e);
       return {

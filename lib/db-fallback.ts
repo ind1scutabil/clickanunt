@@ -4,6 +4,10 @@
  */
 
 import bcrypt from 'bcrypt';
+import {
+  emailsEquivalentForLogin,
+  loginEmailLookupCandidates,
+} from './sanitize';
 
 interface IUser {
   id: string;
@@ -101,7 +105,23 @@ class MemoryDB {
   }
 
   async findUserByEmail(email: string) {
-    return this.usersByEmail.get(email) || null;
+    const candidates = loginEmailLookupCandidates(email);
+    if (candidates.length === 0) return null;
+
+    for (const c of candidates) {
+      const byKey =
+        this.usersByEmail.get(c) || this.usersByEmail.get(c.toLowerCase());
+      if (byKey && !byKey.deletedAt) return byKey;
+    }
+
+    for (const u of this.users.values()) {
+      if (u.deletedAt) continue;
+      if (candidates.some((c) => emailsEquivalentForLogin(u.email, c))) {
+        return u;
+      }
+    }
+
+    return null;
   }
 
   async findUserById(id: string) {

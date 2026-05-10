@@ -6,6 +6,7 @@
 
 import { prisma } from './prisma';
 import { db as memoryDb, DB as MemoryDB } from './db-fallback';
+import { loginEmailLookupCandidates } from './sanitize';
 
 const useMemory = process.env.USE_IN_MEMORY_DB === 'true' || !process.env.DATABASE_URL;
 
@@ -15,9 +16,27 @@ if (useMemory) {
 
 class PrismaDB {
   async findUserByEmail(email: string) {
-    return await prisma!.user.findFirst({
-      where: { email, deletedAt: null },
-    });
+    const candidates = loginEmailLookupCandidates(email);
+    if (candidates.length === 0) return null;
+
+    for (const c of candidates) {
+      const exact = await prisma!.user.findFirst({
+        where: { email: c, deletedAt: null },
+      });
+      if (exact) return exact;
+    }
+
+    for (const c of candidates) {
+      const ins = await prisma!.user.findFirst({
+        where: {
+          deletedAt: null,
+          email: { equals: c, mode: 'insensitive' },
+        },
+      });
+      if (ins) return ins;
+    }
+
+    return null;
   }
 
   async findUserById(id: string) {

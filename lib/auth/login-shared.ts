@@ -5,7 +5,7 @@
 import type { NextRequest } from "next/server";
 import { authenticateUser } from "@/lib/auth";
 import { getClientIp } from "@/lib/rateLimit";
-import { sanitizeEmail } from "@/lib/sanitize";
+import validator from "validator";
 import { auditActions } from "@/lib/audit";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 import crypto from "crypto";
@@ -25,13 +25,13 @@ export async function runSharedPasswordLogin(
   email: string,
   password: string
 ): Promise<LoginSharedResult> {
-  const sanitizedEmail = sanitizeEmail(email);
-  if (!sanitizedEmail) {
+  const loginEmail = email.trim().toLowerCase();
+  if (!validator.isEmail(loginEmail)) {
     return { kind: "failure", status: 400, body: { error: "Email invalid" } };
   }
 
   const ip = getClientIp(request);
-  const result = await authenticateUser(sanitizedEmail, password, ip);
+  const result = await authenticateUser(loginEmail, password, ip);
 
   if (!result.success) {
     return {
