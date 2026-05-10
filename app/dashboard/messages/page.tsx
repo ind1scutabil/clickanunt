@@ -8,6 +8,7 @@ import {
   postJsonWithAuthRefresh,
   syncSessionFromCookies,
 } from "@/lib/admin-fetch";
+import { notifyMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 import { displayNameForMessagingUser } from "@/lib/messaging-display";
 import { messagingUserIdsEqual } from "@/lib/messaging-user-id";
@@ -64,6 +65,12 @@ export default function MessagesPage() {
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [retryPayload, setRetryPayload] = useState<{
+    conversation: Conversation;
+    content: string;
+  } | null>(null);
+  const [lastFailedContent, setLastFailedContent] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
@@ -72,24 +79,36 @@ export default function MessagesPage() {
   const lastAppliedMessagesSeqRef = useRef(0);
   const isSendingRef = useRef(false);
 
-  /** Rulare în paralel cu SSE: backup 3s pentru sync instant dacă evenimentul rată */
-  const CONV_POLL_MS = 2_000;
-  const MSG_POLL_MS = 2_000;
+  /** Polling fallback doar dacă SSE nu e stabilit sau a căzut (server single-node pentru pub/sub SSE). */
+  const CONV_FALLBACK_MS = 2_500;
+  const MSG_FALLBACK_MS = 2_500;
+  /** Chiar dacă SSE e „online”, reconciliere ușoară pentru tab-uri/proxy-uri care pierd evente. */
+  const CONV_RECONCILE_SLOW_MS = 8_500;
+  /** Dacă EventSource nu deschide deloc (~2.6s), activăm polling ca rețea degradată. */
+  const SSE_WATCHDOG_MS = 2_600;
 
-  const conversationsPollingRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesPollingRef = useRef<NodeJS.Timeout | null>(null);
-  /** SSE activ → nu mai pornim polling în handleSelectConversation */
+  const conversationsPollingRef = useRef<number | null>(null);
+  const messagesPollingRef = useRef<number | null>(null);
+  const slowConversationSyncRef = useRef<number | null>(null);
+  const sseEverOpenedRef = useRef(false);
+  /** În browser timer id este numeric — separat de `@types/node` Timeout. */
+  const sseWatchdogRef = useRef<number | null>(null);
+  /** SSE stabil = fără intervaluri pentru conversații/mesaje (evită dublaje + noise). */
   const sseLiveRef = useRef(false);
+  const conversationsPollInFlightRef = useRef(false);
+  const messagesPollInFlightRef = useRef(false);
+  const lastSendFingerprintRef = useRef<{ t: number; fp: string } | null>(
+    null
+  );
+  const lastInboxNotifyAtRef = useRef(0);
   const fetchMessagesRefForSse = useRef<
     (userId: string, listingId?: string, conversationId?: string) => Promise<void>
   >(async () => {});
 
-  const sseHandlerRef = useRef<{
-    fetchConversations: (opts?: { startPolling?: boolean }) => Promise<void>;
-  }>({
+  const sseHandlerRef = useRef<{ fetchConversations: () => Promise<void> }>({
     fetchConversations: async () => {},
   });
-  const startPollingFallbackRef = useRef<() => void>(() => {});
+  const ensurePollingIntervalsRef = useRef<() => void>(() => {});
 
   const clearFallbackPolling = () => {
     if (conversationsPollingRef.current) {
@@ -100,48 +119,11 @@ export default function MessagesPage() {
       clearInterval(messagesPollingRef.current);
       messagesPollingRef.current = null;
     }
-  };
-
-  const startPollingFallback = () => {
-    if (conversationsPollingRef.current) return;
-    conversationsPollingRef.current = setInterval(async () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      try {
-        const response = await fetchWithAuthRefresh("/api/messages/conversations");
-        if (response.ok) {
-          const data = await response.json();
-          const conversationsList: Conversation[] = Array.isArray(data)
-            ? data
-            : data.conversations || [];
-          setConversations(conversationsList);
-          const sel = selectedConversationRef.current;
-          if (!sel && conversationsList.length > 0) {
-            void handleSelectConversation(conversationsList[0]);
-          } else if (sel && conversationsList.length > 0) {
-            const fresh = conversationsList.find((c) => c.id === sel.id);
-            if (fresh) {
-              setSelectedConversation(fresh);
-              selectedConversationRef.current = fresh;
-            }
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-    }, CONV_POLL_MS);
-
-    const sel = selectedConversationRef.current;
-    if (sel && !messagesPollingRef.current) {
-      messagesPollingRef.current = setInterval(() => {
-        const cur = selectedConversationRef.current;
-        if (!cur) return;
-        if (isSendingRef.current) return;
-        void fetchMessages(cur.otherParticipant.id, cur.listing?.id, cur.id, "poll");
-      }, MSG_POLL_MS);
+    if (sseWatchdogRef.current) {
+      clearTimeout(sseWatchdogRef.current);
+      sseWatchdogRef.current = null;
     }
   };
-
-  startPollingFallbackRef.current = startPollingFallback;
 
   useEffect(() => {
     // Check authentication
@@ -167,7 +149,13 @@ export default function MessagesPage() {
       }
     }
 
-    void fetchConversations({ startPolling: true });
+    sseWatchdogRef.current = window.setTimeout(() => {
+      if (!sseEverOpenedRef.current) {
+        ensurePollingIntervalsRef.current();
+      }
+    }, SSE_WATCHDOG_MS) as unknown as number;
+
+    void fetchConversations();
 
     return () => {
       clearFallbackPolling();
@@ -206,102 +194,6 @@ export default function MessagesPage() {
       lastMessageIdRef.current = newestMessageId;
     }
   }, [messages]);
-
-  const fetchConversations = async (opts?: { startPolling?: boolean }) => {
-    const startPolling = opts?.startPolling === true;
-    try {
-      const response = await fetchWithAuthRefresh("/api/messages/conversations");
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch conversations");
-      }
-
-      const data = await response.json();
-      const conversationsList: Conversation[] = Array.isArray(data)
-        ? data
-        : data.conversations || [];
-      setConversations(conversationsList);
-      setIsLoadingConversations(false);
-
-      const sel = selectedConversationRef.current;
-      if (!sel && conversationsList.length > 0) {
-        void handleSelectConversation(conversationsList[0]);
-      } else if (sel && conversationsList.length > 0) {
-        const fresh = conversationsList.find((c) => c.id === sel.id);
-        const thread = fresh ?? sel;
-        if (fresh) {
-          setSelectedConversation(fresh);
-          selectedConversationRef.current = fresh;
-        }
-        void fetchMessages(
-          thread.otherParticipant.id,
-          thread.listing?.id,
-          thread.id,
-          "manual"
-        );
-      }
-    } catch (err) {
-      console.error("[Messages] Fetch error:", err);
-      setIsLoadingConversations(false);
-    }
-
-    if (startPolling && !conversationsPollingRef.current) {
-      conversationsPollingRef.current = setInterval(async () => {
-        if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-        try {
-          const response = await fetchWithAuthRefresh("/api/messages/conversations");
-          if (response.ok) {
-            const data = await response.json();
-            const conversationsList: Conversation[] = Array.isArray(data)
-              ? data
-              : data.conversations || [];
-            setConversations(conversationsList);
-            const sel = selectedConversationRef.current;
-            if (!sel && conversationsList.length > 0) {
-              void handleSelectConversation(conversationsList[0]);
-            } else if (sel && conversationsList.length > 0) {
-              const fresh = conversationsList.find((c) => c.id === sel.id);
-              if (fresh) {
-                setSelectedConversation(fresh);
-                selectedConversationRef.current = fresh;
-              }
-            }
-          }
-        } catch {
-          /* polling */
-        }
-      }, CONV_POLL_MS);
-    }
-  };
-
-  const handleSelectConversation = async (conversation: Conversation) => {
-    /** Evită respingerea primului GET din coadă dacă seq global e mare de la alt thread */
-    lastAppliedMessagesSeqRef.current = 0;
-    setSelectedConversation(conversation);
-    selectedConversationRef.current = conversation;
-    setMessages([]);
-    setIsLoadingThread(true);
-    try {
-      await fetchMessages(conversation.otherParticipant.id, conversation.listing?.id, conversation.id);
-    } finally {
-      setIsLoadingThread(false);
-    }
-
-    if (messagesPollingRef.current) {
-      clearInterval(messagesPollingRef.current);
-    }
-    messagesPollingRef.current = setInterval(() => {
-      const currentConversation = selectedConversationRef.current;
-      if (!currentConversation) return;
-      if (isSendingRef.current) return;
-      fetchMessages(
-        currentConversation.otherParticipant.id,
-        currentConversation.listing?.id,
-        currentConversation.id,
-        "poll"
-      );
-    }, MSG_POLL_MS);
-  };
 
   const fetchMessages = async (
     userId: string,
@@ -394,8 +286,162 @@ export default function MessagesPage() {
 
         return isSameSnapshot ? prevMessages : mergedMessages;
       });
+
+      const now = Date.now();
+      if (now - lastInboxNotifyAtRef.current >= 550) {
+        lastInboxNotifyAtRef.current = now;
+        notifyMessagingInboxSync();
+      }
     } catch (err) {
       console.error('[Messages] Error fetching messages:', err);
+    }
+  };
+
+  const runConversationPoll = async (opts?: { ignoreSse?: boolean }) => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      return;
+    }
+    if (sseLiveRef.current && !opts?.ignoreSse) return;
+    if (conversationsPollInFlightRef.current) return;
+    conversationsPollInFlightRef.current = true;
+    try {
+      const response = await fetchWithAuthRefresh("/api/messages/conversations");
+      if (response.ok) {
+        const data = await response.json();
+        const conversationsList: Conversation[] = Array.isArray(data)
+          ? data
+          : data.conversations || [];
+        setConversations(conversationsList);
+        const sel = selectedConversationRef.current;
+        if (!sel && conversationsList.length > 0) {
+          void handleSelectConversation(conversationsList[0]);
+        } else if (sel && conversationsList.length > 0) {
+          const fresh = conversationsList.find((c) => c.id === sel.id);
+          if (fresh) {
+            setSelectedConversation(fresh);
+            selectedConversationRef.current = fresh;
+          }
+        }
+      }
+    } catch {
+      /* retry next tick */
+    } finally {
+      conversationsPollInFlightRef.current = false;
+    }
+  };
+
+  const runMessagesPollTick = async () => {
+    const cur = selectedConversationRef.current;
+    if (!cur) return;
+    if (sseLiveRef.current || isSendingRef.current) return;
+    if (messagesPollInFlightRef.current) return;
+    messagesPollInFlightRef.current = true;
+    try {
+      await fetchMessages(cur.otherParticipant.id, cur.listing?.id, cur.id, "poll");
+    } finally {
+      messagesPollInFlightRef.current = false;
+    }
+  };
+
+  const ensurePollingIntervals = () => {
+    if (sseLiveRef.current) return;
+    if (!conversationsPollingRef.current) {
+      conversationsPollingRef.current = window.setInterval(
+        () => {
+          void runConversationPoll();
+        },
+        CONV_FALLBACK_MS
+      ) as unknown as number;
+    }
+    const sel = selectedConversationRef.current;
+    if (sel && !messagesPollingRef.current) {
+      messagesPollingRef.current = window.setInterval(
+        () => {
+          void runMessagesPollTick();
+        },
+        MSG_FALLBACK_MS
+      ) as unknown as number;
+    }
+  };
+
+  ensurePollingIntervalsRef.current = ensurePollingIntervals;
+
+  /** Reconcile listă vs DB chiar dacă SSE pare conectat (evită UI „înghețat” fără refresh). */
+  useEffect(() => {
+    slowConversationSyncRef.current = window.setInterval(() => {
+      void runConversationPoll({ ignoreSse: true });
+    }, CONV_RECONCILE_SLOW_MS) as unknown as number;
+    return () => {
+      if (slowConversationSyncRef.current !== null) {
+        clearInterval(slowConversationSyncRef.current);
+        slowConversationSyncRef.current = null;
+      }
+    };
+  }, []);
+
+  const fetchConversations = async () => {
+    try {
+      const response = await fetchWithAuthRefresh("/api/messages/conversations");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch conversations");
+      }
+
+      const data = await response.json();
+      const conversationsList: Conversation[] = Array.isArray(data)
+        ? data
+        : data.conversations || [];
+      setConversations(conversationsList);
+      setIsLoadingConversations(false);
+
+      const sel = selectedConversationRef.current;
+      if (!sel && conversationsList.length > 0) {
+        void handleSelectConversation(conversationsList[0]);
+      } else if (sel && conversationsList.length > 0) {
+        const fresh = conversationsList.find((c) => c.id === sel.id);
+        const thread = fresh ?? sel;
+        if (fresh) {
+          setSelectedConversation(fresh);
+          selectedConversationRef.current = fresh;
+        }
+        void fetchMessages(
+          thread.otherParticipant.id,
+          thread.listing?.id,
+          thread.id,
+          "manual"
+        );
+      }
+    } catch (err) {
+      console.error("[Messages] Fetch error:", err);
+      setIsLoadingConversations(false);
+    }
+  };
+
+  const handleSelectConversation = async (conversation: Conversation) => {
+    /** Evită respingerea primului GET din coadă dacă seq global e mare de la alt thread */
+    lastAppliedMessagesSeqRef.current = 0;
+    setSelectedConversation(conversation);
+    selectedConversationRef.current = conversation;
+    setMessages([]);
+    setIsLoadingThread(true);
+    try {
+      await fetchMessages(
+        conversation.otherParticipant.id,
+        conversation.listing?.id,
+        conversation.id
+      );
+    } finally {
+      setIsLoadingThread(false);
+    }
+
+    if (messagesPollingRef.current) {
+      clearInterval(messagesPollingRef.current);
+      messagesPollingRef.current = null;
+    }
+    if (!sseLiveRef.current) {
+      messagesPollingRef.current = window.setInterval(() => {
+        void runMessagesPollTick();
+      }, MSG_FALLBACK_MS) as unknown as number;
     }
   };
 
@@ -409,11 +455,17 @@ export default function MessagesPage() {
 
     const dispose = connectMessageEventsSse({
       onOpen: () => {
+        if (sseWatchdogRef.current) {
+          clearTimeout(sseWatchdogRef.current);
+          sseWatchdogRef.current = null;
+        }
+        sseEverOpenedRef.current = true;
         sseLiveRef.current = true;
+        clearFallbackPolling();
       },
       onTransportEnded: () => {
         sseLiveRef.current = false;
-        startPollingFallbackRef.current();
+        ensurePollingIntervalsRef.current();
       },
       onMessage: (ev) => {
         let d: { type?: string };
@@ -422,8 +474,26 @@ export default function MessagesPage() {
         } catch {
           return;
         }
-        if (d.type !== "message") return;
-        void sseHandlerRef.current.fetchConversations({ startPolling: false });
+        const kind = typeof (d as { type?: string }).type === "string"
+          ? (d as { type: string }).type
+          : "";
+        if (
+          kind === "typing" ||
+          kind === "presence" ||
+          kind === "heartbeat" ||
+          kind === "connected"
+        )
+          return;
+        if (
+          kind !== "message" &&
+          kind !== "unread_update" &&
+          kind !== "conversation_update" &&
+          kind !== "read_receipt" &&
+          kind !== "delivery_receipt"
+        )
+          return;
+        void sseHandlerRef.current.fetchConversations();
+        notifyMessagingInboxSync();
         const sel = selectedConversationRef.current;
         if (sel) {
           void fetchMessagesRefForSse.current(
@@ -447,7 +517,7 @@ export default function MessagesPage() {
       if (typeof document === "undefined" || document.visibilityState !== "visible") {
         return;
       }
-      void sseHandlerRef.current.fetchConversations({ startPolling: false });
+      void sseHandlerRef.current.fetchConversations();
       const sel = selectedConversationRef.current;
       if (sel) {
         void fetchMessagesRefForSse.current(
@@ -455,6 +525,9 @@ export default function MessagesPage() {
           sel.listing?.id,
           sel.id
         );
+      }
+      if (!sseLiveRef.current) {
+        ensurePollingIntervalsRef.current();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -464,7 +537,7 @@ export default function MessagesPage() {
   useEffect(() => {
     const onFocus = () => {
       if (!localStorage.getItem("accessToken")) return;
-      void sseHandlerRef.current.fetchConversations({ startPolling: false });
+      void sseHandlerRef.current.fetchConversations();
       const sel = selectedConversationRef.current;
       if (sel) {
         void fetchMessagesRefForSse.current(
@@ -473,31 +546,98 @@ export default function MessagesPage() {
           sel.id
         );
       }
+      if (!sseLiveRef.current) {
+        ensurePollingIntervalsRef.current();
+      }
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  /** Debug UI state: dev sau `localStorage.setItem("MSG_UI_DEBUG","1")` + refresh */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const debug =
+      process.env.NODE_ENV === "development" ||
+      window.localStorage.getItem("MSG_UI_DEBUG") === "1";
+    if (!debug) return;
+
+    const last = messages.length > 0 ? messages[messages.length - 1] : null;
+    console.log("[MSG_UI]", {
+      currentUserId,
+      conversationsCount: conversations.length,
+      selectedConversationId: selectedConversation?.id ?? null,
+      messagesCount: messages.length,
+      lastMessage: last
+        ? {
+            id: last.id,
+            contentPreview:
+              typeof last.content === "string"
+                ? last.content.slice(0, 120)
+                : "(no content)",
+            senderId: last.sender?.id ?? null,
+          }
+        : null,
+      unreadCount: selectedConversation?.unreadCount ?? 0,
+    });
+  }, [
+    currentUserId,
+    conversations.length,
+    selectedConversation?.id,
+    selectedConversation?.unreadCount,
+    messages,
+    messages.length,
+  ]);
+
+  const MESSAGE_MAX_CHARS = 5000;
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const activeConversation = selectedConversationRef.current || selectedConversation;
-    
-    if (!newMessage.trim() || !activeConversation) {
+    const trimmedContent = newMessage.trim();
+
+    if (!trimmedContent || !activeConversation) {
       return;
     }
 
-    const conversationSnapshot = activeConversation;
-    const trimmedContent = newMessage.trim();
-    const optimisticMessageId = `temp-${Date.now()}`;
+    await sendOutboundMessage(activeConversation, trimmedContent);
+  };
 
-    console.log('[SEND] Starting message send - temp ID:', optimisticMessageId);
+  const sendOutboundMessage = async (
+    conversationSnapshot: Conversation,
+    trimmedContent: string,
+    options?: { skipFingerprint?: boolean; keepInput?: boolean }
+  ) => {
+    if (trimmedContent.length > MESSAGE_MAX_CHARS) {
+      setSendError("Mesajul depășește lungimea maximă permisă (5000 caractere).");
+      return;
+    }
+
+    const now = Date.now();
+    const fp = `${conversationSnapshot.id}|${trimmedContent}`;
+    if (!options?.skipFingerprint) {
+      const last = lastSendFingerprintRef.current;
+      if (last && last.fp === fp && now - last.t < 900) {
+        return;
+      }
+      lastSendFingerprintRef.current = { t: now, fp };
+    }
+
+    if (!options?.keepInput) {
+      setNewMessage("");
+    }
+
+    setSendError(null);
+    setRetryPayload(null);
+
+    const optimisticMessageId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const optimisticMessage: Message = {
       id: optimisticMessageId,
       sender: {
-        id: currentUserId || 'me',
-        name: 'Tu',
+        id: currentUserId || "me",
+        name: "Tu",
       },
       recipient: {
         id: conversationSnapshot.otherParticipant.id,
@@ -510,71 +650,105 @@ export default function MessagesPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    setNewMessage("");
     setMessages((prev) => [...prev, optimisticMessage]);
-    console.log('[SEND] Optimistic message added to state');
 
-    // Ignore any in-flight polling responses that started before this send
     const sendBarrierSeq = ++messagesRequestSeqRef.current;
     lastAppliedMessagesSeqRef.current = sendBarrierSeq;
 
     setIsSending(true);
     try {
-      await syncSessionFromCookies();
-      const response = await postJsonWithAuthRefresh(
-        `/api/messages/${conversationSnapshot.otherParticipant.id}`,
-        {
-          content: trimmedContent,
-          listingId: conversationSnapshot.listing?.id,
-          conversationId: conversationSnapshot.id,
-        }
-      );
+      let lastErrText = "";
+      let lastResp: Response | null = null;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[SEND] ❌ Response not ok:', response.status, errorData);
-        throw new Error(errorData?.error || 'Failed to send message');
-      }
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await syncSessionFromCookies();
+        const response = await postJsonWithAuthRefresh(
+          `/api/messages/${conversationSnapshot.otherParticipant.id}`,
+          {
+            content: trimmedContent,
+            listingId: conversationSnapshot.listing?.id,
+            conversationId: conversationSnapshot.id,
+          }
+        );
+        lastResp = response;
 
-      const data = await response.json();
-      
+        if (response.ok) {
+          const data = await response.json() as {
+            conversationId?: string;
+            message?: Message;
+          };
 
-      const resolvedConversationId = data?.conversationId || conversationSnapshot.id;
+          const resolvedConversationId =
+            data?.conversationId || conversationSnapshot.id;
 
-      if (data?.message) {
-        setMessages((prev) => {
-          const hasTemp = prev.some((msg) => msg.id === optimisticMessageId);
-          const hasServerMessage = prev.some((msg) => msg.id === data.message.id);
+          if (data?.message) {
+            setMessages((prev) => {
+              const hasTemp = prev.some((msg) => msg.id === optimisticMessageId);
+              const hasServerMessage = prev.some((msg) => msg.id === data.message!.id);
+              let next = prev;
 
-          // Keep optimistic message until server snapshot confirms it.
-          // Replacing temp immediately can cause disappearance if a concurrent
-          // fetch returns an older snapshot and overwrites local state.
-          let next = prev;
+              if (!hasTemp && !hasServerMessage) {
+                next = [...prev, data.message!];
+              }
 
-          if (!hasTemp && !hasServerMessage) {
-            next = [...prev, data.message];
+              return next.sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+              );
+            });
           }
 
-          return next.sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-        });
+          if (resolvedConversationId !== conversationSnapshot.id) {
+            setSelectedConversation((prev) => {
+              const next = prev ? { ...prev, id: resolvedConversationId } : prev;
+              selectedConversationRef.current = next;
+              return next;
+            });
+          }
+
+          await fetchConversations();
+          notifyMessagingInboxSync();
+          setRetryPayload(null);
+          setSendError(null);
+          return;
+        }
+
+        let errHuman = "";
+        try {
+          const errorData = (await response.clone().json()) as { error?: string };
+          errHuman =
+            typeof errorData?.error === "string"
+              ? errorData.error
+              : "Nu am putut trimite mesajul.";
+          lastErrText = errHuman;
+        } catch {
+          lastErrText = response.statusText || "Eroare rețea";
+          errHuman = lastErrText;
+        }
+
+        if (response.status === 429 || response.status >= 500) {
+          await new Promise((r) => window.setTimeout(r, 520 * (attempt + 1)));
+          continue;
+        }
+
+        throw new Error(errHuman);
       }
 
-      if (resolvedConversationId !== conversationSnapshot.id) {
-        setSelectedConversation((prev) => {
-          const next = prev ? { ...prev, id: resolvedConversationId } : prev;
-          selectedConversationRef.current = next;
-          return next;
-        });
-      }
-
-      await fetchConversations({ startPolling: false });
-    } catch (err) {
-      console.error('[Messaging] Error sending message:', err);
+      throw new Error(
+        lastErrText ||
+          (!lastResp?.ok
+            ? `Eroare trimitere (${lastResp?.status ?? "?"})`
+            : "Eroare trimitere")
+      );
+    } catch (err: unknown) {
+      console.error("[Messaging] Error sending message:", err);
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessageId));
       setNewMessage(trimmedContent);
-      alert('Eroare la trimiterea mesajului. Te rog încearcă din nou.');
+      const msg =
+        err instanceof Error ? err.message : "Eroare la trimiterea mesajului.";
+      setSendError(msg);
+      setRetryPayload({ conversation: conversationSnapshot, content: trimmedContent });
+      notifyMessagingInboxSync();
     } finally {
       setIsSending(false);
     }
@@ -584,7 +758,7 @@ export default function MessagesPage() {
     <div className="enterprise-page-bg enterprise-mesh flex min-h-screen flex-col text-white">
       <Navbar />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 md:px-6">
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-6">
         <header className="mb-8">
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
             Inbox
@@ -598,7 +772,7 @@ export default function MessagesPage() {
           <p className="text-[var(--text-secondary)]">Comunică cu cumpărători și vânzători</p>
         </header>
 
-        <div className="grid h-[min(70vh,640px)] grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+        <div className="grid h-[min(70dvh,640px)] grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
           {/* Conversations List */}
           <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)] backdrop-blur-sm">
             <div className="border-b border-white/[0.06] px-5 py-4">
@@ -607,7 +781,7 @@ export default function MessagesPage() {
               </h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 touch-pan-y overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
               {isLoadingConversations ? (
                 <div className="space-y-3 p-4" aria-busy="true" aria-label="Se încarcă conversațiile">
                   {[1, 2, 3, 4].map((i) => (
@@ -670,6 +844,13 @@ export default function MessagesPage() {
                         <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
                       </p>
                     )}
+                    {conv.lastMessage &&
+                      typeof (conv.lastMessage as { content?: string }).content === "string" &&
+                      (conv.lastMessage as { content: string }).content.trim().length > 0 && (
+                        <p className="mb-1 line-clamp-2 text-left text-xs text-[var(--text-secondary)]">
+                          {(conv.lastMessage as { content: string }).content}
+                        </p>
+                      )}
                     <p className="text-[11px] text-[var(--text-muted)]">
                       {new Date(conv.lastMessageAt).toLocaleString("ro-RO")}
                     </p>
@@ -716,7 +897,10 @@ export default function MessagesPage() {
                   </Link>
                 </div>
 
-                <div ref={messagesContainerRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
+                <div
+                  ref={messagesContainerRef}
+                  className="flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-y-contain px-5 py-5 [-webkit-overflow-scrolling:touch]"
+                >
                   {isLoadingThread && messages.length === 0 ? (
                     <div className="space-y-4 py-6" aria-busy="true" aria-label="Se încarcă mesajele">
                       {[1, 2, 3, 4].map((i) => (
@@ -768,9 +952,32 @@ export default function MessagesPage() {
                   )}
                 </div>
 
+                {sendError && (
+                  <div
+                    className="border-b border-amber-500/25 bg-amber-500/10 px-5 py-3 text-sm text-amber-100"
+                    role="alert"
+                  >
+                    <p className="mb-2 font-medium">{sendError}</p>
+                    {retryPayload && (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-amber-400/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-500/20"
+                        onClick={() => {
+                          lastSendFingerprintRef.current = null;
+                          void sendOutboundMessage(retryPayload.conversation, retryPayload.content, {
+                            skipFingerprint: true,
+                            keepInput: true,
+                          });
+                        }}
+                      >
+                        Trimite din nou
+                      </button>
+                    )}
+                  </div>
+                )}
                 <form
                   onSubmit={handleSendMessage}
-                  className="flex gap-3 border-t border-white/[0.06] bg-[var(--bg-primary)]/40 px-5 py-4"
+                  className="flex gap-3 border-t border-white/[0.06] bg-[var(--bg-primary)]/40 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
                   id="message-form"
                 >
                   <input
@@ -780,8 +987,11 @@ export default function MessagesPage() {
                       setNewMessage(e.target.value);
                     }}
                     placeholder="Scrie un mesaj…"
+                    maxLength={MESSAGE_MAX_CHARS}
                     className="enterprise-input flex-1 rounded-xl px-4 py-3 text-sm text-white placeholder:text-[var(--text-muted)]"
                     id="message-input"
+                    enterKeyHint="send"
+                    autoComplete="off"
                   />
                   <button
                     type="submit"

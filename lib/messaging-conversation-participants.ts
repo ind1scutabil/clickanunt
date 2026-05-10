@@ -1,8 +1,8 @@
-import { canonicalMessagingUserId } from "@/lib/messaging-user-id";
+import { canonicalMessagingUserId } from "./messaging-user-id";
 
 /**
  * Convenție DB: @@unique([participant1Id, participant2Id, listingId]) cu participant1Id ≤ participant2Id
- * după canonical UUID lowercase — trebuie identic peste POST/GET pentru același cuplu.
+ * după UUID canonical lowercase — aceeași pereche la POST/GET ca la JWT viewer (`userCanon`).
  */
 export function conversationParticipantSlots(
   userIdA: string,

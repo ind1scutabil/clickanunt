@@ -11,7 +11,10 @@ import { connectMessageEventsSse } from '@/lib/message-events-sse-client';
 import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
 import { displayNameForMessagingUser } from '@/lib/messaging-display';
 import { messagingUserIdsEqual } from '@/lib/messaging-user-id';
+import { notifyMessagingInboxSync } from '@/lib/messaging-broadcast-sync';
 import type { ListingPublicDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
+
+const LISTING_SLOW_RECONCILE_MS = 8_500;
 
 type Message = MessageThreadRowDto;
 
@@ -40,7 +43,12 @@ export default function ListingMessagesPage() {
   const router = useRouter();
   const id = params?.id as string;
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  /** Reconcile thread vs DB periodically chiar dacă SSE e „live” — evită mesaje lipsă când evenimentele se pierd. */
+  const listingSlowReconcileRef = useRef<number | null>(null);
+  const listingSseLiveRef = useRef(false);
+  const listingPollInFlightRef = useRef(false);
+  const listingInboxNotifyAtRef = useRef(0);
   const fetchMessagesRef = useRef<
     (ownerId: string, _token: string | null, listingId?: string) => Promise<void>
   >(async () => {});
@@ -109,8 +117,8 @@ export default function ListingMessagesPage() {
         const accessAfterSync = localStorage.getItem('accessToken') || token;
 
         const ownerPeerId = data.owner?.id ?? data.ownerUserId;
-        // Once we have the listing owner, fetch messages
-        if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, resolvedUserId)) {
+        // Once we have the listing owner, fetch messages (folosește meId = id canonic ca în restul mesageriei)
+        if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, meId)) {
           fetchMessages(ownerPeerId, accessAfterSync, data.id);
         }
       } catch (err) {
@@ -195,9 +203,15 @@ export default function ListingMessagesPage() {
       return;
     }
 
+    listingSseLiveRef.current = false;
+
     const dispose = connectMessageEventsSse({
-      onOpen: () => {},
-      onTransportEnded: () => {},
+      onOpen: () => {
+        listingSseLiveRef.current = true;
+      },
+      onTransportEnded: () => {
+        listingSseLiveRef.current = false;
+      },
       onMessage: (ev) => {
         let d: {
           type?: string;
@@ -211,17 +225,25 @@ export default function ListingMessagesPage() {
         } catch {
           return;
         }
-        if (d.type !== "message") return;
+        const kind = typeof d.type === "string" ? d.type : "";
+        if (
+          kind === "heartbeat" ||
+          kind === "connected" ||
+          kind === "typing" ||
+          kind === "presence"
+        )
+          return;
+        if (
+          kind !== "message" &&
+          kind !== "unread_update" &&
+          kind !== "conversation_update" &&
+          kind !== "read_receipt" &&
+          kind !== "delivery_receipt"
+        )
+          return;
         const ctx = listingThreadRef.current;
         const { listingId, ownerId, currentUserId, conversationId: pinnedConv } = ctx;
         if (!listingId || !ownerId || !currentUserId) return;
-
-        const thisListingThread =
-          (messagingUserIdsEqual(d.senderId, ownerId) &&
-            messagingUserIdsEqual(d.receiverId, currentUserId)) ||
-          (messagingUserIdsEqual(d.receiverId, ownerId) &&
-            messagingUserIdsEqual(d.senderId, currentUserId));
-        if (!thisListingThread) return;
 
         if (pinnedConv && d.conversationId && d.conversationId !== pinnedConv) {
           return;
@@ -237,6 +259,16 @@ export default function ListingMessagesPage() {
           return;
         }
 
+        if (kind === "message") {
+          const thisListingThread =
+            (messagingUserIdsEqual(d.senderId, ownerId) &&
+              messagingUserIdsEqual(d.receiverId, currentUserId)) ||
+            (messagingUserIdsEqual(d.receiverId, ownerId) &&
+              messagingUserIdsEqual(d.senderId, currentUserId));
+          if (!thisListingThread) return;
+        }
+
+        notifyMessagingInboxSync();
         void fetchMessagesRef.current(
           ownerId,
           localStorage.getItem("accessToken"),
@@ -247,6 +279,7 @@ export default function ListingMessagesPage() {
 
     return () => {
       dispose();
+      listingSseLiveRef.current = false;
     };
   }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
 
@@ -260,26 +293,79 @@ export default function ListingMessagesPage() {
       return;
     }
 
-    const POLL_MS = 2000;
+    const POLL_MS = 2600;
+
     const pollMessages = async () => {
+      if (listingSseLiveRef.current) return;
+      if (listingPollInFlightRef.current) return;
+      listingPollInFlightRef.current = true;
       const t = localStorage.getItem("accessToken");
-      await fetchMessages(messagingPeerId, t, listing.id);
+      try {
+        await fetchMessages(messagingPeerId, t, listing.id);
+        const ts = Date.now();
+        if (ts - listingInboxNotifyAtRef.current >= 700) {
+          listingInboxNotifyAtRef.current = ts;
+          notifyMessagingInboxSync();
+        }
+      } finally {
+        listingPollInFlightRef.current = false;
+      }
     };
 
     void pollMessages();
 
-    if (pollingRef.current) {
+    if (pollingRef.current != null) {
       clearInterval(pollingRef.current);
     }
 
-    pollingRef.current = setInterval(() => {
+    pollingRef.current = window.setInterval(() => {
       void pollMessages();
-    }, POLL_MS);
+    }, POLL_MS) as unknown as number;
 
     return () => {
-      if (pollingRef.current) {
+      if (pollingRef.current != null) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
+      }
+    };
+  }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);
+
+  /** Safety belt: pol redus dar obligatoriu, ignoră flag-ul SSE (același model ca inbox dashboard). */
+  useEffect(() => {
+    if (!listing?.id || !messagingPeerId || !currentUser?.id) {
+      return;
+    }
+    if (isOwnListing) {
+      return;
+    }
+
+    const runSlow = async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+      if (listingPollInFlightRef.current) return;
+      listingPollInFlightRef.current = true;
+      const t = localStorage.getItem("accessToken");
+      try {
+        await fetchMessagesRef.current(messagingPeerId, t, listing.id);
+        const ts = Date.now();
+        if (ts - listingInboxNotifyAtRef.current >= 550) {
+          listingInboxNotifyAtRef.current = ts;
+          notifyMessagingInboxSync();
+        }
+      } finally {
+        listingPollInFlightRef.current = false;
+      }
+    };
+
+    listingSlowReconcileRef.current = window.setInterval(() => {
+      void runSlow();
+    }, LISTING_SLOW_RECONCILE_MS) as unknown as number;
+
+    return () => {
+      if (listingSlowReconcileRef.current != null) {
+        clearInterval(listingSlowReconcileRef.current);
+        listingSlowReconcileRef.current = null;
       }
     };
   }, [listing?.id, messagingPeerId, currentUser?.id, isOwnListing]);

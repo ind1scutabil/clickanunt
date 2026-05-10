@@ -76,12 +76,10 @@ export async function GET(request: NextRequest) {
     });
 
     const formattedConversations = conversations.map((conv) => {
-      const otherParticipant = messagingUserIdsEqual(
-        conv.participant1Id,
-        userCanon
-      )
-        ? conv.participant2
-        : conv.participant1;
+      const viewerIsP1 = messagingUserIdsEqual(conv.participant1Id, userCanon);
+      const viewerIsP2 = messagingUserIdsEqual(conv.participant2Id, userCanon);
+      const otherParticipant =
+        viewerIsP1 ? conv.participant2 : viewerIsP2 ? conv.participant1 : conv.participant2;
 
       return {
         id: conv.id,

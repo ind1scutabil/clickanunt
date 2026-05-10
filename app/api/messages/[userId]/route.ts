@@ -4,10 +4,39 @@ import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { messageSendSchema, uuidSchema } from "@/lib/security/validation-schemas";
 import { prisma } from "@/lib/prisma";
-import { publishToUsers } from "@/lib/messaging-sse-hub";
+import { messagingPublishSse, publishToUsers } from "@/lib/messaging-sse-hub";
 import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging-user-id";
 import { conversationParticipantSlots } from "@/lib/messaging-conversation-participants";
+import { normalizeMessagingContent } from "@/lib/messaging-content";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import {
+  messagingRequestCorrelation,
+  messagingStructuredLog,
+} from "@/lib/messaging-observability";
+import { promObserveHttpMessagePost } from "@/lib/messaging-prometheus";
+
+const MESSAGE_DEDUPE_MS = 60_000;
+
+const messagePostInclude = {
+  sender: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      role: true,
+    },
+  },
+  receiver: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      role: true,
+    },
+  },
+} as const;
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +111,8 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ userId: string }> }
 ) {
+  const corr = messagingRequestCorrelation(request);
+  const opStartedAt = Date.now();
   try {
     const params = await context.params;
     const idCheck = uuidSchema.safeParse(params.userId);
@@ -132,17 +163,18 @@ export async function GET(
       }
     }
 
-    const messageInclude = {
-      orderBy: { createdAt: "asc" as const },
-      include: {
-        sender: {
-          select: { id: true, name: true, avatar: true, email: true, role: true },
-        },
-        receiver: {
-          select: { id: true, name: true, avatar: true, email: true, role: true },
-        },
-      },
+    const participantMini = {
+      select: { id: true, name: true, avatar: true, email: true, role: true } as const,
     };
+
+    const messageRowInclude = {
+      sender: {
+        select: { id: true, name: true, avatar: true, email: true, role: true },
+      },
+      receiver: {
+        select: { id: true, name: true, avatar: true, email: true, role: true },
+      },
+    } as const;
 
     let conversation = null;
 
@@ -151,9 +183,8 @@ export async function GET(
       const byId = await prisma.conversation.findUnique({
         where: { id: conversationIdParam },
         include: {
-          messages: messageInclude,
-          participant1: { select: { id: true, name: true, avatar: true, email: true, role: true } },
-          participant2: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+          participant1: participantMini,
+          participant2: participantMini,
         },
       });
       if (byId) {
@@ -194,9 +225,8 @@ export async function GET(
         },
         orderBy: { lastMessageAt: "desc" },
         include: {
-          messages: messageInclude,
-          participant1: { select: { id: true, name: true, avatar: true, email: true, role: true } },
-          participant2: { select: { id: true, name: true, avatar: true, email: true, role: true } },
+          participant1: participantMini,
+          participant2: participantMini,
         },
       });
     }
@@ -210,18 +240,78 @@ export async function GET(
         peerUserIdPath: otherUserId,
         note: "no_conversation_match",
       });
-      return NextResponse.json(
-        {
-          conversationId: null as string | null,
-          listingId: listingIdParam ?? null,
-          messages: [],
-        },
-        { headers: { "Cache-Control": "private, no-store" } }
-      );
+    messagingStructuredLog("message_receive", {
+      requestId: corr.requestId,
+      userId: viewerCanon,
+      conversationId: null,
+      messageCountOnPage: 0,
+      hasOlderMessages: false,
+      durationMs: Date.now() - opStartedAt,
+      note: "no_conversation",
+    });
+
+    return NextResponse.json(
+      {
+        conversationId: null as string | null,
+        listingId: listingIdParam ?? null,
+        messages: [],
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
     }
 
-    // Mark messages as read
-    await prisma.message.updateMany({
+    const peerForEvents = messagingUserIdsEqual(
+      conversation.participant1Id,
+      viewerCanon
+    )
+      ? conversation.participant2Id
+      : conversation.participant1Id;
+
+    const limitParam = request.nextUrl.searchParams.get("limit");
+    const beforeCursor = request.nextUrl.searchParams.get("before")?.trim();
+
+    let pageLimit = 60;
+    if (limitParam) {
+      const n = Number.parseInt(limitParam, 10);
+      if (!Number.isFinite(n) || n < 10 || n > 150) {
+        return NextResponse.json(
+          { error: "Invalid limit (10–150)" },
+          { status: 400 }
+        );
+      }
+      pageLimit = n;
+    }
+
+    let cursorAnchorId: string | undefined;
+    if (beforeCursor !== undefined && beforeCursor.length > 0) {
+      const cur = uuidSchema.safeParse(beforeCursor);
+      if (!cur.success) {
+        return NextResponse.json({ error: "Invalid before cursor" }, { status: 400 });
+      }
+      const anchor = await prisma.message.findFirst({
+        where: { id: cur.data, conversationId: conversation.id },
+        select: { id: true },
+      });
+      if (!anchor) {
+        return NextResponse.json({ error: "Invalid message cursor for thread" }, { status: 400 });
+      }
+      cursorAnchorId = anchor.id;
+    }
+
+    const take = pageLimit + 1;
+    const pageRowsDesc = await prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take,
+      ...(cursorAnchorId ? { cursor: { id: cursorAnchorId }, skip: 1 } : {}),
+      include: messageRowInclude,
+    });
+
+    const hasOlder = pageRowsDesc.length > pageLimit;
+    const sliceDesc = pageRowsDesc.slice(0, pageLimit);
+    const messagesAsc = [...sliceDesc].reverse();
+
+    const readBatch = await prisma.message.updateMany({
       where: {
         conversationId: conversation.id,
         receiverId: viewerCanon,
@@ -233,25 +323,104 @@ export async function GET(
       },
     });
 
+    let deliveredBatch = { count: 0 };
+    const visibleIds = messagesAsc.map((m) => m.id);
+    if (visibleIds.length > 0) {
+      deliveredBatch = await prisma.message.updateMany({
+        where: {
+          conversationId: conversation.id,
+          id: { in: visibleIds },
+          receiverId: viewerCanon,
+          deliveredAt: null,
+        },
+        data: { deliveredAt: new Date() },
+      });
+    }
+
+    if (readBatch.count > 0) {
+      messagingStructuredLog("read_receipt", {
+        requestId: corr.requestId,
+        userId: viewerCanon,
+        conversationId: conversation.id,
+        markedReadApprox: readBatch.count,
+      });
+      messagingPublishSse([peerForEvents], "read_receipt", {
+        type: "read_receipt",
+        conversationId: conversation.id,
+        markedReadApprox: readBatch.count,
+      });
+      messagingPublishSse([viewerCanon, peerForEvents], "conversation_update", {
+        type: "conversation_update",
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        reason: "messages_read",
+      });
+    }
+
+    if (deliveredBatch.count > 0) {
+      messagingStructuredLog("delivery_receipt", {
+        requestId: corr.requestId,
+        userId: viewerCanon,
+        conversationId: conversation.id,
+        markedDeliveredApprox: deliveredBatch.count,
+      });
+      messagingPublishSse([peerForEvents], "delivery_receipt", {
+        type: "delivery_receipt",
+        conversationId: conversation.id,
+        markedDeliveredApprox: deliveredBatch.count,
+      });
+    }
+
     console.log("[api/messages] GET-thread", {
       conversationId: conversation.id,
       listingId: conversation.listingId,
       peerUserId: otherUserId,
       viewerId: viewerCanon,
-      messagesReturned: conversation.messages.length,
+      messagesReturned: messagesAsc.length,
+      hasOlder,
+      readMarked: readBatch.count,
+      deliveredMarked: deliveredBatch.count,
     });
     console.log("[MSG_DEBUG] FETCH MESSAGES", {
       currentUserId: viewerCanon,
       conversationId: conversation.id,
-      messageCount: conversation.messages.length,
+      messageCount: messagesAsc.length,
       listingId: conversation.listingId ?? null,
+    });
+
+    const approxPayloadBytes =
+      Buffer.byteLength(
+        JSON.stringify({
+          conversationId: conversation.id,
+          messages: messagesAsc,
+        }),
+        "utf8"
+      ) ?? 0;
+
+    messagingStructuredLog("message_receive", {
+      requestId: corr.requestId,
+      userId: viewerCanon,
+      conversationId: conversation.id,
+      messageCountOnPage: messagesAsc.length,
+      hasOlderMessages: hasOlder,
+      durationMs: Date.now() - opStartedAt,
+      approxPayloadBytes,
     });
 
     return NextResponse.json(
       {
         conversationId: conversation.id,
         listingId: conversation.listingId ?? null,
-        messages: conversation.messages,
+        messages: messagesAsc,
+        pagination: {
+          limit: pageLimit,
+          hasOlderMessages: hasOlder,
+          oldestMessageIdOnPage:
+            messagesAsc.length > 0 ? messagesAsc[0].id : null,
+          newestMessageIdOnPage:
+            messagesAsc.length > 0 ? messagesAsc[messagesAsc.length - 1].id : null,
+        },
+        approxPayloadBytes,
       },
       { headers: { "Cache-Control": "private, no-store" } }
     );
@@ -272,6 +441,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ userId: string }> }
 ) {
+  const corr = messagingRequestCorrelation(request);
   console.log('[MSG-POST] ===== MESSAGE SEND REQUEST RECEIVED =====');
   const startTime = Date.now();
   
@@ -335,15 +505,21 @@ export async function POST(
       conversationId?: string;
     };
 
-    if (!content || content.trim().length === 0) {
-      console.log('[MSG-POST] ❌ Empty message content');
+    const sanitizedContent = normalizeMessagingContent(content);
+    if (sanitizedContent.length === 0) {
       return NextResponse.json(
         { error: "Message content is required" },
         { status: 400 }
       );
     }
+    if (sanitizedContent.length > 5000) {
+      return NextResponse.json(
+        { error: "Message content is too long" },
+        { status: 400 }
+      );
+    }
 
-    console.log('[MSG-POST] Message content length:', content.trim().length, 'bytes');
+    console.log("[MSG-POST] Message normalized length:", sanitizedContent.length);
 
     const senderId = payload.userId || (payload as { sub?: string }).sub;
     if (!senderId) {
@@ -356,6 +532,17 @@ export async function POST(
 
     const senderCanon =
       canonicalMessagingUserId(senderId) ?? String(senderId).trim().toLowerCase();
+
+    const senderProfile = await prisma.user.findUnique({
+      where: { id: senderCanon },
+      select: { isBanned: true, deletedAt: true },
+    });
+    if (!senderProfile || senderProfile.deletedAt || senderProfile.isBanned) {
+      return NextResponse.json(
+        { error: "Cont indisponibil pentru mesaje" },
+        { status: 403 }
+      );
+    }
 
     const pathUserId = params.userId;
     console.log('[MSG-POST] Sender:', senderCanon, '-> Path userId:', pathUserId);
@@ -410,17 +597,30 @@ export async function POST(
 
     const receiver = await prisma.user.findUnique({
       where: { id: effectiveReceiverId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        role: true,
+        isBanned: true,
+        deletedAt: true,
+      },
     });
 
     if (!receiver) {
       console.log('[MSG-POST] ❌ Receiver not found:', effectiveReceiverId);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (receiver.deletedAt || receiver.isBanned) {
       return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
+        { error: "Destinatar indisponibil pentru mesaje" },
+        { status: 403 }
       );
     }
 
-    console.log('[MSG-POST] ✓ Receiver:', receiver.email);
+    console.log("[MSG-POST] ✓ Receiver:", receiver.email);
 
     if (!conversation) {
       console.log('[MSG-POST] Creating new conversation...');
@@ -464,99 +664,124 @@ export async function POST(
       console.log('[MSG-POST] ✓ Using existing conversation:', conversation.id);
     }
 
-    // Create message
-    console.log('[MSG-POST] Creating message...');
-    const message = await prisma.message.create({
-      data: {
+    const recentDuplicate = await prisma.message.findFirst({
+      where: {
         conversationId: conversation.id,
         senderId: senderCanon,
-        receiverId: effectiveReceiverId,
-        content: content.trim(),
+        content: sanitizedContent,
+        createdAt: { gte: new Date(Date.now() - MESSAGE_DEDUPE_MS) },
       },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            role: true,
+      include: messagePostInclude,
+      orderBy: { createdAt: "desc" },
+    });
+
+    const message = recentDuplicate
+      ? recentDuplicate
+      : await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId: senderCanon,
+            receiverId: effectiveReceiverId,
+            content: sanitizedContent,
           },
+          include: messagePostInclude,
+        });
+
+    console.log("[MSG-POST]", recentDuplicate ? "✓ Dedup reuse" : "✓ Created", message.id);
+
+    if (!recentDuplicate) {
+      void recordAnalyticsEvent({
+        eventType: ANALYTICS_EVENT.message_sent,
+        userId: senderCanon,
+        listingId: conversation.listingId ?? undefined,
+        metadata: {
+          conversationId: conversation.id,
+          messageId: message.id,
+          receiverUserId: effectiveReceiverId,
         },
-        receiver: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            role: true,
-          },
-        },
-      },
-    });
+        request,
+      });
+    }
 
-    console.log('[MSG-POST] ✓ Message created:', message.id);
+    if (!recentDuplicate) {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      });
 
-    void recordAnalyticsEvent({
-      eventType: ANALYTICS_EVENT.message_sent,
-      userId: senderCanon,
-      listingId: conversation.listingId ?? undefined,
-      metadata: {
-        conversationId: conversation.id,
-        messageId: message.id,
-        receiverUserId: effectiveReceiverId,
-      },
-      request,
-    });
-
-    // Update conversation's lastMessageAt
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { lastMessageAt: new Date() },
-    });
-
-    console.log('[MSG-POST] ✓ Conversation updated');
+      console.log("[MSG-POST] ✓ Conversation updated");
+    }
 
     // Send email notification to recipient (async, don't wait)
-    if (receiver.email) {
+    if (!recentDuplicate && receiver.email) {
       const senderName = message.sender.name || message.sender.email || "Utilizator";
       sendMessageNotificationEmail(
         receiver.email,
         senderName,
-        content.trim()
-      ).catch(err => console.error('Email notification error:', err));
+        sanitizedContent
+      ).catch((err: unknown) => console.error("Email notification error:", err));
     }
 
     const elapsed = Date.now() - startTime;
     console.log(`[MSG-POST] ✅ SUCCESS - Message ${message.id} sent in ${elapsed}ms`);
 
-    console.log("[MSG-POST] sse-publish", {
-      createdMessageId: message.id,
-      conversationId: conversation.id,
-      listingId: conversation.listingId ?? null,
-      senderId: senderCanon,
-      receiverId: effectiveReceiverId,
-    });
+    if (!recentDuplicate) {
+      console.log("[MSG-POST] sse-publish", {
+        createdMessageId: message.id,
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        senderId: senderCanon,
+        receiverId: effectiveReceiverId,
+      });
 
-    console.log("[MSG_DEBUG] SEND MESSAGE", {
-      currentUserId: senderCanon,
-      senderId: senderCanon,
-      receiverId: effectiveReceiverId,
-      conversationId: conversation.id,
-      listingId: conversation.listingId ?? null,
-    });
+      console.log("[MSG_DEBUG] SEND MESSAGE", {
+        currentUserId: senderCanon,
+        senderId: senderCanon,
+        receiverId: effectiveReceiverId,
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+      });
+    }
 
-    publishToUsers([senderCanon, effectiveReceiverId], {
-      type: "message",
+    if (!recentDuplicate) {
+      publishToUsers([senderCanon, effectiveReceiverId], {
+        type: "message",
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        senderId: senderCanon,
+        receiverId: effectiveReceiverId,
+        messageId: message.id,
+      });
+      messagingPublishSse([senderCanon, effectiveReceiverId], "conversation_update", {
+        type: "conversation_update",
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        reason: "new_message",
+        messagePreviewLen: sanitizedContent.length,
+      });
+      messagingPublishSse([effectiveReceiverId], "unread_update", {
+        type: "unread_update",
+        conversationId: conversation.id,
+        listingId: conversation.listingId ?? null,
+        reason: "new_message",
+      });
+    }
+
+    promObserveHttpMessagePost(Date.now() - startTime);
+    messagingStructuredLog("message_send", {
+      requestId: corr.requestId,
       conversationId: conversation.id,
-      listingId: conversation.listingId ?? null,
-      senderId: senderCanon,
-      receiverId: effectiveReceiverId,
       messageId: message.id,
+      userId: senderCanon,
+      receiverId: effectiveReceiverId,
+      duplicate: !!recentDuplicate,
+      durationMs: Date.now() - startTime,
+      contentLen: sanitizedContent.length,
     });
 
     return NextResponse.json({
       success: true,
+      duplicate: !!recentDuplicate,
       conversationId: conversation.id,
       message,
     });

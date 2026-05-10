@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
 import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import { subscribeMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 
 export default function Navbar() {
@@ -74,6 +75,10 @@ export default function Navbar() {
     schedule();
     document.addEventListener("visibilitychange", onVisibility);
 
+    const disposeInboxPing = subscribeMessagingInboxSync(() => {
+      void checkUnread();
+    });
+
     const disposeSse = connectMessageEventsSse({
       onOpen: () => {
         void checkUnread();
@@ -85,7 +90,15 @@ export default function Navbar() {
         } catch {
           return;
         }
-        if (d.type !== "message") return;
+        const kind = typeof d.type === "string" ? d.type : "";
+        if (kind === "heartbeat" || kind === "connected") return;
+        if (
+          kind !== "message" &&
+          kind !== "unread_update" &&
+          kind !== "conversation_update"
+        ) {
+          return;
+        }
         void checkUnread();
       },
     });
@@ -93,6 +106,7 @@ export default function Navbar() {
     return () => {
       if (unreadTimerRef.current) clearInterval(unreadTimerRef.current);
       document.removeEventListener("visibilitychange", onVisibility);
+      disposeInboxPing();
       disposeSse();
     };
   }, [isLoggedIn]);

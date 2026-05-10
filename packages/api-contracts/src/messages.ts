@@ -34,10 +34,19 @@ export type ConversationsListResponseDto = ConversationListItemDto[];
 /**
  * GET /api/messages/:userId — obiect `{ conversationId, listingId, messages }` (nu array brut).
  */
+export type MessageThreadPaginationDto = {
+  limit: number;
+  hasOlderMessages: boolean;
+  oldestMessageIdOnPage: string | null;
+  newestMessageIdOnPage: string | null;
+};
+
 export type MessageThreadEnvelopeDto = {
   conversationId: string | null;
   listingId: string | null;
   messages: MessageThreadRowDto[];
+  pagination?: MessageThreadPaginationDto;
+  approxPayloadBytes?: number;
 };
 
 /**
@@ -52,6 +61,7 @@ export type MessageThreadRowDto = {
   isRead: boolean;
   createdAt: IsoDateTimeString;
   readAt?: IsoDateTimeString | null;
+  deliveredAt?: IsoDateTimeString | null;
   sender?: MessageParticipantDto;
   receiver?: MessageParticipantDto;
 };

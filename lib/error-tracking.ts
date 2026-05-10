@@ -38,6 +38,14 @@ export async function captureError(
   }
 
   if (process.env.SENTRY_DSN && typeof process.env.SENTRY_DSN === "string") {
-    console.error("[captureError] Sentry DSN set — wire @sentry/nextjs for production forwarding");
+    void import("@/lib/messaging-sentry")
+      .then((m) =>
+        m.messagingSentryCaptureMessage(
+          `[${source}] ${message}`,
+          "error",
+          context ? { source, stack, ...context } : { source }
+        )
+      )
+      .catch(() => {});
   }
 }

@@ -236,11 +236,39 @@ export const listingPromoteSchema = z.object({
  * === MESSAGES ENDPOINTS ===
  */
 
-export const messageSendSchema = z.object({
-  content: z.string().min(1, 'Message content required').max(5000),
-  listingId: z.string().uuid().nullish(),
-  conversationId: z.string().uuid().nullish(),
-}).strict();
+export const messageSendSchema = z
+  .object({
+    content: z.string(),
+    listingId: z.string().uuid().nullish(),
+    conversationId: z.string().uuid().nullish(),
+  })
+  .strict()
+  .transform(({ content, listingId, conversationId }) => ({
+    content:
+      typeof content === "string" ? content.trim().replace(/\s+/g, " ") : content,
+    listingId: listingId ?? undefined,
+    conversationId: conversationId ?? undefined,
+  }))
+  .refine((o) => o.content.length >= 1, {
+    message: "Message content required",
+  })
+  .refine((o) => o.content.length <= 5000, {
+    message: "Message content is too long",
+  });
+
+export const messagingTypingSchema = z
+  .object({
+    conversationId: uuidSchema,
+    typing: z.boolean(),
+  })
+  .strict();
+
+export const messagingPresenceSchema = z
+  .object({
+    conversationId: uuidSchema.optional(),
+    online: z.boolean(),
+  })
+  .strict();
 
 /**
  * === REPORTS ENDPOINTS ===

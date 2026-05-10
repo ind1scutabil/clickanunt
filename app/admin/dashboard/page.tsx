@@ -551,7 +551,7 @@ export default function AdminDashboard() {
           )}
 
           {/* Module shortcuts */}
-          <div className="mb-7 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-7 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <Link
               href="/admin/moderation?tab=pending"
               className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
@@ -588,6 +588,19 @@ export default function AdminDashboard() {
               <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Facturi & venituri</h3>
               <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
                 Facturare, ANAF și rapoarte financiare
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/messaging"
+              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
+            >
+              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-base" aria-hidden>
+                📡
+              </div>
+              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Mesagerie (obs.)</h3>
+              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
+                SSE, Redis și conversații — diagnostic operațional
               </p>
             </Link>
 

@@ -1,49 +1,43 @@
 /**
- * In-memory pub/sub pentru SSE (același proces Node).
- * La scale orizontal → Redis pub/sub; pentru un singur PM2 e suficient.
+ * Hub SSE: abonări locale + fanout prin Redis Pub/Sub între instanțe.
  */
 
 import { canonicalMessagingUserId } from "@/lib/messaging-user-id";
+import type { MessagingSseEventName } from "@/lib/messaging-event-schema";
+import { buildRedisEnvelope } from "@/lib/messaging-event-schema";
+import {
+  registerMessagingStreamHandler,
+  publishEnvelopeToUsers,
+} from "@/lib/messaging-redis-bus";
 
 type Subscriber = (payload: Record<string, unknown>) => void;
 
-const subscribers = new Map<string, Set<Subscriber>>();
-
-function canonicalUserKey(userId: string): string {
-  return canonicalMessagingUserId(userId) ?? "";
-}
-
+/**
+ * Abonare SSE pentru un utilizator (handlers livrează deja `ssePayload`-ul).
+ */
 export function subscribeUser(userId: string, onEvent: Subscriber): () => void {
-  const key = canonicalUserKey(userId);
+  const key = canonicalMessagingUserId(userId) ?? "";
   if (!key) {
     return () => {};
   }
-  let set = subscribers.get(key);
-  if (!set) {
-    set = new Set();
-    subscribers.set(key, set);
-  }
-  set.add(onEvent);
-  return () => {
-    set!.delete(onEvent);
-    if (set!.size === 0) subscribers.delete(key);
-  };
+  return registerMessagingStreamHandler(userId, onEvent);
 }
 
+/** @deprecated folosiți messagingPublishSse — păstrat pentru compat rute existente */
 export function publishToUsers(userIds: string[], payload: Record<string, unknown>): void {
-  const seen = new Set<string>();
-  for (const id of userIds) {
-    const key = canonicalUserKey(id);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    const set = subscribers.get(key);
-    if (!set) continue;
-    for (const fn of set) {
-      try {
-        fn(payload);
-      } catch {
-        /* ignore */
-      }
-    }
-  }
+  messagingPublishSse(userIds, "new_message", payload);
+}
+
+export function messagingPublishSse(
+  userIds: string[],
+  event: MessagingSseEventName,
+  ssePayload: Record<string, unknown>
+): void {
+  void publishEnvelopeToUsers(userIds, (canonicalTargetId) =>
+    buildRedisEnvelope({
+      targetUserId: canonicalTargetId,
+      event,
+      ssePayload,
+    })
+  );
 }
