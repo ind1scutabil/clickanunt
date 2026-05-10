@@ -120,13 +120,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log('🔍 CREATE INTENT DEBUG:', {
-      userId,
-      userFound: !!user,
-      userEmail: user?.email,
-      promotionDiscountPercent: user?.promotionDiscountPercent,
-    });
-
     // Preț din configurația salvată (admin) când trimite packageId; altfel fallback Stripe
     let baseAmount: number;
     const uiPackageId =
@@ -179,13 +172,6 @@ export async function POST(req: NextRequest) {
       amount: finalAmount,
     });
 
-    console.log('🔍 PAYMENT INTENT CREATED:', {
-      paymentIntentId: paymentIntent.id,
-      hasClientSecret: !!paymentIntent.client_secret,
-      clientSecret: paymentIntent.client_secret?.substring(0, 20) || 'MISSING',
-      status: paymentIntent.status,
-    });
-
     // Save Payment in DB
     const payment = await prisma.payment.create({
       data: {
@@ -211,6 +197,7 @@ export async function POST(req: NextRequest) {
 
     logger.info('Payment intent created via CSRF auth', {
       paymentId: payment.id,
+      stripePaymentIntentId: paymentIntent.id,
       userId,
       listingId,
       amount: paymentIntent.amount,
