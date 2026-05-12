@@ -36,7 +36,13 @@ export async function GET(req: NextRequest) {
     const filePath = path.join(root, key);
 
     if (!fs.existsSync(filePath)) {
-      return new NextResponse('Not found', { status: 404 });
+      return new NextResponse('Not found', {
+        status: 404,
+        headers: {
+          // Evită cache la edge/browser după restaurare fișiere pe disc.
+          'Cache-Control': 'private, no-store, max-age=0',
+        },
+      });
     }
 
     const data = await fs.promises.readFile(filePath);

@@ -7,6 +7,7 @@
 import { enforceEnvironment } from './lib/env-validator';
 import { getStripePublishableKey, warnIfStripeMisconfiguredForProduction } from './lib/stripe-publishable-key';
 import { getStripeSecretKeyRuntime } from './lib/stripe-env-runtime';
+import { warnIfProductionUsesLocalDiskUploads } from './lib/storage-production-warn';
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
@@ -17,5 +18,6 @@ export async function register() {
     });
     enforceEnvironment();
     warnIfStripeMisconfiguredForProduction();
+    warnIfProductionUsesLocalDiskUploads();
   }
 }
