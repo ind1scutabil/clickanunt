@@ -8,6 +8,8 @@
 #   DEPLOY_DIR      (default: /var/www/clickanunt)
 #   DEPLOY_COMMIT_MSG  mesaj la commit auto (cu DEPLOY_AUTO_COMMIT=1)
 #   DEPLOY_AUTO_COMMIT=1  — fără TTY: commit automat tot tracked+untracked
+#   DEPLOY_VPS_GIT_CLEAN=1 — pe VPS, după pull: git clean cu excluderi (vezi scripts/vps-safe-git-clean.sh).
+#     NU folosi niciodată „git clean -fd” gol pe producție — șterge public/uploads/listings (imagini).
 ###############################################################################
 set -euo pipefail
 
@@ -81,6 +83,16 @@ log "Director: \$DEPLOY_DIR | branch: \$BRANCH"
 cd "\$DEPLOY_DIR"
 log "git pull origin \$BRANCH (sau git pull)"
 git pull origin "\$BRANCH" || git pull
+log "Asigură directoare uploads locale (nu sunt în git)"
+mkdir -p "\$DEPLOY_DIR/public/uploads/listings" "\$DEPLOY_DIR/public/uploads/avatars" "\$DEPLOY_DIR/public/uploads/messages"
+if [ "\${DEPLOY_VPS_GIT_CLEAN:-}" = "1" ]; then
+  log "DEPLOY_VPS_GIT_CLEAN=1 → git clean -fd cu excluderi public/uploads (script vps-safe-git-clean.sh)"
+  bash "\$DEPLOY_DIR/scripts/vps-safe-git-clean.sh" || git clean -fd \\
+    -e public/uploads -e public/uploads/ \\
+    -e public/uploads/listings -e public/uploads/listings/ \\
+    -e public/uploads/avatars -e public/uploads/avatars/ \\
+    -e public/uploads/messages -e public/uploads/messages/
+fi
 log "npm ci"
 npm ci
 log "NODE_ENV=production npm run build"

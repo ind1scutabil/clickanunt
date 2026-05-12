@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Producție VPS — Git pull, deps, build, migrații Prisma, PM2.
+# Imagini utilizator: nu rula niciodată „git clean -fd” fără excluderi — folosește scripts/vps-safe-git-clean.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -9,6 +10,7 @@ if [ -n "${DEPLOY_BRANCH:-}" ]; then
 else
   git pull origin main || git pull
 fi
+mkdir -p "$ROOT/public/uploads/listings" "$ROOT/public/uploads/avatars" "$ROOT/public/uploads/messages"
 npm ci
 NODE_ENV=production npm run build
 npx prisma migrate deploy
