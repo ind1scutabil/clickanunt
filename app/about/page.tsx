@@ -11,11 +11,8 @@ export default function AboutPage() {
           <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
             Transparență · Siguranță · Gratuit
           </p>
-          <h1 className="mb-6 text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
-            Despre{" "}
-            <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
-              ClickAnunț
-            </span>
+          <h1 className="mb-6 text-4xl font-semibold tracking-tight text-white md:text-5xl lg:text-6xl">
+            Despre <span className="text-primary-400">ClickAnunț</span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-[var(--text-secondary)] md:text-xl">
             Platformă de anunțuri gratuite pentru România — conectăm cumpărători și vânzători într-un mediu
@@ -25,20 +22,16 @@ export default function AboutPage() {
 
         <section className="mb-16 grid grid-cols-2 gap-4 md:mb-20 md:grid-cols-4 md:gap-5" aria-label="Indicatori">
           {[
-            { value: "50K+", label: "Anunțuri active", accent: "from-amber-400/90 to-orange-500/90" },
-            { value: "100K+", label: "Utilizatori", accent: "from-sky-400/90 to-blue-500/90" },
-            { value: "1M+", label: "Vizitatori / lună", accent: "from-emerald-400/90 to-teal-500/90" },
-            { value: "4.8★", label: "Rating mediu", accent: "from-violet-400/90 to-fuchsia-500/90" },
+            { value: "50K+", label: "Anunțuri active" },
+            { value: "100K+", label: "Utilizatori" },
+            { value: "1M+", label: "Vizitatori / lună" },
+            { value: "4.8★", label: "Rating mediu" },
           ].map((s) => (
             <div
               key={s.label}
               className="enterprise-card enterprise-card-hover rounded-2xl p-6 text-center md:p-8"
             >
-              <div
-                className={`mb-2 bg-gradient-to-br ${s.accent} bg-clip-text text-3xl font-bold tabular-nums text-transparent md:text-4xl`}
-              >
-                {s.value}
-              </div>
+              <div className="mb-2 text-3xl font-semibold tabular-nums text-white md:text-4xl">{s.value}</div>
               <div className="text-sm font-medium text-[var(--text-tertiary)]">{s.label}</div>
             </div>
           ))}
@@ -78,21 +71,21 @@ export default function AboutPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="enterprise-card enterprise-card-hover rounded-2xl p-8 transition-colors hover:border-[rgba(109,91,255,0.25)]"
+              className="enterprise-card enterprise-card-hover rounded-2xl p-8 transition-colors hover:border-white/15"
             >
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent-primary)]/25 to-[var(--accent-secondary)]/15 ring-1 ring-white/10">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
                 {item.icon === "shield" && (
-                  <svg className="h-6 w-6 text-[var(--accent-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-6 w-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
                 )}
                 {item.icon === "bolt" && (
-                  <svg className="h-6 w-6 text-[var(--accent-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-6 w-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 )}
                 {item.icon === "coin" && (
-                  <svg className="h-6 w-6 text-[var(--accent-secondary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-6 w-6 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 )}
@@ -111,7 +104,7 @@ export default function AboutPage() {
           </p>
           <Link
             href="/contact"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-8 py-3.5 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]"
+            className="inline-flex items-center gap-2 rounded-xl border border-primary-500/25 bg-primary-600 px-8 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]"
           >
             Contactează-ne
           </Link>

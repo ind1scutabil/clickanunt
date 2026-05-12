@@ -37,7 +37,10 @@ function LinkPills({
 }) {
   if (links.length === 0) return null;
   return (
-    <section aria-labelledby={id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <section
+      aria-labelledby={id}
+      className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-5 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.75)] transition-[border-color,box-shadow] duration-normal ease-premium hover:border-white/12"
+    >
       <h2 id={id} className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
         {title}
       </h2>
@@ -75,7 +78,10 @@ export function SeoMarketHubExtras({
       {faqJsonLd ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       ) : null}
-      <nav aria-label="Breadcrumb" className="text-sm text-neutral-400">
+      <nav
+        aria-label="Breadcrumb"
+        className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-sm text-neutral-400"
+      >
         <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {breadcrumbs.map((crumb, idx) => {
             const last = idx === breadcrumbs.length - 1;

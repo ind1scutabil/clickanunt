@@ -26,7 +26,7 @@ const InfoIcon = () => (
  * If dynamic stats API exists, fetches real data.
  * If not, displays "Date în curs de actualizare" with info icon.
  */
-export const StatsStripSafe: React.FC = () => {
+export const StatsStripSafe: React.FC<{ variant?: 'dark' | 'light' }> = ({ variant = 'dark' }) => {
   // Check if enterprise UI is enabled
   const isEnterpriseEnabled = process.env.NEXT_PUBLIC_ENTERPRISE_CRITICAL_UI === 'true';
   
@@ -72,64 +72,72 @@ export const StatsStripSafe: React.FC = () => {
     return null;
   }
 
+  const showSkeleton = loading || hasApiError || !stats;
+  const isLight = variant === 'light';
+
   return (
-    <section className="max-w-7xl mx-auto px-4 py-24">
+    <section className={`max-w-7xl mx-auto px-4 ${isLight ? 'py-12' : 'py-10 md:py-12'}`}>
       <Card 
         variant="elevated" 
-        className="p-8 md:p-12 relative bg-[#1A1D24] border border-white/5 shadow-[0_24px_70px_rgba(0,0,0,0.3)] overflow-hidden"
+        className={`relative overflow-hidden ${
+          isLight
+            ? 'border border-slate-200 bg-white p-8 shadow-sm md:p-12'
+            : 'border border-white/[0.08] bg-[#181b22] p-6 shadow-sm md:p-10'
+        }`}
       >
-        {hasApiError || !stats ? (
-          // Placeholder when API not available
+        {showSkeleton ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 text-center">
             {[1, 2, 3, 4].map((idx) => (
               <div key={idx} className="flex flex-col items-center justify-center py-6">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <div className="text-gray-400">
+                  <div className={isLight ? 'text-slate-400' : 'text-white/35'}>
                     <InfoIcon />
                   </div>
-                  <div className="text-sm text-gray-400">Date în curs de actualizare</div>
+                  <div className={`text-sm ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                    {loading ? "Se încarcă…" : "Date în curs de actualizare"}
+                  </div>
                 </div>
-                <div className="h-8 w-32 bg-gradient-to-r from-gray-700 to-gray-800 rounded animate-pulse" />
+                <div className={`h-8 w-32 rounded animate-pulse ${isLight ? 'bg-slate-100' : 'bg-white/[0.06]'}`} />
               </div>
             ))}
           </div>
         ) : (
           <div className="relative grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 text-center">
-            <div className="transition-transform hover:scale-[1.02]">
-              <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
+            <div>
+              <div className={`text-3xl md:text-4xl font-semibold tabular-nums tracking-tight mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 {typeof stats.activeListings === 'number'
                   ? stats.activeListings.toLocaleString('ro-RO')
                   : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Anunțuri active</div>
-              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (count)</div>
+              <div className={`text-sm md:text-base ${isLight ? 'text-slate-600' : 'text-white/45'}`}>Anunțuri active</div>
+              <div className={`mt-1 text-[11px] ${isLight ? 'text-slate-400' : 'text-white/35'}`}>Sursă: DB (count)</div>
             </div>
-            <div className="transition-transform hover:scale-[1.02]">
-              <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
+            <div>
+              <div className={`text-3xl md:text-4xl font-semibold tabular-nums tracking-tight mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 {typeof stats.totalUsers === 'number'
                   ? stats.totalUsers.toLocaleString('ro-RO')
                   : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Utilizatori</div>
-              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (count)</div>
+              <div className={`text-sm md:text-base ${isLight ? 'text-slate-600' : 'text-white/45'}`}>Utilizatori</div>
+              <div className={`mt-1 text-[11px] ${isLight ? 'text-slate-400' : 'text-white/35'}`}>Sursă: DB (count)</div>
             </div>
-            <div className="transition-transform hover:scale-[1.02]">
-              <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
+            <div>
+              <div className={`text-3xl md:text-4xl font-semibold tabular-nums tracking-tight mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 {typeof stats.listingViewsLast30d === 'number'
                   ? stats.listingViewsLast30d.toLocaleString('ro-RO')
                   : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Vizualizări anunțuri (30z)</div>
-              <div className="text-gray-500 mt-1 text-[11px]">Sursă: analytics_events</div>
+              <div className={`text-sm md:text-base ${isLight ? 'text-slate-600' : 'text-white/45'}`}>Vizualizări anunțuri (30z)</div>
+              <div className={`mt-1 text-[11px] ${isLight ? 'text-slate-400' : 'text-white/35'}`}>Sursă: analytics_events</div>
             </div>
-            <div className="transition-transform hover:scale-[1.02]">
-              <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] bg-clip-text text-transparent mb-2">
+            <div>
+              <div className={`text-3xl md:text-4xl font-semibold tabular-nums tracking-tight mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
                 {typeof stats.averageRating === 'number' && stats.averageRating > 0
                   ? `${stats.averageRating.toFixed(1)}★`
                   : '—'}
               </div>
-              <div className="text-sm md:text-base text-gray-400">Rating mediu</div>
-              <div className="text-gray-500 mt-1 text-[11px]">Sursă: DB (avg user rating)</div>
+              <div className={`text-sm md:text-base ${isLight ? 'text-slate-600' : 'text-white/45'}`}>Rating mediu</div>
+              <div className={`mt-1 text-[11px] ${isLight ? 'text-slate-400' : 'text-white/35'}`}>Sursă: DB (avg user rating)</div>
             </div>
           </div>
         )}

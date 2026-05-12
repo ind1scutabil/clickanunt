@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   CAR_MAKES_AND_MODELS, 
@@ -10,13 +9,46 @@ import {
   ROMANIAN_COUNTIES, 
   CITIES_BY_COUNTY 
 } from "@/lib/carData";
-import {
-  listingPrimaryPhotoSrc,
-  LISTING_PHOTO_ONERROR_FALLBACK,
-} from "@/lib/listing-photo-url";
+import { ListingCard } from "@/app/components/ListingCard";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
 type Listing = ListingPublicDto;
+
+function mapPublicListingToCardProps(l: Listing) {
+  const owner = l.owner;
+  const o =
+    owner && typeof owner === "object" && "id" in owner
+      ? (owner as Listing["owner"])
+      : undefined;
+  return {
+    id: l.id,
+    title: l.title,
+    priceAmount: l.priceAmount,
+    priceCurrency: l.priceCurrency,
+    category: l.category,
+    photos: l.photos,
+    createdAt: l.createdAt,
+    status: l.status,
+    isPromoted: l.isPromoted,
+    views: l.views,
+    city: l.city,
+    county: l.county,
+    owner: o
+      ? {
+          id: o.id,
+          businessName:
+            "businessName" in o && typeof o.businessName === "string" ? o.businessName : undefined,
+          trustScore: typeof o.trustScore === "number" ? o.trustScore : 0,
+          verificationLevel:
+            "emailVerified" in o && o.emailVerified
+              ? ("email" as const)
+              : "phoneVerified" in o && o.phoneVerified
+                ? ("phone" as const)
+                : ("none" as const),
+        }
+      : undefined,
+  };
+}
 
 export interface ListingsViewProps {
   /** Example: `/auto/bucuresti` — pagination & filters sync to this path segments. */
@@ -195,12 +227,20 @@ export default function ListingsView({
       }
 
       const res = await fetch(`/api/listings?${params}`, { cache: 'no-store' });
-      
+      const data = (await res.json().catch(() => ({}))) as {
+        data?: Listing[];
+        listings?: Listing[];
+        pagination?: { total?: number; count?: number };
+        error?: string;
+      };
+
       if (!res.ok) {
-        throw new Error(`Failed to load listings: ${res.status}`);
+        const msg =
+          typeof data.error === "string" && data.error.length > 0
+            ? data.error
+            : `Eroare la încărcare (${res.status}).`;
+        throw new Error(msg);
       }
-      
-      const data = await res.json();
       if (requestId !== activeRequestRef.current) {
         // Ignore stale responses (prevents category mismatch/race flicker).
         return;
@@ -247,22 +287,54 @@ export default function ListingsView({
 
   const totalPages = Math.ceil(total / limit);
 
+  const hubHero = Boolean(seoIntro || routeBase);
+
   return (
-    <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
-      <h1 className="text-4xl font-bold tracking-tight text-white mb-4">{pageTitle ?? "Toate anunțurile"}</h1>
-      {seoIntro ? <div className="mb-8 text-sm leading-relaxed text-gray-400 max-w-3xl space-y-3">{seoIntro}</div> : null}
+    <div className="mx-auto min-w-0 max-w-7xl px-3 pb-[max(2rem,calc(6rem+env(safe-area-inset-bottom,0px)))] pt-5 text-zinc-300 sm:px-5 sm:pb-10 sm:pt-6 md:pb-10 lg:px-8">
+      {hubHero ? (
+        <header className="relative mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#181b22] px-5 py-5 shadow-sm ring-1 ring-white/[0.04] sm:mb-7 sm:px-6 sm:py-6 md:px-8 md:py-7">
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(640px_300px_at_0%_0%,rgba(30,58,138,0.07),transparent_55%)]"
+            aria-hidden
+          />
+          <div className="relative">
+            <h1 className="text-display max-w-4xl text-balance text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl md:text-4xl">
+              {pageTitle ?? "Toate anunțurile"}
+            </h1>
+            {seoIntro ? (
+              <div className="mt-3 max-w-3xl space-y-3 text-[13px] leading-relaxed text-zinc-400 md:text-sm">
+                {seoIntro}
+              </div>
+            ) : null}
+          </div>
+        </header>
+      ) : (
+        <>
+          <h1 className="mb-3 text-2xl font-semibold tracking-tight text-zinc-50 sm:mb-4 sm:text-3xl md:text-4xl">
+            {pageTitle ?? "Toate anunțurile"}
+          </h1>
+          {seoIntro ? (
+            <div className="mb-8 max-w-3xl space-y-3 text-[13px] leading-relaxed text-zinc-400 md:text-sm">{seoIntro}</div>
+          ) : null}
+        </>
+      )}
 
       {/* Filters */}
       {isFiltersOpen ? (
-        <div className={`relative overflow-hidden bg-[#161B22] p-6 md:p-8 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-10 border border-white/5 transition-all duration-normal ease-premium ${
-          isFilterSticky ? 'lg:sticky lg:top-4 lg:z-40' : ''
-        }`}>
-          
+        <div
+          className={`listings-filters-panel relative mb-5 max-w-full overflow-hidden rounded-xl border border-white/[0.08] bg-[#141820] p-3.5 shadow-sm ring-1 ring-white/[0.04] transition-colors [color-scheme:dark] sm:mb-7 sm:p-5 ${
+            isFilterSticky ? "lg:sticky lg:top-4 lg:z-40" : ""
+          }`}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(26,29,36,0.98)_0%,rgba(15,17,22,0.99)_100%)]"
+            aria-hidden
+          />
           {/* Content */}
           <div className="relative">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                <svg className="w-7 h-7 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mb-4 flex items-center justify-between gap-2 sm:mb-6">
+              <h2 className="flex items-center gap-1.5 text-base font-semibold text-zinc-100 sm:gap-2 sm:text-lg">
+                <svg className="h-5 w-5 shrink-0 text-zinc-500 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
                 Filtre
@@ -270,17 +342,17 @@ export default function ListingsView({
               <button
                 type="button"
                 onClick={() => setIsFiltersOpen(false)}
-                className="px-4 py-2 rounded-lg bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 text-sm font-semibold"
+                className="rounded-md border border-white/[0.1] bg-white/[0.05] px-3 py-1.5 text-xs font-semibold text-zinc-200 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] sm:px-4 sm:py-2 sm:text-sm"
               >
                 Ascunde filtre
               </button>
             </div>
 
             {/* Main filters */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-8 sm:gap-6 md:grid-cols-3">
             {/* Category */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors sm:mb-2 sm:text-sm group-hover:text-zinc-400">
                 Categorie
               </label>
               <select
@@ -293,7 +365,7 @@ export default function ListingsView({
                     router.push("/listings");
                   }
                 }}
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                className="w-full rounded-lg border border-white/[0.08] bg-[#1a1d24] px-3 py-2.5 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:px-4 sm:py-3"
               >
                 <option value="">Toate categoriile</option>
                 {ALL_CATEGORIES.map((cat) => (
@@ -306,14 +378,14 @@ export default function ListingsView({
 
             {/* Subcategory */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                 Subcategorie
               </label>
               <select
                 value={filters.subcategory || ''}
                 onChange={(e) => handleFilterChange('subcategory', e.target.value)}
                 disabled={!filters.category}
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
               >
                 <option value="">Toate subcategoriile</option>
                 {availableSubcategories.map((sub) => (
@@ -326,7 +398,7 @@ export default function ListingsView({
 
             {/* County */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                 Județ
               </label>
               <select
@@ -339,7 +411,7 @@ export default function ListingsView({
                   }));
                   setPage(1);
                 }}
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
               >
                 <option value="">Toate județele</option>
                 {ROMANIAN_COUNTIES.map((c) => (
@@ -351,19 +423,19 @@ export default function ListingsView({
             </div>
           </div>
 
-          <div className="border-t border-white/5 my-6" />
+          <div className="my-4 border-t border-white/[0.06] sm:my-6" />
 
           {/* Second row of filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-8 sm:gap-6 md:grid-cols-3">
             {/* City */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                 Oraș
               </label>
               <select
                 value={filters.city || ''}
                 onChange={(e) => handleFilterChange('city', e.target.value)}
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
               >
                 <option value="">Toate orașele</option>
                 {availableCities.map((c) => (
@@ -376,7 +448,7 @@ export default function ListingsView({
 
             {/* Price Min */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                 Preț min (RON)
               </label>
               <input
@@ -384,13 +456,13 @@ export default function ListingsView({
                 value={filters.priceMin || ''}
                 onChange={(e) => handleFilterChange('priceMin', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="5000"
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
               />
             </div>
 
             {/* Price Max */}
             <div className="group">
-              <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+              <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                 Preț max (RON)
               </label>
               <input
@@ -398,26 +470,30 @@ export default function ListingsView({
                 value={filters.priceMax || ''}
                 onChange={(e) => handleFilterChange('priceMax', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="50000"
-                className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
               />
             </div>
           </div>
 
           {/* Auto-specific filters (shown only for Auto category) */}
           {isAutoCategory && (
-            <div className="relative bg-[#1C212B] p-6 rounded-2xl border border-white/5 shadow-[0_18px_50px_rgba(0,0,0,0.35)] mb-8">
+            <div className="relative mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#161922] p-4 shadow-sm ring-1 ring-white/[0.04] sm:mb-8 sm:p-6">
+              <div
+                className="pointer-events-none absolute inset-0 bg-[radial-gradient(70%_50%_at_0%_0%,rgba(30,58,138,0.06),transparent_50%)]"
+                aria-hidden
+              />
               <div className="relative">
-                <h3 className="text-xl font-bold text-white mb-5 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <h3 className="mb-3 flex items-center gap-2 text-base font-semibold tracking-tight text-zinc-100 sm:mb-5 sm:text-lg">
+                  <svg className="h-5 w-5 shrink-0 text-sky-500/80 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                   Filtre Auto
                 </h3>
             
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:mb-6 sm:gap-6 md:grid-cols-3">
                   {/* Make */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       Marcă
                     </label>
                     <select
@@ -430,7 +506,7 @@ export default function ListingsView({
                         }));
                         setPage(1);
                       }}
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                     >
                       <option value="">Toate mărcile</option>
                       {POPULAR_MAKES.map((m) => (
@@ -443,14 +519,14 @@ export default function ListingsView({
 
                   {/* Model */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       Model
                     </label>
                     <select
                       value={filters.model || ''}
                       onChange={(e) => handleFilterChange('model', e.target.value)}
                       disabled={!filters.make}
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3 disabled:bg-[#0F1117] disabled:text-white/40 disabled:cursor-not-allowed"
                     >
                       <option value="">Toate modelele</option>
                       {availableModels.map((m) => (
@@ -463,47 +539,45 @@ export default function ListingsView({
 
                   {/* Fuel */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       Combustibil
                     </label>
                     <select
                       value={filters.fuel || ''}
                       onChange={(e) => handleFilterChange('fuel', e.target.value)}
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                     >
                       <option value="">Orice combustibil</option>
-                      <option value="Benzină">Benzină</option>
-                      <option value="Diesel">Diesel</option>
-                      <option value="Hibrid">Hibrid</option>
-                      <option value="Electric">Electric</option>
-                      <option value="GPL">GPL</option>
-                      <option value="Benzină+GPL">Benzină+GPL</option>
-                      <option value="Plug-in Hybrid">Plug-in Hybrid</option>
+                      <option value="petrol">Benzină</option>
+                      <option value="diesel">Diesel</option>
+                      <option value="hybrid">Hibrid</option>
+                      <option value="electric">Electric</option>
+                      <option value="other">GPL / altele</option>
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-3">
                   {/* Transmission */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       Transmisie
                     </label>
                     <select
                       value={filters.transmission || ''}
                       onChange={(e) => handleFilterChange('transmission', e.target.value)}
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                     >
                       <option value="">Orice transmisie</option>
-                      <option value="Manuală">Manuală</option>
-                      <option value="Automată">Automată</option>
-                      <option value="Semi-automată">Semi-automată</option>
+                      <option value="manual">Manuală</option>
+                      <option value="automatic">Automată</option>
+                      <option value="semiautomatic">Semi-automată</option>
                     </select>
                   </div>
 
                   {/* Year Min */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       An min
                     </label>
                     <input
@@ -511,13 +585,13 @@ export default function ListingsView({
                       value={filters.yearMin || ''}
                       onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="2010"
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                     />
                   </div>
 
                   {/* Year Max */}
                   <div className="group">
-                    <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                    <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
                       An max
                     </label>
                     <input
@@ -525,7 +599,7 @@ export default function ListingsView({
                       value={filters.yearMax || ''}
                       onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                       placeholder="2024"
-                      className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                      className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                     />
                   </div>
                 </div>
@@ -535,9 +609,9 @@ export default function ListingsView({
 
           {/* Non-auto year filters */}
           {!isAutoCategory && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:mb-8 sm:gap-6 md:grid-cols-2">
               <div className="group">
-                <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                   An min
                 </label>
                 <input
@@ -545,11 +619,11 @@ export default function ListingsView({
                   value={filters.yearMin || ''}
                   onChange={(e) => handleFilterChange('yearMin', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2010"
-                  className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                  className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                 />
               </div>
               <div className="group">
-                <label className="block text-sm font-semibold text-gray-200 mb-2 transition-colors group-hover:text-gray-100">
+                <label className="mb-1 block text-xs font-semibold text-zinc-500 transition-colors group-hover:text-zinc-400 sm:mb-2 sm:text-sm">
                   An max
                 </label>
                 <input
@@ -557,17 +631,17 @@ export default function ListingsView({
                   value={filters.yearMax || ''}
                   onChange={(e) => handleFilterChange('yearMax', e.target.value ? Number(e.target.value) : undefined)}
                   placeholder="2024"
-                  className="w-full px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+                  className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                 />
               </div>
             </div>
           )}
 
-          <div className="border-t border-white/5 my-6" />
+          <div className="my-4 border-t border-white/[0.06] sm:my-6" />
 
           {/* Sorting */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-200 mb-2">
+          <div className="mb-4 sm:mb-6">
+            <label className="mb-1 block text-xs font-semibold text-zinc-500 sm:mb-2 sm:text-sm">
               Sortare
             </label>
             <select
@@ -576,7 +650,7 @@ export default function ListingsView({
                 const [sortBy, sortOrder] = e.target.value.split('-');
                 setFilters(prev => ({ ...prev, sortBy, sortOrder }));
               }}
-              className="w-full md:w-80 px-4 py-3 rounded-[12px] bg-[#1C212B] border border-white/5 text-white placeholder:text-white/40 focus:border-white/10 focus:ring-2 focus:ring-[rgba(99,102,241,0.35)] transition-all duration-200"
+              className="w-full rounded-lg border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:px-4 sm:py-3 md:w-80"
             >
               <option value="createdAt-desc">Cele mai noi</option>
               <option value="createdAt-asc">Cele mai vechi</option>
@@ -587,7 +661,7 @@ export default function ListingsView({
             </select>
           </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <button
                 onClick={async () => {
                   await loadListings();
@@ -599,18 +673,18 @@ export default function ListingsView({
                     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className="h-11 px-6 rounded-[12px] bg-gradient-to-r from-[#6D5BFF] to-[#4F46E5] hover:from-[#5B4BFF] hover:to-[#4338CA] text-white font-semibold shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                className="flex h-10 items-center gap-1.5 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:h-11 sm:gap-2 sm:px-6"
               >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Aplică filtre
             </button>
               <button
                 onClick={clearFilters}
-                className="h-11 px-6 rounded-[12px] bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                className="flex h-10 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-4 text-sm font-semibold text-zinc-200 shadow-sm transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/10 sm:h-11 sm:gap-2 sm:px-6"
               >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
               Resetează filtre
@@ -619,12 +693,12 @@ export default function ListingsView({
           </div>
         </div>
       ) : (
-        <div className="mb-6 flex items-center justify-between rounded-2xl border border-white/5 bg-[#161B22] px-5 py-4">
-          <div className="text-white/80 text-sm font-semibold">Filtre ascunse</div>
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#181b22] px-3 py-2.5 shadow-sm sm:mb-5 sm:px-5 sm:py-4">
+          <div className="text-sm font-semibold text-zinc-400">Filtre ascunse</div>
           <button
             type="button"
             onClick={() => setIsFiltersOpen(true)}
-            className="px-4 py-2 rounded-lg bg-[#1C212B] text-white/80 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200 text-sm font-semibold"
+            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08]"
           >
             Afișează filtre
           </button>
@@ -632,7 +706,7 @@ export default function ListingsView({
       )}
 
       {showFiltersApplied && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-200 text-sm font-semibold">
+        <div className="mb-4 rounded-lg border border-emerald-500/20 bg-emerald-950/35 px-4 py-3 text-sm font-medium text-emerald-100">
           Filtre aplicate cu succes.
         </div>
       )}
@@ -640,7 +714,7 @@ export default function ListingsView({
       {/* Active Filter Chips */}
       {Object.entries(filters).some(([key, value]) => value && key !== 'sortBy' && key !== 'sortOrder') && (
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-gray-400">Filtre active:</span>
+          <span className="text-sm font-medium text-zinc-500">Filtre active:</span>
           {Object.entries(filters).map(([key, value]) => {
             if (!value || key === 'sortBy' || key === 'sortOrder') return null;
             
@@ -663,7 +737,7 @@ export default function ListingsView({
               <button
                 key={key}
                 onClick={() => handleFilterChange(key as keyof Filters, undefined)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#1C212B] border border-white/10 text-white/80 text-sm font-medium rounded-full transition-all duration-200 group hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(99,102,241,0.35)]"
+                className="group inline-flex items-center gap-2 rounded-md border border-white/[0.1] bg-[#1a1d24] px-3 py-1.5 text-sm font-medium text-zinc-200 transition-colors hover:border-white/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25"
                 aria-label={`Remove ${filterLabels[key]} filter`}
               >
                 <span>{filterLabels[key]}: {value}</span>
@@ -675,7 +749,7 @@ export default function ListingsView({
           })}
           <button
             onClick={clearFilters}
-            className="text-sm font-medium text-gray-400 hover:text-white underline transition-colors"
+            className="text-sm font-medium text-zinc-500 underline transition-colors hover:text-zinc-300"
             aria-label="Clear all filters"
           >
             Șterge toate
@@ -685,30 +759,26 @@ export default function ListingsView({
 
       {/* Error */}
       {error && (
-        <div className="bg-[#1A1D24] border border-red-500/30 text-red-300 px-4 py-3 rounded-xl mb-6">
+        <div className="mb-6 rounded-lg border border-red-500/25 bg-red-950/35 px-4 py-3 text-sm font-medium text-red-200">
           {error}
         </div>
       )}
 
       {/* Loading - Skeleton Cards */}
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/5 overflow-hidden animate-pulse"
+              className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-[#12151c]"
               role="status"
               aria-label="Se încarcă anunț"
             >
-              {/* Image skeleton */}
-              <div className="aspect-video bg-gradient-to-br from-[#111827] to-[#0F1117]"></div>
-              {/* Content skeleton */}
-              <div className="p-4">
-                <div className="h-6 bg-[#111827] rounded mb-3 w-3/4"></div>
-                <div className="h-5 bg-[#111827] rounded mb-3 w-2/3"></div>
-                <div className="h-7 bg-[#111827] rounded mb-3 w-1/2"></div>
-                <div className="h-4 bg-[#111827] rounded mb-4 w-full"></div>
-                <div className="h-10 bg-[#111827] rounded w-full"></div>
+              <div className="aspect-[5/3] bg-zinc-800/70" />
+              <div className="space-y-2 p-2.5 sm:p-3 md:p-3.5">
+                <div className="h-4 w-[88%] rounded-full bg-zinc-800/80" />
+                <div className="h-3 w-[42%] rounded-full bg-zinc-800/55" />
+                <div className="h-5 w-[52%] rounded-full bg-zinc-800/70 pt-1" />
               </div>
             </div>
           ))}
@@ -718,84 +788,13 @@ export default function ListingsView({
       {/* Results */}
       {!loading && (
         <>
-          <div id="listings-results" className="mb-6 text-gray-400 text-base font-medium">
-            Găsite <span className="text-white font-bold">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
+          <div id="listings-results" className="mb-6 text-sm font-medium text-zinc-500">
+            Găsite <span className="font-bold tabular-nums text-zinc-100">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
-            {listings.map((listing, index) => (
-              <article
-                key={listing.id}
-                className="group relative bg-gradient-to-br from-[#1A1D24] to-[#161B22] rounded-xl border border-white/8 overflow-hidden shadow-lg hover:shadow-2xl hover:border-white/15 hover:-translate-y-1 transition-all duration-normal ease-premium flex flex-col h-full"
-                aria-label={listing.title}
-              >
-                {/* Image - Fixed 16:9 Aspect Ratio */}
-                <div className="relative aspect-video bg-gradient-to-br from-[#111827] to-[#0F1117] overflow-hidden">
-                  <img
-                    src={listingPrimaryPhotoSrc(listing.photos)}
-                    alt={listing.title}
-                    loading={index < 3 ? "eager" : "lazy"}
-                    decoding="async"
-                    width={640}
-                    height={360}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    className="h-full w-full object-cover transition-transform duration-normal ease-premium group-hover:scale-110"
-                    onError={(e) => {
-                      const el = e.currentTarget;
-                      el.onerror = null;
-                      el.src = LISTING_PHOTO_ONERROR_FALLBACK;
-                    }}
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="p-4 flex flex-col flex-1">
-                  {/* Title - Consistent height */}
-                  <h3 className="text-base font-bold text-white mb-3 line-clamp-2 min-h-[2.8rem] leading-snug text-justify">
-                    {listing.title}
-                  </h3>
-                  
-                  {/* Metadata - Consistent height */}
-                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400 mb-3 min-h-[1.5rem]">
-                    {listing.make && (
-                      <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded-full font-medium">
-                        {listing.make}
-                      </span>
-                    )}
-                    {listing.year && (
-                      <span className="px-2 py-1 bg-gray-700/40 text-gray-300 rounded-full font-medium">
-                        {listing.year}
-                      </span>
-                    )}
-                    {listing.mileage && (
-                      <span className="px-2 py-1 bg-gray-700/40 text-gray-300 rounded-full text-xs font-medium">
-                        {new Intl.NumberFormat('ro-RO').format(listing.mileage)} km
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Price - Prominent */}
-                  <div className="text-2xl font-black bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-3">
-                    {new Intl.NumberFormat('ro-RO', { style: 'currency', currency: listing.priceCurrency, maximumFractionDigits: 0 }).format(listing.priceAmount)}
-                  </div>
-
-                  {/* Description - Consistent height */}
-                  {listing.description && (
-                    <p className="text-xs text-gray-400 mb-4 line-clamp-2 min-h-[2rem] leading-relaxed">
-                      {listing.description}
-                    </p>
-                  )}
-
-                  {/* Button - Always at bottom */}
-                  <Link
-                    href={`/listings/${listing.id}`}
-                    className="mt-auto block text-center h-10 px-4 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#5B4BFF] hover:to-[#00C4E0] text-white font-bold text-sm transition-all duration-normal ease-premium shadow-lg hover:shadow-xl hover:shadow-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 flex items-center justify-center"
-                    aria-label={`View details for ${listing.title}`}
-                  >
-                    Vezi detalii
-                  </Link>
-                </div>
-              </article>
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+            {listings.map((listing) => (
+              <ListingCard key={listing.id} listing={mapPublicListingToCardProps(listing)} showFavorite appearance="ink" />
             ))}
           </div>
 
@@ -809,7 +808,7 @@ export default function ListingsView({
                   if (routeBase) pushBrowsePath(filters, np);
                 }}
                 disabled={page === 1}
-                className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
+                className="flex items-center gap-2 rounded-lg border border-white/[0.1] bg-[#1a1d24] px-5 py-2.5 font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 Înapoi
@@ -835,10 +834,10 @@ export default function ListingsView({
                         setPage(pageNum);
                         if (routeBase) pushBrowsePath(filters, pageNum);
                       }}
-                      className={`px-4 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50 ${
+                      className={`rounded-lg px-4 py-2.5 text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 ${
                         page === pageNum
-                          ? 'bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] text-white shadow-lg shadow-blue-500/30'
-                          : 'bg-gradient-to-br from-[#1C212B] to-[#161B22] border border-white/5 text-white/70 hover:border-white/15 hover:text-white hover:shadow-md'
+                          ? "bg-orange-600 text-white shadow-sm"
+                          : "border border-white/[0.1] bg-[#1a1d24] text-zinc-300 hover:border-white/[0.14] hover:text-zinc-100"
                       }`}
                     >
                       {pageNum}
@@ -854,7 +853,7 @@ export default function ListingsView({
                   if (routeBase) pushBrowsePath(filters, np);
                 }}
                 disabled={page === totalPages}
-                className="px-5 py-2.5 bg-gradient-to-r from-[#1C212B] to-[#161B22] border border-white/10 hover:border-white/20 rounded-lg text-white font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-lg transition-all duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]/50"
+                className="flex items-center gap-2 rounded-lg border border-white/[0.1] bg-[#1a1d24] px-5 py-2.5 font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25"
               >
                 Înainte
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -863,10 +862,10 @@ export default function ListingsView({
           )}
 
           {listings.length === 0 && !loading && (
-            <div className="text-center py-16 text-gray-400">
-              <svg className="w-20 h-20 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-xl font-bold mb-2">Nu s-au găsit anunțuri</p>
-              <p className="text-sm">Încearcă să modifici filtrele sau să cauți cu alți parametri</p>
+            <div className="rounded-xl border border-white/[0.08] bg-[#181b22] p-10 text-center text-zinc-400 ring-1 ring-white/[0.04]">
+              <svg className="mx-auto mb-3 h-14 w-14 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="mb-1 text-base font-semibold text-zinc-100">Nu s-au găsit anunțuri pentru filtrele curente</p>
+              <p className="text-sm text-zinc-500">Ajustează criteriile sau revino la categoriile principale.</p>
             </div>
           )}
         </>

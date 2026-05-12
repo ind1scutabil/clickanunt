@@ -213,10 +213,11 @@ export default function BusinessProfilePage() {
         </div>
 
         {profile.listings.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
             {profile.listings.map((listing) => (
               <ListingCard
                 key={listing.id}
+                appearance="ink"
                 listing={{
                   id: listing.id,
                   title: listing.title,
@@ -232,8 +233,8 @@ export default function BusinessProfilePage() {
                     id: profile.id,
                     businessName: profile.businessName,
                     trustScore: profile.trustScore,
-                    verificationLevel: profile.verificationLevel
-                  }
+                    verificationLevel: profile.verificationLevel,
+                  },
                 }}
               />
             ))}

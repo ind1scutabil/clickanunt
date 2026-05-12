@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Footer from "./components/Footer";
+import MobileBottomNav from "./components/MobileBottomNav";
 import { GoogleAnalytics } from "./components/analytics/GoogleAnalytics";
 import { MicrosoftClarity } from "./components/analytics/MicrosoftClarity";
 import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
@@ -65,6 +66,13 @@ export const metadata: Metadata = {
     : {}),
 };
 
+/** iOS Safari: env(safe-area-inset-*) needs viewport-fit=cover for notch / home indicator. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -79,9 +87,17 @@ export default function RootLayout({
         <GoogleAnalytics />
         <MicrosoftClarity />
         <GlobalJsonLd />
-        <div id="main-content" className="flex-grow">
+        {/* Skip link must live in the server layout — not inside client Navbar — so SSR and hydration always match */}
+        <a href="#main-content" className="skip-to-content-link">
+          Salt la conținut principal
+        </a>
+        <div
+          id="main-content"
+          className="flex-grow pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+        >
           {children}
         </div>
+        <MobileBottomNav />
         <Footer />
       </body>
     </html>

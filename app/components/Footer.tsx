@@ -19,13 +19,32 @@ function shortCatFromSlug(canonicalSlug: string): string {
 export default function Footer() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
   return (
-    <footer className="mt-auto border-t border-white/10 bg-neutral-950 text-neutral-400">
+    <footer className="mt-auto max-md:pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] border-t border-white/10 bg-neutral-950 text-neutral-400">
+      <div className="border-b border-white/[0.06] bg-[#12151c]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 text-sm text-white/55 sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-medium text-white/75">
+            Cumpără cu cap: verifică produsul, evită plăți în avans către necunoscuți.
+          </p>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-white/50">
+            <li>
+              <Link href="/security" className="transition-colors hover:text-white">
+                Siguranță
+              </Link>
+            </li>
+            <li>
+              <Link href="/contact" className="transition-colors hover:text-white">
+                Raportează o problemă
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </div>
       {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="mx-auto max-w-7xl px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="mb-4 bg-gradient-to-r from-primary-500 via-primary-400 to-secondary-500 bg-clip-text text-xl font-bold text-transparent">
+            <h3 className="mb-4 text-xl font-semibold tracking-tight text-white">
               ClickAnunț
             </h3>
             <p className="mb-4 text-sm text-neutral-500">

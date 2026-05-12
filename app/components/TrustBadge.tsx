@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { VerificationLevel } from '@prisma/client';
 import { VERIFICATION_BADGES } from '@/lib/verification';
 
@@ -119,13 +119,19 @@ export function TrustBadgeDetailed({
     : trustScore >= 50 ? 'Neutru'
     : trustScore >= 30 ? 'Suspicios'
     : 'Atenție';
-  
-  const memberFor = Math.floor((Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
-  const memberForText = memberFor < 30 
-    ? `Membru de ${memberFor} zile`
-    : memberFor < 365
-    ? `Membru de ${Math.floor(memberFor / 30)} luni`
-    : `Membru de ${Math.floor(memberFor / 365)} ani`;
+
+  const [memberForText, setMemberForText] = useState('Membru de ...');
+
+  useEffect(() => {
+    const memberFor = Math.floor((Date.now() - memberSince.getTime()) / (1000 * 60 * 60 * 24));
+    const text =
+      memberFor < 30
+        ? `Membru de ${memberFor} zile`
+        : memberFor < 365
+          ? `Membru de ${Math.floor(memberFor / 30)} luni`
+          : `Membru de ${Math.floor(memberFor / 365)} ani`;
+    setMemberForText(text);
+  }, [memberSince]);
   
   return (
     <div className="space-y-3">

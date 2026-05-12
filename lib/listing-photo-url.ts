@@ -18,7 +18,30 @@ export const DEFAULT_LISTING_IMAGE_URL = "/images/default-listing.jpg";
 export const LISTING_PHOTO_ONERROR_FALLBACK =
   "data:image/svg+xml," +
   encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><rect fill="#111827" width="1200" height="675"/><g fill="none" stroke="#4b5563" stroke-width="2"><rect x="380" y="220" width="440" height="280" rx="12"/><circle cx="600" cy="310" r="45"/><path d="M420 460l100-90 80 70 120-100 160 120"/></g><text x="600" y="560" text-anchor="middle" fill="#6b7280" font-family="system-ui,sans-serif" font-size="22">Imagine indisponibilă</text></svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<defs>
+<linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#2c3140"/>
+<stop offset="45%" stop-color="#1a1e28"/>
+<stop offset="100%" stop-color="#12151c"/>
+</linearGradient>
+<radialGradient id="h" cx="50%" cy="0%" r="75%">
+<stop offset="0%" stop-color="rgba(255,255,255,0.07)"/>
+<stop offset="55%" stop-color="rgba(255,255,255,0)"/>
+</radialGradient>
+</defs>
+<rect width="1200" height="720" fill="url(#g)"/>
+<rect width="1200" height="720" fill="url(#h)"/>
+<g opacity="0.22" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.25">
+<path d="M0 520 C200 480 400 560 600 500 S1000 420 1200 460"/>
+<path d="M0 560 C240 520 480 600 720 540 S1040 480 1200 500"/>
+</g>
+<g opacity="0.35" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round">
+<rect x="460" y="250" width="280" height="200" rx="14"/>
+<circle cx="600" cy="340" r="36"/>
+<path d="M500 410 L560 360 L620 400 L700 320"/>
+</g>
+</svg>`
   );
 
 /** @deprecated Prefer DEFAULT_LISTING_IMAGE_URL — kept for existing imports (empty-photo UI). */

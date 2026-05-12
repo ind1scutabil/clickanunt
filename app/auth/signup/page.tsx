@@ -13,13 +13,13 @@ export const revalidate = 0;
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F1117] via-[#1A1D24] to-[#111827] flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-2xl">
         {/* Back button */}
         <div className="mb-8">
           <Link 
             href="/" 
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-[#6D5BFF] hover:text-[#00D4FF] font-semibold transition-smooth hover:bg-white/5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6D5BFF]"
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-indigo-300 hover:text-white font-semibold transition-smooth hover:bg-white/5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
           >
             <svg 
               className="w-5 h-5" 
@@ -39,9 +39,9 @@ export default function SignupPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-gradient-to-b from-[#1C212B] to-[#16191F] rounded-2xl border border-white/10 shadow-xl p-8 backdrop-blur-sm">
+        <div className="rounded-2xl border border-white/10 bg-[#171b22] shadow-[0_20px_48px_-28px_rgba(0,0,0,0.7)] p-8">
           <div className="mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#00D4FF] rounded-2xl flex items-center justify-center text-3xl shadow-lg mx-auto mb-4">
+            <div className="w-14 h-14 bg-[#222a36] rounded-2xl flex items-center justify-center text-2xl shadow-md mx-auto mb-4 border border-white/10">
               📦
             </div>
             <h1 className="text-2xl font-black text-center text-white">
@@ -59,7 +59,7 @@ export default function SignupPage() {
             Ai deja cont?{" "}
             <Link 
               href="/auth/login" 
-              className="text-[#6D5BFF] hover:text-[#00D4FF] font-semibold transition-smooth"
+            className="text-indigo-300 hover:text-white font-semibold transition-smooth"
             >
               Conecteaza-te
             </Link>

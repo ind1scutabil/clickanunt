@@ -99,9 +99,8 @@ const CardComponent = React.forwardRef<HTMLDivElement, CardProps>(
     const interactiveStyles = isClickable && cn(
       'cursor-pointer',
       'hover:border-white/12',
-      'hover:shadow-[0_22px_56px_rgba(0,0,0,0.36)]',
-      'hover:scale-[1.01] motion-reduce:hover:scale-100',
-      'active:scale-[0.995] motion-reduce:active:scale-100',
+      'hover:shadow-[0_18px_48px_rgba(0,0,0,0.32)]',
+      'active:opacity-[0.98]',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]'
     );
 

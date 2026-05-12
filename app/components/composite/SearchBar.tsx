@@ -9,8 +9,8 @@
  * - Responsive layout: flex-col on mobile, flex-row on desktop
  * - Dark background: #0f172a
  * - White text: always
- * - Focus ring: indigo-500
- * - Button gradient: indigo-600 to purple-600
+ * - Focus ring: primary (blue)
+ * - Button: solid primary — no gradient
  * 
  * @example
  * ```tsx
@@ -60,6 +60,9 @@ export interface SearchBarProps {
    * Additional CSS classes for container
    */
   className?: string;
+
+  /** Light shell, dark default, or premium (mobile.de–style dark panel + orange CTA) */
+  variant?: "dark" | "light" | "premium";
 }
 
 const SearchIcon = () => (
@@ -102,10 +105,27 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   defaultQuery = '',
   defaultCategory = '',
   className,
+  variant = "dark",
 }) => {
+  const isLight = variant === "light";
+  const isPremium = variant === "premium";
   const [query, setQuery] = React.useState(defaultQuery);
   const [category, setCategory] = React.useState(defaultCategory);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+
+  /** Always include „Toate categoriile” so controlled value="" matches an <option> — prevents hydration mismatch. */
+  const categoryOptions = React.useMemo(() => {
+    if (!showCategory) return categories;
+    const hasAll = categories.some((c) => c.value === "");
+    if (hasAll) return categories;
+    return [{ value: "", label: "Toate categoriile" }, ...categories];
+  }, [categories, showCategory]);
+
+  React.useEffect(() => {
+    if (!showCategory) return;
+    if (categoryOptions.some((c) => c.value === category)) return;
+    setCategory(categoryOptions[0]?.value ?? "");
+  }, [categoryOptions, category, showCategory]);
   const [showRecent, setShowRecent] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -218,8 +238,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={`max-w-4xl mx-auto ${className || ''}`}>
-      <div className="flex flex-col sm:flex-row gap-4 w-full relative">
+    <div
+      className={`mx-auto w-full max-w-[720px] rounded-xl border p-2 sm:p-2.5 ${
+        isPremium
+          ? "max-w-none rounded-2xl border-white/10 bg-[#3d424d] p-3 shadow-[0_24px_48px_-24px_rgba(0,0,0,0.55)] sm:p-3.5"
+          : isLight
+            ? "border-slate-200 bg-white shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)]"
+            : "rounded-lg border-white/[0.09] bg-[#16181f] shadow-[0_12px_40px_-28px_rgba(0,0,0,0.65)]"
+      } ${className || ""}`}
+    >
+    <form onSubmit={handleSubmit} className="w-full">
+      <div className="relative flex w-full flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
         {/* Search Input Container */}
         <div className="flex-1 relative" ref={dropdownRef}>
           <input
@@ -231,17 +260,29 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onFocus={() => isEnterpriseEnabled && setShowRecent(true)}
             placeholder={placeholder}
             aria-label="Search products or services"
-            className="h-[56px] w-full rounded-xl border border-white/[0.08] bg-[#0c1220] px-5 text-base text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.04),inset_0_-1px_2px_rgba(0,0,0,0.45)] transition-[box-shadow,border-color,background-color] duration-normal ease-premium placeholder:text-slate-500/75 placeholder:font-normal focus:border-primary-500/45 focus:bg-[#0a0f1a] focus:outline-none focus:ring-2 focus:ring-primary-500/35 focus:shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(139,92,246,0.12)]"
-            style={{
-              WebkitTextFillColor: 'white',
-            }}
+            className={`h-11 w-full rounded-md border px-3.5 text-[14px] shadow-none transition-[border-color,background-color] duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+              isPremium
+                ? "border-white/10 bg-[#2f343e] text-white placeholder:text-white/40 focus:border-[#ff4600]/50 focus:bg-[#282c34] focus:ring-[#ff4600]/20"
+                : isLight
+                  ? "border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-blue-500/25"
+                  : "border-white/[0.09] bg-[#12151c] text-white/95 placeholder:text-white/35 focus:border-white/20 focus:bg-[#0e1116] focus:ring-white/15"
+            }`}
+            style={isLight ? undefined : { WebkitTextFillColor: "white" }}
           />
 
           {/* Recent Searches Dropdown */}
           {isEnterpriseEnabled && showRecent && recentSearches.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#161B22] border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
-              <div className="p-3 border-b border-slate-700/50">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+            <div
+              className={`absolute top-full left-0 right-0 z-50 mt-2 overflow-hidden rounded-xl border shadow-xl ${
+                isLight ? 'border-slate-200 bg-white' : 'border-slate-700 bg-[#161B22]'
+              }`}
+            >
+              <div className={`border-b p-3 ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
+                <div
+                  className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${
+                    isLight ? 'text-slate-500' : 'text-gray-400'
+                  }`}
+                >
                   <ClockIcon />
                   Căutări recente
                 </div>
@@ -250,22 +291,28 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 {recentSearches.map((search, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between px-4 py-2 hover:bg-slate-700/50 transition cursor-pointer border-b border-slate-700/30 last:border-b-0"
+                    className={`flex cursor-pointer items-center justify-between border-b px-4 py-2 transition last:border-b-0 ${
+                      isLight
+                        ? 'border-slate-100 hover:bg-slate-50'
+                        : 'border-slate-700/30 hover:bg-slate-700/50'
+                    }`}
                   >
                     <button
                       type="button"
                       onClick={() => handleSelectRecent(search)}
                       className="flex-1 text-left"
                     >
-                      <div className="text-sm text-white font-medium">{search.query}</div>
+                      <div className={`text-sm font-medium ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                        {search.query}
+                      </div>
                       {search.category && (
-                        <div className="text-xs text-gray-400">{search.category}</div>
+                        <div className={`text-xs ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>{search.category}</div>
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => removeFromRecentSearches(idx)}
-                      className="text-gray-500 hover:text-gray-300 transition ml-2"
+                      className={`ml-2 transition ${isLight ? 'text-slate-400 hover:text-slate-600' : 'text-gray-500 hover:text-gray-300'}`}
                       aria-label="Remove search"
                     >
                       ✕
@@ -274,11 +321,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 ))}
               </div>
               {query.trim() && !recentSearches.some(s => s.query === query.trim()) && (
-                <div className="border-t border-slate-700/50 p-3">
+                <div className={`border-t p-3 ${isLight ? 'border-slate-100' : 'border-slate-700/50'}`}>
                   <button
                     type="button"
                     onClick={() => addToRecentSearches(query.trim(), category || undefined)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-700/30 hover:bg-slate-700/50 text-white text-sm rounded-lg transition"
+                    className={`flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
+                      isLight
+                        ? 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                        : 'bg-slate-700/30 text-white hover:bg-slate-700/50'
+                    }`}
                   >
                     <SaveIcon />
                     Salvează căutarea
@@ -296,16 +347,24 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             aria-label="Category filter"
-            className="h-[56px] w-full appearance-none rounded-xl border border-white/[0.08] bg-[#0c1220] px-5 text-base text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.04),inset_0_-1px_2px_rgba(0,0,0,0.45)] transition-[box-shadow,border-color,background-color] duration-normal ease-premium focus:border-primary-500/45 focus:bg-[#0a0f1a] focus:outline-none focus:ring-2 focus:ring-primary-500/35 focus:shadow-[inset_0_1px_2px_rgba(255,255,255,0.06),inset_0_-1px_2px_rgba(0,0,0,0.35),0_0_0_1px_rgba(139,92,246,0.12)] sm:w-48"
+            className={`h-11 w-full appearance-none rounded-md border px-3.5 text-[14px] shadow-none transition-[border-color,background-color] duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 sm:min-w-[11rem] sm:max-w-[14rem] ${
+              isPremium
+                ? "border-white/10 bg-[#2f343e] text-white focus:border-[#ff4600]/50 focus:ring-[#ff4600]/20"
+                : isLight
+                  ? "border-slate-200 bg-white text-slate-900 focus:border-blue-500 focus:ring-blue-500/25"
+                  : "border-white/[0.09] bg-[#12151c] text-white/95 focus:border-white/20 focus:bg-[#0e1116] focus:ring-white/15"
+            }`}
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%94a3b8' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='${
+                isLight ? "%2364758b" : isPremium ? "%23e4e4e7" : "%2394a3b8"
+              }' d='M1 4l5 5 5-5'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'right 12px center',
               paddingRight: '36px',
             }}
           >
-            {categories.map((cat) => (
-              <option key={cat.value} value={cat.value}>
+            {categoryOptions.map((cat) => (
+              <option key={cat.value === "" ? "__all__" : cat.value} value={cat.value}>
                 {cat.label}
               </option>
             ))}
@@ -316,13 +375,20 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <button
           type="submit"
           aria-label="Search"
-          className="flex h-[56px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-6 font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_4px_14px_rgba(88,28,135,0.35)] transition-[opacity,box-shadow,transform] duration-normal ease-premium hover:opacity-[0.96] hover:shadow-[0_1px_0_rgba(255,255,255,0.14)_inset,0_6px_18px_rgba(88,28,135,0.4)] active:scale-[0.99]"
+          className={`flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border px-4 text-[14px] font-semibold transition-[background-color,opacity] duration-200 active:opacity-95 sm:min-w-[7.5rem] ${
+            isPremium
+              ? "border-transparent bg-[#ff4600] text-white shadow-[0_4px_14px_-4px_rgba(255,70,0,0.65)] hover:bg-[#e63e00] [&_svg]:text-white"
+              : isLight
+                ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700 [&_svg]:text-white"
+                : "border-white/[0.12] bg-white text-neutral-900 hover:bg-white/95"
+          }`}
         >
           <SearchIcon />
           <span>Caută</span>
         </button>
       </div>
     </form>
+    </div>
   );
 };
 

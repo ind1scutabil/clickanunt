@@ -94,10 +94,10 @@ export async function generateMetadata({
 
 export default function Page() {
   return (
-    <div className="min-h-screen bg-[#0F1117]">
+    <div className="min-h-screen max-w-[100vw] overflow-x-hidden bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 md:from-[#f3f5fb] md:via-[#f6f7fa] md:to-slate-100/90">
       <Navbar />
-      <div className="relative">
-        <Suspense fallback={<div className="p-8 text-center text-gray-300">Se încarcă anunțurile...</div>}>
+      <div className="relative min-w-0 max-w-full md:text-slate-700">
+        <Suspense fallback={<div className="p-8 text-center text-zinc-500 md:text-slate-500">Se încarcă anunțurile...</div>}>
           <ListingsView />
         </Suspense>
       </div>

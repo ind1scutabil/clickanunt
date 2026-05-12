@@ -1,19 +1,19 @@
 'use client';
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { memoryStorage } from "@/lib/memory-storage";
 import {
-  normalizeListingPhotoUrl,
   DEFAULT_LISTING_IMAGE_URL,
   LISTING_PHOTO_ONERROR_FALLBACK,
+  normalizeListingPhotoUrl,
   normalizeListingPhotosArray,
 } from "@/lib/listing-photo-url";
 import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
+import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 
 async function trackListingEngagement(
   listingId: string,
@@ -66,6 +66,24 @@ export default function Page() {
   const [similarListings, setSimilarListings] = useState<any[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
 
+  /** Frontend-only trust chips — labels derived strictly from listing/owner fields already on the payload. */
+  const trustPills = useMemo(() => {
+    if (!listing) return [] as { key: string; label: string }[];
+    const pills: { key: string; label: string }[] = [];
+    if (listing.status === "active") pills.push({ key: "active", label: "Anunț activ" });
+    if (listing.moderationStatus === "approved") {
+      pills.push({ key: "moderation", label: "Verificat pentru publicare" });
+    }
+    if (listing.owner?.emailVerified) pills.push({ key: "email", label: "Email verificat" });
+    if (listing.owner?.phoneVerified) pills.push({ key: "phone", label: "Telefon verificat" });
+    const createdRaw = listing.createdAt as string | Date | undefined;
+    const createdMs = createdRaw ? new Date(createdRaw).getTime() : 0;
+    if (createdMs && Date.now() - createdMs < 14 * 24 * 60 * 60 * 1000) {
+      pills.push({ key: "recent", label: "Publicat recent" });
+    }
+    return pills;
+  }, [listing]);
+
   const photos = useMemo(
     () => normalizeListingPhotosArray(listing?.photos),
     [listing]
@@ -82,6 +100,50 @@ export default function Page() {
       return Math.min(i, photos.length - 1);
     });
   }, [photos.length]);
+
+  /** Mobile gallery: horizontal swipe (modal + hero). Avoids fighting vertical scroll unless gesture is clearly horizontal. */
+  const gallerySwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressHeroOpenModalRef = useRef(false);
+
+  const onGallerySwipeTouchStart = useCallback((e: React.TouchEvent) => {
+    if (photos.length < 2) return;
+    const t = e.touches[0];
+    if (!t) return;
+    gallerySwipeStartRef.current = { x: t.clientX, y: t.clientY };
+  }, [photos.length]);
+
+  const onGallerySwipeTouchEnd = useCallback(
+    (e: React.TouchEvent, source: "hero" | "modal") => {
+      const start = gallerySwipeStartRef.current;
+      gallerySwipeStartRef.current = null;
+      if (photos.length < 2 || !start) return;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      const threshold = 48;
+      if (Math.abs(dx) < threshold || Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+      if (source === "hero") suppressHeroOpenModalRef.current = true;
+      if (dx < 0) {
+        setSelectedImageIndex((i) => Math.min(photos.length - 1, i + 1));
+      } else {
+        setSelectedImageIndex((i) => Math.max(0, i - 1));
+      }
+    },
+    [photos.length]
+  );
+
+  const openHeroImageModal = useCallback(() => {
+    if (suppressHeroOpenModalRef.current) {
+      suppressHeroOpenModalRef.current = false;
+      return;
+    }
+    setShowImageModal(true);
+  }, []);
+
+  const clearGallerySwipe = useCallback(() => {
+    gallerySwipeStartRef.current = null;
+  }, []);
 
   // Check if listing is in favorites
   useEffect(() => {
@@ -115,22 +177,31 @@ export default function Page() {
         
         if (res.ok) {
           const data = await res.json();
-          console.log('📄 Loaded listing:', data);
           setListing(data);
-        } else {
-          console.error('Failed to load listing:', res.statusText);
         }
-      } catch (error) {
-        console.error('Error loading listing:', error);
+      } catch {
       } finally {
         setLoading(false);
       }
     };
 
     if (id) {
-      loadListing();
+      void loadListing().catch(() => {});
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!listing?.id) return;
+    const photos = Array.isArray(listing.photos) ? listing.photos : [];
+    pushRecentListingSnapshot({
+      id: listing.id,
+      title: listing.title,
+      priceAmount: listing.priceAmount,
+      priceCurrency: listing.priceCurrency ?? "RON",
+      photo: typeof photos[0] === "string" ? photos[0] : undefined,
+      category: listing.category,
+    });
+  }, [listing]);
 
   useEffect(() => {
     const loadSimilarListings = async () => {
@@ -218,8 +289,8 @@ export default function Page() {
           text: `${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}`,
           url: window.location.href,
         });
-      } catch (err) {
-        console.log('Share cancelled');
+      } catch {
+        /* user cancelled share sheet */
       }
     } else {
       copyLink();
@@ -230,10 +301,20 @@ export default function Page() {
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gray-50 pt-20">
-          <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Se încarcă...</p>
+        <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16">
+          <div className="mx-auto max-w-7xl px-4 py-8">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                <div className="skeleton aspect-video w-full rounded-2xl" />
+                <div className="skeleton h-40 w-full rounded-2xl" />
+                <div className="skeleton h-48 w-full rounded-2xl" />
+              </div>
+              <div className="space-y-4">
+                <div className="skeleton h-64 w-full rounded-2xl" />
+                <div className="skeleton h-32 w-full rounded-xl" />
+              </div>
+            </div>
+            <p className="mt-6 text-center text-sm text-white/45">Se încarcă anunțul…</p>
           </div>
         </main>
       </>
@@ -368,11 +449,12 @@ export default function Page() {
       {/* Image Modal */}
       {showImageModal && (
         <div 
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] flex max-h-[100dvh] w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm touch-pan-y"
           onClick={() => setShowImageModal(false)}
         >
           <button 
-            className="absolute top-4 right-4 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all"
+            type="button"
+            className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] z-[61] flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20"
             onClick={() => setShowImageModal(false)}
           >
             <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -383,7 +465,8 @@ export default function Page() {
           {photos.length > 1 && (
             <>
               <button 
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
+                type="button"
+                className="absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-[61] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20 disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedImageIndex(prev => Math.max(0, prev - 1));
@@ -396,7 +479,8 @@ export default function Page() {
               </button>
               
               <button 
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all disabled:opacity-30"
+                type="button"
+                className="absolute right-[max(1rem,env(safe-area-inset-right))] top-1/2 z-[61] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20 disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedImageIndex(prev => Math.min(photos.length - 1, prev + 1));
@@ -410,16 +494,19 @@ export default function Page() {
             </>
           )}
           
-          <div className="max-w-7xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 touch-manipulation items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={onGallerySwipeTouchStart}
+            onTouchEnd={(e) => onGallerySwipeTouchEnd(e, "modal")}
+            onTouchCancel={clearGallerySwipe}
+          >
             <img
               key={`modal-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-              src={
-                photos[selectedImageIndex]?.trim()
-                  ? normalizeListingPhotoUrl(photos[selectedImageIndex])
-                  : DEFAULT_LISTING_IMAGE_URL
-              }
+              src={normalizeListingPhotoUrl(photos[selectedImageIndex]) || DEFAULT_LISTING_IMAGE_URL}
               alt={listing.title}
-              className="max-w-full max-h-[90vh] w-auto h-auto object-contain rounded-lg shadow-2xl"
+              className="h-auto max-h-[min(88vh,88dvh)] w-full max-w-full object-contain [max-width:100vw] rounded-lg shadow-lg sm:max-h-[90vh]"
+              sizes="100vw"
               onError={(e) => {
                 const el = e.currentTarget;
                 el.onerror = null;
@@ -427,34 +514,33 @@ export default function Page() {
               }}
             />
             {photos.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full px-4 py-2 text-white text-sm font-medium">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm font-medium">
                 {selectedImageIndex + 1} / {photos.length}
               </div>
             )}
           </div>
         </div>
       )}
-      <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid lg:grid-cols-3 gap-8">
+      <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-10">
+        <div className="mx-auto max-w-7xl px-4 py-6 max-md:px-3 max-md:py-4">
+          <div className="grid gap-6 max-md:gap-3 lg:grid-cols-3">
             {/* Main Content - Left/Center Column */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-4 max-md:space-y-3 lg:col-span-2">
               {/* Image Gallery */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-[#6D5BFF]/10 to-[#00D4FF]/10 blur-3xl"></div>
+              <div className="relative min-w-0 max-w-full overflow-hidden rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl">
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent blur-lg" />
                 <div 
-                  className="relative aspect-video bg-gray-900/50 overflow-hidden cursor-pointer group"
-                  onClick={() => setShowImageModal(true)}
+                  className="group relative aspect-video max-h-[min(48vh,48dvh)] w-full min-w-0 cursor-pointer overflow-hidden bg-gray-900/50 touch-manipulation shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:max-h-[min(52vh,52dvh)] md:max-h-none"
+                  onClick={openHeroImageModal}
+                  onTouchStart={onGallerySwipeTouchStart}
+                  onTouchEnd={(e) => onGallerySwipeTouchEnd(e, "hero")}
+                  onTouchCancel={clearGallerySwipe}
                 >
                   <img
                     key={`hero-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-                    src={
-                      photos[selectedImageIndex]?.trim()
-                        ? normalizeListingPhotoUrl(photos[selectedImageIndex])
-                        : DEFAULT_LISTING_IMAGE_URL
-                    }
+                    src={normalizeListingPhotoUrl(photos[selectedImageIndex]) || DEFAULT_LISTING_IMAGE_URL}
                     alt={listing.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-normal ease-premium group-hover:scale-105"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out sm:group-hover:scale-[1.02]"
                     loading="eager"
                     onError={(e) => {
                       const el = e.currentTarget;
@@ -463,7 +549,7 @@ export default function Page() {
                     }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-md rounded-full p-4">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-sm rounded-full p-4">
                       <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                       </svg>
@@ -471,20 +557,23 @@ export default function Page() {
                   </div>
                 </div>
                 {photos.length > 1 && (
-                  <div className="relative p-4 flex gap-2 overflow-x-auto bg-gray-900/30">
+                  <div
+                    className="relative flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-smooth bg-gray-900/30 p-2 touch-pan-x [-webkit-overflow-scrolling:touch] sm:gap-2.5 sm:p-3 md:p-4"
+                    onTouchStart={clearGallerySwipe}
+                  >
                     {photos.map((photo: string, i: number) => (
                       <div 
                         key={`${i}-${photo}`} 
                         onClick={() => setSelectedImageIndex(i)}
-                        className={`relative w-20 h-20 rounded-lg flex-shrink-0 overflow-hidden bg-gray-800 border-2 transition-all cursor-pointer ${
+                        className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-lg border bg-gray-800 shadow-sm transition-all duration-200 ease-out cursor-pointer sm:h-16 sm:w-16 md:h-20 md:w-20 md:rounded-xl ${
                           selectedImageIndex === i 
-                            ? 'border-[#6366F1] ring-2 ring-[#6366F1]/50 shadow-lg shadow-[#6366F1]/30' 
-                            : 'border-gray-700/50 hover:border-[#6366F1]/70'
+                            ? 'border-[#6366F1]/90 ring-1 ring-[#6366F1]/25 shadow-sm shadow-[#6366F1]/10'
+                            : 'border-gray-700/50 hover:border-[#6366F1]/50 hover:shadow-sm'
                         }`}
                       >
                         <img
                           key={`thumb-img-${i}-${photo}`}
-                          src={photo?.trim() ? normalizeListingPhotoUrl(photo) : DEFAULT_LISTING_IMAGE_URL}
+                          src={normalizeListingPhotoUrl(photo) || DEFAULT_LISTING_IMAGE_URL}
                           alt={`${listing.title} ${i + 1}`}
                           className={`absolute inset-0 h-full w-full object-cover transition ${
                             selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
@@ -503,13 +592,13 @@ export default function Page() {
               </div>
 
               {/* Title and Price */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 p-8">
-                <div className="absolute inset-0 bg-gradient-to-r from-[#6D5BFF]/5 to-[#00D4FF]/5 rounded-3xl"></div>
+              <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3.5 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl md:p-5">
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.03] to-transparent md:rounded-2xl" />
                 <div className="relative">
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex-1">
-                      <h1 className="text-4xl font-black text-white mb-3 leading-tight">{listing.title}</h1>
-                      <p className="text-gray-400 text-lg flex flex-wrap items-center gap-2">
+                  <div className="mb-3 flex items-start justify-between md:mb-4">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <h1 className="mb-1 text-lg font-bold leading-snug tracking-tight text-white sm:text-xl md:mb-2 md:text-[1.75rem]">{listing.title}</h1>
+                      <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400 sm:gap-2 sm:text-sm md:text-[0.9375rem]">
                         <span className="inline-block w-2 h-2 shrink-0 bg-[#00D4FF] rounded-full"></span>
                         <Link
                           href={seoCategoryHref}
@@ -526,37 +615,52 @@ export default function Page() {
                       </p>
                     </div>
                     {listing.isFeatured && (
-                      <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg">
+                      <span className="shrink-0 rounded-full bg-gradient-to-r from-yellow-500/95 to-orange-500/95 px-2 py-1 text-[10px] font-semibold text-white shadow-sm sm:px-3 sm:py-1.5 sm:text-xs">
                         ⭐ Promovat
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between border-t border-gray-700/50 pt-6">
-                    <div>
-                      <p className="text-5xl font-black bg-gradient-to-r from-[#6D5BFF] via-[#00D4FF] to-[#4E3CFF] bg-clip-text text-transparent">
+                  {trustPills.length > 0 && (
+                    <div
+                      className="mb-3 flex flex-wrap gap-1 md:mb-4 md:gap-1.5"
+                      aria-label="Semnale de încredere pentru acest anunț"
+                    >
+                      {trustPills.map((p) => (
+                        <span
+                          key={p.key}
+                          className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-emerald-50/95 md:px-2.5 md:text-[11px]"
+                        >
+                          {p.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t border-zinc-700/45 pt-3 md:pt-4">
+                    <div className="min-w-0">
+                      <p className="text-xl font-semibold tabular-nums tracking-tight text-zinc-50 sm:text-2xl md:text-[1.75rem]">
                         {listing.priceAmount?.toLocaleString()} {listing.priceCurrency}
                       </p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex shrink-0 gap-2 md:gap-3">
                     <button 
                       onClick={toggleFavorite}
-                      className={`p-4 border-2 rounded-xl transition-all transform hover:scale-110 hover:rotate-6 ${
+                      className={`rounded-lg border p-2.5 transition-all duration-200 ease-out hover:scale-[1.02] active:scale-[0.99] md:rounded-xl md:p-3.5 ${
                         isFavorite 
-                          ? 'bg-gradient-to-br from-red-500 to-pink-600 border-red-400 shadow-lg shadow-red-500/50' 
-                          : 'bg-gray-800/80 border-gray-700/50 hover:border-red-500 hover:bg-red-500/10'
+                          ? 'bg-gradient-to-br from-red-500/95 to-pink-600/95 border-red-400/50 shadow-sm shadow-red-900/20'
+                          : 'bg-zinc-800/80 border-zinc-700/50 hover:border-red-500/50 hover:bg-red-500/10'
                       }`}
                       title={isFavorite ? "Elimină din favorite" : "Adaugă la favorite"}
                     >
-                      <svg className="w-6 h-6" viewBox="0 0 24 24" fill={isFavorite ? "white" : "none"} stroke={isFavorite ? "white" : "currentColor"} strokeWidth="2">
+                      <svg className="h-5 w-5 md:h-6 md:w-6" viewBox="0 0 24 24" fill={isFavorite ? "white" : "none"} stroke={isFavorite ? "white" : "currentColor"} strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
                     </button>
                     <button 
                       onClick={shareNative}
-                      className="p-4 bg-gradient-to-br from-[#00D4FF] to-[#00A8CC] border-2 border-[#00D4FF]/50 rounded-xl hover:shadow-xl hover:shadow-[#00D4FF]/30 transition-all transform hover:scale-110 hover:-rotate-6" 
+                      className="rounded-lg border border-cyan-500/30 bg-gradient-to-br from-[#00b8d9] to-[#0090b0] p-2.5 transition-all duration-200 ease-out hover:scale-[1.02] hover:shadow-sm hover:shadow-cyan-900/25 active:scale-[0.99] md:p-3.5"
                       title="Distribuie"
                     >
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <svg className="h-5 w-5 text-white md:h-6 md:w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                       </svg>
                     </button>
@@ -566,25 +670,25 @@ export default function Page() {
               </div>
 
               {/* Details */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 p-8">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#4E3CFF]/5 to-transparent rounded-3xl"></div>
+              <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3.5 shadow-sm backdrop-blur-sm md:rounded-2xl md:p-5">
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br from-zinc-800/35 to-transparent md:rounded-2xl"></div>
                 <div className="relative">
-                  <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-3">
-                    <span className="w-10 h-10 bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] rounded-xl flex items-center justify-center text-white">
+                  <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-tight text-white md:mb-3 md:gap-2.5 md:text-base">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] text-xs text-white md:h-9 md:w-9 md:rounded-lg md:text-sm">
                       📋
                     </span>
                     Detalii Tehnice
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Location Fields */}
                     {listing.county && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                      <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                         <span className="text-gray-400 font-medium">Județ</span>
                         <span className="text-white font-bold">📍 {listing.county}</span>
                       </div>
                     )}
                     {listing.city && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                      <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                         <span className="text-gray-400 font-medium">Oraș</span>
                         <span className="text-white font-bold">
                           🏙️{" "}
@@ -607,25 +711,25 @@ export default function Page() {
                       <>
                         {/* Basic Info */}
                         {listing.make && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Marcă</span>
                             <span className="text-white font-bold">🚗 {listing.make}</span>
                           </div>
                         )}
                         {listing.model && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Model</span>
                             <span className="text-white font-bold">{listing.model}</span>
                           </div>
                         )}
                         {(listing.attributes?.bodyType || listing.attributes?.body_type) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Caroserie</span>
                             <span className="text-white font-bold">🚙 {listing.attributes.bodyType || listing.attributes.body_type}</span>
                           </div>
                         )}
                         {listing.condition && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Stare</span>
                             <span className="text-white font-bold">
                               {(listing.condition === "new" || listing.condition === "Nou") && "✨ Nou"}
@@ -639,25 +743,25 @@ export default function Page() {
                         
                         {/* Year & Registration */}
                         {listing.year && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">An fabricație</span>
                             <span className="text-white font-bold">📅 {listing.year}</span>
                           </div>
                         )}
                         {(listing.attributes?.firstRegistration || listing.attributes?.first_registration) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Prima înmatriculare</span>
                             <span className="text-white font-bold">📆 {listing.attributes.firstRegistration || listing.attributes.first_registration}</span>
                           </div>
                         )}
                         {listing.mileage && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Kilometraj</span>
                             <span className="text-white font-bold">🛣️ {listing.mileage.toLocaleString()} km</span>
                           </div>
                         )}
                         {listing.vin && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">VIN</span>
                             <span className="text-white font-bold font-mono text-sm">🔖 {listing.vin}</span>
                           </div>
@@ -665,31 +769,31 @@ export default function Page() {
                         
                         {/* Engine & Performance */}
                         {listing.fuel && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Combustibil</span>
                             <span className="text-white font-bold">⛽ {listing.fuel}</span>
                           </div>
                         )}
                         {(listing.attributes?.horsePower || listing.attributes?.horse_power || listing.attributes?.hp) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Putere</span>
                             <span className="text-white font-bold">🐎 {listing.attributes.horsePower || listing.attributes.horse_power || listing.attributes.hp} CP</span>
                           </div>
                         )}
                         {(listing.attributes?.engineCapacity || listing.attributes?.engine_capacity || listing.attributes?.capacity) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Capacitate cilindrică</span>
                             <span className="text-white font-bold">🔧 {listing.attributes.engineCapacity || listing.attributes.engine_capacity || listing.attributes.capacity} cm³</span>
                           </div>
                         )}
                         {listing.transmission && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Transmisie</span>
                             <span className="text-white font-bold">⚙️ {listing.transmission}</span>
                           </div>
                         )}
                         {(listing.attributes?.drivetrain || listing.attributes?.drive_train) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Tracțiune</span>
                             <span className="text-white font-bold">🔄 {listing.attributes.drivetrain || listing.attributes.drive_train}</span>
                           </div>
@@ -697,25 +801,25 @@ export default function Page() {
                         
                         {/* Exterior & Interior */}
                         {listing.attributes?.color && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Culoare</span>
                             <span className="text-white font-bold">🎨 {listing.attributes.color}</span>
                           </div>
                         )}
                         {(listing.attributes?.upholstery || listing.attributes?.interior) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Tapițerie</span>
                             <span className="text-white font-bold">🪑 {listing.attributes.upholstery || listing.attributes.interior}</span>
                           </div>
                         )}
                         {(listing.attributes?.doors || listing.attributes?.door_count) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Uși</span>
                             <span className="text-white font-bold">🚪 {listing.attributes.doors || listing.attributes.door_count}</span>
                           </div>
                         )}
                         {(listing.attributes?.seats || listing.attributes?.seat_count) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Locuri</span>
                             <span className="text-white font-bold">💺 {listing.attributes.seats || listing.attributes.seat_count}</span>
                           </div>
@@ -723,19 +827,19 @@ export default function Page() {
                         
                         {/* History & Ownership */}
                         {(listing.attributes?.owners || listing.attributes?.owner_count || listing.attributes?.numberOfOwners) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Număr proprietari</span>
                             <span className="text-white font-bold">👥 {listing.attributes.owners || listing.attributes.owner_count || listing.attributes.numberOfOwners}</span>
                           </div>
                         )}
                         {(listing.attributes?.keys || listing.attributes?.key_count) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Chei</span>
                             <span className="text-white font-bold">🔑 {listing.attributes.keys || listing.attributes.key_count}</span>
                           </div>
                         )}
                         {(listing.attributes?.priorDamage !== undefined || listing.attributes?.prior_damage !== undefined || listing.attributes?.accident !== undefined) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Daune anterioare</span>
                             <span className="text-white font-bold">
                               {(listing.attributes.priorDamage === false || listing.attributes.prior_damage === false || listing.attributes.accident === false || listing.attributes.priorDamage === 'Nu' || listing.attributes.prior_damage === 'Nu') 
@@ -748,7 +852,7 @@ export default function Page() {
                           </div>
                         )}
                         {(listing.attributes?.serviceHistory || listing.attributes?.service_history) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Istoric service</span>
                             <span className="text-white font-bold">📋 {listing.attributes.serviceHistory || listing.attributes.service_history}</span>
                           </div>
@@ -756,31 +860,31 @@ export default function Page() {
                         
                         {/* Legal & Compliance */}
                         {(listing.attributes?.countryOfOrigin || listing.attributes?.country_of_origin) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Țara de origine</span>
                             <span className="text-white font-bold">🌍 {listing.attributes.countryOfOrigin || listing.attributes.country_of_origin}</span>
                           </div>
                         )}
                         {(listing.attributes?.lastRegistrationCountry || listing.attributes?.last_registration_country) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Ultima înmatriculare</span>
                             <span className="text-white font-bold">🌍 {listing.attributes.lastRegistrationCountry || listing.attributes.last_registration_country}</span>
                           </div>
                         )}
                         {(listing.attributes?.environmentalClass || listing.attributes?.environmental_class || listing.attributes?.emission_standard) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Normă poluare</span>
                             <span className="text-white font-bold">🌱 {listing.attributes.environmentalClass || listing.attributes.environmental_class || listing.attributes.emission_standard}</span>
                           </div>
                         )}
                         {(listing.attributes?.inspectionValid || listing.attributes?.inspection_valid || listing.attributes?.itp) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">ITP valabil până</span>
                             <span className="text-white font-bold">✅ {listing.attributes.inspectionValid || listing.attributes.inspection_valid || listing.attributes.itp}</span>
                           </div>
                         )}
                         {(listing.attributes?.warranty || listing.attributes?.garantie) && (
-                          <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                          <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                             <span className="text-gray-400 font-medium">Garanție</span>
                             <span className="text-white font-bold">🛡️ {listing.attributes.warranty || listing.attributes.garantie}</span>
                           </div>
@@ -790,7 +894,7 @@ export default function Page() {
                     
                     {/* Generic condition field for non-auto categories */}
                     {listing.category !== "Auto, moto și ambarcațiuni" && listing.condition && (
-                      <div className="flex justify-between items-center py-3 px-4 bg-gray-900/50 rounded-xl border border-gray-700/30">
+                      <div className="flex justify-between items-center py-2 px-3 bg-zinc-900/55 rounded-md border border-zinc-700/40">
                         <span className="text-gray-400 font-medium">Stare</span>
                         <span className="text-white font-bold">
                           {(listing.condition === "new" || listing.condition === "Nou") && "✨ Nou"}
@@ -806,51 +910,51 @@ export default function Page() {
               </div>
 
               {/* Description */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 p-8">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#00D4FF]/5 to-transparent rounded-3xl"></div>
+              <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3.5 shadow-sm backdrop-blur-sm md:rounded-2xl md:p-5">
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br from-zinc-800/35 to-transparent md:rounded-2xl"></div>
                 <div className="relative">
-                  <h2 className="text-2xl font-black text-white mb-6 flex items-center gap-3">
-                    <span className="w-10 h-10 bg-gradient-to-br from-[#00D4FF] to-[#00A8CC] rounded-xl flex items-center justify-center text-white">
+                  <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-tight text-white md:mb-3 md:gap-2.5 md:text-base">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#00D4FF] to-[#00A8CC] text-xs text-white md:h-9 md:w-9 md:rounded-lg md:text-sm">
                       📝
                     </span>
                     Descriere
                   </h2>
-                  <p className="text-gray-300 whitespace-pre-wrap leading-relaxed text-lg">
+                  <p className="max-w-prose whitespace-pre-wrap text-sm leading-relaxed tracking-tight text-zinc-200/95 text-balance md:text-[0.9375rem]">
                     {listing.description || "Fără descriere."}
                   </p>
                 </div>
               </div>
 
               {/* Statistics */}
-              <div className="bg-gradient-to-r from-gray-800/50 to-gray-900/50 backdrop-blur-xl rounded-2xl p-5 border border-gray-700/30 flex items-center justify-between text-sm shadow-lg">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-700/40 bg-zinc-900/60 p-2.5 text-xs shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm sm:text-sm md:p-3.5">
                 <span className="text-gray-400 font-medium flex items-center gap-2">
-                  <span className="text-xl">👁️</span>
+                  <span className="text-lg">👁️</span>
                   <span className="text-white font-bold">{listing.views || 0}</span> vizualizări
                 </span>
                 <span className="text-gray-400 font-medium flex items-center gap-2">
-                  <span className="text-xl">📅</span>
+                  <span className="text-lg">📅</span>
                   Publicat la <span className="text-white font-bold">{new Date(listing.createdAt).toLocaleDateString("ro-RO")}</span>
                 </span>
               </div>
             </div>
 
             {/* Sidebar - Right Column */}
-            <div className="space-y-6">
+            <div className="space-y-3 md:space-y-4 lg:sticky lg:top-24 lg:self-start">
               {/* Seller Card */}
-              <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-700/50 p-6 sticky top-24">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#6D5BFF]/10 to-transparent rounded-3xl pointer-events-none"></div>
+              <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3 shadow-sm shadow-black/15 ring-1 ring-white/[0.03] backdrop-blur-sm transition-shadow duration-300 ease-out hover:shadow-sm hover:shadow-black/25 md:rounded-2xl md:p-4">
+                <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.025] to-transparent md:rounded-2xl" />
                 <div className="relative">
-                  <h3 className="font-black text-xl text-white mb-5 flex items-center gap-2">
-                    <span className="text-2xl">👤</span>
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-white md:mb-3 md:text-base">
+                    <span className="text-base md:text-lg">👤</span>
                     Vânzător
                   </h3>
-                  <div className="flex items-center gap-4 mb-6 p-4 bg-gray-900/50 rounded-2xl border border-gray-700/30">
-                    <div className="w-16 h-16 bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg">
+                  <div className="mb-3 flex items-center gap-2.5 rounded-lg border border-zinc-700/40 bg-zinc-900/70 p-2.5 md:mb-4 md:gap-3 md:p-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] text-base font-bold text-white shadow-sm md:h-12 md:w-12 md:rounded-lg md:text-lg">
                       {sellerInitial || "?"}
                     </div>
-                    <div>
-                      <p className="font-bold text-white text-lg">{sellerDisplayName}</p>
-                      <p className="text-sm text-gray-400 flex items-center gap-1">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white md:text-base">{sellerDisplayName}</p>
+                      <p className="flex items-center gap-1 text-xs text-gray-400 md:text-sm">
                         <span>✅</span>
                         {listing?.owner?.createdAt
                           ? `Membru din ${new Date(listing.owner.createdAt).toLocaleDateString("ro-RO", { month: "short", year: "numeric" })}`
@@ -859,19 +963,19 @@ export default function Page() {
                     </div>
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-2.5">
                     {isOwner && (
                       <div className="grid grid-cols-2 gap-3">
                         <button 
                           onClick={() => router.push(`/listings/${id}/edit`)}
-                          className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-xl font-bold hover:shadow-xl hover:shadow-blue-500/30 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                          className="flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-2 text-xs font-semibold text-white transition-all hover:scale-[1.01] hover:shadow-sm hover:shadow-blue-900/20 active:scale-[0.99] md:gap-2 md:py-2.5 md:text-sm"
                         >
                           <span>✏️</span>
                           <span>Editează</span>
                         </button>
                         <button 
                           onClick={() => router.push(`/listings/${id}/promote`)}
-                          className="bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white py-3 rounded-xl font-bold hover:shadow-xl hover:shadow-yellow-500/30 transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                          className="flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 py-2 text-xs font-semibold text-white transition-all hover:scale-[1.01] hover:shadow-sm hover:shadow-amber-900/20 active:scale-[0.99] md:gap-2 md:py-2.5 md:text-sm"
                         >
                           <span>🚀</span>
                           <span>Promovează</span>
@@ -884,7 +988,7 @@ export default function Page() {
                         <button
                           type="button"
                           onClick={openMessages}
-                          className="w-full bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] text-white py-4 rounded-xl font-bold hover:shadow-xl hover:shadow-[#6D5BFF]/30 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] py-2 text-xs font-semibold text-white shadow-sm shadow-black/20 transition-all duration-200 ease-out hover:shadow-sm hover:shadow-violet-900/30 active:scale-[0.99] md:py-2.5 md:text-sm"
                         >
                           <span>💬</span>
                           <span>Trimite mesaj</span>
@@ -894,7 +998,7 @@ export default function Page() {
                             <a
                               href={`tel:${phoneTelHref}`}
                               onClick={() => id && void trackListingEngagement(id, "listing_phone_click")}
-                              className="w-full bg-gray-900/70 border-2 border-emerald-500/60 text-emerald-300 py-4 rounded-xl font-bold hover:bg-emerald-500/10 transition-all flex items-center justify-center gap-2"
+                              className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-zinc-900/80 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
                               <span>{formatPhoneDisplay(sellerPhone)}</span>
@@ -906,14 +1010,14 @@ export default function Page() {
                                 if (id) void trackListingEngagement(id, "listing_contact_click");
                                 setShowPhone(true);
                               }}
-                              className="w-full bg-gray-900/70 border-2 border-[#00D4FF] text-[#00D4FF] py-4 rounded-xl font-bold hover:bg-[#00D4FF]/10 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                              className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
                               <span>Afișează telefon</span>
                             </button>
                           )
                         ) : (
-                          <p className="text-center text-gray-400 text-sm py-2 px-2 rounded-xl bg-gray-900/40 border border-gray-700/50">
+                          <p className="text-center text-gray-400 text-xs py-2 px-2 rounded-lg bg-zinc-900/50 border border-zinc-700/45">
                             Vânzătorul nu a afișat telefon — folosește mesajul.
                           </p>
                         )}
@@ -938,7 +1042,7 @@ export default function Page() {
                         setShowReportModal(true);
                         setReportFeedback(null);
                       }}
-                      className="w-full mt-4 text-red-400 hover:text-red-300 text-sm font-medium flex items-center justify-center gap-2 py-3 px-4 bg-red-500/10 rounded-xl border border-red-500/30 hover:bg-red-500/20 transition-all"
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 md:mt-3 md:py-2.5 md:text-xs"
                     >
                       <span>⚠️</span>
                       <span>Raportează anunțul</span>
@@ -948,19 +1052,19 @@ export default function Page() {
               </div>
 
               {isAutoListing && (
-                <div className="bg-gradient-to-br from-indigo-500/20 to-blue-500/20 border-2 border-indigo-400/40 rounded-2xl p-5 backdrop-blur-xl">
-                  <h4 className="font-black text-indigo-200 mb-2 flex items-center gap-2 text-lg">
+                <div className="rounded-lg border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 p-3 backdrop-blur-sm md:p-3.5">
+                  <h4 className="mb-1 flex items-center gap-2 text-xs font-semibold text-indigo-200/95 md:mb-1.5 md:text-sm">
                     <span>🛡️</span>
                     <span>Verificare istoric auto</span>
                   </h4>
-                  <p className="text-sm text-indigo-100/90 mb-4">
+                  <p className="mb-2 text-xs leading-snug text-indigo-100/85 md:mb-3 md:text-sm">
                     Verifică rapid istoricul mașinii (daune, kilometraj, furt, status juridic) direct în platforma CarVertical.
                   </p>
                   <a
                     href={carHistoryUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-blue-500 hover:shadow-lg hover:shadow-indigo-500/30 transition-all"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 px-3 py-2 text-xs font-semibold text-white transition-shadow hover:shadow-sm hover:shadow-indigo-900/25 md:px-4 md:text-sm"
                   >
                     <span>🔎</span>
                     <span>Verifică pe CarVertical</span>
@@ -978,25 +1082,25 @@ export default function Page() {
               )}
 
               {isAutoListing && (
-                <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/95 via-slate-900/95 to-black/95 border border-cyan-400/30 rounded-2xl p-5 shadow-2xl">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.18),transparent_45%)] pointer-events-none"></div>
+                <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900/95 via-zinc-950 to-black/90 border border-zinc-600/35 rounded-lg p-3.5 shadow-sm">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.06),transparent_55%)] pointer-events-none"></div>
                   <div className="relative">
-                    <h4 className="font-black text-cyan-100 mb-1 flex items-center gap-2 text-lg">
+                    <h4 className="font-semibold text-cyan-100/95 mb-1 flex items-center gap-2 text-sm">
                       <span>⚡</span>
                       <span>Verificări utile auto</span>
                     </h4>
-                    <p className="text-sm text-cyan-50/85 mb-4">
+                    <p className="text-xs text-cyan-50/85 mb-3 leading-snug">
                       Toolkit rapid pentru decizie: verificare oficială, cost estimat și comparație directă cu piața.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="rounded-xl border border-cyan-400/25 bg-cyan-500/10 p-3">
-                        <p className="text-xs text-cyan-100/80">Cost combustibil / lună</p>
-                        <p className="text-base font-black text-white">{monthlyFuelCost.toLocaleString("ro-RO")} RON</p>
+                    <div className="grid grid-cols-2 gap-2.5 mb-3">
+                      <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-2.5">
+                        <p className="text-[11px] text-cyan-100/75">Cost combustibil / lună</p>
+                        <p className="text-sm font-bold text-white tabular-nums">{monthlyFuelCost.toLocaleString("ro-RO")} RON</p>
                       </div>
-                      <div className="rounded-xl border border-indigo-400/25 bg-indigo-500/10 p-3">
-                        <p className="text-xs text-indigo-100/80">Impozit estimat / an</p>
-                        <p className="text-base font-black text-white">{yearlyTaxEstimate.toLocaleString("ro-RO")} RON</p>
+                      <div className="rounded-lg border border-indigo-400/20 bg-indigo-500/10 p-2.5">
+                        <p className="text-[11px] text-indigo-100/75">Impozit estimat / an</p>
+                        <p className="text-sm font-bold text-white tabular-nums">{yearlyTaxEstimate.toLocaleString("ro-RO")} RON</p>
                       </div>
                     </div>
 
@@ -1005,7 +1109,7 @@ export default function Page() {
                         href={rarAutoPassUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/15 hover:bg-cyan-500/15 hover:border-cyan-300/40 transition-all text-white font-semibold"
+                        className="w-full inline-flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-zinc-600/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-colors text-white text-sm font-semibold"
                       >
                         <span className="inline-flex items-center gap-2">
                           <span>🏛️</span>
@@ -1016,7 +1120,7 @@ export default function Page() {
 
                       <Link
                         href={similarAutoUrl}
-                        className="w-full inline-flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/15 hover:bg-indigo-500/20 hover:border-indigo-300/40 transition-all text-white font-semibold"
+                        className="w-full inline-flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-zinc-600/40 hover:bg-indigo-500/15 hover:border-indigo-400/30 transition-colors text-white text-sm font-semibold"
                       >
                         <span className="inline-flex items-center gap-2">
                           <span>📊</span>
@@ -1030,12 +1134,12 @@ export default function Page() {
               )}
 
               {/* Safety Tips */}
-              <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-2xl p-5 backdrop-blur-xl">
-                <h4 className="font-black text-yellow-300 mb-3 flex items-center gap-2 text-lg">
+              <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-600/25 rounded-lg p-3.5 backdrop-blur-sm">
+                <h4 className="font-semibold text-yellow-200/95 mb-2 flex items-center gap-2 text-sm">
                   <span>⚠️</span>
                   <span>Sfaturi de siguranță</span>
                 </h4>
-                <ul className="text-sm text-yellow-100 space-y-2 font-medium">
+                <ul className="text-xs text-yellow-100/95 space-y-1.5 font-medium leading-snug">
                   <li className="flex items-start gap-2">
                     <span className="text-yellow-400">•</span>
                     <span>Nu plăti în avans</span>
@@ -1056,8 +1160,8 @@ export default function Page() {
               </div>
 
               {/* Share Buttons */}
-              <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-700/50 p-6">
-                <h4 className="font-black text-white mb-4 text-lg flex items-center gap-2">
+              <div className="bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-sm rounded-lg shadow-sm border border-zinc-700/40 p-4">
+                <h4 className="font-semibold text-white mb-2.5 text-sm flex items-center gap-2">
                   <svg className="w-6 h-6 text-[#00D4FF]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
@@ -1066,7 +1170,7 @@ export default function Page() {
                 <div className="flex gap-2">
                   <button 
                     onClick={shareOnFacebook}
-                    className="flex-1 p-4 bg-gradient-to-br from-blue-600 to-blue-700 border-2 border-blue-500/50 rounded-xl hover:shadow-xl hover:shadow-blue-500/30 transition-all transform hover:scale-105 active:scale-95 group" 
+                    className="flex-1 p-3 bg-gradient-to-br from-blue-600 to-blue-700 border border-blue-500/30 rounded-lg hover:shadow-sm hover:shadow-blue-900/25 transition-shadow transform hover:scale-[1.01] active:scale-[0.99] group"
                     title="Facebook"
                   >
                     <svg className="w-6 h-6 mx-auto text-white group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="currentColor">
@@ -1075,7 +1179,7 @@ export default function Page() {
                   </button>
                   <button 
                     onClick={shareOnWhatsApp}
-                    className="flex-1 p-4 bg-gradient-to-br from-green-500 to-green-600 border-2 border-green-400/50 rounded-xl hover:shadow-xl hover:shadow-green-500/30 transition-all transform hover:scale-105 active:scale-95 group" 
+                    className="flex-1 p-3 bg-gradient-to-br from-green-500 to-green-600 border border-green-400/30 rounded-lg hover:shadow-sm hover:shadow-emerald-900/25 transition-shadow transform hover:scale-[1.01] active:scale-[0.99] group"
                     title="WhatsApp"
                   >
                     <svg className="w-6 h-6 mx-auto text-white group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="currentColor">
@@ -1084,7 +1188,7 @@ export default function Page() {
                   </button>
                   <button 
                     onClick={copyLink}
-                    className="relative flex-1 p-4 bg-gradient-to-br from-gray-700 to-gray-800 border-2 border-gray-600/50 rounded-xl hover:shadow-xl hover:shadow-gray-600/30 transition-all transform hover:scale-105 active:scale-95 group" 
+                    className="relative flex-1 p-3 bg-gradient-to-br from-zinc-700 to-zinc-800 border border-zinc-600/40 rounded-lg hover:shadow-sm hover:shadow-black/30 transition-shadow transform hover:scale-[1.01] active:scale-[0.99] group"
                     title="Copiază link"
                   >
                     {showCopySuccess ? (
@@ -1108,29 +1212,39 @@ export default function Page() {
           </div>
 
           {/* Similar Listings */}
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6">Anunțuri similare</h2>
+          <div className="mt-8">
+            <h2 className="mb-3 text-base font-semibold tracking-tight text-zinc-100">Anunțuri similare</h2>
             {similarLoading ? (
-              <div className="text-gray-500">Se încarcă anunțurile similare...</div>
+              <div className="text-sm text-gray-500">Se încarcă anunțurile similare…</div>
             ) : similarListings.length === 0 ? (
-              <div className="text-gray-500">Nu există anunțuri similare disponibile momentan.</div>
+              <div
+                className="rounded-xl border border-gray-700/35 bg-gray-900/35 px-5 py-8 text-center text-sm text-gray-400"
+                role="status"
+              >
+                <p className="font-medium text-gray-300">Niciun anunț similar momentan</p>
+                <p className="mt-1.5 text-gray-500">
+                  Nu există alte anunțuri încărcate din aceeași categorie/filtru. Revino mai târziu sau explorează categoria.
+                </p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {similarListings.map((item) => {
                   const similarPhotos = normalizeListingPhotosArray(item?.photos);
                   const similarSrc =
-                    similarPhotos.length > 0 ? normalizeListingPhotoUrl(similarPhotos[0]) : DEFAULT_LISTING_IMAGE_URL;
+                    similarPhotos.length > 0
+                      ? normalizeListingPhotoUrl(similarPhotos[0]) || DEFAULT_LISTING_IMAGE_URL
+                      : DEFAULT_LISTING_IMAGE_URL;
                   return (
                     <Link
                       key={item.id}
                       href={`/listings/${item.id}`}
-                      className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition cursor-pointer group block"
+                      className="group block cursor-pointer overflow-hidden rounded-md bg-white shadow-sm ring-1 ring-zinc-900/[0.06] transition-shadow duration-200 ease-out hover:shadow-md hover:ring-zinc-900/[0.1]"
                     >
                       <div className="aspect-video bg-gray-200 overflow-hidden">
                         <img
                           src={similarSrc}
                           alt={item.title || "Anunț similar"}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-normal ease-premium"
+                          className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]"
                           onError={(e) => {
                             const el = e.currentTarget;
                             el.onerror = null;
@@ -1138,14 +1252,14 @@ export default function Page() {
                           }}
                         />
                       </div>
-                      <div className="p-4">
-                        <h3 className="font-medium text-gray-900 mb-2 group-hover:text-blue-600 transition">
+                      <div className="p-3">
+                        <h3 className="text-[13px] font-medium leading-snug text-zinc-900 mb-1 line-clamp-2 group-hover:text-blue-700 transition-colors">
                           {item.title || "Anunț similar"}
                         </h3>
-                        <p className="text-xl font-bold text-blue-600">
+                        <p className="text-base font-semibold tabular-nums text-zinc-900">
                           {typeof item.priceAmount === "number" ? item.priceAmount.toLocaleString() : "—"} {item.priceCurrency || "RON"}
                         </p>
-                        <p className="text-sm text-gray-500 mt-2">
+                        <p className="text-xs text-zinc-500 mt-1.5">
                           📍 {item.city || item.county || "România"}
                         </p>
                       </div>
@@ -1164,10 +1278,10 @@ export default function Page() {
           onClick={() => !reportLoading && setShowReportModal(false)}
         >
           <div
-            className="bg-gray-900 border border-gray-700 rounded-2xl max-w-md w-full p-6 shadow-2xl"
+            className="bg-gray-900 border border-gray-700/80 rounded-2xl max-w-md w-full p-6 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-xl font-bold text-white mb-4">Raportează anunțul</h3>
+            <h3 className="text-lg font-bold text-white mb-4">Raportează anunțul</h3>
             <label className="block text-sm text-gray-400 mb-2">Motiv</label>
             <select
               value={reportReason}

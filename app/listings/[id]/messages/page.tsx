@@ -495,7 +495,7 @@ export default function ListingMessagesPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl min-w-0 px-4 pb-[max(2rem,calc(5.5rem+env(safe-area-inset-bottom,0px)))] pt-6 sm:px-6 sm:pb-8 sm:pt-8 lg:px-8">
         {loading ? (
           <div className="flex items-center justify-center h-96">
             <div className="relative">
@@ -562,9 +562,9 @@ export default function ListingMessagesPage() {
               )}
 
               {/* Chat Box */}
-              <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-slate-700/50 overflow-hidden flex flex-col h-[600px]">
+              <div className="flex max-h-[calc(100dvh-11rem-env(safe-area-inset-bottom,0px))] min-h-[min(52dvh,380px)] flex-col overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-br from-slate-800/90 to-slate-900/90 shadow-2xl backdrop-blur-xl sm:rounded-3xl md:h-[600px] md:max-h-none">
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain p-3 sm:space-y-4 sm:p-6 [-webkit-overflow-scrolling:touch]">
                   {messages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center">
                       <div className="w-20 h-20 bg-gradient-to-br from-blue-600/20 to-cyan-500/20 rounded-full flex items-center justify-center mb-4">
@@ -592,7 +592,7 @@ export default function ListingMessagesPage() {
                             key={msg.id}
                             className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}
                           >
-                            <div className={`flex gap-3 max-w-[80%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div className={`flex max-w-[min(92%,22rem)] gap-2 sm:max-w-[80%] sm:gap-3 ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
                               {/* Avatar */}
                               <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm ${
                                 isOwn 
@@ -637,8 +637,8 @@ export default function ListingMessagesPage() {
                 </div>
 
                 {/* Input */}
-                <div className="p-4 border-t border-slate-700/50 bg-slate-900/70 backdrop-blur-sm">
-                  <div className="flex gap-3">
+                <div className="sticky z-[45] border-t border-slate-700/50 bg-slate-900/90 p-2.5 backdrop-blur-sm max-md:bottom-[calc(4.65rem+env(safe-area-inset-bottom,0px))] max-md:pb-[max(0.35rem,env(safe-area-inset-bottom))] sm:p-4 md:static md:bottom-auto md:z-auto">
+                  <div className="flex gap-2 sm:gap-3">
                     <input
                       type="text"
                       placeholder="Scrie mesajul tău aici..."
@@ -651,12 +651,12 @@ export default function ListingMessagesPage() {
                         }
                       }}
                       disabled={sendingMessage}
-                      className="flex-1 bg-slate-800/70 border border-slate-700/50 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all disabled:opacity-50"
+                      className="min-h-[2.75rem] flex-1 rounded-lg border border-slate-700/50 bg-slate-800/70 px-3 py-2 text-sm text-white transition-all placeholder:text-gray-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 sm:min-h-0 sm:rounded-xl sm:px-4 sm:py-3 sm:text-base"
                     />
                     <button
                       onClick={handleSendMessage}
                       disabled={sendingMessage || !messageText.trim()}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-3 py-2 text-sm font-semibold text-white transition-all hover:shadow-lg hover:shadow-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50 sm:gap-2 sm:rounded-xl sm:px-6 sm:py-3 sm:text-base"
                     >
                       {sendingMessage ? (
                         <>

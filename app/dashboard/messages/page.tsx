@@ -759,25 +759,22 @@ export default function MessagesPage() {
     <div className="enterprise-page-bg enterprise-mesh flex min-h-screen flex-col text-white">
       <Navbar />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] md:px-6">
-        <header className="mb-8">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] max-md:min-h-0 max-md:pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:px-6 md:py-8">
+        <header className="mb-4 max-md:mb-5 md:mb-8">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)] max-md:mb-1 md:text-xs md:tracking-[0.2em]">
             Inbox
           </p>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight md:text-4xl">
-            <span className="text-white">Mesajele </span>
-            <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
-              mele
-            </span>
+          <h1 className="mb-1.5 text-[1.5rem] font-semibold leading-tight tracking-tight text-white sm:text-[1.625rem] md:mb-2 md:text-2xl lg:text-3xl">
+            Mesajele mele
           </h1>
-          <p className="text-[var(--text-secondary)]">Comunică cu cumpărători și vânzători</p>
+          <p className="text-xs text-[var(--text-secondary)] md:text-base">Comunică cu cumpărători și vânzători</p>
         </header>
 
-        <div className="grid h-[min(70dvh,640px)] grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
+        <div className="grid min-h-0 min-w-0 grid-cols-1 gap-3 max-md:min-h-[calc(100dvh-10.25rem-env(safe-area-inset-bottom,0px))] max-md:grid-rows-[minmax(0,min(36vh,260px))_minmax(0,1fr)] md:h-[min(70dvh,640px)] md:grid-cols-3 md:gap-5 md:grid-rows-1">
           {/* Conversations List */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)] backdrop-blur-sm">
-            <div className="border-b border-white/[0.06] px-5 py-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm md:rounded-xl">
+            <div className="border-b border-white/[0.06] bg-black/20 px-3 py-2.5 md:px-5 md:py-3.5">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)] md:text-sm">
                 Conversații
               </h2>
             </div>
@@ -806,29 +803,59 @@ export default function MessagesPage() {
                   <p>Nu există conversații încă.</p>
                 </div>
               ) : (
-                conversations.map((conv) => (
+                conversations.map((conv) => {
+                  const shortTime = new Date(conv.lastMessageAt).toLocaleTimeString("ro-RO", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  const lastStr =
+                    conv.lastMessage &&
+                    typeof (conv.lastMessage as { content?: string }).content === "string"
+                      ? (conv.lastMessage as { content: string }).content.trim()
+                      : "";
+                  return (
                   <button
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv)}
-                    className={`w-full border-b border-white/[0.05] px-4 py-4 text-left transition ${
+                      className={`flex w-full min-w-0 border-b border-white/[0.05] text-left transition max-md:h-[5.25rem] max-md:max-h-[5.75rem] max-md:min-h-[4.5rem] max-md:items-center max-md:gap-2.5 max-md:px-3 max-md:py-0 md:flex-col md:items-stretch md:px-4 md:py-3.5 ${
                       selectedConversation?.id === conv.id
-                        ? "bg-[var(--accent-primary)]/12 ring-1 ring-inset ring-[var(--accent-primary)]/35"
-                        : "hover:bg-white/[0.04]"
+                        ? "bg-primary-600/15 ring-1 ring-inset ring-primary-500/25"
+                        : "active:bg-white/[0.04] hover:bg-white/[0.05]"
                     }`}
                   >
-                    <div className="mb-2 flex items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5 md:mb-2 md:w-full md:gap-3">
                       {conv.otherParticipant.avatar ? (
                         <img
                           src={conv.otherParticipant.avatar}
                           alt={conv.otherParticipant.name}
-                          className="h-10 w-10 rounded-full object-cover ring-1 ring-white/10"
+                          className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/10 md:h-10 md:w-10"
                         />
                       ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-sm font-semibold text-white">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-white ring-1 ring-white/10 md:h-10 md:w-10 md:text-sm">
                           {displayNameForMessagingUser(conv.otherParticipant).charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 md:hidden">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-semibold leading-tight text-white">
+                            {displayNameForMessagingUser(conv.otherParticipant)}
+                          </p>
+                          <span className="shrink-0 pt-0.5 text-[10px] font-medium tabular-nums text-[var(--text-muted)]">
+                            {shortTime}
+                          </span>
+                        </div>
+                        {conv.listing && (
+                          <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-[var(--text-tertiary)]">
+                            <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
+                          </p>
+                        )}
+                        {lastStr.length > 0 && (
+                          <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-[var(--text-secondary)]">
+                            {lastStr}
+                          </p>
+                        )}
+                      </div>
+                      <div className="hidden min-w-0 flex-1 md:block">
                         <p className="truncate font-semibold text-white">
                           {displayNameForMessagingUser(conv.otherParticipant)}
                         </p>
@@ -839,60 +866,70 @@ export default function MessagesPage() {
                         )}
                       </div>
                     </div>
-                    {conv.listing && (
-                      <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
-                        <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
-                        <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
-                      </p>
-                    )}
-                    {conv.lastMessage &&
-                      typeof (conv.lastMessage as { content?: string }).content === "string" &&
-                      (conv.lastMessage as { content: string }).content.trim().length > 0 && (
-                        <p className="mb-1 line-clamp-2 text-left text-xs text-[var(--text-secondary)]">
-                          {(conv.lastMessage as { content: string }).content}
+
+                    <div className="hidden w-full min-w-0 flex-col md:flex">
+                      {conv.listing && (
+                        <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
+                          <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
+                          <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
                         </p>
                       )}
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      {new Date(conv.lastMessageAt).toLocaleString("ro-RO")}
-                    </p>
+                      {lastStr.length > 0 && (
+                        <p className="mb-1 line-clamp-2 text-left text-xs text-[var(--text-secondary)]">{lastStr}</p>
+                      )}
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {new Date(conv.lastMessageAt).toLocaleString("ro-RO")}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end justify-center gap-1 self-stretch md:hidden">
+                      {conv.unreadCount > 0 ? (
+                        <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--accent-primary)] px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums text-white">
+                          {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                        </span>
+                      ) : (
+                        <span className="h-5 w-5 shrink-0" aria-hidden />
+                      )}
+                    </div>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
 
           {/* Messages Area */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)] backdrop-blur-sm md:col-span-2">
+          <div className="relative flex min-h-0 min-w-0 flex-col overflow-x-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm max-md:min-h-0 md:col-span-2 md:overflow-hidden">
             {selectedConversation ? (
               <>
-                <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2.5 max-md:min-h-0 md:gap-4 md:px-5 md:py-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5 md:gap-3">
                     {selectedConversation.otherParticipant.avatar ? (
                       <img
                         src={selectedConversation.otherParticipant.avatar}
                         alt={selectedConversation.otherParticipant.name}
-                        className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-white/10"
+                        className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/10 md:h-11 md:w-11"
                       />
                     ) : (
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-sm font-semibold text-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-white ring-1 ring-white/10 md:h-11 md:w-11 md:text-sm">
                         {displayNameForMessagingUser(selectedConversation.otherParticipant).charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-white">
+                      <p className="truncate text-sm font-semibold text-white md:text-base">
                         {displayNameForMessagingUser(selectedConversation.otherParticipant)}
                       </p>
                       {selectedConversation.listing && (
-                        <p className="truncate text-xs text-[var(--text-tertiary)]">
+                        <p className="line-clamp-1 text-[11px] text-[var(--text-tertiary)] md:text-xs">
                           {selectedConversation.listing.title}{" "}
-                          <span className="text-[var(--text-muted)]">· #{selectedConversation.listing.id.slice(-6)}</span>
+                          <span className="text-[var(--text-muted)] max-md:hidden">· #{selectedConversation.listing.id.slice(-6)}</span>
                         </p>
                       )}
                     </div>
                   </div>
                   <Link
                     href={`/users/${selectedConversation.otherParticipant.id}/profile`}
-                    className="shrink-0 rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+                    className="shrink-0 rounded-lg border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] md:px-4 md:py-2 md:text-xs"
                   >
                     Profil
                   </Link>
@@ -900,7 +937,7 @@ export default function MessagesPage() {
 
                 <div
                   ref={messagesContainerRef}
-                  className="flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-y-contain px-5 py-5 [-webkit-overflow-scrolling:touch]"
+                  className="min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-y-contain bg-[var(--bg-primary)]/40 px-3 py-3 [-webkit-overflow-scrolling:touch] max-md:pb-4 md:space-y-3 md:px-5 md:py-5"
                 >
                   {isLoadingThread && messages.length === 0 ? (
                     <div className="space-y-4 py-6" aria-busy="true" aria-label="Se încarcă mesajele">
@@ -933,15 +970,15 @@ export default function MessagesPage() {
                             {displayNameForMessagingUser(msg.sender)}
                           </span>
                         )}
-                        <div
-                          className={`max-w-[min(100%,20rem)] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                          <div
+                          className={`max-w-[min(100%,78%)] rounded-2xl px-3.5 py-2.5 text-[13px] leading-snug md:max-w-[min(100%,20rem)] md:px-4 md:py-3 md:text-sm md:leading-relaxed ${
                             messagingUserIdsEqual(msg.sender.id, currentUserId)
-                              ? "bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-dark)] text-white shadow-[var(--shadow-sm)]"
+                              ? "bg-primary-600 text-white ring-1 ring-white/10"
                               : "border border-white/[0.08] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                           }`}
                         >
                           <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                          <p className="mt-2 text-[10px] font-medium opacity-70">
+                          <p className="mt-1.5 text-[10px] font-medium opacity-70 md:mt-2">
                             {new Date(msg.createdAt).toLocaleTimeString("ro-RO", {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -978,7 +1015,7 @@ export default function MessagesPage() {
                 )}
                 <form
                   onSubmit={handleSendMessage}
-                  className="flex gap-3 border-t border-white/[0.06] bg-[var(--bg-primary)]/40 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+                  className="sticky z-[45] flex gap-2 border-t border-white/[0.08] bg-[var(--bg-primary)] px-3 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.35)] max-md:bottom-[calc(4.55rem+env(safe-area-inset-bottom,0px))] md:static md:z-auto md:gap-3 md:px-5 md:py-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:shadow-none"
                   id="message-form"
                 >
                   <input
@@ -989,7 +1026,7 @@ export default function MessagesPage() {
                     }}
                     placeholder="Scrie un mesaj…"
                     maxLength={MESSAGE_MAX_CHARS}
-                    className="enterprise-input flex-1 rounded-xl px-4 py-3 text-sm text-white placeholder:text-[var(--text-muted)]"
+                    className="enterprise-input min-h-[2.75rem] flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder:text-[var(--text-muted)] md:min-h-0 md:rounded-xl md:px-4 md:py-3"
                     id="message-input"
                     enterKeyHint="send"
                     autoComplete="off"
@@ -997,7 +1034,7 @@ export default function MessagesPage() {
                   <button
                     type="submit"
                     disabled={isSending || !newMessage.trim()}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-dark)] px-6 py-3 text-sm font-semibold text-white shadow-[var(--shadow-glow)] transition hover:brightness-110 disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)]"
+                    className="shrink-0 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] md:rounded-xl md:px-6 md:py-3"
                     id="send-button"
                   >
                     {isSending ? "Se trimite…" : "Trimite"}
@@ -1018,7 +1055,7 @@ export default function MessagesPage() {
 
         <Link
           href="/dashboard"
-          className="mt-8 inline-flex text-sm font-semibold text-[var(--accent-secondary)] transition hover:text-white"
+          className="mt-5 inline-flex text-sm font-semibold text-[var(--accent-secondary)] transition hover:text-white max-md:mb-1 md:mt-8"
         >
           ← Înapoi la dashboard
         </Link>
