@@ -279,20 +279,20 @@ export default function SecurityPage() {
         <section className="py-16">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-wrap justify-center gap-6 text-white/60">
-              <Link href="/legal/terms" className="hover:text-white transition">
+              <Link href="/terms" className="hover:text-white transition">
                 Termeni și Condiții
               </Link>
               <span>•</span>
-              <Link href="/legal/privacy" className="hover:text-white transition">
+              <Link href="/privacy" className="hover:text-white transition">
                 Politica de Confidențialitate
               </Link>
               <span>•</span>
-              <Link href="/legal/cookies" className="hover:text-white transition">
+              <Link href="/cookies" className="hover:text-white transition">
                 Politica Cookies
               </Link>
               <span>•</span>
-              <Link href="/legal/gdpr" className="hover:text-white transition">
-                GDPR
+              <Link href="/gdpr" className="hover:text-white transition">
+                Drepturi GDPR
               </Link>
             </div>
           </div>

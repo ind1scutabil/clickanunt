@@ -87,6 +87,11 @@ export default function TermsPage() {
               <li>Conținut pornografic, violent sau care incită la ură</li>
               <li>Documente false, carduri bancare clonate</li>
               <li>Servicii ilegale sau care încalcă ordinea publică</li>
+              <li>Hacking, malware, spyware sau instrumente pentru acces neautorizat</li>
+              <li>Baze de date cu date personale sau liste obținute ilegal</li>
+              <li>Animale protejate sau comercializate ilegal</li>
+              <li>Scheme financiare înșelătoare, „crypto scam” sau investiții nereglementate promovate fraudulos</li>
+              <li>Conținut care încalcă drepturi de autor sau mărci fără dreptul de utilizare</li>
             </ul>
           </section>
 
@@ -233,7 +238,7 @@ export default function TermsPage() {
             Ultima actualizare: 4 februarie 2026
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            © 2026 AutoPlatform. Toate drepturile rezervate.
+            © 2026 ClickAnunt. Toate drepturile rezervate.
           </p>
         </div>
       </div>

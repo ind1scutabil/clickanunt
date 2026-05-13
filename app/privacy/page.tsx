@@ -132,12 +132,40 @@ export default function PrivacyPage() {
             <ul className="list-disc list-inside space-y-2 ml-4 mb-4">
               <li><strong>Esențiale:</strong> Autentificare, securitate (nu necesită consimțământ)</li>
               <li><strong>Funcționale:</strong> Reținerea preferințelor</li>
-              <li><strong>Analitice:</strong> Statistici de vizitare anonimizate</li>
+              <li><strong>Analitice:</strong> Statistici de vizitare — doar după acord în bannerul de cookie (vezi{" "}
+                <a href="/cookies" className="text-[#1E90FF] hover:underline">Politica cookie</a>).</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold mb-4 text-white">6. Legislație Aplicabilă</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-white">6. Temeiuri legale (Art. 6 GDPR)</h2>
+            <p className="mb-4 text-sm">
+              Prelucrăm date personale pe baza: executării contractului cu utilizatorul (cont și anunțuri),
+              interesului legitim (securitate, prevenire fraudă, îmbunătățirea serviciului), obligației legale
+              (facturare, arhivare fiscală unde aplicabil) și consimțământului (ex. cookie-uri neesențiale, comunicări
+              marketing acolo unde sunt activate explicit).
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold mb-4 text-white">7. Durata stocării</h2>
+            <ul className="ml-4 list-inside list-disc space-y-2 text-sm">
+              <li>Date de cont: pe durata existenței contului și într-o perioadă rezonabilă după ștergere pentru apărare în litigii.</li>
+              <li>Anunțuri și mesaje asociate: conform politicii interne de retenție și obligațiilor legale.</li>
+              <li>Documente de facturare: conform legislației fiscale române (în mod tipic până la 10 ani).</li>
+              <li>Jurnale tehnice: perioade limitate, proporționale cu scopul de securitate și audit.</li>
+            </ul>
+            <p className="mt-3 text-sm text-gray-400">
+              Detalii despre cookie-uri:{" "}
+              <a href="/cookies" className="text-[#1E90FF] hover:underline">
+                Politica cookie
+              </a>
+              .
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold mb-4 text-white">8. Legislație Aplicabilă</h2>
             <ul className="list-disc list-inside space-y-2 ml-4">
               <li>📘 Regulamentul (UE) 2016/679 - GDPR</li>
               <li>📗 Legea 190/2018 - implementarea GDPR în România</li>
@@ -147,7 +175,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold mb-4 text-white">7. Contact</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-white">9. Contact</h2>
             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
               <p className="mb-2"><strong>📧 Email GDPR:</strong> dpo@clickanunt.ro</p>
               <p className="mb-2"><strong>📝 Formular:</strong> <a href="/contact" className="text-[#1E90FF] hover:underline">Contact</a></p>

@@ -8,13 +8,12 @@ import Script from "next/script";
  * Set in production `.env` / hosting:
  *   NEXT_PUBLIC_GA_ID=G-XXXXXXXXXX
  *
- * GDPR / consent: this component loads gtag when the env var is present.
- * Wire your CMP / consent banner to call `gtag('consent', 'update', …)` before
- * or after load as required by your legal review. `anonymize_ip` is enabled
- * as a baseline privacy-oriented default.
+ * Montat exclusiv din `ConditionalAnalytics` după consimțământ „Analitice” în bannerul intern.
+ * `anonymize_ip` este activ ca setare implicită orientată spre confidențialitate.
  */
 export function GoogleAnalytics() {
   const id = process.env.NEXT_PUBLIC_GA_ID?.trim();
+  /** Parentul `ConditionalAnalytics` montează această componentă doar după consimțământ analitic. */
   if (process.env.NODE_ENV !== "production" || !id) {
     return null;
   }

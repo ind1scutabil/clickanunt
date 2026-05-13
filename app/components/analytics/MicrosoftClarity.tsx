@@ -7,10 +7,11 @@ import Script from "next/script";
  *
  *   NEXT_PUBLIC_CLARITY_ID=your_project_id
  *
- * Loads after interactive; does not block first paint.
+ * Montat exclusiv din `ConditionalAnalytics` după consimțământ „Analitice”.
  */
 export function MicrosoftClarity() {
   const id = process.env.NEXT_PUBLIC_CLARITY_ID?.trim();
+  /** Montat doar din `ConditionalAnalytics` după consimțământ analitic. */
   if (process.env.NODE_ENV !== "production" || !id) {
     return null;
   }

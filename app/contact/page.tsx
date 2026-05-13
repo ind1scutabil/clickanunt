@@ -35,11 +35,18 @@ export default function ContactPage() {
 
   const selectedEmail = subjectToEmail[formData.subject] || subjectToEmail.general;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    const to = selectedEmail.email;
+    const subject = encodeURIComponent(`[${selectedEmail.label}] ${formData.subject}`);
+    const body = encodeURIComponent(
+      [`Nume: ${formData.name}`, `Răspuns la: ${formData.email}`, `Subiect (cod): ${formData.subject}`, "", formData.message].join("\n")
+    );
+    if (typeof window !== "undefined") {
+      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    }
     setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
+    setTimeout(() => setSubmitted(false), 8000);
   };
 
   return (
@@ -69,7 +76,8 @@ export default function ContactPage() {
               
               {submitted && (
                 <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm text-emerald-100">
-                  Mesajul a fost înregistrat. Îți vom răspunde în cel mai scurt timp.
+                  Am deschis clientul tău de email cu mesajul pregătit. Trimite mesajul din aplicația de mail. Dacă nu s-a
+                  deschis nimic, folosește manual adresa afișată mai sus.
                 </div>
               )}
 
