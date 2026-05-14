@@ -245,3 +245,105 @@ test.describe('Admin - Route Protection', () => {
     expect([401, 403]).toContain(response.status());
   });
 });
+
+test.describe('Admin mobile bottom nav (stub session)', () => {
+  test('shows Moderare link for admin/owner in localStorage', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000099',
+          email: 'admin-e2e-stub@clickanunt.ro',
+          role: 'admin',
+          name: 'E2E Stub',
+        })
+      );
+      localStorage.setItem('accessToken', 'stub-not-for-api');
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
+    const moderare = bottom.getByRole('link', { name: /moderare/i });
+    await expect(moderare).toBeVisible();
+    await expect(moderare).toHaveAttribute('href', '/admin/moderation');
+  });
+
+  test('hides Moderare link for normal user', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000088',
+          email: 'user-e2e-stub@clickanunt.ro',
+          role: 'user',
+          name: 'User Stub',
+        })
+      );
+      localStorage.setItem('accessToken', 'stub-not-for-api');
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
+    await expect(bottom.getByRole('link', { name: /^Moderare$/ })).toHaveCount(0);
+  });
+
+  test('hamburger: Deconectare visible (iPhone SE)', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000099',
+          email: 'admin-se@clickanunt.ro',
+          role: 'admin',
+          name: 'SE',
+        })
+      );
+      localStorage.setItem('accessToken', 'stub-not-for-api');
+    });
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
+    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible();
+    await expect(sheet.getByRole('link', { name: /admin.*moderare/i })).toBeVisible();
+  });
+
+  test('hamburger: Deconectare visible (iPhone 14 Pro Max)', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000099',
+          email: 'admin-max@clickanunt.ro',
+          role: 'admin',
+          name: 'Max',
+        })
+      );
+      localStorage.setItem('accessToken', 'stub-not-for-api');
+    });
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
+    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible();
+  });
+
+  test('hamburger: Deconectare visible (Android narrow)', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000099',
+          email: 'admin-narrow@clickanunt.ro',
+          role: 'admin',
+          name: 'Narrow',
+        })
+      );
+      localStorage.setItem('accessToken', 'stub-not-for-api');
+    });
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    await expect(page.getByRole('navigation', { name: 'Navigare mobilă' }).getByRole('button', { name: /deconectare/i })).toBeVisible();
+  });
+});

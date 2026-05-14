@@ -3,7 +3,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
+import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
+import { CLICKANUNT_AUTH_SESSION_EVENT } from "@/lib/auth-session-events";
 
 function NavIconHome({ active }: { active: boolean }) {
   return (
@@ -54,14 +57,62 @@ function NavIconUser({ active }: { active: boolean }) {
   );
 }
 
-/** Tab bar mobil — dock sticlă premium (dark), 3 destinații. */
+function NavIconShield({ active }: { active: boolean }) {
+  return (
+    <svg
+      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-violet-300" : "text-zinc-500"}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+      strokeWidth={active ? 2.1 : 1.85}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+      />
+    </svg>
+  );
+}
+
+/** Tab bar mobil — dock sticlă premium (dark); 4 destinații pentru admin/owner. */
 export default function MobileBottomNav() {
   const pathname = usePathname() || "/";
+  const [showAdminTab, setShowAdminTab] = useState(false);
+
+  const syncStaffFromStorage = useCallback(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null;
+      if (!raw) {
+        setShowAdminTab(false);
+        return;
+      }
+      const u = JSON.parse(raw) as { role?: string };
+      setShowAdminTab(isAdminStaffRole(u?.role));
+    } catch {
+      setShowAdminTab(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    syncStaffFromStorage();
+    window.addEventListener("storage", syncStaffFromStorage);
+    window.addEventListener("focus", syncStaffFromStorage);
+    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncStaffFromStorage);
+    return () => {
+      window.removeEventListener("storage", syncStaffFromStorage);
+      window.removeEventListener("focus", syncStaffFromStorage);
+      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncStaffFromStorage);
+    };
+  }, [syncStaffFromStorage]);
 
   const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
   const catalogActive =
     pathname.startsWith("/listings") ||
     (Boolean(firstSegment) && Object.prototype.hasOwnProperty.call(CATEGORY_LABEL_BY_CANONICAL_SLUG, firstSegment));
+
+  const adminAreaActive = pathname.startsWith("/admin");
 
   const items: {
     href: string;
@@ -71,10 +122,22 @@ export default function MobileBottomNav() {
   }[] = [
     { href: "/", label: "Acasă", active: pathname === "/", icon: (on) => <NavIconHome active={on} /> },
     { href: "/listings", label: "Catalog", active: catalogActive, icon: (on) => <NavIconGrid active={on} /> },
+    ...(showAdminTab
+      ? [
+          {
+            href: "/admin/moderation",
+            label: "Moderare",
+            active: adminAreaActive,
+            icon: (on: boolean) => <NavIconShield active={on} />,
+          } as const,
+        ]
+      : []),
     {
       href: "/dashboard",
       label: "Cont",
-      active: pathname.startsWith("/dashboard") || pathname.startsWith("/auth"),
+      active:
+        (pathname.startsWith("/dashboard") || pathname.startsWith("/auth")) &&
+        (!showAdminTab || !adminAreaActive),
       icon: (on) => <NavIconUser active={on} />,
     },
   ];
@@ -84,7 +147,9 @@ export default function MobileBottomNav() {
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))] md:hidden"
       aria-label="Navigare rapidă"
     >
-      <div className="pointer-events-auto relative mx-auto w-full max-w-sm sm:max-w-md">
+      <div
+        className={`pointer-events-auto relative mx-auto w-full ${showAdminTab ? "max-w-md sm:max-w-lg" : "max-w-sm sm:max-w-md"}`}
+      >
         <div
           className="pointer-events-none absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent sm:left-8 sm:right-8"
           aria-hidden

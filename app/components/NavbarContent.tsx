@@ -1,12 +1,15 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
 import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
 import AdminNavNotificationBell from "@/app/components/admin/AdminNavNotificationBell";
 import { subscribeMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
+import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
+import { CLICKANUNT_AUTH_SESSION_EVENT } from "@/lib/auth-session-events";
+import AccountMenuPanel from "@/app/components/account/AccountMenuPanel";
 
 export default function NavbarContent() {
   const router = useRouter();
@@ -25,25 +28,49 @@ export default function NavbarContent() {
   const [unreadCount, setUnreadCount] = useState(0);
   const unreadTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    const userStr = localStorage.getItem("user");
-    const token = localStorage.getItem("accessToken");
-    if (userStr && token) {
-      const user = JSON.parse(userStr);
-      setIsLoggedIn(true);
-      setUserEmail(user.email || null);
-      setUserRole(user.role || 'user');
-      setUserName(user.name || null);
-      if (user.role === "admin" || user.role === "owner") {
-        setIsAdmin(true);
+  useLayoutEffect(() => {
+    const syncSessionFromStorage = () => {
+      const userStr = localStorage.getItem("user");
+      const token = localStorage.getItem("accessToken");
+      if (userStr && token) {
+        try {
+          const user = JSON.parse(userStr) as {
+            email?: string;
+            role?: string;
+            name?: string | null;
+          };
+          setIsLoggedIn(true);
+          setUserEmail(user.email || null);
+          setUserRole(user.role || "user");
+          setUserName(user.name || null);
+          setIsAdmin(isAdminStaffRole(user.role));
+        } catch {
+          localStorage.removeItem("user");
+          setIsLoggedIn(false);
+          setUserEmail(null);
+          setUserRole(null);
+          setUserName(null);
+          setIsAdmin(false);
+        }
+      } else {
+        localStorage.removeItem("user");
+        setIsLoggedIn(false);
+        setUserEmail(null);
+        setUserRole(null);
+        setUserName(null);
+        setIsAdmin(false);
       }
-    } else {
-      localStorage.removeItem('user');
-      setIsLoggedIn(false);
-      setUserEmail(null);
-      setUserRole(null);
-      setUserName(null);
-    }
+    };
+
+    syncSessionFromStorage();
+    window.addEventListener("storage", syncSessionFromStorage);
+    window.addEventListener("focus", syncSessionFromStorage);
+    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncSessionFromStorage);
+    return () => {
+      window.removeEventListener("storage", syncSessionFromStorage);
+      window.removeEventListener("focus", syncSessionFromStorage);
+      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncSessionFromStorage);
+    };
   }, []);
 
   // Badge mesaje: endpoint ușor + interval rezonabil; pauză când tab-ul e ascuns
@@ -122,7 +149,11 @@ export default function NavbarContent() {
     router.prefetch("/favorites");
     router.prefetch("/dashboard");
     router.prefetch("/listings");
-  }, [isLoggedIn, router]);
+    if (isAdmin) {
+      router.prefetch("/admin/moderation");
+      router.prefetch("/admin/dashboard");
+    }
+  }, [isLoggedIn, isAdmin, router]);
 
   const getAccountBadge = () => {
     if (!isLoggedIn) return 'DELOGAT';
@@ -176,27 +207,42 @@ export default function NavbarContent() {
   };
 
   const handleLogout = async () => {
+    closeAllMenus();
     try {
-      const { getCsrfToken } = await import('@/lib/security/csrf-client');
-      const csrfToken = await getCsrfToken();
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { 'x-csrf-token': csrfToken },
+      const csrfMod = await import("@/lib/security/csrf-client");
+      const evMod = await import("@/lib/auth-session-events");
+      const csrfToken = await csrfMod.getCsrfToken();
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "x-csrf-token": csrfToken },
       });
-    } catch (error) {
-      // Ignore network errors for logout
-    } finally {
-      localStorage.removeItem('user');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setIsLoggedIn(false);
-      setUserEmail(null);
-      setUserRole(null);
-      setUserName(null);
-      setIsAdmin(false);
-      setIsUserMenuOpen(false);
-      window.location.href = '/';
+      csrfMod.clearCsrfTokenCache();
+      evMod.broadcastAuthSessionChanged();
+    } catch {
+      try {
+        const csrfMod = await import("@/lib/security/csrf-client");
+        csrfMod.clearCsrfTokenCache();
+      } catch {
+        /* ignore */
+      }
+      try {
+        const evMod = await import("@/lib/auth-session-events");
+        evMod.broadcastAuthSessionChanged();
+      } catch {
+        /* ignore */
+      }
     }
+    localStorage.removeItem("user");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    setIsLoggedIn(false);
+    setUserEmail(null);
+    setUserRole(null);
+    setUserName(null);
+    setIsAdmin(false);
+    setIsUserMenuOpen(false);
+    setIsMenuOpen(false);
+    window.location.href = "/";
   };
 
   // Close menus when clicking outside
@@ -266,164 +312,6 @@ export default function NavbarContent() {
       </Link>
     );
   });
-
-  const userMenuPanel = (
-    <>
-      <div className="border-b border-white/[0.08] bg-zinc-900/50 px-5 py-4">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Stare sesiune</div>
-        <div className="mt-1.5 text-sm font-semibold tracking-tight text-zinc-100">
-          {isLoggedIn ? (userEmail || 'Utilizator autentificat') : 'Nu ești autentificat'}
-        </div>
-        <div
-          className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-            isLoggedIn
-              ? isAdmin || userRole === 'owner'
-                ? 'border-violet-500/40 bg-violet-950/70 text-violet-200 ring-1 ring-violet-500/20'
-                : 'border-emerald-500/40 bg-emerald-950/70 text-emerald-200 ring-1 ring-emerald-500/20'
-              : 'border-zinc-600 bg-zinc-800/90 text-zinc-400'
-          }`}
-        >
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-90" />
-          {accountBadge}
-        </div>
-      </div>
-      {!isLoggedIn && (
-        <>
-          <Link href="/auth/login" className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3.5 text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.06]" onClick={() => closeAllMenus()}>
-            <svg className="h-5 w-5 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            <span>Autentificare</span>
-          </Link>
-          <Link href="/auth/signup" className="flex items-center gap-3 border-b border-white/[0.06] px-5 py-3.5 text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.06]" onClick={() => closeAllMenus()}>
-            <svg className="h-5 w-5 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-            <span>Înregistrare</span>
-          </Link>
-        </>
-      )}
-      <div className="border-b border-white/[0.06] py-1">
-        <p className="px-5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Cont</p>
-        <Link
-          href="/dashboard"
-          className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition ${
-            pathname === "/dashboard" || pathname === "/dashboard/"
-              ? "bg-orange-500/[0.08] text-white ring-1 ring-inset ring-orange-500/20"
-              : "text-zinc-200 hover:bg-white/[0.06] hover:text-white"
-          }`}
-          onClick={() => closeAllMenus()}
-        >
-          <svg className="h-5 w-5 shrink-0 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span>Contul meu</span>
-        </Link>
-        <Link
-          href="/dashboard/listings"
-          className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition ${
-            pathname.startsWith("/dashboard/listings")
-              ? "bg-orange-500/[0.08] text-white ring-1 ring-inset ring-orange-500/20"
-              : "text-zinc-200 hover:bg-white/[0.06] hover:text-white"
-          }`}
-          onClick={() => closeAllMenus()}
-        >
-          <svg className="h-5 w-5 shrink-0 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span>Anunțurile mele</span>
-        </Link>
-        <Link
-          href="/dashboard/settings"
-          className={`flex items-center gap-3 px-5 py-3 text-sm font-medium transition ${
-            pathname.startsWith("/dashboard/settings")
-              ? "bg-orange-500/[0.08] text-white ring-1 ring-inset ring-orange-500/20"
-              : "text-zinc-200 hover:bg-white/[0.06] hover:text-white"
-          }`}
-          onClick={() => closeAllMenus()}
-        >
-          <svg className="h-5 w-5 shrink-0 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          <span>Setări</span>
-        </Link>
-      </div>
-      {isLoggedIn && (
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 border-b border-white/[0.06] px-5 py-3.5 text-left text-sm font-medium text-zinc-200 transition hover:bg-red-950/40 hover:text-red-200"
-        >
-          <svg className="h-5 w-5 shrink-0 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          <span>Logout</span>
-        </button>
-      )}
-      {isAdmin && (
-        <div className="border-t border-white/[0.08] bg-black/25">
-          <p className="px-5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300/80">Administrare</p>
-          <Link
-            href="/admin/dashboard"
-            className={`mx-2 mb-1 flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-medium transition ${
-              pathname.startsWith("/admin/dashboard")
-                ? "border-orange-500/35 bg-violet-950/65 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/20"
-                : "border-violet-500/25 bg-violet-950/50 text-violet-100 hover:border-orange-500/25 hover:bg-violet-900/55"
-            }`}
-            onClick={() => closeAllMenus()}
-          >
-            <svg className="h-5 w-5 shrink-0 text-violet-300/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-            </svg>
-            <span>Admin — Dashboard</span>
-          </Link>
-          <Link
-            href="/admin/promotions"
-            className={`mx-2 mb-1 flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-medium transition ${
-              pathname.startsWith("/admin/promotions")
-                ? "border-orange-500/35 bg-violet-950/65 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/20"
-                : "border-violet-500/25 bg-violet-950/50 text-violet-100 hover:border-orange-500/25 hover:bg-violet-900/55"
-            }`}
-            onClick={() => closeAllMenus()}
-          >
-            <svg className="h-5 w-5 shrink-0 text-violet-300/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Admin — Promoții</span>
-          </Link>
-          <Link
-            href="/admin/invoices"
-            className={`mx-2 mb-1 flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-medium transition ${
-              pathname.startsWith("/admin/invoices")
-                ? "border-orange-500/35 bg-violet-950/65 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/20"
-                : "border-violet-500/25 bg-violet-950/50 text-violet-100 hover:border-orange-500/25 hover:bg-violet-900/55"
-            }`}
-            onClick={() => closeAllMenus()}
-          >
-            <svg className="h-5 w-5 shrink-0 text-violet-300/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>Admin — Facturi</span>
-          </Link>
-          <Link
-            href="/admin/moderation"
-            className={`mx-2 mb-2 flex items-center gap-3 rounded-lg border px-3 py-3 text-sm font-medium transition ${
-              pathname.startsWith("/admin/moderation")
-                ? "border-orange-500/35 bg-violet-950/65 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/20"
-                : "border-violet-500/25 bg-violet-950/50 text-violet-100 hover:border-orange-500/25 hover:bg-violet-900/55"
-            }`}
-            onClick={() => closeAllMenus()}
-          >
-            <svg className="h-5 w-5 shrink-0 text-violet-300/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span>Admin — Moderare</span>
-          </Link>
-        </div>
-      )}
-    </>
-  );
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-2 sm:px-4 md:px-5 md:py-2">
@@ -694,12 +582,23 @@ export default function NavbarContent() {
                 </button>
                 {isUserMenuOpen && (
                   <div
-                    className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/10 bg-zinc-950/80 shadow-[0_28px_80px_-16px_rgba(0,0,0,0.88),0_0_0_1px_rgba(255,255,255,0.05)] ring-1 ring-white/[0.06] backdrop-blur-2xl animate-fadeIn"
+                    className="absolute right-0 top-full z-50 mt-2 w-72 max-h-[min(24rem,85vh)] overflow-y-auto overflow-x-hidden rounded-xl border border-white/10 bg-zinc-950/80 shadow-[0_28px_80px_-16px_rgba(0,0,0,0.88),0_0_0_1px_rgba(255,255,255,0.05)] ring-1 ring-white/[0.06] backdrop-blur-2xl animate-fadeIn [scrollbar-gutter:stable]"
                     role="menu"
                     aria-label="Meniu utilizator"
                     onClick={() => setIsUserMenuOpen(false)}
                   >
-                    {userMenuPanel}
+                    <AccountMenuPanel
+                      surface="dropdown"
+                      pathname={pathname}
+                      isLoggedIn={isLoggedIn}
+                      isAdmin={isAdmin}
+                      userRole={userRole}
+                      userEmail={userEmail}
+                      accountBadge={accountBadge}
+                      unreadCount={unreadCount}
+                      onNavigate={closeAllMenus}
+                      onLogout={handleLogout}
+                    />
                   </div>
                 )}
               </div>
@@ -717,109 +616,21 @@ export default function NavbarContent() {
           {isMenuOpen && (
             <nav
               id="mobile-menu"
-              className="md:hidden mt-4 space-y-2 border-t border-white/[0.08] pb-4 pt-4 animate-slide-in-up"
+              className="md:hidden mt-4 max-h-[min(88dvh,calc(100dvh-5.5rem))] overflow-y-auto overscroll-y-contain border-t border-white/[0.08] pb-[max(6.75rem,calc(5.75rem+env(safe-area-inset-bottom,0px)))] pt-4 animate-slide-in-up [scrollbar-gutter:stable]"
               aria-label="Navigare mobilă"
             >
-              <div className="mx-2 mb-2 rounded-lg border border-zinc-800/90 bg-zinc-950/90 px-4 py-3 shadow-sm backdrop-blur-md">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">
-                  Stare sesiune
-                </div>
-                <div className="mt-1.5 text-sm font-semibold text-zinc-100">
-                  {isLoggedIn ? (userEmail || 'Utilizator autentificat') : 'Nu ești autentificat'}
-                </div>
-                <div
-                  className={`mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black ${
-                    isLoggedIn
-                      ? isAdmin || userRole === "owner"
-                        ? "border-violet-500/35 bg-violet-950/75 text-violet-200"
-                        : "border-emerald-500/35 bg-emerald-950/75 text-emerald-200"
-                      : "border-zinc-600/60 bg-zinc-800/90 text-zinc-300"
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-current"></span>
-                  {accountBadge}
-                </div>
-              </div>
-              <Link
-                href="/listings"
-                className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
-              >
-                <span className="text-xl">📋</span>
-                <span>Toate anunțurile</span>
-              </Link>
-              <Link
-                href="/messages"
-                prefetch
-                onMouseEnter={() => isLoggedIn && router.prefetch("/messages")}
-                className="relative flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
-              >
-                <span className="text-xl">💬</span>
-                <span className="flex flex-1 items-center justify-between gap-2">
-                  Mesaje
-                  {unreadCount > 0 ? (
-                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </span>
-              </Link>
-              <Link
-                href="/favorites"
-                className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
-              >
-                <span className="text-xl">❤️</span>
-                <span>Favorite</span>
-              </Link>
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] hover:text-white"
-              >
-                <span className="text-xl">👤</span>
-                <span>Contul meu</span>
-              </Link>
-
-              <div className="pt-2">
-                <Link
-                  href="/listings/new"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-orange-600/40 bg-orange-600 px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50"
-                >
-                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Adaugă anunț gratuit</span>
-                </Link>
-              </div>
-
-              <div className="space-y-1.5 border-t border-white/[0.08] pt-3">
-                {!isLoggedIn && (
-                  <>
-                    <Link
-                      href="/auth/login"
-                      className="flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-center text-sm font-medium text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
-                    >
-                      <span aria-hidden>🔐</span>
-                      <span>Autentificare</span>
-                    </Link>
-                    <Link
-                      href="/auth/signup"
-                      className="flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-center text-sm font-medium text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
-                    >
-                      <span aria-hidden>📝</span>
-                      <span>Înregistrare</span>
-                    </Link>
-                  </>
-                )}
-                {isLoggedIn && (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-center text-sm font-medium text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
-                  >
-                    <span aria-hidden>🚪</span>
-                    <span>Logout</span>
-                  </button>
-                )}
-              </div>
+              <AccountMenuPanel
+                surface="sheet"
+                pathname={pathname}
+                isLoggedIn={isLoggedIn}
+                isAdmin={isAdmin}
+                userRole={userRole}
+                userEmail={userEmail}
+                accountBadge={accountBadge}
+                unreadCount={unreadCount}
+                onNavigate={closeAllMenus}
+                onLogout={handleLogout}
+              />
             </nav>
           )}
     </div>
