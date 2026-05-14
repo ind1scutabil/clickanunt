@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
+import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
 import { Card, Badge, Button, Tabs, Avatar } from "@/app/components/ui";
 import { ListingCard } from "@/app/components/composite";
 const ViewsLast7DaysChart = dynamic(
@@ -92,6 +93,7 @@ export default function DashboardPage() {
       const mergedUser = { ...(fallbackUser || {}), ...data };
       setUser(mergedUser);
       localStorage.setItem('user', JSON.stringify(mergedUser));
+      broadcastAuthSessionChanged();
     } catch (error) {
       console.error('Failed to refresh user:', error);
     }

@@ -1,6 +1,8 @@
 "use client";
 
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
+import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -107,10 +109,11 @@ export default function LoginForm() {
         localStorage.setItem('user', JSON.stringify(data.user));
         devLog('[LOGIN] User data saved');
       }
+      broadcastAuthSessionChanged();
 
       devLog('[LOGIN] Redirecting to dashboard...');
 
-      if (data.user?.role === 'admin' || data.user?.role === 'owner') {
+      if (isAdminStaffRole(data.user?.role)) {
         router.push('/admin/dashboard');
       } else {
         router.push('/dashboard');
@@ -177,6 +180,8 @@ export default function LoginForm() {
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
+
+      broadcastAuthSessionChanged();
 
       devLog('[2FA] 2FA verification successful');
       router.push('/admin/dashboard');

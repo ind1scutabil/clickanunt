@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
+import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
 
 /** Mirrors lib/security/validation-schemas passwordSchema for client-side enable/disable */
 function meetsPasswordRules(p: string): boolean {
@@ -158,6 +159,7 @@ export default function SignupFormExtended() {
         if (ok.user) {
           localStorage.setItem("user", JSON.stringify(ok.user));
         }
+        broadcastAuthSessionChanged();
 
         router.push("/dashboard");
         return;
@@ -201,6 +203,7 @@ export default function SignupFormExtended() {
       if (ok.user) {
         localStorage.setItem("user", JSON.stringify(ok.user));
       }
+      broadcastAuthSessionChanged();
 
       setMessageType("success");
       setMessage(
