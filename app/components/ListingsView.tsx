@@ -290,7 +290,7 @@ export default function ListingsView({
   const hubHero = Boolean(seoIntro || routeBase);
 
   return (
-    <div className="mx-auto min-w-0 max-w-7xl px-3 pb-[max(2rem,calc(6rem+env(safe-area-inset-bottom,0px)))] pt-5 text-zinc-300 sm:px-5 sm:pb-10 sm:pt-6 md:pb-10 lg:px-8">
+    <div className="mx-auto min-w-0 max-w-7xl px-3 pb-[max(2rem,calc(6rem+env(safe-area-inset-bottom,0px)))] pt-5 text-zinc-200 sm:px-5 sm:pb-10 sm:pt-6 md:pb-10 lg:px-8">
       {hubHero ? (
         <header className="relative mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#181b22] px-5 py-5 shadow-sm ring-1 ring-white/[0.04] sm:mb-7 sm:px-6 sm:py-6 md:px-8 md:py-7">
           <div
@@ -322,12 +322,12 @@ export default function ListingsView({
       {/* Filters */}
       {isFiltersOpen ? (
         <div
-          className={`listings-filters-panel relative mb-5 max-w-full overflow-hidden rounded-xl border border-white/[0.08] bg-[#141820] p-3.5 shadow-sm ring-1 ring-white/[0.04] transition-colors [color-scheme:dark] sm:mb-7 sm:p-5 ${
+          className={`listings-filters-panel relative mb-5 max-w-full overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/50 via-zinc-950/90 to-[#08090d] p-3.5 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.65)] ring-1 ring-white/[0.05] backdrop-blur-md transition-colors [color-scheme:dark] sm:mb-7 sm:p-5 ${
             isFilterSticky ? "lg:sticky lg:top-4 lg:z-40" : ""
           }`}
         >
           <div
-            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(26,29,36,0.98)_0%,rgba(15,17,22,0.99)_100%)]"
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/20 to-transparent"
             aria-hidden
           />
           {/* Content */}
@@ -737,7 +737,7 @@ export default function ListingsView({
               <button
                 key={key}
                 onClick={() => handleFilterChange(key as keyof Filters, undefined)}
-                className="group inline-flex items-center gap-2 rounded-md border border-white/[0.1] bg-[#1a1d24] px-3 py-1.5 text-sm font-medium text-zinc-200 transition-colors hover:border-white/[0.16] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/25"
+                className="group inline-flex items-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-900/70 px-3 py-1.5 text-sm font-medium text-zinc-100 shadow-sm transition hover:border-orange-500/30 hover:bg-zinc-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30"
                 aria-label={`Remove ${filterLabels[key]} filter`}
               >
                 <span>{filterLabels[key]}: {value}</span>
@@ -862,10 +862,17 @@ export default function ListingsView({
           )}
 
           {listings.length === 0 && !loading && (
-            <div className="rounded-xl border border-white/[0.08] bg-[#181b22] p-10 text-center text-zinc-400 ring-1 ring-white/[0.04]">
-              <svg className="mx-auto mb-3 h-14 w-14 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="mb-1 text-base font-semibold text-zinc-100">Nu s-au găsit anunțuri pentru filtrele curente</p>
-              <p className="text-sm text-zinc-500">Ajustează criteriile sau revino la categoriile principale.</p>
+            <div className="relative overflow-hidden rounded-2xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/55 via-zinc-950/95 to-[#08090d] px-8 py-14 text-center shadow-[0_28px_80px_-28px_rgba(0,0,0,0.72)] ring-1 ring-white/[0.05] sm:px-12 sm:py-16">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent" />
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-zinc-700/70 bg-zinc-900/80 shadow-inner">
+                <svg className="h-8 w-8 text-orange-400/90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="mb-2 text-lg font-semibold tracking-tight text-zinc-50">Nu s-au găsit anunțuri pentru filtrele curente</p>
+              <p className="mx-auto max-w-md text-sm leading-relaxed text-zinc-500">
+                Ajustează criteriile sau revino la categoriile principale.
+              </p>
             </div>
           )}
         </>

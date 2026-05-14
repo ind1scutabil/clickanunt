@@ -7,8 +7,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { processAnalyticsQueueBatch } from "@/lib/analytics-queue-persist";
 import { rollupAnalyticsDailyForDate } from "@/lib/analytics-daily-rollup";
+import { runAdminNotificationRules } from "@/lib/admin-notification-rules";
 
 export async function GET(request: NextRequest) {
   const secret =
@@ -24,9 +26,12 @@ export async function GET(request: NextRequest) {
   y.setUTCDate(y.getUTCDate() - 1);
   await rollupAnalyticsDailyForDate(y);
 
+  const rules = await runAdminNotificationRules(prisma);
+
   return NextResponse.json({
     ok: true,
     queueProcessed: processed,
     rollupUtcDay: y.toISOString().slice(0, 10),
+    adminRulesCreated: rules.created,
   });
 }

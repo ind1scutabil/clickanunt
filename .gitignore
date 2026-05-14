@@ -56,3 +56,44 @@ next-env.d.ts
 *.tar.gz
 *.zip
 *.log
+
+# --- User uploads & local storage (never commit; deploy uses mkdir on server only) ---
+/public/uploads/
+/uploads/
+/storage/
+/tmp/
+.tmp/
+
+# --- Local / tool caches ---
+.eslintcache
+.parcel-cache/
+.turbo/
+
+# --- Screenshots (any folder; never commit user captures) ---
+**/Screenshot*.png
+**/Screen Shot*.png
+
+# --- IDE / agent local (never ship) ---
+.cursor/
+
+# --- Root-level session / audit churn (tracked files stay tracked; this hides new junk from git status) ---
+/*_REPORT.md
+/*.diff
+/*_git_status.txt
+/*SNAPSHOT.md
+/ENTERPRISE_*.md
+/FINAL_*.md
+/PRE_*ENTERPRISE*
+/SAFE_*_REPORT.md
+/BUSINESS_*_REPORT.md
+/ADMIN_*_REPORT.md
+/LIVE_*_REPORT.md
+/MANUAL_*_REPORT.md
+
+# Allow these deliverables to be committed (overrides /*_REPORT.md and /FINAL_*.md above)
+!/FINAL_RELEASE_READY_REPORT.md
+!/FINAL_CONTROLLED_RELEASE_STATUS.md
+
+# Hero asset backups (local only; not part of runtime bundle)
+/public/images/hero/*backup*
+/public/images/hero/*-backup-*

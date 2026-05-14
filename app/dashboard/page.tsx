@@ -1,4 +1,5 @@
 "use client";
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -6,12 +7,61 @@ import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import { Card, Badge, Button, Tabs, Avatar } from "@/app/components/ui";
 import { ListingCard } from "@/app/components/composite";
-import { ViewsLast7DaysChart } from "@/app/components/dashboard/ViewsLast7DaysChart";
+const ViewsLast7DaysChart = dynamic(
+  () => import("@/app/components/dashboard/ViewsLast7DaysChart"),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="relative overflow-hidden rounded-xl border border-zinc-800/75 bg-gradient-to-b from-zinc-900/55 via-zinc-950/95 to-[#08090d] p-5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.045] md:p-6"
+        aria-busy="true"
+        aria-label="Se încarcă graficul"
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" />
+        <div className="mb-5 h-3 w-24 animate-pulse rounded bg-zinc-800/70" />
+        <div className="mb-2 h-4 w-56 animate-pulse rounded bg-zinc-800/50" />
+        <div className="relative mt-4 rounded-lg border border-zinc-800/60 bg-zinc-950/40 p-2 sm:p-3">
+          <div className="h-[200px] w-full animate-pulse rounded-md bg-zinc-900/35 sm:h-[248px]" />
+        </div>
+      </div>
+    ),
+  }
+);
 import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
 import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
 
+/**
+ * Design tokens — exclusiv /dashboard (nu afectează alte rute sau componente globale).
+ */
+const dashPanel =
+  "relative overflow-hidden rounded-xl border border-zinc-800/75 bg-gradient-to-b from-zinc-900/55 via-zinc-950/90 to-[#0a0c10] shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.045]";
+
+const dashHero =
+  "relative overflow-hidden rounded-2xl border border-zinc-700/50 bg-gradient-to-br from-zinc-900/70 via-zinc-950/95 to-[#07080c] p-6 shadow-[0_24px_70px_-18px_rgba(0,0,0,0.72)] ring-1 ring-white/[0.06] md:p-8";
+
+const statCardInteractive =
+  "group relative flex min-h-[132px] flex-col overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/40 to-zinc-950/95 p-4 shadow-md shadow-black/35 ring-1 ring-white/[0.04] transition-all duration-300 hover:border-orange-500/25 hover:shadow-[0_0_36px_-10px_rgba(249,115,22,0.14)] hover:ring-orange-500/15 md:p-5";
+
+const statCardStatic =
+  "relative flex min-h-[132px] flex-col overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/40 to-zinc-950/95 p-4 shadow-md shadow-black/35 ring-1 ring-white/[0.04] md:p-5";
+
+const statIconWell =
+  "relative mb-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-700/55 bg-gradient-to-br from-zinc-800/90 to-zinc-950 text-orange-400/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
+
+const ctaPrimary =
+  "inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 px-5 text-sm font-semibold tracking-tight text-white shadow-lg shadow-orange-950/35 transition hover:from-orange-400 hover:to-amber-500 hover:shadow-orange-900/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950";
+
+const ctaPrimaryGhost =
+  "flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-zinc-600/70 bg-zinc-950/70 px-4 text-sm font-medium text-zinc-100 shadow-sm transition hover:border-zinc-500 hover:bg-zinc-800/60";
+
+/** Carduri în tab-uri (overview / activitate). */
+const tabSurface =
+  "overflow-hidden rounded-xl border border-zinc-800/75 bg-gradient-to-b from-zinc-900/55 via-zinc-950/95 to-[#08090d] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.05]";
+
 export default function DashboardPage() {
   const router = useRouter();
+  /** Evită mismatch SSR/client: primul paint nu citește localStorage (doar după mount). */
+  const [clientReady, setClientReady] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -51,8 +101,13 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       setStatsLoading(true);
-      const response = await fetch('/api/dashboard/stats', {
-        credentials: 'include',
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("accessToken")
+          : null;
+      const response = await fetch("/api/dashboard/stats", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       
       if (response.ok) {
@@ -154,9 +209,15 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    setClientReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!clientReady) return;
+
     const token = localStorage.getItem('accessToken');
     const userData = localStorage.getItem('user');
-    
+
     if (!token || !userData) {
       router.push('/auth/login?redirect=/dashboard');
       setIsLoading(false);
@@ -167,7 +228,7 @@ export default function DashboardPage() {
       const parsedUser = JSON.parse(userData);
       setUser(parsedUser);
       setIsAuthenticated(true);
-      
+
       // Fetch real stats
       fetchStats();
 
@@ -184,14 +245,18 @@ export default function DashboardPage() {
     }
 
     setIsLoading(false);
-  }, [router]);
+  }, [clientReady, router]);
 
-  if (isLoading) {
+  if (!clientReady || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-300 font-medium">Se încarcă...</p>
+      <div
+        className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#030304]"
+        suppressHydrationWarning
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_20%,rgba(251,146,60,0.08),transparent_55%)]" />
+        <div className="relative text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-zinc-800 border-t-orange-500 shadow-lg shadow-orange-950/20" />
+          <p className="text-sm font-medium tracking-tight text-zinc-500">Se încarcă...</p>
         </div>
       </div>
     );
@@ -207,38 +272,42 @@ export default function DashboardPage() {
   const sellerInitials = getInitials(sellerName);
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] relative overflow-hidden">
-      {/* Background decoration */}
+    <div
+      data-dashboard-surface="dashboard-v2"
+      className="relative min-h-screen bg-[#030304] text-zinc-100 antialiased selection:bg-orange-500/30"
+    >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 left-1/3 h-[28rem] w-[28rem] rounded-full bg-primary-600/10 blur-[120px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.04),_transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_88%_52%_at_50%_-16%,rgba(251,146,60,0.09),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_42%_36%_at_100%_0%,rgba(139,92,246,0.07),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_38%_32%_at_0%_100%,rgba(59,130,246,0.05),transparent_48%)]" />
       </div>
-      
+
       <Navbar />
 
-      <div className="relative z-10 mx-auto max-w-[1200px] px-4 py-8 sm:px-6 md:py-12">
-        <div className="mb-8 md:mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
-            Dashboard
-          </h1>
-          <p className="mt-2 max-w-xl text-base text-white/50">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-10 lg:px-8">
+        <div className="mb-7 h-px w-full bg-gradient-to-r from-transparent via-orange-500/35 to-transparent md:mb-9" aria-hidden />
+
+        <header className="mb-8 md:mb-10">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Cont</p>
+          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white md:text-[1.75rem]">Dashboard</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-500">
             Performanța anunțurilor și acces rapid la acțiunile tale.
           </p>
-        </div>
+        </header>
 
         {/* Hero */}
-        <section className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent p-6 shadow-[0_32px_120px_-40px_rgba(99,102,241,0.45)] backdrop-blur-2xl md:mb-10 md:p-10">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-600/20 blur-[100px]" />
-          <div className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-500/10 blur-[90px]" />
+        <section className={`relative mb-8 md:mb-10 ${dashHero}`}>
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(100deg,rgba(255,255,255,0.04)_0%,transparent_42%,transparent_58%,rgba(249,115,22,0.045)_100%)]" />
+          <div className="pointer-events-none absolute -right-28 -top-32 h-[20rem] w-[20rem] rounded-full bg-orange-500/[0.09] blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-36 -left-24 h-[17rem] w-[17rem] rounded-full bg-violet-600/[0.07] blur-3xl" />
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
               <div className="relative shrink-0">
-                <div className="absolute inset-0 scale-110 rounded-full bg-gradient-to-tr from-violet-500/40 to-cyan-400/30 blur-xl" />
-                <div className="relative rounded-full bg-gradient-to-br from-violet-400 via-fuchsia-500 to-cyan-400 p-[3px] shadow-lg shadow-violet-500/20">
-                  <div className="rounded-full bg-[#0B0F17] p-1">
+                <div className="rounded-full bg-gradient-to-br from-orange-400/35 via-zinc-500/25 to-violet-500/25 p-[3px] shadow-xl shadow-black/50 ring-1 ring-white/10">
+                  <div className="rounded-full bg-zinc-950 p-1">
                     <Avatar
                       size="xl"
-                      className="scale-110 sm:scale-125"
+                      className="shadow-[inset_0_2px_8px_rgba(0,0,0,0.35)]"
                       initials={
                         user.name
                           ? user.name
@@ -255,8 +324,8 @@ export default function DashboardPage() {
               <div className="min-w-0 flex-1">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   {user.verified ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
-                      <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-emerald-900/60 bg-emerald-950/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-emerald-400">
+                      <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                         <path
                           fillRule="evenodd"
                           d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -266,7 +335,7 @@ export default function DashboardPage() {
                       Verificat
                     </span>
                   ) : (
-                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-semibold text-white/70">
+                    <span className="inline-flex items-center rounded-md border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-zinc-400">
                       Activ
                     </span>
                   )}
@@ -276,29 +345,26 @@ export default function DashboardPage() {
                     </Badge>
                   )}
                 </div>
-                <h2 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+                <h2 className="text-xl font-semibold tracking-tight text-white md:text-2xl">
                   {user.name || "Utilizator"}
                 </h2>
-                <p className="mt-1 truncate text-sm text-white/45 md:text-base">
+                <p className="mt-0.5 truncate text-sm text-zinc-500">
                   {user.email}
                 </p>
                 <Link
-                  href="/dashboard/account"
-                  className="mt-4 inline-flex items-center text-sm font-medium text-violet-300/90 transition hover:text-white"
+                  href="/dashboard/settings"
+                  className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-zinc-400 transition hover:text-orange-400/95"
                 >
-                  Editează profilul
-                  <span className="ml-1" aria-hidden>
+                  <span>Editează profilul</span>
+                  <span className="text-orange-400/80" aria-hidden>
                     →
                   </span>
                 </Link>
               </div>
             </div>
-            <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row sm:justify-end lg:w-auto lg:flex-col">
-              <Link
-                href="/listings/new"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-violet-600 px-8 py-4 text-base font-semibold text-white shadow-[0_16px_48px_-12px_rgba(139,92,246,0.55)] transition hover:brightness-110 hover:shadow-[0_20px_56px_-12px_rgba(139,92,246,0.65)] sm:w-auto lg:w-full lg:min-w-[220px]"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex w-full shrink-0 flex-col gap-3 sm:flex-row sm:justify-end lg:w-auto lg:flex-col lg:items-stretch">
+              <Link href="/listings/new" className={`${ctaPrimary} lg:min-w-[11rem]`}>
+                <svg className="h-4 w-4 shrink-0 opacity-95" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -313,12 +379,12 @@ export default function DashboardPage() {
         </section>
 
         {/* KPI */}
-        <section className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:mb-10 lg:grid-cols-4">
+        <section className="mb-8 grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:mb-10 lg:grid-cols-4">
           <Link href="/dashboard/listings" className="group block h-full">
-            <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-violet-400/25 hover:shadow-[0_28px_70px_-24px_rgba(99,102,241,0.35)] md:p-7">
-              <div className="mb-4 flex items-start justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-300/90">
-                  <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={statCardInteractive}>
+              <div className="flex items-start justify-between">
+                <div className={statIconWell}>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -330,26 +396,28 @@ export default function DashboardPage() {
               </div>
               {statsLoading ? (
                 <div className="animate-pulse space-y-3">
-                  <div className="h-10 w-24 rounded-lg bg-white/10" />
-                  <div className="h-4 w-36 rounded bg-white/5" />
+                  <div className="h-9 w-24 rounded-md bg-zinc-800" />
+                  <div className="h-3 w-36 rounded bg-zinc-800/60" />
                 </div>
               ) : (
                 <>
-                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                  <p className="text-2xl font-semibold tabular-nums tracking-tight text-white md:text-[1.75rem] md:leading-none">
                     {stats.activeListings}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-white/50">Anunțuri active</p>
-                  <p className="mt-4 text-xs font-medium text-violet-300/80 opacity-0 transition group-hover:opacity-100">
-                    Gestionează →
+                  <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Anunțuri active
+                  </p>
+                  <p className="mt-2 text-[11px] font-medium text-zinc-600 opacity-0 transition group-hover:opacity-100">
+                    Deschide listă →
                   </p>
                 </>
               )}
             </div>
           </Link>
 
-          <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:border-cyan-400/20 md:p-7">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-300/80">
-              <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={statCardStatic}>
+            <div className={statIconWell}>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path
                   strokeLinecap="round"
@@ -361,24 +429,26 @@ export default function DashboardPage() {
             </div>
             {statsLoading ? (
               <div className="animate-pulse space-y-3">
-                <div className="h-10 w-32 rounded-lg bg-white/10" />
-                <div className="h-4 w-36 rounded bg-white/5" />
+                <div className="h-9 w-32 rounded-md bg-zinc-800" />
+                <div className="h-3 w-36 rounded bg-zinc-800/60" />
               </div>
             ) : (
               <>
-                <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                <p className="text-2xl font-semibold tabular-nums tracking-tight text-white md:text-[1.75rem] md:leading-none">
                   {stats.totalViews.toLocaleString("ro-RO")}
                 </p>
-                <p className="mt-2 text-sm font-medium text-white/50">Vizualizări totale</p>
+                <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                  Vizualizări totale
+                </p>
               </>
             )}
           </div>
 
           <Link href="/dashboard/messages" className="group block h-full">
-            <div className="relative flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-fuchsia-400/25 hover:shadow-[0_28px_70px_-24px_rgba(192,38,211,0.25)] md:p-7">
-              <div className="mb-4 flex items-start justify-between">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-fuchsia-500/15 text-fuchsia-300/85">
-                  <svg className="h-6 w-6 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={statCardInteractive}>
+              <div className="flex items-start justify-between">
+                <div className={`relative ${statIconWell}`}>
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -387,7 +457,7 @@ export default function DashboardPage() {
                     />
                   </svg>
                   {!statsLoading && stats.messages > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-lg">
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded bg-orange-600 px-1 text-[10px] font-semibold text-white">
                       {stats.messages > 9 ? "9+" : stats.messages}
                     </span>
                   )}
@@ -395,24 +465,24 @@ export default function DashboardPage() {
               </div>
               {statsLoading ? (
                 <div className="animate-pulse space-y-3">
-                  <div className="h-10 w-16 rounded-lg bg-white/10" />
-                  <div className="h-4 w-28 rounded bg-white/5" />
+                  <div className="h-9 w-16 rounded-md bg-zinc-800" />
+                  <div className="h-3 w-28 rounded bg-zinc-800/60" />
                 </div>
               ) : (
                 <>
-                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                  <p className="text-2xl font-semibold tabular-nums tracking-tight text-white md:text-[1.75rem] md:leading-none">
                     {stats.messages}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-white/50">Mesaje</p>
-                  <p className="mt-1 text-xs text-white/35">
+                  <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Mesaje</p>
+                  <p className="mt-0.5 text-xs text-zinc-600">
                     {stats.messages === 1
                       ? "1 necitit"
                       : stats.messages > 1
                         ? `${stats.messages} necitite`
                         : "Niciun mesaj nou"}
                   </p>
-                  <p className="mt-3 text-xs font-medium text-fuchsia-300/80 opacity-0 transition group-hover:opacity-100">
-                    Deschide inbox →
+                  <p className="mt-1.5 text-[11px] font-medium text-zinc-600 opacity-0 transition group-hover:opacity-100">
+                    Inbox →
                   </p>
                 </>
               )}
@@ -420,9 +490,9 @@ export default function DashboardPage() {
           </Link>
 
           <Link href="/dashboard/favorites" className="group block h-full">
-            <div className="flex h-full min-h-[160px] flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] p-6 shadow-[0_20px_60px_-28px_rgba(0,0,0,0.75)] backdrop-blur-xl transition duration-300 ease-out hover:-translate-y-0.5 hover:border-rose-400/25 md:p-7">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-300/85">
-                <svg className="h-6 w-6 opacity-90" fill="currentColor" viewBox="0 0 20 20">
+            <div className={statCardInteractive}>
+              <div className={statIconWell}>
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fillRule="evenodd"
                     d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
@@ -432,17 +502,17 @@ export default function DashboardPage() {
               </div>
               {statsLoading ? (
                 <div className="animate-pulse space-y-3">
-                  <div className="h-10 w-16 rounded-lg bg-white/10" />
-                  <div className="h-4 w-32 rounded bg-white/5" />
+                  <div className="h-9 w-16 rounded-md bg-zinc-800" />
+                  <div className="h-3 w-32 rounded bg-zinc-800/60" />
                 </div>
               ) : (
                 <>
-                  <p className="text-4xl font-bold tabular-nums tracking-tight text-white md:text-[2.75rem] md:leading-none">
+                  <p className="text-2xl font-semibold tabular-nums tracking-tight text-white md:text-[1.75rem] md:leading-none">
                     {stats.favorites}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-white/50">Favorite</p>
-                  <p className="mt-4 text-xs font-medium text-rose-300/80 opacity-0 transition group-hover:opacity-100">
-                    Vezi colecția →
+                  <p className="mt-1.5 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Favorite</p>
+                  <p className="mt-2 text-[11px] font-medium text-zinc-600 opacity-0 transition group-hover:opacity-100">
+                    Colecție →
                   </p>
                 </>
               )}
@@ -451,7 +521,7 @@ export default function DashboardPage() {
         </section>
 
         {/* Analytics */}
-        <section className="mb-8 lg:mb-10">
+        <section className="mb-7 lg:mb-9">
           <ViewsLast7DaysChart
             data={stats.viewsLast7Days}
             totalViewsHint={stats.totalViews}
@@ -460,23 +530,23 @@ export default function DashboardPage() {
 
         {/* Quick actions */}
         <section className="mb-10 md:mb-12">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_24px_80px_-32px_rgba(0,0,0,0.65)] backdrop-blur-xl md:p-8">
-            <h3 className="text-lg font-semibold text-white md:text-xl">Acțiuni rapide</h3>
-            <p className="mt-1 text-sm text-white/45">
-              Publică sau actualizează anunțurile în câteva secunde.
-            </p>
-            <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:gap-5">
-              <Link href="/listings/new" className="flex-1">
-                <span className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-violet-500/30 transition hover:brightness-110 md:py-5 md:text-lg">
-                  <svg className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`p-6 md:p-7 ${dashPanel}`}>
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" />
+            <div className="relative">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Acțiuni</p>
+              <h3 className="mt-1 text-lg font-semibold tracking-tight text-white">Acțiuni rapide</h3>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-500">
+                Publică sau actualizează anunțurile în câteva secunde.
+              </p>
+              <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Link href="/listings/new" className={ctaPrimary}>
+                  <svg className="h-4 w-4 shrink-0 opacity-95" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Adaugă anunț
-                </span>
-              </Link>
-              <Link href="/dashboard/listings" className="flex-1">
-                <span className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 text-base font-semibold text-white shadow-inner transition hover:border-white/25 hover:bg-white/[0.09] md:py-5 md:text-lg">
-                  <svg className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                </Link>
+                <Link href="/dashboard/listings" className={ctaPrimaryGhost}>
+                  <svg className="h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -485,48 +555,54 @@ export default function DashboardPage() {
                     />
                   </svg>
                   Gestionează anunțuri
-                </span>
-              </Link>
-            </div>
-            <div className="mt-5 text-center sm:text-left">
-              <Link
-                href="/dashboard/invoices"
-                className="text-sm font-medium text-white/40 transition hover:text-white/70"
-              >
-                Facturi și plăți →
-              </Link>
+                </Link>
+              </div>
+              <div className="mt-5 flex justify-center border-t border-zinc-800/60 pt-5 sm:justify-start">
+                <Link
+                  href="/dashboard/invoices"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition hover:text-white"
+                >
+                  <svg className="h-4 w-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Facturi și plăți
+                  <span className="text-orange-400/70" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Tabs Section */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-12">
-          <Tabs.List className="gap-2 rounded-2xl border border-white/10 bg-[#141824] p-2">
-            <Tabs.Trigger value="overview" className="rounded-xl px-5 py-2.5 text-sm">
-              Privire generala
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-14">
+          <Tabs.List className="flex w-full gap-1 overflow-x-auto rounded-xl border border-zinc-800/80 bg-zinc-950/55 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] shadow-black/40 backdrop-blur-md sm:overflow-visible">
+            <Tabs.Trigger value="overview" className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm sm:flex-none sm:px-5">
+              Privire generală
             </Tabs.Trigger>
-            <Tabs.Trigger value="listings" className="rounded-xl px-5 py-2.5 text-sm">
-              Anunturile mele
+            <Tabs.Trigger value="listings" className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm sm:flex-none sm:px-5">
+              Anunțurile mele
             </Tabs.Trigger>
-            <Tabs.Trigger value="activity" className="rounded-xl px-5 py-2.5 text-sm">
+            <Tabs.Trigger value="activity" className="min-w-0 flex-1 rounded-lg px-3 py-2.5 text-sm sm:flex-none sm:px-5">
               Activitate
             </Tabs.Trigger>
           </Tabs.List>
 
           <Tabs.Content value="overview" className="mt-8">
-            <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
-              <Card variant="elevated" className="border border-white/10 bg-[#141824]">
-                <Card.Body className="p-6">
-                  <div className="flex items-center justify-between mb-6">
+            <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
+              <Card variant="elevated" className={tabSurface}>
+                <Card.Body className="p-5">
+                  <div className="mb-5 flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Plan actual</h3>
-                      <p className="text-sm text-slate-400">Statusul contului si optiuni de upgrade.</p>
+                      <h3 className="text-base font-semibold tracking-tight text-white">Plan actual</h3>
+                      <p className="mt-0.5 text-sm text-zinc-500">Statusul contului si optiuni de upgrade.</p>
                     </div>
                     <Badge variant={user.role === 'premium' ? 'warning' : 'primary'} className="w-fit">
                       {user.role === 'premium' ? 'Premium' : 'Gratuit'}
                     </Badge>
                   </div>
-                  <p className="text-slate-300 text-sm mb-4">
+                  <p className="mb-4 text-sm leading-relaxed text-zinc-400">
                     {user.role === 'premium'
                       ? 'Ai acces la promovari prioritare si suport dedicat.'
                       : 'Treci la Premium pentru mai multa vizibilitate si beneficii.'}
@@ -539,20 +615,20 @@ export default function DashboardPage() {
                 </Card.Body>
               </Card>
 
-              <Card variant="elevated" className="border border-white/10 bg-[#141824]">
-                <Card.Body className="p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Beneficii active</h3>
-                  <div className="space-y-4 text-sm text-slate-300">
+              <Card variant="elevated" className={tabSurface}>
+                <Card.Body className="p-5">
+                  <h3 className="mb-4 text-base font-semibold tracking-tight text-white">Beneficii active</h3>
+                  <div className="space-y-3.5 text-sm text-zinc-400">
                     <div className="flex items-center justify-between">
                       <span>Credite disponibile</span>
-                      <span className="font-bold text-white">{user.creditsBalance ?? 0} RON</span>
+                      <span className="font-semibold tabular-nums text-white">{user.creditsBalance ?? 0} RON</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Discount global</span>
-                      <span className="font-bold text-white">{user.promotionDiscountPercent ?? 0}%</span>
+                      <span className="font-semibold tabular-nums text-white">{user.promotionDiscountPercent ?? 0}%</span>
                     </div>
                     <div>
-                      <div className="text-slate-400 mb-2">Promovari gratuite</div>
+                      <div className="mb-2 text-zinc-500">Promovari gratuite</div>
                       {(() => {
                         const promotions = user?.promotionBenefits?.promotions || {};
                         const entries = Object.entries(promotions).filter(([, value]: any) => {
@@ -563,7 +639,7 @@ export default function DashboardPage() {
                         });
 
                         if (entries.length === 0) {
-                          return <div className="text-slate-500">Nu ai promovari gratuite active.</div>;
+                          return <div className="text-zinc-600">Nu ai promovari gratuite active.</div>;
                         }
 
                         return (
@@ -571,7 +647,7 @@ export default function DashboardPage() {
                             {entries.map(([type, value]: any) => (
                               <li key={type} className="flex items-center justify-between">
                                 <span className="capitalize">{type}</span>
-                                <span className="font-bold text-white">{value?.count || 0}x</span>
+                                <span className="font-semibold tabular-nums text-white">{value?.count || 0}x</span>
                               </li>
                             ))}
                           </ul>
@@ -586,33 +662,51 @@ export default function DashboardPage() {
 
           <Tabs.Content value="listings" className="mt-8">
             <div className="space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h3 className="text-xl font-bold text-white">Anunturile mele</h3>
-                  <p className="text-slate-400">Vezi rapid anunturile active si performanta lor.</p>
+                  <h3 className="text-lg font-semibold tracking-tight text-white">Anunțurile mele</h3>
+                  <p className="mt-1 text-sm text-zinc-500">Rezumat rapid; lista completă e pe pagina dedicată.</p>
                 </div>
-                <Link href="/dashboard/listings" className="text-sm font-semibold text-primary-400 transition hover:text-primary-300">
-                  Vezi toate anunturile →
+                <Link
+                  href="/dashboard/listings"
+                  className="text-sm font-medium text-orange-400/90 transition hover:text-orange-300"
+                >
+                  Vezi toate anunțurile →
                 </Link>
               </div>
 
               {listingsLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((item) => (
-                    <div key={item} className="h-32 rounded-2xl border border-white/10 bg-slate-900/50 animate-pulse" />
+                    <div
+                      key={item}
+                      className="h-28 animate-pulse rounded-md border border-zinc-800/70 bg-zinc-900/30"
+                    />
                   ))}
                 </div>
               ) : listingsError ? (
-                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-200">
+                <div className="rounded-xl border border-red-900/40 bg-gradient-to-b from-red-950/35 to-red-950/10 p-6 text-sm leading-relaxed text-red-100/95 shadow-lg shadow-black/30 ring-1 ring-red-500/10">
                   {listingsError}
                 </div>
               ) : recentListings.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-10 text-center">
-                  <div className="text-lg font-bold text-white mb-2">Nu ai anunturi active</div>
-                  <p className="text-slate-400 mb-6">Publica primul anunt pentru a aparea aici.</p>
-                  <Link href="/listings/new">
-                    <Button variant="primary">Adauga anunt</Button>
-                  </Link>
+                <div className={`relative overflow-hidden px-6 py-12 text-center md:px-12 md:py-14 ${dashPanel}`}>
+                  <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/20 to-transparent" />
+                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-700/70 bg-gradient-to-br from-zinc-800/80 to-zinc-950 text-zinc-500 shadow-inner">
+                    <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="relative text-base font-semibold tracking-tight text-white">Nu ai anunțuri active</div>
+                  <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-500">
+                    Publică primul anunț pentru a apărea aici.
+                  </p>
+                  <div className="relative mt-7">
+                    <Link href="/listings/new">
+                      <Button variant="primary" size="sm">
+                        Adaugă anunț
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -635,7 +729,7 @@ export default function DashboardPage() {
                         verified: Boolean(user?.verified),
                       }}
                       onClick={() => router.push(`/listings/${listing.id}`)}
-                      className="bg-gradient-to-b from-slate-900/80 to-slate-950/70 border border-white/10"
+                      className="rounded-md border border-zinc-800/85 bg-zinc-900/40 shadow-sm shadow-black/20 ring-1 ring-white/[0.03]"
                     />
                   ))}
                 </div>
@@ -643,24 +737,24 @@ export default function DashboardPage() {
             </div>
           </Tabs.Content>
 
-          <Tabs.Content value="activity" className="mt-6">
-            <Card variant="elevated">
-              <Card.Body className="p-6">
-                <h3 className="text-lg font-bold text-white mb-4">Activitate recentă</h3>
-                <div className="space-y-4">
+          <Tabs.Content value="activity" className="mt-8">
+            <Card variant="elevated" className={tabSurface}>
+              <Card.Body className="p-5">
+                <h3 className="mb-4 text-base font-semibold tracking-tight text-white">Activitate recentă</h3>
+                <div className="space-y-3">
                   {recentListings.length > 0 ? (
                     <>
                       {recentListings.slice(0, 3).map((listing) => (
-                        <div key={listing.id} className="flex items-center text-gray-300 hover:text-white transition-colors">
-                          <svg className="w-5 h-5 text-green-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <div key={listing.id} className="flex items-center text-sm text-zinc-400 transition-colors hover:text-zinc-200">
+                          <svg className="mr-2.5 h-4 w-4 shrink-0 text-emerald-500/90" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
                           <span>Ai publicat anunțul "{listing.title}"</span>
                         </div>
                       ))}
                       {stats.messages > 0 && (
-                        <div className="flex items-center text-gray-300 hover:text-white transition-colors">
-                          <svg className="w-5 h-5 text-amber-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="flex items-center text-sm text-zinc-400 transition-colors hover:text-zinc-200">
+                          <svg className="mr-2.5 h-4 w-4 shrink-0 text-amber-500/90" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                             <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                           </svg>
@@ -669,7 +763,15 @@ export default function DashboardPage() {
                       )}
                     </>
                   ) : (
-                    <p className="text-gray-500 text-center py-8">Nicio activitate recentă</p>
+                    <div className="rounded-lg border border-dashed border-zinc-700/60 bg-zinc-950/40 px-6 py-10 text-center">
+                      <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/80 text-zinc-600">
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-medium text-zinc-400">Nicio activitate recentă</p>
+                      <p className="mt-1 text-xs text-zinc-600">Activitatea ta va apărea aici după ce publici anunțuri.</p>
+                    </div>
                   )}
                 </div>
               </Card.Body>

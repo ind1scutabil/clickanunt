@@ -6,6 +6,9 @@ import { verifyToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { reportCreateSchema } from "@/lib/security/validation-schemas";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -138,6 +141,41 @@ export async function POST(request: NextRequest) {
       metadata: { reportId: report.id, reason },
       request,
     });
+
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.REPORT_CREATED,
+      severity: AdminNotificationSeverity.warning,
+      title: "Raportare nouă",
+      message: `Raport pentru „${report.listing?.title ?? listingId}”: ${reason}.`,
+      entityType: "report",
+      entityId: report.id,
+      metadata: { listingId, reporterId },
+    });
+
+    const pendingForListing = await prisma.report.count({
+      where: { listingId, status: "pending" },
+    });
+    if (pendingForListing >= 3) {
+      const recent = await prisma.adminNotification.count({
+        where: {
+          type: ADMIN_NOTIFICATION_TYPE.REPORT_THRESHOLD,
+          entityType: "listing",
+          entityId: listingId,
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+      });
+      if (recent === 0) {
+        void createAdminNotification({
+          type: ADMIN_NOTIFICATION_TYPE.REPORT_THRESHOLD,
+          severity: AdminNotificationSeverity.critical,
+          title: "Anunț cu multe raportări",
+          message: `Listing ${listingId} are ${pendingForListing} raportări în așteptare.`,
+          entityType: "listing",
+          entityId: listingId,
+          metadata: { pendingCount: pendingForListing },
+        });
+      }
+    }
 
     logger.info("Report created", { 
       reportId: report.id, 

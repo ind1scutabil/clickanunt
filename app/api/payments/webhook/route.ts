@@ -15,6 +15,9 @@ import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
 import { getRedisClient } from '@/lib/redis';
 import Stripe from 'stripe';
+import { AdminNotificationSeverity } from '@prisma/client';
+import { ADMIN_NOTIFICATION_TYPE } from '@/lib/admin-notification-types';
+import { createAdminNotification } from '@/lib/admin-notifications';
 import {
   getListingPromotionApplyFromUiPackage,
   inferUiPackageIdFromStripeType,
@@ -410,6 +413,16 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
             source: 'stripe_webhook',
           },
         });
+
+        void createAdminNotification({
+          type: ADMIN_NOTIFICATION_TYPE.PROMOTION_ACTIVATED,
+          severity: AdminNotificationSeverity.success,
+          title: 'Promovare activată',
+          message: `Anunț ${listingId}: promovare ${promotionTypeStr} activată după plată.`,
+          entityType: 'listing',
+          entityId: listingId,
+          metadata: { paymentId: payment.id },
+        });
       }
     } catch (error) {
       logger.error('Failed to update listing promotion', {
@@ -432,6 +445,16 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
       method: paymentMethod,
       listingId: listingId,
     },
+  });
+
+  void createAdminNotification({
+    type: ADMIN_NOTIFICATION_TYPE.PAYMENT_SUCCEEDED,
+    severity: AdminNotificationSeverity.success,
+    title: 'Plată reușită',
+    message: `Plată ${payment.id} — ${(amount / 100).toFixed(2)} ${String(currency).toUpperCase()} (${payment.purpose}).`,
+    entityType: 'payment',
+    entityId: payment.id,
+    metadata: { userId: payment.userId, listingId, purpose: payment.purpose },
   });
 }
 
@@ -493,6 +516,19 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     details: {
       paymentId: payment.id,
       error: last_payment_error?.message,
+    },
+  });
+
+  void createAdminNotification({
+    type: ADMIN_NOTIFICATION_TYPE.PAYMENT_FAILED,
+    severity: AdminNotificationSeverity.critical,
+    title: 'Plată eșuată',
+    message: `Plată ${payment.id} a eșuat: ${last_payment_error?.message || 'necunoscut'}.`,
+    entityType: 'payment',
+    entityId: payment.id,
+    metadata: {
+      userId: payment.userId,
+      stripePaymentIntentId: id,
     },
   });
 }

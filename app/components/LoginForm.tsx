@@ -202,7 +202,7 @@ export default function LoginForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-[#6D5BFF] focus:border-transparent transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-orange-500/70 focus:border-transparent transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="exemplu@email.com"
               required
               disabled={loading}
@@ -217,7 +217,7 @@ export default function LoginForm() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-[#6D5BFF] focus:border-transparent transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-orange-500/70 focus:border-transparent transition-smooth disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="••••••••"
               required
               disabled={loading}
@@ -225,7 +225,7 @@ export default function LoginForm() {
             <div className="mt-2 text-right">
               <a
                 href="/auth/forgot-password"
-                className="text-sm text-[#6D5BFF] hover:text-[#00D4FF] transition-smooth"
+                className="text-sm font-medium text-orange-300/95 transition-smooth hover:text-amber-200"
               >
                 Ai uitat parola?
               </a>
@@ -244,7 +244,7 @@ export default function LoginForm() {
             type="text"
             value={twoFACode}
             onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-[#6D5BFF] focus:border-transparent transition-smooth text-center text-2xl tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-orange-500/70 focus:border-transparent transition-smooth text-center text-2xl tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="000000"
             maxLength={6}
             required
@@ -269,7 +269,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full h-11 bg-gradient-to-r from-[#6D5BFF] to-[#00D4FF] hover:from-[#5B4BFF] hover:to-[#00C4FF] disabled:opacity-50 text-white font-bold rounded-lg transition-smooth disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+        className="w-full h-11 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 font-bold text-white shadow-lg shadow-orange-950/30 transition-smooth hover:from-orange-400 hover:to-amber-500 hover:shadow-orange-900/35 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (requiresTwoFA ? "Se verifică..." : "Se conecteaza...") : (requiresTwoFA ? "Verifică codul" : "Conecteaza-te")}
       </button>
@@ -283,7 +283,7 @@ export default function LoginForm() {
             setTwoFACode("");
             setMessage(null);
           }}
-          className="w-full h-11 text-[#6D5BFF] hover:text-[#00D4FF] font-semibold rounded-lg transition-smooth hover:bg-white/5"
+          className="w-full h-11 rounded-lg font-semibold text-orange-300/95 transition-smooth hover:bg-white/5 hover:text-amber-200"
         >
           Înapoi la conectare
         </button>

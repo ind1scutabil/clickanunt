@@ -358,8 +358,12 @@ function AdminPromotionsPageContent() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[var(--bg-primary)] pb-32 pt-20">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className="relative min-h-screen overflow-x-hidden bg-[var(--bg-primary)] pb-32 pt-20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[min(36rem,58vh)] max-h-[500px] bg-[radial-gradient(ellipse_70%_50%_at_50%_-4%,rgba(255,90,0,0.10),transparent_56%),radial-gradient(ellipse_42%_34%_at_12%_12%,rgba(124,92,246,0.12),transparent_50%)]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
           <header className="mb-10 flex flex-col gap-4 border-b border-[var(--border-primary)] pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
@@ -409,7 +413,7 @@ function AdminPromotionsPageContent() {
               ].map((k) => (
                 <div
                   key={k.label}
-                  className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-5 shadow-[var(--shadow-sm)]"
+                  className="rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/85 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_18px_48px_-28px_rgba(0,0,0,0.65)] ring-1 ring-white/[0.04] backdrop-blur-sm"
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                     {k.label}
@@ -421,8 +425,11 @@ function AdminPromotionsPageContent() {
                 </div>
               ))
             ) : (
-              <div className="col-span-full rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-6 text-center text-sm text-[var(--text-muted)]">
-                Indicatorii financiari nu sunt disponibili (nu s-au putut încărca agregările din server).
+              <div className="col-span-full rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/80 p-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.04] backdrop-blur-sm">
+                <p className="text-sm font-medium text-[var(--text-secondary)]">Indicatori indisponibili</p>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                  Nu s-au putut încărca agregările din server; restul paginii rămâne funcțional.
+                </p>
               </div>
             )}
           </div>
@@ -433,10 +440,10 @@ function AdminPromotionsPageContent() {
               role="tab"
               aria-selected={activeTab === 'packages'}
               onClick={() => setActiveTab('packages')}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
                 activeTab === 'packages'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'border-orange-500/30 bg-orange-500/[0.08] text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                  : 'border-transparent text-[var(--text-tertiary)] hover:border-white/10 hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
               Pachete
@@ -446,10 +453,10 @@ function AdminPromotionsPageContent() {
               role="tab"
               aria-selected={activeTab === 'codes'}
               onClick={() => setActiveTab('codes')}
-              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`rounded-xl border px-4 py-2.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
                 activeTab === 'codes'
-                  ? 'bg-white/[0.1] text-[var(--text-primary)] shadow-[var(--shadow-sm)]'
-                  : 'text-[var(--text-tertiary)] hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
+                  ? 'border-orange-500/30 bg-orange-500/[0.08] text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
+                  : 'border-transparent text-[var(--text-tertiary)] hover:border-white/10 hover:bg-white/[0.05] hover:text-[var(--text-primary)]'
               }`}
             >
               Coduri promoționale

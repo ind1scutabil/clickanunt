@@ -667,7 +667,7 @@ export default function OptimizedListingFlow() {
   const progress = ((currentStep + 1) / 4) * 100;
 
   return (
-    <div className="min-h-screen py-8 px-4" style={{ background: 'var(--bg-primary)' }}>
+    <div className="relative min-h-screen py-8 px-4" style={{ background: "var(--bg-primary)" }}>
       {showGeneralError && errors.general && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-gradient-to-br from-[#121826] via-[#0B1220] to-[#0B0F1A] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
@@ -702,79 +702,127 @@ export default function OptimizedListingFlow() {
           </div>
         </div>
       )}
-      <div className="max-w-4xl mx-auto">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[min(32rem,55vh)] max-h-[420px] bg-[radial-gradient(ellipse_72%_52%_at_50%_-8%,rgba(255,90,0,0.09),transparent_58%),radial-gradient(ellipse_42%_34%_at_92%_4%,rgba(124,92,246,0.07),transparent_50%)]"
+      />
+      <div className="relative mx-auto max-w-4xl">
         {/* Header with Progress */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-white">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h1 className="text-3xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-4xl">
               {currentStep === 0 && "Ce vinzi astăzi?"}
               {currentStep === 1 && "Informații esențiale"}
               {currentStep === 2 && "Detalii despre anunț"}
               {currentStep === 3 && "Contact & publicare"}
             </h1>
-            <div className="flex items-center gap-4">
+            <div className="flex shrink-0 items-center gap-4">
               {draft.lastSaved && (
-                <span className="text-sm text-gray-400">
-                  ✓ Salvat automat
+                <span className="hidden text-xs font-medium text-[var(--text-muted)] sm:inline sm:text-sm">
+                  Salvat automat
                 </span>
               )}
               {currentStep > 0 && (
                 <button
                   onClick={handleReset}
-                  className="text-sm px-3 py-2 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition"
+                  className="rounded-lg border border-red-500/25 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300/95 transition hover:border-red-500/40 hover:bg-red-950/50"
                   title="Resetează formularul"
+                  type="button"
                 >
-                  🔄 Reset
+                  Reset
                 </button>
               )}
             </div>
           </div>
-          
-          {/* Progress bar */}
-          <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
-            <div 
-              className="absolute h-full bg-gradient-to-r from-[var(--accent-primary)] to-[#FFB84D] transition-all duration-500"
+
+          <div className="relative h-1.5 overflow-hidden rounded-full bg-zinc-800/90 ring-1 ring-white/[0.06]">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#ff5a00] via-[#fb923c] to-amber-500/90 shadow-[0_0_24px_-4px_rgba(255,90,0,0.35)] transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-400">
-            <span className={currentStep >= 0 ? "text-[var(--accent-primary)]" : ""}>Început</span>
-            <span className={currentStep >= 1 ? "text-[var(--accent-primary)]" : ""}>Esențial</span>
-            <span className={currentStep >= 2 ? "text-[var(--accent-primary)]" : ""}>Detalii</span>
-            <span className={currentStep >= 3 ? "text-[var(--accent-primary)]" : ""}>Finalizare</span>
+          <div className="mt-3 flex justify-between gap-2">
+            {(["Început", "Esențial", "Detalii", "Finalizare"] as const).map((label, i) => {
+              const done = currentStep > i;
+              const active = currentStep === i;
+              return (
+                <span
+                  key={label}
+                  className={`max-w-[24%] truncate text-center text-[11px] font-medium uppercase tracking-[0.12em] transition sm:text-xs ${
+                    active
+                      ? "text-orange-400/95"
+                      : done
+                        ? "text-zinc-500"
+                        : "text-zinc-600"
+                  }`}
+                >
+                  {label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
         {/* Step 0: Quick Input */}
         {currentStep === 0 && (
-          <div className="card p-8 animate-fadeIn">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="text-6xl mb-6">🎯</div>
-              <h2 className="text-2xl font-bold text-white mb-4">Spune-ne rapid ce vinzi</h2>
-              <p className="text-gray-400 mb-8">Ex: "iPhone 14 Pro", "BMW Seria 3", "Apartament 2 camere"</p>
-              
-              <div className="relative">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/90 p-8 shadow-[0_24px_64px_-28px_rgba(0,0,0,0.65)] ring-1 ring-white/[0.04] backdrop-blur-md animate-fadeIn sm:p-10">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"
+            />
+            <div className="relative mx-auto max-w-2xl text-center">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-zinc-950/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/15">
+                <svg className="h-8 w-8 text-orange-400/95" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                  <circle cx="12" cy="12" r="9" className="opacity-40" />
+                  <circle cx="12" cy="12" r="5" className="opacity-70" />
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                  <path strokeLinecap="round" d="M12 3v2M12 19v2M3 12h2M19 12h2" />
+                </svg>
+              </div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-muted)]">Pas rapid</p>
+              <h2 className="mb-3 text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-[1.65rem]">
+                Spune-ne rapid ce vinzi
+              </h2>
+              <p className="mb-8 text-sm leading-relaxed text-[var(--text-tertiary)]">
+                Ex: &quot;iPhone 14 Pro&quot;, &quot;BMW Seria 3&quot;, &quot;Apartament 2 camere&quot;
+              </p>
+
+              <div className="relative text-left">
+                <label htmlFor="listing-quick-what" className="sr-only">
+                  Ce vinzi
+                </label>
                 <input
+                  id="listing-quick-what"
                   type="text"
                   value={quickInput}
                   onChange={(e) => setQuickInput(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleQuickSubmit()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleQuickSubmit();
+                    }
+                  }}
                   placeholder="Scrie aici ce vinzi..."
-                  className="w-full px-6 py-4 text-lg rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white placeholder-gray-500 outline-none transition"
+                  className="w-full rounded-xl border border-white/10 bg-zinc-950/50 px-5 py-4 text-lg text-[var(--text-primary)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none ring-0 transition placeholder:text-zinc-500 focus:border-orange-500/45 focus:ring-2 focus:ring-orange-500/20"
                   autoFocus
                 />
                 <button
+                  type="button"
                   onClick={handleQuickSubmit}
                   disabled={!quickInput.trim()}
-                  className="mt-4 btn btn-primary w-full text-lg py-4"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff5a00] to-[#e65200] py-4 text-lg font-semibold text-white shadow-[0_12px_40px_-12px_rgba(255,90,0,0.45)] transition hover:brightness-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none"
                 >
-                  Continuă →
+                  Continuă
+                  <span aria-hidden className="text-xl leading-none">
+                    →
+                  </span>
                 </button>
               </div>
-              
+
               <button
+                type="button"
                 onClick={() => setCurrentStep(1)}
-                className="mt-6 text-gray-400 hover:text-white transition text-sm"
+                className="mt-8 text-sm font-medium text-zinc-500 underline decoration-white/10 underline-offset-4 transition hover:text-orange-300/90 hover:decoration-orange-500/30"
               >
                 Sau completează manual →
               </button>

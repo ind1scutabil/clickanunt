@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useId } from "react";
 import {
   Area,
   AreaChart,
@@ -40,46 +40,50 @@ export function ViewsLast7DaysChart({
   );
 
   const hasAnyDaily = chartData.some((d) => d.views > 0);
+  const gradId = `dashViewsFill-${useId().replace(/:/g, "")}`;
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.55)] backdrop-blur-xl md:p-8">
-      <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relative overflow-hidden rounded-xl border border-zinc-800/75 bg-gradient-to-b from-zinc-900/55 via-zinc-950/95 to-[#08090d] p-5 shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.045] md:p-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" />
+      <div className="relative mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-lg font-semibold tracking-tight text-white md:text-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Analitică</p>
+          <h3 className="mt-1 text-base font-semibold tracking-tight text-white md:text-lg">
             Vizualizări — ultimele 7 zile
           </h3>
-          <p className="text-sm text-white/45">
+          <p className="mt-1 max-w-xl text-sm leading-relaxed text-zinc-500">
             Vizualizări înregistrate în jurnal (evenimente reale), pe anunțurile tale
           </p>
         </div>
       </div>
 
-      <div className="h-[220px] w-full min-w-0 sm:h-[260px]">
+      <div className="relative rounded-lg border border-zinc-800/60 bg-zinc-950/50 p-2 shadow-inner shadow-black/40 sm:p-3">
+        <div className="h-[200px] w-full min-w-0 sm:h-[248px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
             margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
           >
             <defs>
-              <linearGradient id="dashViewsFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="rgb(139, 92, 246)" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="rgb(139, 92, 246)" stopOpacity={0} />
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgb(249, 115, 22)" stopOpacity={0.22} />
+                <stop offset="100%" stopColor="rgb(249, 115, 22)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid
               strokeDasharray="3 6"
-              stroke="rgba(255,255,255,0.06)"
+              stroke="rgba(63, 63, 70, 0.5)"
               vertical={false}
             />
             <XAxis
               dataKey="label"
-              tick={{ fill: "rgba(255,255,255,0.45)", fontSize: 11 }}
+              tick={{ fill: "rgb(161, 161, 170)", fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+              axisLine={{ stroke: "rgb(63, 63, 70)" }}
             />
             <YAxis
               width={36}
-              tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 11 }}
+              tick={{ fill: "rgb(113, 113, 122)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               domain={[0, maxViews]}
@@ -87,13 +91,13 @@ export function ViewsLast7DaysChart({
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "rgba(15, 18, 28, 0.92)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: "12px",
-                boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+                backgroundColor: "rgba(24, 24, 27, 0.96)",
+                border: "1px solid rgb(63, 63, 70)",
+                borderRadius: "8px",
+                boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
               }}
-              labelStyle={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}
-              itemStyle={{ color: "#fff", fontSize: 13, fontWeight: 600 }}
+              labelStyle={{ color: "rgb(161, 161, 170)", fontSize: 12 }}
+              itemStyle={{ color: "#fafafa", fontSize: 13, fontWeight: 600 }}
               formatter={(value: number) => [
                 `${value.toLocaleString("ro-RO")} vizualizări`,
                 "",
@@ -110,28 +114,31 @@ export function ViewsLast7DaysChart({
             <Area
               type="monotone"
               dataKey="views"
-              stroke="rgb(167, 139, 250)"
+              stroke="rgb(249, 115, 22)"
               strokeWidth={2}
-              fill="url(#dashViewsFill)"
-              dot={{ fill: "rgb(167, 139, 250)", strokeWidth: 0, r: 3 }}
+              fill={`url(#${gradId})`}
+              dot={{ fill: "rgb(249, 115, 22)", strokeWidth: 0, r: 3 }}
               activeDot={{ r: 5, strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>
+        </div>
       </div>
 
       {!hasAnyDaily && totalViewsHint > 0 && (
-        <p className="mt-4 text-center text-xs text-white/40 md:text-sm">
+        <p className="mt-4 text-center text-xs text-zinc-500 md:text-sm">
           Totalul din cardul „Vizualizări totale” vine din contorul fiecărui anunț.
           Graficul afișează doar vizualizările înregistrate în jurnal după activarea
           evenimentelor — încă nu există puncte în ultimele 7 zile.
         </p>
       )}
       {!hasAnyDaily && totalViewsHint === 0 && (
-        <p className="mt-4 text-center text-xs text-white/40 md:text-sm">
+        <p className="mt-4 text-center text-xs text-zinc-500 md:text-sm">
           Publică un anunț pentru a începe să acumulezi vizualizări.
         </p>
       )}
     </div>
   );
 }
+
+export default ViewsLast7DaysChart;

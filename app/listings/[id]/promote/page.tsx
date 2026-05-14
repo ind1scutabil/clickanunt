@@ -200,6 +200,13 @@ export default function PromotePage() {
     applyUserPromotionDiscountToBaseBani(Math.round(basePriceRon * 100), userDiscount);
 
   const handlePromote = () => {
+    const st = String(listing?.status ?? '').toLowerCase();
+    if (st !== 'active') {
+      alert(
+        'Anunțul este în așteptare. După aprobare și activare vei putea promova.'
+      );
+      return;
+    }
     if (!selectedPackage) {
       alert('Selectează un pachet de promovare!');
       return;
@@ -285,6 +292,7 @@ export default function PromotePage() {
   }
 
   const selectedPkg = packages.find(p => p.id === selectedPackage);
+  const listingIsActive = String(listing?.status ?? '').toLowerCase() === 'active';
 
   return (
     <>
@@ -486,6 +494,14 @@ export default function PromotePage() {
 
       <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 pt-20 pb-12">
         <div className="max-w-7xl mx-auto px-4 py-8">
+          {!listingIsActive && (
+            <div
+              className="mb-8 max-w-3xl mx-auto rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-100"
+              role="status"
+            >
+              Anunțul este în așteptare. După aprobare/activare vei putea promova.
+            </div>
+          )}
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-5xl font-black mb-4 bg-gradient-to-r from-[#6D5BFF] via-[#00D4FF] to-[#4E3CFF] bg-clip-text text-transparent">
@@ -526,10 +542,10 @@ export default function PromotePage() {
               .map((pkg) => (
               <div
                 key={pkg.id}
-                onClick={() => setSelectedPackage(pkg.id)}
-                className={`relative cursor-pointer transition-all duration-300 transform hover:scale-[1.02] ${
-                  selectedPackage === pkg.id ? 'scale-[1.02] ring-2 ring-white/30' : ''
-                }`}
+                onClick={() => listingIsActive && setSelectedPackage(pkg.id)}
+                className={`relative transition-all duration-300 transform ${
+                  listingIsActive ? 'cursor-pointer hover:scale-[1.02]' : 'cursor-not-allowed opacity-60'
+                } ${selectedPackage === pkg.id ? 'scale-[1.02] ring-2 ring-white/30' : ''}`}
               >
                 <div className="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-700/50 p-5 h-full">
                   {/* Badge Popular */}
@@ -601,7 +617,7 @@ export default function PromotePage() {
             </button>
             <button
               onClick={handlePromote}
-              disabled={!selectedPackage}
+              disabled={!selectedPackage || !listingIsActive}
               className="flex-1 py-4 bg-gradient-to-r from-[#6D5BFF] via-[#00D4FF] to-[#4E3CFF] text-white rounded-xl font-black text-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-2xl hover:shadow-[#6D5BFF]/50 transition-all transform hover:scale-105 active:scale-95"
             >
               🚀 PROMOVEAZĂ ACUM

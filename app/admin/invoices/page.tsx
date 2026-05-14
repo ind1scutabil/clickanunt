@@ -267,8 +267,12 @@ export default function AdminInvoicesPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[var(--bg-primary)] pb-14 pt-20 text-[var(--text-primary)]">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className="relative min-h-screen overflow-x-hidden bg-[var(--bg-primary)] pb-14 pt-20 text-[var(--text-primary)]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[min(36rem,58vh)] max-h-[500px] bg-[radial-gradient(ellipse_70%_50%_at_50%_-4%,rgba(255,90,0,0.11),transparent_56%),radial-gradient(ellipse_42%_34%_at_90%_10%,rgba(124,92,246,0.14),transparent_50%)]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6">
           <header className="mb-10 flex flex-col gap-4 border-b border-[var(--border-primary)] pb-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)]">
@@ -311,9 +315,9 @@ export default function AdminInvoicesPage() {
               role="tab"
               aria-selected={viewTab === 'list'}
               onClick={() => setViewTab('list')}
-              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
                 viewTab === 'list'
-                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  ? 'border-b-2 border-orange-500/80 text-[var(--text-primary)] shadow-[0_10px_32px_-20px_rgba(255,90,0,0.18)]'
                   : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -324,9 +328,9 @@ export default function AdminInvoicesPage() {
               role="tab"
               aria-selected={viewTab === 'export'}
               onClick={() => setViewTab('export')}
-              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
                 viewTab === 'export'
-                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  ? 'border-b-2 border-orange-500/80 text-[var(--text-primary)] shadow-[0_10px_32px_-20px_rgba(255,90,0,0.18)]'
                   : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -337,9 +341,9 @@ export default function AdminInvoicesPage() {
               role="tab"
               aria-selected={viewTab === 'anaf'}
               onClick={() => setViewTab('anaf')}
-              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] ${
+              className={`rounded-t-lg px-4 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
                 viewTab === 'anaf'
-                  ? 'border-b-2 border-[var(--accent-secondary)] text-[var(--text-primary)]'
+                  ? 'border-b-2 border-orange-500/80 text-[var(--text-primary)] shadow-[0_10px_32px_-20px_rgba(255,90,0,0.18)]'
                   : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -351,9 +355,13 @@ export default function AdminInvoicesPage() {
           {viewTab === 'list' && (
             <>
               {/* Filters */}
-              <div className="mb-6 rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-6 shadow-[var(--shadow-md)]">
-                <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Filtre</h2>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/85 p-6 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.72)] ring-1 ring-white/[0.05] backdrop-blur-md">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent"
+                />
+                <h2 className="relative mb-4 text-base font-semibold text-[var(--text-primary)]">Filtre</h2>
+                <div className="relative grid grid-cols-1 gap-4 md:grid-cols-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-[var(--text-tertiary)]">Status</label>
                     <select
@@ -396,19 +404,19 @@ export default function AdminInvoicesPage() {
 
               {/* Stats */}
               <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                <div className="rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.04] backdrop-blur-sm">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Facturi (filtrate)</p>
                   <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-[var(--text-primary)]">
                     {filteredInvoices.length}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                <div className="rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.04] backdrop-blur-sm">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">Total fără TVA</p>
                   <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-300/95">
                     {((totalAmount - totalVAT) / 100).toFixed(2)} RON
                   </p>
                 </div>
-                <div className="rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)] p-4">
+                <div className="rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-white/[0.04] backdrop-blur-sm">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-muted)]">TVA</p>
                   <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-amber-200/95">
                     {(totalVAT / 100).toFixed(2)} RON
@@ -417,11 +425,30 @@ export default function AdminInvoicesPage() {
               </div>
 
               {/* Table */}
-              <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 shadow-[var(--shadow-md)]">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--bg-elevated)]/85 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.72)] ring-1 ring-white/[0.05] backdrop-blur-md">
                 {loading ? (
-                  <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">Se încarcă facturile…</div>
+                  <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                    <div
+                      className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[var(--accent-primary)]"
+                      aria-hidden
+                    />
+                    <p className="text-sm font-medium text-[var(--text-secondary)]">Se încarcă facturile…</p>
+                    <p className="max-w-sm text-xs text-[var(--text-muted)]">Sincronizare cu serverul; lista se actualizează automat după răspuns.</p>
+                  </div>
                 ) : filteredInvoices.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-[var(--text-tertiary)]">Nicio factură găsită</div>
+                  <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-orange-500/15">
+                      <svg className="h-7 w-7 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-[var(--text-primary)]">Nicio factură în acest ecran</p>
+                      <p className="mt-2 max-w-md text-sm text-[var(--text-tertiary)]">
+                        Ajustează filtrele (status, perioadă) sau caută după număr / utilizator. Datele rămân cele de pe server.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="overflow-x-auto">

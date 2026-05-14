@@ -87,7 +87,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={THEME.colors.accent} />
+        <ActivityIndicator size="large" color={THEME.colors.primary} />
       </View>
     );
   }
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.surfaceAlt,
   },
   favRowPressed: { opacity: 0.85 },
-  favText: { color: THEME.colors.accent, fontWeight: '700', fontSize: 14 },
+  favText: { color: THEME.colors.primary, fontWeight: '700', fontSize: 14 },
   offlineHint: { color: THEME.colors.warning, fontWeight: '600', marginBottom: 8 },
   inactiveBanner: {
     color: THEME.colors.warning,
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  price: { fontSize: 24, fontWeight: '800', color: THEME.colors.accent, marginTop: 8 },
+  price: { fontSize: 24, fontWeight: '800', color: THEME.colors.primary, marginTop: 8 },
   meta: { marginTop: 8, color: THEME.colors.textSecondary },
   description: {
     marginTop: 14,

@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireAllExpiredPromotions } from "@/lib/expire-listing-promotions";
 import { logger } from "@/lib/observability";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 
 async function run() {
   if (process.env.USE_IN_MEMORY_DB === "true") {
@@ -14,6 +17,17 @@ async function run() {
 
   const { updated } = await expireAllExpiredPromotions(prisma);
   logger.info("cron.expire-promotions", { updated });
+
+  if (updated > 0) {
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.PROMOTION_EXPIRED_BATCH,
+      severity: AdminNotificationSeverity.info,
+      title: "Promovări expirate",
+      message: `${updated} promovări au fost expirate automat de cron.`,
+      metadata: { updated },
+    });
+  }
+
   return NextResponse.json({ ok: true, updated });
 }
 

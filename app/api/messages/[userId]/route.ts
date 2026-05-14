@@ -9,6 +9,9 @@ import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging
 import { conversationParticipantSlots } from "@/lib/messaging-conversation-participants";
 import { normalizeMessagingContent } from "@/lib/messaging-content";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 import {
   messagingRequestCorrelation,
   messagingStructuredLog,
@@ -627,6 +630,7 @@ export async function POST(
 
     console.log("[MSG-POST] ✓ Receiver:", receiver.email);
 
+    let justCreatedConversation = false;
     if (!conversation) {
       console.log('[MSG-POST] Creating new conversation...');
       const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
@@ -642,6 +646,7 @@ export async function POST(
             listingId: listingId || null,
           },
         });
+        justCreatedConversation = true;
         console.log('[MSG-POST] ✓ Conversation created:', conversation.id);
       } catch (e: unknown) {
         /** Cursă: două cereri paralele creează același thread — unique @@([participants], listingId). */
@@ -715,6 +720,22 @@ export async function POST(
       });
 
       console.log("[MSG-POST] ✓ Conversation updated");
+    }
+
+    if (!recentDuplicate && justCreatedConversation) {
+      void createAdminNotification({
+        type: ADMIN_NOTIFICATION_TYPE.CONVERSATION_NEW,
+        severity: AdminNotificationSeverity.info,
+        title: "Conversație nouă",
+        message: `Thread nou între utilizatori${listingId ? ` (anunț ${listingId})` : ""}.`,
+        entityType: "conversation",
+        entityId: conversation.id,
+        metadata: {
+          listingId: listingId || null,
+          senderId: senderCanon,
+          receiverId: effectiveReceiverId,
+        },
+      });
     }
 
     // Send email notification to recipient (async, don't wait)

@@ -8,7 +8,7 @@ import { CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
 function NavIconHome({ active }: { active: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-indigo-300" : "text-zinc-500"}`}
+      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-orange-400" : "text-zinc-500"}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -23,7 +23,7 @@ function NavIconHome({ active }: { active: boolean }) {
 function NavIconGrid({ active }: { active: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-indigo-300" : "text-zinc-500"}`}
+      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-orange-400" : "text-zinc-500"}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -42,7 +42,7 @@ function NavIconGrid({ active }: { active: boolean }) {
 function NavIconUser({ active }: { active: boolean }) {
   return (
     <svg
-      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-indigo-300" : "text-zinc-500"}`}
+      className={`h-5 w-5 sm:h-6 sm:w-6 ${active ? "text-orange-400" : "text-zinc-500"}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -86,7 +86,7 @@ export default function MobileBottomNav() {
     >
       <div className="pointer-events-auto relative mx-auto w-full max-w-sm sm:max-w-md">
         <div
-          className="pointer-events-none absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent sm:left-8 sm:right-8"
+          className="pointer-events-none absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-orange-500/30 to-transparent sm:left-8 sm:right-8"
           aria-hidden
         />
         <ul className="flex w-full items-stretch justify-between gap-0.5 rounded-[14px] border border-white/[0.09] bg-zinc-950/[0.88] px-1 py-1 shadow-[0_-6px_28px_-4px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl sm:gap-1 sm:rounded-2xl sm:px-1.5 sm:py-1.5">
@@ -97,9 +97,9 @@ export default function MobileBottomNav() {
                 <Link
                   href={item.href}
                   prefetch={false}
-                  className={`group relative flex min-h-[2.65rem] min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-[11px] px-1 text-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:min-h-[3rem] sm:gap-1 sm:rounded-xl ${
+                  className={`group relative flex min-h-[2.65rem] min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-[11px] px-1 text-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 sm:min-h-[3rem] sm:gap-1 sm:rounded-xl ${
                     on
-                      ? "bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ring-1 ring-white/12"
+                      ? "bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] ring-1 ring-orange-500/20"
                       : "text-zinc-500 active:scale-[0.98] hover:bg-white/[0.04] hover:text-zinc-200"
                   }`}
                 >

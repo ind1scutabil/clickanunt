@@ -94,10 +94,28 @@ export async function generateMetadata({
 
 export default function Page() {
   return (
-    <div className="min-h-screen max-w-[100vw] overflow-x-hidden bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 md:from-[#f3f5fb] md:via-[#f6f7fa] md:to-slate-100/90">
+    <div className="relative min-h-screen max-w-[100vw] overflow-x-hidden bg-[#030304] text-zinc-100 antialiased selection:bg-orange-500/25">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_88%_52%_at_50%_-16%,rgba(251,146,60,0.07),transparent_58%)]"
+        aria-hidden
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_36%_at_100%_0%,rgba(139,92,246,0.05),transparent_50%)]" aria-hidden />
       <Navbar />
-      <div className="relative min-w-0 max-w-full md:text-slate-700">
-        <Suspense fallback={<div className="p-8 text-center text-zinc-500 md:text-slate-500">Se încarcă anunțurile...</div>}>
+      <div className="relative min-w-0 max-w-full text-zinc-100">
+        <Suspense
+          fallback={
+            <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6">
+              <div className="relative mx-auto max-w-md overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950/95 px-6 py-12 shadow-[0_24px_64px_-20px_rgba(0,0,0,0.65)] ring-1 ring-white/[0.05]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" />
+                <div
+                  className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-zinc-800 border-t-orange-500"
+                  aria-hidden
+                />
+                <p className="mt-4 text-sm font-medium text-zinc-500">Se încarcă anunțurile…</p>
+              </div>
+            </div>
+          }
+        >
           <ListingsView />
         </Suspense>
       </div>

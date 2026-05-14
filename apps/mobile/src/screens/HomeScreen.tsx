@@ -161,7 +161,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
             <Text style={styles.publishTitle}>Publică anunț</Text>
             <Text style={styles.publishSubtitle}>Adaugă rapid un anunț nou</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={THEME.colors.accent} />
+          <Ionicons name="chevron-forward" size={18} color={THEME.colors.primary} />
         </Pressable>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
@@ -180,7 +180,7 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
                   <Ionicons
                     name={tab.icon}
                     size={16}
-                    color={active ? THEME.colors.accent : THEME.colors.textSecondary}
+                    color={active ? THEME.colors.primary : THEME.colors.textSecondary}
                   />
                 </View>
                 <Text style={[styles.categoryText, active ? styles.categoryTextActive : undefined]} numberOfLines={1}>
@@ -372,8 +372,8 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.surface,
   },
   categoryTabActive: {
-    backgroundColor: THEME.colors.surfaceAlt,
-    borderColor: THEME.colors.accent,
+    backgroundColor: 'rgba(255, 90, 0, 0.08)',
+    borderColor: 'rgba(255, 90, 0, 0.32)',
   },
   categoryIconWrap: {
     width: 22,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.background,
   },
   categoryIconWrapActive: {
-    backgroundColor: 'rgba(0,209,255,0.14)',
+    backgroundColor: 'rgba(255, 90, 0, 0.15)',
   },
   categoryText: {
     color: THEME.colors.textSecondary,
@@ -422,9 +422,9 @@ const styles = StyleSheet.create({
   },
   badge: {
     borderRadius: THEME.radius.pill,
-    backgroundColor: 'rgba(0,209,255,0.12)',
+    backgroundColor: 'rgba(255, 90, 0, 0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(0,209,255,0.35)',
+    borderColor: 'rgba(255, 90, 0, 0.30)',
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, fontSize: 13, fontWeight: '700', color: THEME.colors.textPrimary },
   secondaryLine: { fontSize: 11, color: THEME.colors.textSecondary, fontWeight: '600' },
   meta: { color: THEME.colors.textMuted, fontSize: 11 },
-  price: { fontWeight: '800', color: THEME.colors.accent, fontSize: 14 },
+  price: { fontWeight: '800', color: THEME.colors.primary, fontSize: 14 },
   actionsRow: {
     marginTop: 4,
     flexDirection: 'row',

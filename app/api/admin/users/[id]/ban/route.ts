@@ -11,6 +11,9 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
 import type { UserRole } from "@prisma/client";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 
 const banUserSchema = z.object({
   reason: z.string().min(1, "Motivul este necesar"),
@@ -86,6 +89,16 @@ export async function POST(
 
     // Audit log
     await auditActions.userBanned(user, targetUser.id, reason, targetUser);
+
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.USER_BANNED,
+      severity: AdminNotificationSeverity.critical,
+      title: "Cont blocat (ban)",
+      message: `${targetUser.email} a fost banat: ${reason}`,
+      entityType: "user",
+      entityId: targetUser.id,
+      metadata: { bannedBy: user.id },
+    });
 
     return NextResponse.json({
       success: true,

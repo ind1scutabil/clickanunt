@@ -11,6 +11,9 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { registerSchema } from "@/lib/security/validation-schemas";
 import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,6 +94,15 @@ export async function POST(request: NextRequest) {
     } catch (auditError) {
       console.warn('Audit log failed:', auditError);
     }
+
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.USER_REGISTERED,
+      severity: AdminNotificationSeverity.info,
+      title: "Utilizator nou înregistrat",
+      message: `${user.email} a creat un cont.`,
+      entityType: "user",
+      entityId: user.id,
+    });
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;

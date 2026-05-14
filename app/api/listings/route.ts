@@ -22,6 +22,9 @@ import { verifyToken } from "@/lib/auth";
 import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 import {
   feedBoostKeysetPaginationEnabled,
   parseListingFeedSort,
@@ -696,6 +699,28 @@ export async function POST(request: Request) {
 
     tracker.end();
     logger.info('Listing created successfully', { listingId: listing.id, moderationStatus });
+
+    void createAdminNotification({
+      type:
+        moderationStatus === "pending"
+          ? ADMIN_NOTIFICATION_TYPE.LISTING_PENDING_MODERATION
+          : ADMIN_NOTIFICATION_TYPE.LISTING_CREATED,
+      severity:
+        moderationStatus === "pending"
+          ? AdminNotificationSeverity.warning
+          : AdminNotificationSeverity.info,
+      title:
+        moderationStatus === "pending"
+          ? "Anunț în așteptare la moderare"
+          : "Anunț nou publicat",
+      message:
+        moderationStatus === "pending"
+          ? `„${listing.title}” (${listing.category}) — trimis spre aprobare.`
+          : `„${listing.title}” (${listing.category}) — creat cu status ${moderationStatus}.`,
+      entityType: "listing",
+      entityId: listing.id,
+      metadata: { ownerUserId: userId, moderationStatus },
+    });
 
     return NextResponse.json(listing, { status: 201 });
   } catch (err: any) {

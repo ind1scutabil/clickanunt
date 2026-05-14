@@ -145,6 +145,19 @@ export default function Page() {
     gallerySwipeStartRef.current = null;
   }, []);
 
+  /** Închide galeria la Escape; z-index modale > .site-header-shell (100) ca butonul X să nu fie sub navbar. */
+  useEffect(() => {
+    if (!showImageModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowImageModal(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [showImageModal]);
+
   // Check if listing is in favorites
   useEffect(() => {
     if (id) {
@@ -342,7 +355,8 @@ export default function Page() {
   const ownerId = listing.ownerUserId || listing.owner?.id;
   const isOwner = Boolean(currentUser?.id && ownerId && currentUser.id === ownerId);
   const isPrivileged = currentUser?.role === 'admin' || currentUser?.role === 'owner';
-  const canPromote = isOwner; // Only owner can promote their own listing
+  const listingStatusLower = String(listing?.status ?? "").toLowerCase();
+  const listingIsActiveForPromo = listingStatusLower === "active";
   const isAutoListing = listing.category === "Auto, moto și ambarcațiuni";
   const categoryPillarSlug =
     typeof listing.category === "string" ? primarySlugForCategoryLabel(listing.category) : null;
@@ -449,15 +463,20 @@ export default function Page() {
       {/* Image Modal */}
       {showImageModal && (
         <div 
-          className="fixed inset-0 z-[60] flex max-h-[100dvh] w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm touch-pan-y"
+          className="fixed inset-0 z-[110] flex max-h-[100dvh] w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm touch-pan-y"
           onClick={() => setShowImageModal(false)}
+          role="presentation"
         >
           <button 
             type="button"
-            className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] z-[61] flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20"
-            onClick={() => setShowImageModal(false)}
+            aria-label="Închide galeria foto"
+            className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] z-[120] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-900/90 text-white shadow-lg ring-1 ring-white/10 transition-all hover:bg-white/15"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowImageModal(false);
+            }}
           >
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -466,28 +485,30 @@ export default function Page() {
             <>
               <button 
                 type="button"
-                className="absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-[61] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20 disabled:opacity-30"
+                aria-label="Poză anterioară"
+                className="absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-[120] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 text-white transition-all hover:bg-white/15 disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedImageIndex(prev => Math.max(0, prev - 1));
                 }}
                 disabled={selectedImageIndex === 0}
               >
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
               
               <button 
                 type="button"
-                className="absolute right-[max(1rem,env(safe-area-inset-right))] top-1/2 z-[61] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 transition-all hover:bg-white/20 disabled:opacity-30"
+                aria-label="Poză următoare"
+                className="absolute right-[max(4.5rem,calc(env(safe-area-inset-right)+3.5rem))] top-1/2 z-[120] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 text-white transition-all hover:bg-white/15 disabled:opacity-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedImageIndex(prev => Math.min(photos.length - 1, prev + 1));
                 }}
                 disabled={selectedImageIndex === photos.length - 1}
               >
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
@@ -513,11 +534,23 @@ export default function Page() {
                 el.src = LISTING_PHOTO_ONERROR_FALLBACK;
               }}
             />
-            {photos.length > 1 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm rounded-full px-4 py-2 text-white text-sm font-medium">
-                {selectedImageIndex + 1} / {photos.length}
-              </div>
-            )}
+            <div className="pointer-events-auto absolute bottom-4 left-1/2 z-[120] flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 sm:bottom-6">
+              {photos.length > 1 && (
+                <div className="rounded-full border border-white/10 bg-black/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
+                  {selectedImageIndex + 1} / {photos.length}
+                </div>
+              )}
+              <button
+                type="button"
+                className="rounded-full border border-white/15 bg-zinc-900/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm transition hover:bg-white/15"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowImageModal(false);
+                }}
+              >
+                Închide
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -973,9 +1006,23 @@ export default function Page() {
                           <span>✏️</span>
                           <span>Editează</span>
                         </button>
-                        <button 
-                          onClick={() => router.push(`/listings/${id}/promote`)}
-                          className="flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 py-2 text-xs font-semibold text-white transition-all hover:scale-[1.01] hover:shadow-sm hover:shadow-amber-900/20 active:scale-[0.99] md:gap-2 md:py-2.5 md:text-sm"
+                        <button
+                          type="button"
+                          title={
+                            listingIsActiveForPromo
+                              ? undefined
+                              : "Anunțul este în așteptare. După aprobare/activare vei putea promova."
+                          }
+                          disabled={!listingIsActiveForPromo}
+                          onClick={() => {
+                            if (!listingIsActiveForPromo) return;
+                            router.push(`/listings/${id}/promote`);
+                          }}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 py-2 text-xs font-semibold text-white transition-all md:gap-2 md:py-2.5 md:text-sm ${
+                            listingIsActiveForPromo
+                              ? "hover:scale-[1.01] hover:shadow-sm hover:shadow-amber-900/20 active:scale-[0.99]"
+                              : "cursor-not-allowed opacity-55"
+                          }`}
                         >
                           <span>🚀</span>
                           <span>Promovează</span>

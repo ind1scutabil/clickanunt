@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FooterCookieSettingsLink } from "@/app/components/legal/FooterCookieSettingsLink";
 import {
   COMPANY_CONFIG,
   isCompanyLegalDetailsPublic,
@@ -46,7 +45,7 @@ export default function Footer() {
           {/* Company Info */}
           <div>
             <h3 className="mb-4 text-xl font-semibold tracking-tight text-white">
-              ClickAnunt
+              ClickAnunț
             </h3>
             <p className="mb-4 text-sm text-neutral-500">
               Platforma ta de încredere pentru toate tipurile de anunțuri.
@@ -107,48 +106,13 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/gdpr" className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-primary-400">
                   ⚖️ Drepturile GDPR
                 </Link>
               </li>
               <li>
-                <Link href="/cookies" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🍪 Politica cookie
-                </Link>
-              </li>
-              <li>
-                <Link href="/anunturi-interzise" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  ⛔ Anunțuri interzise
-                </Link>
-              </li>
-              <li>
-                <Link href="/anti-frauda" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🛡️ Anti-fraudă
-                </Link>
-              </li>
-              <li>
-                <Link href="/rambursari" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  💶 Rambursări promovări
-                </Link>
-              </li>
-              <li>
-                <Link href="/notice-takedown" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  Copyright / Notice
-                </Link>
-              </li>
-              <li>
-                <Link href="/litigii-ue" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🇪🇺 Soluționare litigii (ODR)
-                </Link>
-              </li>
-              <li>
-                <Link href="/security" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🔒 Securitate
-                </Link>
-              </li>
-              <li>
                 <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🇪🇺 Platformă ODR (extern)
+                  🇪🇺 Soluționare Litigii UE
                 </a>
               </li>
             </ul>
@@ -245,53 +209,26 @@ export default function Footer() {
         <div className="mx-auto max-w-7xl px-4 py-6">
           <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 md:flex-row">
             <div>
-              <p>&copy; 2026 ClickAnunt. Toate drepturile rezervate.</p>
+              <p>&copy; 2026 ClickAnunț. Toate drepturile rezervate.</p>
               {showCompanyLegal && (
                 <p className="text-xs mt-1">
                   ENORE SALES TYPE S.R.L. | CUI: 46062613 | Reg. Com.: J20220000480181
                 </p>
               )}
             </div>
-            <div className="flex max-w-4xl flex-col items-center gap-3 text-sm text-neutral-500 md:max-w-none">
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-                <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Termeni
-                </Link>
-                <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Confidențialitate
-                </Link>
-                <Link href="/cookies" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Cookie
-                </Link>
-                <Link href="/gdpr" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  GDPR
-                </Link>
-                <Link href="/anunturi-interzise" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Interzise
-                </Link>
-                <Link href="/anti-frauda" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Anti-fraudă
-                </Link>
-                <Link href="/rambursari" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Rambursări
-                </Link>
-                <Link href="/notice-takedown" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Copyright
-                </Link>
-                <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Contact
-                </Link>
-                <Link href="/security" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  Siguranță
-                </Link>
-                <FooterCookieSettingsLink className="cursor-pointer border-0 bg-transparent p-0 text-inherit transition-colors duration-normal ease-premium hover:text-neutral-100" />
-                <a href="https://www.dataprotection.ro" target="_blank" rel="noopener" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  ANSPDCP
-                </a>
-                <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
-                  ODR UE
-                </a>
-              </div>
+            <div className="flex items-center gap-6">
+              <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
+                Termeni
+              </Link>
+              <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
+                GDPR
+              </Link>
+              <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
+                Contact
+              </Link>
+              <a href="https://www.dataprotection.ro" target="_blank" rel="noopener" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
+                ANSPDCP
+              </a>
             </div>
           </div>
         </div>

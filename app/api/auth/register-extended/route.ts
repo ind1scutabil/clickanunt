@@ -13,7 +13,9 @@ import { prisma } from "@/lib/prisma";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { registerExtendedSchema } from "@/lib/security/validation-schemas";
 import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
-import type { AccountType } from "@prisma/client";
+import { AccountType, AdminNotificationSeverity } from "@prisma/client";
+import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
+import { createAdminNotification } from "@/lib/admin-notifications";
 
 interface RegisterRequest {
   email: string;
@@ -28,6 +30,31 @@ interface RegisterRequest {
   businessEmail?: string;
   businessLocation?: string;
   businessDescription?: string;
+  businessWebsite?: string;
+  businessCategory?: "auto_dealer" | "real_estate" | "retail" | "services" | "other";
+}
+
+const BUSINESS_ACTIVITY_LABEL: Record<string, string> = {
+  auto_dealer: "Dealer auto",
+  real_estate: "Agenție imobiliară",
+  retail: "Magazin",
+  services: "Servicii",
+  other: "Altul",
+};
+
+function composeBusinessDescription(
+  category: string | undefined,
+  extra: string | undefined
+): string | null {
+  const head =
+    category && BUSINESS_ACTIVITY_LABEL[category]
+      ? `Tip activitate: ${BUSINESS_ACTIVITY_LABEL[category]}`
+      : "";
+  const tail = extra?.trim() ?? "";
+  if (head && tail) return `${head}\n\n${tail}`;
+  if (head) return head;
+  if (tail) return tail;
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -64,7 +91,17 @@ export async function POST(request: NextRequest) {
       businessEmail,
       businessLocation,
       businessDescription,
+      businessWebsite,
+      businessCategory,
     } = security.data as RegisterRequest & { confirmPassword: string };
+
+    const prismaAccountType: AccountType =
+      accountType === "business" ? AccountType.business : AccountType.private;
+
+    const mergedBusinessDescription =
+      accountType === "business"
+        ? composeBusinessDescription(businessCategory, businessDescription)
+        : undefined;
 
     // Sanitizare email
     const sanitizedEmail = sanitizeEmail(email);
@@ -146,9 +183,10 @@ export async function POST(request: NextRequest) {
         email: sanitizedEmail,
         password: hashedPassword,
         name: name?.trim() || null,
-        accountType: accountType as AccountType,
+        accountType: prismaAccountType,
         role: "user",
-        trustScore: accountType === "business" ? 40 : 50, // Business starts lower
+        // Same baseline as personal (50): trust < NEUTRAL forces all new listings into moderation pending.
+        trustScore: 50,
         emailVerified: false,
         phoneVerified: false,
         isBanned: false,
@@ -161,13 +199,26 @@ export async function POST(request: NextRequest) {
           businessPhone: businessPhone?.trim() || null,
           businessEmail: businessEmail?.trim() || sanitizedEmail,
           businessLocation: businessLocation?.trim() || null,
-          businessDescription: businessDescription?.trim() || null,
+          businessDescription: mergedBusinessDescription ?? null,
+          ...(businessWebsite?.trim()
+            ? { businessWebsite: businessWebsite.trim() }
+            : {}),
         }),
 
         // Subscription start
         subscriptionTier: "free",
         subscriptionExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days free trial
       },
+    });
+
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.USER_REGISTERED,
+      severity: AdminNotificationSeverity.info,
+      title: "Utilizator nou înregistrat",
+      message: `${user.email} a creat un cont (${accountType}).`,
+      entityType: "user",
+      entityId: user.id,
+      metadata: { accountType },
     });
 
     // ============== SINCRONIZARE INVOICE METADATA ==============
@@ -192,10 +243,6 @@ export async function POST(request: NextRequest) {
         console.warn("Warning: Could not set metadata", metadataError);
         // Don't fail the registration
       }
-    } else {
-      // Personal billing profile - no additional metadata update needed
-      // All required fields are already set in the initial user creation
-      console.log("Personal account created successfully");
     }
 
     // ============== GENEREZA TOKENS ==============

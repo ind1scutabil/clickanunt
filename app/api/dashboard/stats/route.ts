@@ -50,7 +50,9 @@ export async function GET(request: NextRequest) {
     const start7d = new Date(startOfTodayUtc);
     start7d.setUTCDate(start7d.getUTCDate() - 6);
 
-    const viewRows = await prisma.$queryRaw<Array<{ d: Date; c: bigint }>>`
+    let viewRows: Array<{ d: Date; c: bigint }> = [];
+    try {
+      viewRows = await prisma.$queryRaw<Array<{ d: Date; c: bigint }>>`
       SELECT (DATE_TRUNC('day', e."createdAt" AT TIME ZONE 'UTC'))::date AS d, COUNT(*)::bigint AS c
       FROM "analytics_events" e
       INNER JOIN "listings" l ON l.id = e."listingId"
@@ -60,6 +62,10 @@ export async function GET(request: NextRequest) {
       GROUP BY 1
       ORDER BY 1 ASC
     `;
+    } catch {
+      /** Tabel lipsă / migrare incompletă: grafic 7 zile rămâne gol, KPI-urile principale merg înainte */
+      viewRows = [];
+    }
 
     const byDay = new Map<string, number>();
     for (const row of viewRows) {

@@ -97,23 +97,77 @@ export const registerSchema = z.object({
   path: ['confirmPassword'],
 });
 
-export const registerExtendedSchema = z.object({
-  email: emailSchema,
-  password: passwordSchema,
-  confirmPassword: z.string(),
-  accountType: z.enum(['personal', 'business']),
-  name: nameSchema,
-  businessName: z.string().max(200).optional(),
-  businessCUI: z.string().regex(/^\d{10}$/, 'CUI format invalid').optional(),
-  businessRegCom: z.string().max(100).optional(),
-  businessPhone: phoneOptionalSchema,
-  businessEmail: emailSchema.optional(),
-  businessLocation: z.string().max(200).optional(),
-  businessDescription: z.string().max(1000).optional(),
-}).strict().refine(d => d.password === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const businessCategorySchema = z.enum([
+  'auto_dealer',
+  'real_estate',
+  'retail',
+  'services',
+  'other',
+]);
+
+export const registerExtendedSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+    accountType: z.enum(['personal', 'business']),
+    name: z.string().max(100).trim(),
+    acceptTerms: z.boolean().refine((v) => v === true, 'Trebuie să accepți termenii'),
+    acceptPrivacy: z.boolean().refine((v) => v === true, 'Trebuie să accepți politica de confidențialitate'),
+    businessName: z.string().max(200).optional(),
+    businessCUI: z.string().max(32).optional(),
+    businessRegCom: z.string().max(100).optional(),
+    businessPhone: z.union([phoneSchema, z.literal('')]).optional(),
+    businessEmail: z.union([z.literal(""), emailSchema]).optional(),
+    businessLocation: z.string().max(200).optional(),
+    businessDescription: z.string().max(2000).optional(),
+    businessWebsite: z.union([z.literal(""), z.string().url("URL invalid")]).optional(),
+    businessCategory: businessCategorySchema.optional(),
+  })
+  .strict()
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .superRefine((d, ctx) => {
+    if (d.accountType === 'personal') {
+      if (d.name.trim().length < 2) {
+        ctx.addIssue({ code: 'custom', message: 'Nume minimum 2 caractere', path: ['name'] });
+      }
+      return;
+    }
+    if (!d.businessName?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Numele firmei este obligatoriu', path: ['businessName'] });
+    }
+    if (!d.businessCUI?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'CUI / CIF obligatoriu', path: ['businessCUI'] });
+    }
+    if (!d.businessRegCom?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Nr. Reg. Com. obligatoriu', path: ['businessRegCom'] });
+    }
+    if (!d.businessPhone?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Telefon firmă obligatoriu', path: ['businessPhone'] });
+    } else if (!PHONE_RE.test(d.businessPhone.trim())) {
+      ctx.addIssue({ code: 'custom', message: 'Număr telefon invalid', path: ['businessPhone'] });
+    }
+    if (!d.businessLocation?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Oraș / județ obligatoriu', path: ['businessLocation'] });
+    }
+    if (!d.businessCategory) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Selectează tipul activității',
+        path: ['businessCategory'],
+      });
+    }
+    if (d.name.trim().length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Persoană de contact: minimum 2 caractere',
+        path: ['name'],
+      });
+    }
+  });
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password required'),
@@ -123,6 +177,46 @@ export const changePasswordSchema = z.object({
   message: 'New passwords do not match',
   path: ['confirmPassword'],
 });
+
+const notificationPrefsFields = {
+  email: z.boolean().optional(),
+  sms: z.boolean().optional(),
+  push: z.boolean().optional(),
+  newMessages: z.boolean().optional(),
+  priceAlerts: z.boolean().optional(),
+  newsletter: z.boolean().optional(),
+};
+
+export const userNotificationPreferencesSchema = z
+  .object(notificationPrefsFields)
+  .strict()
+  .refine(
+    (d) => Object.values(d).some((v) => v !== undefined),
+    { message: 'Trimite cel puțin o preferință' }
+  );
+
+export const userProfileSettingsPatchSchema = z
+  .object({
+    name: nameSchema.optional(),
+    phone: z.union([phoneSchema, z.literal("")]).optional(),
+    location: z.string().max(200).trim().optional(),
+  })
+  .strict()
+  .refine(
+    (d) =>
+      d.name !== undefined || d.phone !== undefined || d.location !== undefined,
+    { message: "Trimite cel puțin un câmp de actualizat" }
+  );
+
+export const accountDeactivateSchema = z
+  .object({
+    confirmText: z.string().min(1),
+  })
+  .strict()
+  .refine((d) => d.confirmText === 'ȘTERGE', {
+    message: 'Introdu exact textul ȘTERGE pentru confirmare',
+    path: ['confirmText'],
+  });
 
 export const verify2FASchema = z.object({
   sessionToken: z.string().min(1),

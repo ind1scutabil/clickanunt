@@ -16,6 +16,7 @@ import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
 import UserModerationEnterprise, {
   type EnterpriseModerationUser as ModerationUser,
 } from '@/app/components/admin/UserModerationEnterprise';
+import AdminAlertCenter from '@/app/components/admin/AdminAlertCenter';
 import { isModerationSuspensionActive } from '@/lib/user-moderation-status';
 
 type PromotionType = 'top' | 'urgent' | 'featured' | 'refresh';
@@ -221,7 +222,7 @@ function AdminModerationPageInner() {
     discount: '',
     freePromotions: '',
     promotionType: 'top' as PromotionType,
-    expiryDays: 30
+    expiryDays: '30',
   });
 
   const setModerationTab = useCallback(
@@ -1290,7 +1291,7 @@ function AdminModerationPageInner() {
       discount: (user.discount || '').toString(),
       freePromotions: (user.freePromotions || '').toString(),
       promotionType: 'top',
-      expiryDays: 30
+      expiryDays: '30',
     });
     setShowCreditsModal(true);
   };
@@ -1301,6 +1302,21 @@ function AdminModerationPageInner() {
     const credits = creditsForm.credits ? parseInt(creditsForm.credits, 10) : 0;
     const discount = creditsForm.discount ? parseInt(creditsForm.discount, 10) : 0;
     const freePromotions = creditsForm.freePromotions ? parseInt(creditsForm.freePromotions, 10) : 0;
+
+    const expiryRaw = creditsForm.expiryDays.trim();
+    if (!expiryRaw) {
+      setNotificationMessage('❌ Introdu numărul de zile');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+    const expiryDays = parseInt(expiryRaw, 10);
+    if (!Number.isInteger(expiryDays) || expiryDays < 1 || expiryDays > 365) {
+      setNotificationMessage('❌ Introdu un număr întreg de zile între 1 și 365');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
 
     if ([credits, discount, freePromotions].some((value) => Number.isNaN(value))) {
       setNotificationMessage('❌ Valorile introduse sunt invalide');
@@ -1343,7 +1359,7 @@ function AdminModerationPageInner() {
             globalDiscount: discount,
             freePromotions,
             promotionType: creditsForm.promotionType,
-            expiryDays: creditsForm.expiryDays,
+            expiryDays,
           }),
         });
       };
@@ -1554,6 +1570,8 @@ function AdminModerationPageInner() {
               ← Dashboard
             </Link>
           </header>
+
+          <AdminAlertCenter />
 
           <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <button
@@ -2485,12 +2503,13 @@ function AdminModerationPageInner() {
                     <div>
                       <label className="mb-1.5 block text-xs text-[var(--text-muted)]">Expirare (zile)</label>
                       <input
-                        type="number"
-                        min="1"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
                         value={creditsForm.expiryDays}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setCreditsForm({ ...creditsForm, expiryDays: Number.isNaN(val) ? 30 : val });
+                          const next = e.target.value.replace(/\D/g, '');
+                          setCreditsForm({ ...creditsForm, expiryDays: next });
                         }}
                         placeholder="30"
                         className="enterprise-input w-full rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)]"
@@ -2499,7 +2518,8 @@ function AdminModerationPageInner() {
                   </div>
 
                   <p className="text-xs text-[var(--text-muted)]">
-                    {creditsForm.freePromotions || 0} × {creditsForm.promotionType} · {creditsForm.expiryDays} zile
+                    {creditsForm.freePromotions || 0} × {creditsForm.promotionType} ·{' '}
+                    {creditsForm.expiryDays.trim() ? `${creditsForm.expiryDays} zile` : '— zile'}
                   </p>
                 </div>
 

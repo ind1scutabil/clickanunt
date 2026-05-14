@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import AdminAlertCenter from "@/app/components/admin/AdminAlertCenter";
 
 type PromotionType = 'top' | 'urgent' | 'featured' | 'refresh';
 type ApplyTo = 'all' | 'new' | 'active' | 'inactive';
@@ -488,10 +489,14 @@ export default function AdminDashboard() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-[var(--bg-primary)] pb-10 pt-20">
+      <main className="relative min-h-screen overflow-x-hidden bg-[var(--bg-primary)] pb-10 pt-20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[min(38rem,58vh)] max-h-[520px] bg-[radial-gradient(ellipse_72%_52%_at_50%_-4%,rgba(255,90,0,0.10),transparent_55%),radial-gradient(ellipse_46%_36%_at_88%_10%,rgba(124,92,246,0.15),transparent_50%)]"
+        />
         {/* SECURITY: Loading state while checking authentication */}
         {isLoading && !isAuthorized && (
-          <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="relative max-w-7xl mx-auto px-4 py-8">
             <div className="flex items-center justify-center min-h-96">
               <div className="text-center">
                 <div
@@ -506,7 +511,7 @@ export default function AdminDashboard() {
 
         {/* SECURITY: Only render admin panel if authorized */}
         {isAuthorized && !isLoading && (
-        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6">
+        <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6">
           <header className="mb-6 flex flex-col gap-4 border-b border-white/[0.08] pb-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--text-muted)]">
@@ -543,6 +548,10 @@ export default function AdminDashboard() {
               </button>
             </div>
           </header>
+
+          <div className="mb-8 rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent p-1 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.65)] ring-1 ring-inset ring-white/[0.04]">
+            <AdminAlertCenter />
+          </div>
 
           {actionSuccess && (
             <div className="mb-5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-[13px] text-emerald-200/95">

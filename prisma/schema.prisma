@@ -52,6 +52,13 @@ enum AppealStatus {
   rejected
 }
 
+enum AdminNotificationSeverity {
+  info
+  success
+  warning
+  critical
+}
+
 enum FuelType {
   petrol
   diesel
@@ -551,6 +558,26 @@ model AuditLog {
   @@index([resource])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+/// In-app admin alert center (staff dashboard) — not user push notifications
+model AdminNotification {
+  id          String                    @id @default(uuid())
+  type        String                    @db.VarChar(64)
+  severity    AdminNotificationSeverity
+  title       String                    @db.VarChar(220)
+  message     String                    @db.Text
+  entityType  String?                   @db.VarChar(40)
+  entityId    String?                   @db.VarChar(64)
+  readAt      DateTime?
+  resolvedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime                  @default(now())
+
+  @@index([createdAt])
+  @@index([severity, readAt])
+  @@index([type])
+  @@map("admin_notifications")
 }
 
 model StaffNote {

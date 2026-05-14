@@ -10,6 +10,9 @@ import { hasPermission, Permission, canModifyUser } from '@/lib/rbac';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { z } from 'zod';
 import type { UserRole } from '@prisma/client';
+import { AdminNotificationSeverity } from '@prisma/client';
+import { ADMIN_NOTIFICATION_TYPE } from '@/lib/admin-notification-types';
+import { createAdminNotification } from '@/lib/admin-notifications';
 
 const suspendSchema = z.object({
   durationHours: z.number().int().min(1).max(8760),
@@ -72,6 +75,16 @@ export async function POST(
         moderationSuspensionReason: true,
         moderationSuspendedBy: true,
       },
+    });
+
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.USER_SUSPENDED,
+      severity: AdminNotificationSeverity.warning,
+      title: 'Cont suspendat temporar',
+      message: `${updated.email} suspendat până la ${updated.moderationSuspendedUntil?.toISOString() ?? '—'}.`,
+      entityType: 'user',
+      entityId: updated.id,
+      metadata: { reason, suspendedBy: adminUser.id },
     });
 
     return NextResponse.json({

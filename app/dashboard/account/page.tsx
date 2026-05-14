@@ -51,11 +51,18 @@ export default function AccountPage() {
 
     try {
       const token = localStorage.getItem('accessToken');
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        setMessage({ type: 'error', text: 'CSRF token nu a putut fi obținut' });
+        return;
+      }
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'x-csrf-token': csrfToken,
         },
         body: JSON.stringify(profileData),
       });
