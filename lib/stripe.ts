@@ -4,6 +4,7 @@
  */
 
 import Stripe from 'stripe';
+import { COMPANY_CONFIG } from './company-config';
 import { logger } from './observability';
 import { getStripeSecretKeyRuntime, getStripeWebhookSecretRuntime } from './stripe-env-runtime';
 
@@ -89,17 +90,20 @@ export async function createPaymentIntent(options: {
   metadata?: Record<string, string>;
   amount?: number;
 }): Promise<Stripe.PaymentIntent> {
-  const { userId, listingId, packageType, customerEmail, metadata = {}, amount: overrideAmount } = options;
+  const { userId, listingId, packageType, metadata = {}, amount: overrideAmount } = options;
 
   const amount = overrideAmount ?? PROMOTION_PRICES[packageType];
   const description = PROMOTION_DESCRIPTIONS[packageType];
+  /** Centralized billing inbox for Stripe payment receipts (not the payer’s personal email). */
+  const receiptEmail =
+    process.env.STRIPE_RECEIPT_EMAIL?.trim() || COMPANY_CONFIG.emails.billing;
 
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: 'ron',
       description,
-      receipt_email: customerEmail,
+      receipt_email: receiptEmail,
       metadata: {
         userId,
         listingId,

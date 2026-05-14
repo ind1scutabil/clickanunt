@@ -23,7 +23,7 @@ if (!globalForStorage.listingsStorage) {
       county: 'București',
       city: 'Sector 1',
       photos: [],
-      contactPhone: '+40 784 712 496',
+      contactPhone: '+40 712 000 000',
       allowMessages: true,
       ownerUserId: 'owner-123',
       owner: {

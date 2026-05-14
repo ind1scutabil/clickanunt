@@ -171,9 +171,15 @@ export function generateListingStructuredData(listing: {
   };
 }
 
+function publicCompanyPhoneForSchema(): string | undefined {
+  const raw = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
+  return raw || undefined;
+}
+
 export function generateOrganizationStructuredData() {
   const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();
+  const companyPhone = publicCompanyPhoneForSchema();
 
   return {
     '@context': 'https://schema.org',
@@ -184,7 +190,7 @@ export function generateOrganizationStructuredData() {
     description: 'Platforma de anunțuri gratuite din România',
     contactPoint: {
       '@type': 'ContactPoint',
-      ...(showLegal ? { telephone: '+40-784-712-496' } : {}),
+      ...(showLegal && companyPhone ? { telephone: companyPhone } : {}),
       contactType: 'customer service',
       email: 'contact@clickanunt.ro',
       availableLanguage: ['Romanian'],
@@ -263,6 +269,7 @@ export function generateFaqPageStructuredData(items: Array<{ question: string; a
 export function generateLocalBusinessStructuredData() {
   const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();
+  const companyPhone = publicCompanyPhoneForSchema();
 
   return {
     '@context': 'https://schema.org',
@@ -273,7 +280,7 @@ export function generateLocalBusinessStructuredData() {
     url: siteUrl,
     ...(showLegal
       ? {
-          telephone: '+40-784-712-496',
+          ...(companyPhone ? { telephone: companyPhone } : {}),
           address: {
             '@type': 'PostalAddress',
             addressCountry: 'RO',
