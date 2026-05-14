@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type StripeError } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Navbar from '@/app/components/Navbar';
 import { COMPANY_CONFIG } from '@/lib/company-config';
@@ -15,6 +15,28 @@ const PACKAGE_MAPPING: Record<string, string> = {
   featured: 'featured_7_days',
   refresh: 'top_position_1_day',
 };
+
+/** Dev-only: Stripe error / last_payment_error metadata (no PAN, CVC, or full payment method). */
+function logStripePaymentDebug(phase: 'elements.submit' | 'stripe.confirmPayment', err: StripeError) {
+  if (process.env.NODE_ENV !== 'development') return;
+  const lpe = err.payment_intent?.last_payment_error;
+  const lpeSafe = lpe
+    ? {
+        type: lpe.type,
+        code: lpe.code,
+        decline_code: lpe.decline_code,
+        message: lpe.message,
+      }
+    : null;
+  console.info('[stripe-payment-debug]', {
+    phase,
+    type: err.type,
+    code: err.code,
+    decline_code: err.decline_code,
+    message: err.message,
+    last_payment_error: lpeSafe,
+  });
+}
 
 function CheckoutForm({ listingId, onSuccess }: { listingId: string; onSuccess: () => void }) {
   const stripe = useStripe();
@@ -36,6 +58,7 @@ function CheckoutForm({ listingId, onSuccess }: { listingId: string; onSuccess: 
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) {
+        logStripePaymentDebug('elements.submit', submitError);
         throw new Error(submitError.message);
       }
 
@@ -47,9 +70,10 @@ function CheckoutForm({ listingId, onSuccess }: { listingId: string; onSuccess: 
       });
 
       if (confirmError) {
+        logStripePaymentDebug('stripe.confirmPayment', confirmError);
         throw new Error(confirmError.message);
       }
-    } catch (err: any) {
+    } catch {
       // Avoid exposing test-card / test-mode wording to production users.
       setError('A apărut o eroare la procesarea plății');
       setLoading(false);
