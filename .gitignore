@@ -93,6 +93,10 @@ next-env.d.ts
 # Allow these deliverables to be committed (overrides /*_REPORT.md and /FINAL_*.md above)
 !/FINAL_RELEASE_READY_REPORT.md
 !/FINAL_CONTROLLED_RELEASE_STATUS.md
+!/POST_DEPLOY_VERIFICATION_REPORT.md
+
+# Pre-deploy local snapshots (git SHA + timestamp; never ship DB dumps here)
+/deploy-snapshots/
 
 # Hero asset backups (local only; not part of runtime bundle)
 /public/images/hero/*backup*
