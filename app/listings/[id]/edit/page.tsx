@@ -1,121 +1,27 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
 import { getCsrfToken } from '@/lib/security/csrf-client';
 import { CarSelectorPro } from '@/app/components/CarSelectorPro';
+import { ALL_CATEGORIES, CATEGORIES, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from '@/lib/carData';
+import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from '@/lib/listing-photo-url';
 
-// Legacy car models for reference - now using new enterprise database
-const carModels: Record<string, string[]> = {
-  "Alfa Romeo": ["4C", "Alfetta", "Arna", "Giulia", "Giulietta", "GT", "GTV", "MiTo", "Spider", "Stelvio", "Tonale", "Ypsilon"],
-  "Aston Martin": ["DB4", "DB5", "DB9", "DB11", "DB12", "DBX", "Rapide", "Vantage", "Vanquish"],
-  "Audi": ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q4", "Q5", "Q7", "R8", "TT", "RS3", "RS4", "RS5", "e-tron"],
-  "BMW": ["1 Series", "2 Series", "3 Series", "4 Series", "5 Series", "6 Series", "7 Series", "i3", "i4", "X1", "X2", "X3", "X4", "X5", "X6", "Z4"],
-  "Bentley": ["Bentayga", "Continental", "Flying Spur", "Mulsanne"],
-  "BYD": ["Atto 3", "Dolphin", "Song", "Qin", "Yuan"],
-  "Bugatti": ["Chiron", "Veyron"],
-  "Cadillac": ["CTS", "CT5", "CT6", "Escalade", "Lyriq"],
-  "Changan": ["CS35", "CS55", "CS75", "Eado"],
-  "Chevrolet": ["Blazer", "Bolt", "Camaro", "Cavalier", "Colorado", "Corvette", "Cruze", "Equinox", "Impala", "Malibu", "Silverado", "Sonic", "Spark", "Tahoe", "TrailBlazer", "Trax", "Traverse"],
-  "Chrysler": ["300", "Pacifica", "PT Cruiser"],
-  "Citroën": ["C1", "C2", "C3", "C4", "C5", "C-Elysée", "Berlingo", "Saxo", "ZX"],
-  "Dacia": ["Duster", "Logan", "Sandero", "Spring"],
-  "Daewoo": ["Kalos", "Lanos", "Matiz", "Nexia", "Nubira"],
-  "Daihatsu": ["Charade", "Copen", "Feroza", "Mira", "Move", "Rocky", "Terios"],
-  "Dodge": ["Charger", "Challenger", "Dakota", "Durango", "Neon", "Ram", "Viper"],
-  "DS": ["DS3", "DS4", "DS5", "DS7", "DS9"],
-  "Ferrari": ["250 GT", "288 GTO", "308 GTB", "360 Modena", "430 Scuderia", "458 Italia", "488 GTB", "F40", "F50", "FF", "Roma", "SF90"],
-  "Fiat": ["127", "500", "500C", "500L", "500X", "Bravo", "Ducato", "Idea", "Linea", "Panda", "Palio", "Punto", "Seicento", "Tipo", "Uno"],
-  "Ford": ["Bronco", "EcoSport", "Edge", "Escape", "Explorer", "Fiesta", "Focus", "Fusion", "Kuga", "Mondeo", "Mustang", "Ranger", "S-Max", "Taurus", "Transit"],
-  "Geely": ["Coolray", "Emgrand", "Geometry", "Monjaro", "Vision"],
-  "Genesis": ["G60", "G70", "G80", "G90", "GV60", "GV70", "GV80"],
-  "GMC": ["Acadia", "Canyon", "Denali", "Sierra", "Terrain", "Yukon"],
-  "Great Wall": ["Haval H1", "Haval H2", "Haval H3", "Haval H4", "Haval H5", "Haval H6", "Haval H7", "Haval H8", "Haval H9", "Jolion", "Ora", "Wey VV5", "Wey VV6", "Wey VV7"],
-  "Honda": ["Accord", "Civic", "CR-V", "Fit", "HR-V", "Jazz", "Legend", "Odyssey", "Pilot", "Ridgeline"],
-  "Hyundai": ["Accent", "Avante", "Creta", "Elantra", "Getz", "Grand Santa Fe", "i10", "i20", "i30", "Ioniq", "Kona", "MatRix", "Santa Fe", "Sonata", "Teleport", "Tiburon", "Tucson", "Venue", "Verna"],
-  "Infiniti": ["EX35", "FX35", "G35", "G37", "JX35", "M35", "Q45", "Q50", "Q60", "Q70", "QX50", "QX60", "QX80"],
-  "Isuzu": ["D-Max", "Faster", "Gemini", "I-Mark", "MU-X", "Piazza", "Rodeo", "Trooper", "Wizard"],
-  "Jaguar": ["E-Type", "E-Pace", "F-Pace", "F-Type", "I-Pace", "S-Type", "XE", "XF", "XJ", "XK"],
-  "Jeep": ["Cherokee", "Compass", "Gladiator", "Grand Cherokee", "Patriot", "Renegade", "Wrangler"],
-  "Kia": ["Carnival", "Ceed", "Cerato", "EV6", "Forte", "K5", "Kona", "K9", "Niro", "Optima", "Picanto", "Rondo", "Sorento", "Soul", "Sportage", "Stinger", "Telluride"],
-  "Lamborghini": ["Countach", "Diablo", "Espada", "Gallardo", "Huracán", "Murciélago", "Reventon", "Urus", "Veneno"],
-  "Lancia": ["Beta", "Dedra", "Delta", "Ypsilon"],
-  "Land Rover": ["Defender", "Discovery", "Discovery Sport", "Freelander", "Range Rover", "Range Rover Evoque", "Range Rover Sport", "Range Rover Velar"],
-  "Lexus": ["CT", "ES", "GS", "GX", "IS", "LFA", "LS", "LX", "NX", "RC", "RX", "RZ", "UX"],
-  "Li Auto": ["Air", "EX6", "EX8", "One", "Zhijie"],
-  "Lincoln": ["Aviator", "Continental", "Corsair", "LS", "MKC", "MKZ", "Navigator", "Town Car"],
-  "Lotus": ["Eclat", "Elite", "Emira", "Europa", "Evija", "Exige", "Esprit", "Evora"],
-  "Mahindra": ["Bolero", "KUV100", "Marazzo", "Thar", "XUV300", "XUV500", "XUV700"],
-  "Maserati": ["3200 GT", "Ghibli", "Granturismo", "Indy", "Khamsin", "Levante", "MC12", "MC20", "Quattroporte"],
-  "Mazda": ["2", "3", "5", "6", "CX-3", "CX-30", "CX-5", "CX-8", "CX-9", "MX-5", "RX-8"],
-  "McLaren": ["540C", "570GT", "570S", "600LT", "650S", "720S", "750S", "765LT", "GT", "MP4-12C", "P1", "Senna", "Speedtail", "Elva"],
-  "Mercedes-Benz": ["A-Class", "B-Class", "C-Class", "CLA", "CLS", "E-Class", "G-Class", "GLA", "GLB", "GLC", "GLE", "GLS", "S-Class", "SL", "SLC", "SLK"],
-  "MG": ["3", "4", "5", "6", "7", "GT", "HS", "MG4", "MG5", "RX5", "RX8", "ZS"],
-  "Mini": ["Clubman", "Convertible", "Cooper", "Countryman", "Hatch", "Rocketman"],
-  "Mitsubishi": ["3000GT", "ASX", "Attrage", "Colt", "Eclipse", "Eclipse Cross", "Galant", "Lancer", "Lancer Evo", "Montero", "Mirage", "Outlander", "Outlander PHEV", "Pajero", "Space Star", "Strada", "Triton"],
-  "Nissan": ["Almera", "Altima", "Ariya", "Armada", "Cube", "Frontier", "GT-R", "Juke", "Kicks", "Maxima", "Murano", "Navara", "Pathfinder", "Pulsar", "Qashqai", "Rogue", "Sentra", "Skyline", "X-Trail"],
-  "Opel": ["Astra", "Calibra", "Cascada", "Corsa", "Grandland", "Insignia", "Manta", "Mokka", "Vectra", "Vivaro"],
-  "Peugeot": ["107", "108", "207", "208", "307", "308", "407", "408", "508", "2008", "3008", "4007", "5008", "Partner", "RCZ"],
-  "Porsche": ["356", "911", "914", "924", "944", "968", "Boxster", "Cayman", "Cayenne", "Macan", "Panamera", "Taycan"],
-  "RAM": ["1500", "2500", "3500", "Promaster"],
-  "Renault": ["5", "Captur", "Clio", "Espace", "Fluence", "Kangoo", "Laguna", "Master", "Megane", "Scenic", "Talisman", "Twingo", "Zoe"],
-  "Rolls-Royce": ["Cutlass", "Dawn", "Ghost", "Phantom", "Silver Cloud", "Silver Shadow", "Wraith"],
-  "Seat": ["Alhambra", "Arona", "Ateca", "Cordoba", "Ibiza", "Leon", "Tarraco", "Toledo"],
-  "Skoda": ["Citigo", "Fabia", "Felicia", "Forman", "Karoq", "Kodiaq", "Octavia", "Rapid", "Superb", "Yeti"],
-  "Subaru": ["BRZ", "Crosstrek", "Forester", "Impreza", "Legacy", "Outback", "SVX", "WRX", "XV"],
-  "Suzuki": ["Aerio", "Alto", "Grand Vitara", "Ignis", "Jimny", "Kei", "Liana", "Samurai", "Splash", "Swift", "SX4", "Vitara", "Wagon R"],
-  "Tata": ["Indica", "Nano", "Safari", "Sumo"],
-  "Tesla": ["Model 3", "Model S", "Model X", "Model Y", "Roadster"],
-  "Toyota": ["4Runner", "Auris", "Avensis", "Aygo", "Camry", "Celica", "Chaser", "Corolla", "Corona", "Cresta", "Cressida", "FJ Cruiser", "Fortuner", "Glanza", "GR Supra", "Highlander", "Hilux", "iQ", "Innova", "Land Cruiser", "LandCruiser Prado", "Mark II", "Matrix", "MR2", "Paseo", "Previa", "Prius", "RAV4", "Roomy", "Runner", "Scepter", "Sequoia", "Sienna", "Starlet", "Supra", "Tacoma", "Tercel", "Tundra", "Verso", "Vios", "Yaris"],
-  "Volkswagen": ["Beetle", "Bora", "Caddy", "Corrado", "Crafter", "Down", "Eos", "Gol", "Golf", "Golf Plug-in Hybrid", "Jetta", "Karmann Ghia", "Lupo", "Passat", "Phaeton", "Polo", "Rabbit", "Routan", "Scirocco", "Sharan", "Tiguan", "Touareg", "Touran", "Transporter", "Type 1", "Type 2", "Vento"],
-  "Volvo": ["240", "740", "760", "850", "900", "C30", "C40", "C60", "C70", "C90", "S40", "S60", "S70", "S80", "S90", "V40", "V50", "V60", "V70", "V90", "XC40", "XC60", "XC70", "XC90"],
-  "Xpeng": ["G3", "G6", "G9", "P7", "P8"],
-  "Zada": [],
-};
+const AUTO_CATEGORY = 'Auto, moto și ambarcațiuni';
 
-const romanianCounties: Record<string, string[]> = {
-  "Alba": ["Alba Iulia", "Aiud", "Blaj", "Sebeș", "Vintu de Jos", "Cugir"],
-  "Arad": ["Arad", "Lipova", "Nădlac", "Pâncota", "Curtici", "Șeitin"],
-  "Argeș": ["Pitești", "Câmpulung", "Curtea de Argeș", "Mioveni", "Costești", "Urziceni"],
-  "Bacău": ["Bacău", "Onești", "Moinești", "Boldu", "Piatra Neamț", "Comănești"],
-  "Bihor": ["Oradea", "Salonta", "Marghita", "Beiuș", "Valea lui Mihai", "Ștei"],
-  "Bistrița-Năsăud": ["Bistrița", "Năsăud", "Beclean", "Sălsig", "Prundu Bârgăului", "Rebra"],
-  "Botoșani": ["Botoșani", "Dorohoi", "Bucecea", "Flămânzi", "Săveni", "Cristinești"],
-  "Brașov": ["Brașov", "Făgăraș", "Săcele", "Codlea", "Tescani", "Zizin"],
-  "Brăila": ["Brăila", "Galați", "Ianca", "Vâlcani", "Movila", "Insurăței"],
-  "Buzău": ["Buzău", "Râmnicu Sărat", "Pătârlagele", "Pogoanele", "Mânzu", "Nehoiu"],
-  "Caraș-Severin": ["Reșița", "Oțelu Roșu", "Anina", "Moldova Nouă", "Băile Herculane", "Socol"],
-  "Constanța": ["Constanța", "Mangalia", "Medgidia", "Cernavodă", "Hârșova", "Ovidiu"],
-  "Covasna": ["Sfântu Gheorghe", "Târgu Secuiesc", "Odorheiu Secuiesc", "Baraolt", "Brețcu", "Întorsura Buzăului"],
-  "Dâmbovița": ["Târgoviște", "Gaești", "Moreni", "Răcari", "Titu", "Pucioasa"],
-  "Dolj": ["Craiova", "Băilești", "Calafat", "Segarcea", "Bechet", "Filiași"],
-  "Donău": ["Tulcea", "Măcin", "Babadag", "Isaccea", "Sulina", "Crișan"],
-  "Galați": ["Galați", "Tecuci", "Niculești", "Bujoreni", "Schela", "Ivești"],
-  "Giurgiu": ["Giurgiu", "Bolintin Vale", "Stoenești", "Băneasa", "Filipeștii de Sus", "Ieșcani"],
-  "Gorj": ["Târgu Jiu", "Motru", "Târgu Cărbunești", "Bumbești-Jiu", "Rovinari", "Dragotești"],
-  "Harghita": ["Miercurea Ciuc", "Odorheiu Secuiesc", "Gheorgheni", "Toplița", "Cristuru Secuiesc", "Bălan"],
-  "Hunedoara": ["Deva", "Hunedoara", "Petroșani", "Lupeni", "Vulcan", "Ghelari"],
-  "Ialomița": ["Slobozia", "Fetești", "Fierbinți-Târg", "Țăndărei", "Borcea", "Amara"],
-  "Iași": ["Iași", "Pașcani", "Tiraspol", "Târgu Frumos", "Hârlău", "Moinești"],
-  "Ilfov": ["Buftea", "Voluntari", "Bragadiru", "Olănești", "Chitila", "Popești-Leordeni"],
-  "Maramureș": ["Baia Mare", "Satu Mare", "Borșa", "Vișeu de Sus", "Negrești-Oaș", "Seini"],
-  "Mehedinți": ["Drobeta-Turnu Severin", "Orsova", "Strehaia", "Vânjiu", "Eselnita", "Bujoreni"],
-  "Mureș": ["Târgu Mureș", "Sighișoara", "Reghin", "Odorheiu Secuiesc", "Luduș", "Cristuru Secuiesc"],
-  "Neamț": ["Piatra Neamț", "Roman", "Săveni", "Târgu Neamț", "Bârsești", "Negrești"],
-  "Olt": ["Slatina", "Călimănești", "Băilești", "Caracal", "Potcoava", "Corabia"],
-  "Prahova": ["Ploiești", "Băicoi", "Câmpina", "Mizil", "Breaza", "Vălenii de Munte"],
-  "Sălaj": ["Zalau", "Jibou", "Șimleu Silvaniei", "Cehu Silvaniei", "Peri", "Creaca"],
-  "Satu Mare": ["Satu Mare", "Carei", "Negrești-Oaș", "Tirol", "Tăşnad", "Apa"],
-  "Sibiu": ["Sibiu", "Mediaș", "Cisnădie", "Avrig", "Săliște", "Copșa Mică"],
-  "Suceava": ["Suceava", "Radăuți", "Fălticeni", "Vatra Moldoviței", "Gura Humorului", "Câmpulung Moldovenesc"],
-  "Teleorman": ["Alexandria", "Turnu Măgurele", "Videle", "Roșiori de Vede", "Pitești", "Svistov"],
-  "Timiș": ["Timișoara", "Lugoj", "Caransebeș", "Jimbee", "Deta", "Măcova"],
-  "Tulcea": ["Tulcea", "Măcin", "Babadag", "Isaccea", "Sulina", "Crișan"],
-  "Vâlcea": ["Râmnicu Vâlcea", "Călimănești", "Băile Olănești", "Drăgășani", "Călimănești", "Băile Govora"],
-  "Vaslui": ["Vaslui", "Bârlad", "Negrești", "Murgeni", "Belești", "Ivești"],
-  "Vrancea": ["Focșani", "Adjud", "Odobești", "Jariștea", "Vulturu", "Gherța"],
-};
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(result.slice(comma + 1));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const normalizeCondition = (value?: string) => {
   if (!value) return '';
@@ -161,6 +67,67 @@ const normalizeTransmission = (value?: string) => {
   return map[value] || value;
 };
 
+/** Matches listing Zod: `max(new Date().getFullYear() + 1)` */
+const MAX_LISTING_YEAR = new Date().getFullYear() + 1;
+
+function parseOptionalIntInput(raw: string): number | null {
+  const t = raw.trim();
+  if (t === '' || t === '-' || t === '+') return null;
+  const n = parseInt(t, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseOptionalFloatInput(raw: string): number | null {
+  const t = raw.trim();
+  if (t === '' || t === '-' || t === '+' || t === '.' || t === '-.') return null;
+  const n = parseFloat(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+function finiteNumberInputValue(n: number | null | undefined): string {
+  return n != null && Number.isFinite(n) ? String(n) : '';
+}
+
+/** For `attributes` numeric fields stored as string in form state */
+function numericAttrDisplay(v: unknown): string {
+  if (v === '' || v == null) return '';
+  const n = typeof v === 'number' ? v : Number(String(v).trim());
+  return Number.isFinite(n) ? String(n) : '';
+}
+
+function sanitizeLoadedNumericAttributes(attrs: Record<string, unknown> | null | undefined) {
+  const o = { ...(attrs || {}) };
+  for (const k of ['horsePower', 'engineCapacity', 'owners'] as const) {
+    const disp = numericAttrDisplay(o[k]);
+    if (disp === '') delete o[k];
+    else o[k] = disp;
+  }
+  return o;
+}
+
+function parseLoadedYear(y: unknown): number | null {
+  if (y === '' || y == null) return null;
+  const n = typeof y === 'number' ? y : Number(y);
+  if (!Number.isFinite(n)) return null;
+  const t = Math.trunc(n);
+  return t > 0 ? t : null;
+}
+
+function parseLoadedMileage(m: unknown): number | null {
+  if (m === '' || m == null) return null;
+  const n = typeof m === 'number' ? m : Number(m);
+  if (!Number.isFinite(n)) return null;
+  const t = Math.trunc(n);
+  return t >= 0 ? t : null;
+}
+
+function parseLoadedPrice(p: unknown): number | null {
+  if (p === '' || p == null) return null;
+  const n = typeof p === 'number' ? p : Number(p);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 export default function EditListingPage() {
   const params = useParams();
   const router = useRouter();
@@ -170,11 +137,14 @@ export default function EditListingPage() {
   const [saving, setSaving] = useState(false);
   const [listing, setListing] = useState<any>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     category: '',
     subcategory: '',
-    priceAmount: 0,
+    priceAmount: null as number | null,
     priceCurrency: 'RON',
     condition: '',
     description: '',
@@ -183,8 +153,8 @@ export default function EditListingPage() {
     contactPhone: '',
     make: '',
     model: '',
-    year: 0,
-    mileage: 0,
+    year: null as number | null,
+    mileage: null as number | null,
     fuel: '',
     transmission: '',
     vin: '',
@@ -192,6 +162,101 @@ export default function EditListingPage() {
   });
 
   const canRepublish = ['paused', 'hidden', 'rejected', 'pending'].includes(String(listing?.status || '').toLowerCase());
+
+  const isAutoCategory = formData.category === AUTO_CATEGORY;
+
+  const cityList = useMemo(() => {
+    if (!formData.county) return [];
+    return CITIES_BY_COUNTY[formData.county as keyof typeof CITIES_BY_COUNTY] || [];
+  }, [formData.county]);
+
+  const subcategoryChoices = formData.category
+    ? (CATEGORIES as Record<string, string[]>)[formData.category]
+    : null;
+
+  const categorySelectOptions = useMemo(() => {
+    const base = [...ALL_CATEGORIES];
+    if (formData.category && !base.includes(formData.category)) {
+      return [formData.category, ...base];
+    }
+    return base;
+  }, [formData.category]);
+
+  const countySelectOptions = useMemo(() => {
+    const list = [...ROMANIAN_COUNTIES];
+    if (formData.county && !list.includes(formData.county)) {
+      return [formData.county, ...list];
+    }
+    return list;
+  }, [formData.county]);
+
+  const handleImageUpload = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remainingSlots = 20 - photos.length;
+    if (remainingSlots <= 0) {
+      setPhotoError('Ai atins limita de 20 poze');
+      return;
+    }
+    setUploadingImage(true);
+    setPhotoError('');
+    const newPhotos: string[] = [];
+    const uploadErrors: string[] = [];
+    try {
+      const csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        setPhotoError('Token CSRF lipsă. Reîncarcă pagina.');
+        setUploadingImage(false);
+        return;
+      }
+      const filesToUpload = Math.min(files.length, remainingSlots);
+      for (let i = 0; i < filesToUpload; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) {
+          uploadErrors.push(`${file.name}: nu este imagine`);
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          uploadErrors.push(`${file.name}: prea mare (max 10MB)`);
+          continue;
+        }
+        try {
+          const b64 = await fileToBase64(file);
+          if (!b64) {
+            uploadErrors.push(`${file.name}: eroare conversie`);
+            continue;
+          }
+          const res = await fetch('/api/uploads', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-csrf-token': csrfToken,
+            },
+            credentials: 'include',
+            body: JSON.stringify({ data: b64, type: 'image' }),
+          });
+          const data = await res.json();
+          if (res.ok && data.url) newPhotos.push(data.url);
+          else uploadErrors.push(`${file.name}: ${data.error || 'Eroare upload'}`);
+        } catch (e: unknown) {
+          uploadErrors.push(`${file.name}: ${e instanceof Error ? e.message : 'Eroare'}`);
+        }
+      }
+      if (newPhotos.length > 0) {
+        setPhotos((prev) => [...prev, ...newPhotos]);
+      }
+      if (uploadErrors.length > 0) {
+        setPhotoError(uploadErrors.slice(0, 3).join('; '));
+      }
+    } catch (e: unknown) {
+      setPhotoError(e instanceof Error ? e.message : 'Eroare la încărcarea pozelor');
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [photos.length]);
+
+  const removePhotoAt = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     const loadListing = async () => {
@@ -206,7 +271,7 @@ export default function EditListingPage() {
               title: data.title || '',
               category: data.category || '',
               subcategory: data.subcategory || '',
-              priceAmount: data.priceAmount || 0,
+              priceAmount: parseLoadedPrice(data.priceAmount),
               priceCurrency: data.priceCurrency || 'RON',
               condition: normalizeCondition(data.condition || ''),
               description: data.description || '',
@@ -215,13 +280,14 @@ export default function EditListingPage() {
               contactPhone: data.contactPhone || '',
               make: data.make || '',
               model: data.model || '',
-              year: data.year || 0,
-              mileage: data.mileage || 0,
+              year: parseLoadedYear(data.year),
+              mileage: parseLoadedMileage(data.mileage),
               fuel: normalizeFuel(data.fuel || ''),
               transmission: normalizeTransmission(data.transmission || ''),
               vin: data.vin || '',
-              attributes: data.attributes || {}
+              attributes: sanitizeLoadedNumericAttributes(data.attributes || {})
             });
+            setPhotos(Array.isArray(data.photos) ? [...data.photos] : []);
           }
         } else {
           // Production: fetch from API
@@ -246,7 +312,7 @@ export default function EditListingPage() {
             title: data.title || '',
             category: data.category || '',
             subcategory: data.subcategory || '',
-            priceAmount: data.priceAmount || 0,
+            priceAmount: parseLoadedPrice(data.priceAmount),
             priceCurrency: data.priceCurrency || 'RON',
             condition: normalizeCondition(data.condition || ''),
             description: data.description || '',
@@ -255,13 +321,14 @@ export default function EditListingPage() {
             contactPhone: data.contactPhone || '',
             make: data.make || '',
             model: data.model || '',
-            year: data.year || 0,
-            mileage: data.mileage || 0,
+            year: parseLoadedYear(data.year),
+            mileage: parseLoadedMileage(data.mileage),
             fuel: normalizeFuel(data.fuel || ''),
             transmission: normalizeTransmission(data.transmission || ''),
             vin: data.vin || '',
-            attributes: data.attributes || {}
+            attributes: sanitizeLoadedNumericAttributes(data.attributes || {})
           });
+          setPhotos(Array.isArray(data.photos) ? [...data.photos] : []);
         }
       } catch (error) {
         console.error('Error loading listing:', error);
@@ -290,6 +357,33 @@ export default function EditListingPage() {
         return;
       }
 
+      if (photos.length < 1) {
+        setNotification({ message: 'Anunțul trebuie să aibă minim o imagine. Adaugă sau păstrează cel puțin o poză.', type: 'error' });
+        setSaving(false);
+        return;
+      }
+
+      if (formData.priceAmount == null || !Number.isFinite(formData.priceAmount) || formData.priceAmount < 0) {
+        setNotification({ message: 'Introdu un preț valid (număr ≥ 0).', type: 'error' });
+        setSaving(false);
+        return;
+      }
+
+      if (isAutoCategory && formData.year != null && Number.isFinite(formData.year)) {
+        if (formData.year < 1900 || formData.year > MAX_LISTING_YEAR) {
+          setNotification({
+            message: `Anul fabricației trebuie să fie între 1900 și ${MAX_LISTING_YEAR}.`,
+            type: 'error',
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
+      const condRaw = String(formData.condition || '').trim();
+      const condition =
+        condRaw && ['new', 'used', 'refurbished', 'for_parts'].includes(condRaw) ? condRaw : null;
+
       const payload: Record<string, unknown> = {
         ...formData,
         title: formData.title.trim(),
@@ -299,23 +393,55 @@ export default function EditListingPage() {
         county: formData.county.trim() || null,
         city: formData.city.trim() || null,
         contactPhone: formData.contactPhone.trim() || null,
-        make: formData.make.trim() || null,
-        model: formData.model.trim() || null,
-        vin: formData.vin.trim() || null,
-        year: Number.isFinite(formData.year) && formData.year >= 1900 ? formData.year : null,
-        fuel: ['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas'].includes(String(formData.fuel))
-          ? formData.fuel
-          : null,
-        transmission: ['manual', 'automatic'].includes(String(formData.transmission))
-          ? formData.transmission
-          : null,
+        condition,
+        priceAmount: formData.priceAmount,
+        priceCurrency: formData.priceCurrency,
+        photos,
+        attributes: formData.attributes,
       };
+
+      if (isAutoCategory) {
+        payload.make = formData.make.trim() || null;
+        payload.model = formData.model.trim() || null;
+        payload.vin = formData.vin.trim() || null;
+        payload.year =
+          formData.year != null &&
+          Number.isFinite(formData.year) &&
+          formData.year >= 1900 &&
+          formData.year <= MAX_LISTING_YEAR
+            ? formData.year
+            : null;
+        payload.mileage =
+          formData.mileage != null && Number.isFinite(formData.mileage) && formData.mileage >= 0
+            ? formData.mileage
+            : null;
+        payload.fuel = ['petrol', 'diesel', 'hybrid', 'electric', 'lpg', 'gas'].includes(String(formData.fuel))
+          ? formData.fuel
+          : null;
+        payload.transmission = ['manual', 'automatic'].includes(String(formData.transmission))
+          ? formData.transmission
+          : null;
+      } else {
+        payload.make = null;
+        payload.model = null;
+        payload.vin = null;
+        payload.year = null;
+        payload.mileage = null;
+        payload.fuel = null;
+        payload.transmission = null;
+      }
       if (requestRepublish) payload.status = 'pending';
 
       const useInMemory = process.env.NEXT_PUBLIC_USE_IN_MEMORY_DB === 'true';
 
       if (useInMemory) {
-        memoryStorage.set(id, payload);
+        const prev = memoryStorage.get(id) || {};
+        memoryStorage.set(id, {
+          ...prev,
+          ...payload,
+          id,
+          updatedAt: new Date().toISOString(),
+        });
         setNotification({ message: 'Anunț salvat cu succes!', type: 'success' });
       } else {
         const token = localStorage.getItem('accessToken');
@@ -445,13 +571,26 @@ export default function EditListingPage() {
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        const subs = cat ? (CATEGORIES as Record<string, string[]>)[cat] : undefined;
+                        setFormData((prev) => ({
+                          ...prev,
+                          category: cat,
+                          subcategory:
+                            subs && subs.length > 0 && prev.subcategory && subs.includes(prev.subcategory)
+                              ? prev.subcategory
+                              : '',
+                        }));
+                      }}
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează categorie</option>
-                      <option value="Automobile">Automobile</option>
-                      <option value="Motociclete">Motociclete</option>
-                      <option value="Piese">Piese Auto</option>
+                      {categorySelectOptions.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -461,13 +600,31 @@ export default function EditListingPage() {
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                       Subcategorie
                     </label>
-                    <input
-                      type="text"
-                      value={formData.subcategory}
-                      onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
-                      placeholder="ex: Sedane, SUV, Coupe"
-                    />
+                    {subcategoryChoices && subcategoryChoices.length > 0 ? (
+                      <select
+                        value={formData.subcategory}
+                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
+                      >
+                        <option value="">Selectează subcategoria</option>
+                        {subcategoryChoices.map((sub) => (
+                          <option key={sub} value={sub}>
+                            {sub}
+                          </option>
+                        ))}
+                        {formData.subcategory && !subcategoryChoices.includes(formData.subcategory) ? (
+                          <option value={formData.subcategory}>{formData.subcategory} (curent)</option>
+                        ) : null}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.subcategory}
+                        onChange={(e) => setFormData({ ...formData, subcategory: e.target.value })}
+                        className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
+                        placeholder="ex: Laptopuri, Apartamente de vânzare"
+                      />
+                    )}
                   </div>
 
                   <div className="relative group">
@@ -500,8 +657,12 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.priceAmount}
-                      onChange={(e) => setFormData({ ...formData, priceAmount: parseFloat(e.target.value) })}
+                      value={finiteNumberInputValue(formData.priceAmount)}
+                      onChange={(e) =>
+                        setFormData({ ...formData, priceAmount: parseOptionalFloatInput(e.target.value) })
+                      }
+                      min={0}
+                      step="0.01"
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="0"
                     />
@@ -524,7 +685,67 @@ export default function EditListingPage() {
                 </div>
               </div>
 
-              {/* Mașină */}
+              {/* Poze */}
+              <div>
+                <h2 className="text-2xl font-semibold text-white mb-6">Imagini</h2>
+                <p className="text-sm text-gray-400 mb-4">
+                  Minim 1, maxim 20. Ștergerea unei poze din listă o scoate din anunț la salvare; fișierele de pe server nu se șterg automat.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  {photos.map((url, idx) => (
+                    <div key={`${url}-${idx}`} className="relative group aspect-square">
+                      <img
+                        src={listingPrimaryPhotoSrc([url])}
+                        alt=""
+                        className="w-full h-full object-cover rounded-xl border border-gray-700/50"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.src !== LISTING_PHOTO_ONERROR_FALLBACK) {
+                            el.onerror = null;
+                            el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhotoAt(idx)}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white font-bold"
+                        aria-label="Șterge poza"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {photos.length < 20 && (
+                    <label className="aspect-square border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[#4E3CFF]/60 transition">
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
+                        className="hidden"
+                      />
+                      {uploadingImage ? (
+                        <div className="text-gray-400">Se încarcă…</div>
+                      ) : (
+                        <>
+                          <div className="text-3xl mb-2">📷</div>
+                          <span className="text-xs text-gray-400">Adaugă</span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                </div>
+                {photoError ? <p className="text-red-400 text-sm">{photoError}</p> : null}
+                {photos.length > 0 ? (
+                  <p className="text-green-400 text-sm">
+                    {photos.length}/20 {photos.length === 1 ? 'poză' : 'poze'}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Mașină — doar categorie auto */}
+              {isAutoCategory && (
               <div>
                 <h2 className="text-2xl font-semibold text-white mb-6">Detalii Mașină</h2>
                 
@@ -545,8 +766,12 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.year}
-                      onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
+                      min={1900}
+                      max={MAX_LISTING_YEAR}
+                      value={finiteNumberInputValue(formData.year)}
+                      onChange={(e) =>
+                        setFormData({ ...formData, year: parseOptionalIntInput(e.target.value) })
+                      }
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="2020"
                     />
@@ -557,8 +782,11 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.mileage}
-                      onChange={(e) => setFormData({ ...formData, mileage: parseInt(e.target.value) })}
+                      min={0}
+                      value={finiteNumberInputValue(formData.mileage)}
+                      onChange={(e) =>
+                        setFormData({ ...formData, mileage: parseOptionalIntInput(e.target.value) })
+                      }
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="50000 km"
                     />
@@ -660,8 +888,26 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.attributes?.horsePower || ''}
-                      onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, horsePower: e.target.value }})}
+                      min={0}
+                      value={numericAttrDisplay(formData.attributes?.horsePower)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw.trim() === '') {
+                          setFormData({
+                            ...formData,
+                            attributes: { ...formData.attributes, horsePower: '' },
+                          });
+                          return;
+                        }
+                        const n = parseInt(raw, 10);
+                        setFormData({
+                          ...formData,
+                          attributes: {
+                            ...formData.attributes,
+                            horsePower: Number.isFinite(n) ? String(n) : '',
+                          },
+                        });
+                      }}
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="130"
                     />
@@ -675,8 +921,26 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.attributes?.engineCapacity || ''}
-                      onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, engineCapacity: e.target.value }})}
+                      min={0}
+                      value={numericAttrDisplay(formData.attributes?.engineCapacity)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw.trim() === '') {
+                          setFormData({
+                            ...formData,
+                            attributes: { ...formData.attributes, engineCapacity: '' },
+                          });
+                          return;
+                        }
+                        const n = parseInt(raw, 10);
+                        setFormData({
+                          ...formData,
+                          attributes: {
+                            ...formData.attributes,
+                            engineCapacity: Number.isFinite(n) ? String(n) : '',
+                          },
+                        });
+                      }}
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="1995"
                     />
@@ -776,11 +1040,28 @@ export default function EditListingPage() {
                     </label>
                     <input
                       type="number"
-                      value={formData.attributes?.owners || ''}
-                      onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, owners: e.target.value }})}
+                      min={0}
+                      value={numericAttrDisplay(formData.attributes?.owners)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw.trim() === '') {
+                          setFormData({
+                            ...formData,
+                            attributes: { ...formData.attributes, owners: '' },
+                          });
+                          return;
+                        }
+                        const n = parseInt(raw, 10);
+                        setFormData({
+                          ...formData,
+                          attributes: {
+                            ...formData.attributes,
+                            owners: Number.isFinite(n) ? String(n) : '',
+                          },
+                        });
+                      }}
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
                       placeholder="ex: 2"
-                      min="0"
                     />
                   </div>
 
@@ -911,6 +1192,7 @@ export default function EditListingPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Locație */}
               <div>
@@ -927,8 +1209,10 @@ export default function EditListingPage() {
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     >
                       <option value="">Selectează județ...</option>
-                      {Object.keys(romanianCounties).sort().map((county) => (
-                        <option key={county} value={county}>{county}</option>
+                      {countySelectOptions.map((county) => (
+                        <option key={county} value={county}>
+                          {county}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -944,9 +1228,14 @@ export default function EditListingPage() {
                       className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="">Selectează oraș...</option>
-                      {formData.county && romanianCounties[formData.county]?.map((city) => (
-                        <option key={city} value={city}>{city}</option>
+                      {cityList.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
                       ))}
+                      {formData.city && !cityList.includes(formData.city) ? (
+                        <option value={formData.city}>{formData.city} (curent)</option>
+                      ) : null}
                     </select>
                   </div>
                 </div>
