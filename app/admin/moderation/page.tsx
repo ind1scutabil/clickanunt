@@ -202,6 +202,8 @@ function AdminModerationPageInner() {
   const [usersError, setUsersError] = useState('');
   const [reportsLoading, setReportsLoading] = useState(false);
   const [appealsLoading, setAppealsLoading] = useState(false);
+  /** Reîmprospătare automată (polling) fără refresh manual — aliniat desktop/mobil. */
+  const [moderationSyncBusy, setModerationSyncBusy] = useState(false);
 
   const [queueTotals, setQueueTotals] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [modToday, setModToday] = useState({ approved: 0, rejected: 0 });
@@ -291,10 +293,13 @@ function AdminModerationPageInner() {
   };
 
   // Fetch users from API
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent;
     try {
-      setUsersLoading(true);
-      setUsersError('');
+      if (!silent) {
+        setUsersLoading(true);
+        setUsersError('');
+      }
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -315,20 +320,22 @@ function AdminModerationPageInner() {
         if (response.status === 403) {
           try {
             const j = JSON.parse(errorData) as { error?: string };
-            setUsersError(
-              j?.error === 'Permisiuni insuficiente'
-                ? 'Contul nu poate lista utilizatori: rol insuficient în baza de date (necesar: admin, owner, moderator, suport sau finance). Deloghează-te, autentifică-te din nou sau actualizează rolul în DB.'
-                : 'Acces interzis - verificați autentificarea admin'
-            );
+            if (!silent) {
+              setUsersError(
+                j?.error === 'Permisiuni insuficiente'
+                  ? 'Contul nu poate lista utilizatori: rol insuficient în baza de date (necesar: admin, owner, moderator, suport sau finance). Deloghează-te, autentifică-te din nou sau actualizează rolul în DB.'
+                  : 'Acces interzis - verificați autentificarea admin'
+              );
+            }
           } catch {
-            setUsersError('Acces interzis - verificați autentificarea admin');
+            if (!silent) setUsersError('Acces interzis - verificați autentificarea admin');
           }
         } else if (response.status === 401) {
-          setUsersError('Sesiune expirată sau necunoscută pe server. Deloghează-te și autentifică-te din nou.');
+          if (!silent) setUsersError('Sesiune expirată sau necunoscută pe server. Deloghează-te și autentifică-te din nou.');
         } else if (response.status >= 500) {
-          setUsersError('Eroare server - contactați administratorul');
+          if (!silent) setUsersError('Eroare server - contactați administratorul');
         } else {
-          setUsersError(`Eroare API: ${response.status} - ${errorData}`);
+          if (!silent) setUsersError(`Eroare API: ${response.status} - ${errorData}`);
         }
 
         throw new Error(`HTTP ${response.status}: ${errorData}`);
@@ -337,7 +344,7 @@ function AdminModerationPageInner() {
       const data = await response.json();
       const rawList = Array.isArray(data.users) ? data.users : [];
       if (data.success === false && typeof data.error === 'string') {
-        setUsersError(data.error);
+        if (!silent) setUsersError(data.error);
         return;
       }
       const mappedUsers: ModerationUser[] = rawList.map((user: Record<string, unknown>) => {
@@ -384,13 +391,15 @@ function AdminModerationPageInner() {
       setUsers(mappedUsers.filter((u) => u.id && u.email));
     } catch (error) {
       console.error('Error fetching users:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (silent) {
+        /* polling: nu suprascriem mesajele vizibile */
+      } else if (error instanceof Error && error.name === 'AbortError') {
         setUsersError('Request timeout - please try again');
       } else if (!(error instanceof Error && error.message.startsWith('HTTP'))) {
         setUsersError('Failed to load users');
       }
     } finally {
-      setUsersLoading(false);
+      if (!silent) setUsersLoading(false);
     }
   }, []);
 
@@ -456,9 +465,10 @@ function AdminModerationPageInner() {
   }, []);
 
   // Fetch reports from API
-  const fetchReports = async () => {
+  const fetchReports = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent;
     try {
-      setReportsLoading(true);
+      if (!silent) setReportsLoading(true);
       const token = localStorage.getItem('accessToken');
       
       // Add timeout to prevent hanging
@@ -488,14 +498,15 @@ function AdminModerationPageInner() {
         console.error('Request timeout for reports');
       }
     } finally {
-      setReportsLoading(false);
+      if (!silent) setReportsLoading(false);
     }
   };
 
   // Fetch appeals from API
-  const fetchAppeals = async () => {
+  const fetchAppeals = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent;
     try {
-      setAppealsLoading(true);
+      if (!silent) setAppealsLoading(true);
       const token = localStorage.getItem('accessToken');
       
       // Add timeout to prevent hanging
@@ -522,11 +533,9 @@ function AdminModerationPageInner() {
         console.error('Request timeout for appeals');
       }
     } finally {
-      setAppealsLoading(false);
+      if (!silent) setAppealsLoading(false);
     }
   };
-
-  // Report action handlers
   const resolveReport = async (reportId: string, resolution: string) => {
     try {
       const token = localStorage.getItem('accessToken');
@@ -771,6 +780,66 @@ function AdminModerationPageInner() {
     if (users.length > 0 && activeTab !== 'users') return;
     fetchUsers();
   }, [activeTab, isAuthorized, isLoading, fetchUsers, users.length]);
+
+  const moderationPollRef = useRef({
+    fetchListings,
+    fetchReports,
+    fetchAppeals,
+    fetchUsers,
+    activeTab,
+  });
+  moderationPollRef.current = {
+    fetchListings,
+    fetchReports,
+    fetchAppeals,
+    fetchUsers,
+    activeTab,
+  };
+
+  /** Polling 12s: aceleași date pe desktop și mobil fără hard refresh. */
+  useEffect(() => {
+    if (!isAuthorized || isLoading) return;
+    const POLL_MS = 12000;
+    const tick = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const r = moderationPollRef.current;
+      setModerationSyncBusy(true);
+      try {
+        await Promise.all([
+          r.fetchListings(),
+          r.fetchReports({ silent: true }),
+          r.fetchAppeals({ silent: true }),
+          r.activeTab === "users" ? r.fetchUsers({ silent: true }) : Promise.resolve(),
+        ]);
+        try {
+          const summaryRes = await fetchWithAuthRefresh("/api/admin/analytics/summary");
+          if (summaryRes.ok) {
+            const d = await summaryRes.json();
+            if (d.success) {
+              setModToday({
+                approved:
+                  typeof d.listings?.moderatedApprovedToday === "number"
+                    ? d.listings.moderatedApprovedToday
+                    : 0,
+                rejected:
+                  typeof d.listings?.moderatedRejectedToday === "number"
+                    ? d.listings.moderatedRejectedToday
+                    : 0,
+              });
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      } finally {
+        setModerationSyncBusy(false);
+      }
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, POLL_MS);
+    return () => window.clearInterval(id);
+  }, [isAuthorized, isLoading]);
 
   const renderGroupedListings = (
     listings: ModerationListing[],
@@ -1560,6 +1629,11 @@ function AdminModerationPageInner() {
                 </h1>
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-[var(--text-tertiary)]">
                   Coadă anunțuri, utilizatori, raportări și apeluri — același flux, layout mai dens pentru administrare zi de zi.
+                </p>
+                <p className="mt-1.5 text-[10px] leading-snug text-[var(--text-muted)]" aria-live="polite">
+                  {moderationSyncBusy
+                    ? "Se actualizează datele…"
+                    : "Sincronizare automată la ~12s (doar când fila e vizibilă), fără reîncărcare manuală."}
                 </p>
               </div>
             </div>

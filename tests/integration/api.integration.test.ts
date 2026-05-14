@@ -46,6 +46,11 @@ describe("API integration (server required)", () => {
     expect(res.status).toBe(403);
   });
 
+  it("GET /api/admin/users without credentials returns 401 or 403", async () => {
+    const res = await fetch(url("/api/admin/users"));
+    expect([401, 403]).toContain(res.status);
+  });
+
   it("POST /api/admin/moderation/:id/approve without auth returns 403", async () => {
     const res = await fetch(url("/api/admin/moderation/00000000-0000-4000-8000-000000000001/approve"), {
       method: "POST",

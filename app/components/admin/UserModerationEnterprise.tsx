@@ -166,6 +166,82 @@ export default function UserModerationEnterprise({
     }
   };
 
+  const renderUserActions = (user: EnterpriseModerationUser) => {
+    const targetIsAdminOrOwner = user.role === 'admin' || user.role === 'owner';
+    return (
+      <div className="flex flex-wrap gap-1.5 md:justify-end md:gap-1">
+        <button
+          type="button"
+          onClick={() => onOpenCredits(user)}
+          className="rounded-md border border-amber-500/32 bg-amber-500/16 px-2 py-0.5 text-[10px] font-bold text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-500/26"
+        >
+          Beneficii
+        </button>
+        {user.listings > 0 && (
+          <button
+            type="button"
+            onClick={() => onViewUserListings(user)}
+            className="rounded-md border border-cyan-500/32 bg-cyan-500/12 px-2 py-0.5 text-[10px] font-bold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-cyan-500/22"
+          >
+            Anunțuri ({user.listings})
+          </button>
+        )}
+        {!targetIsAdminOrOwner && user.status === 'active' && (
+          <>
+            <button
+              type="button"
+              onClick={() => setSuspendTarget(user)}
+              className="rounded-md border border-amber-500/40 bg-amber-600/22 px-2 py-0.5 text-[10px] font-bold text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-600/34"
+            >
+              Suspendă
+            </button>
+            <button
+              type="button"
+              onClick={() => onMakeAdmin(user.id)}
+              className="rounded-md border border-violet-500/34 bg-violet-500/16 px-2 py-0.5 text-[10px] font-bold text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-violet-500/26"
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => onBan(user.id)}
+              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
+            >
+              Blocare
+            </button>
+          </>
+        )}
+        {user.status === 'suspended' && (
+          <>
+            <button
+              type="button"
+              onClick={() => onUnsuspend(user.id)}
+              className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
+            >
+              Ridică
+            </button>
+            <button
+              type="button"
+              onClick={() => onBan(user.id)}
+              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
+            >
+              Blocare
+            </button>
+          </>
+        )}
+        {user.status === 'banned' && (
+          <button
+            type="button"
+            onClick={() => onUnban(user.id)}
+            className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
+          >
+            Deblocare
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const thBtn = (key: SortKey, label: string) => (
     <button
       type="button"
@@ -261,8 +337,71 @@ export default function UserModerationEnterprise({
         </p>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-white/[0.09] bg-[var(--bg-elevated)]/52 shadow-[0_22px_50px_-40px_rgba(124,92,246,0.45)] ring-1 ring-black/25">
+      {/* Mobile: card list (fără scroll orizontal pe tabel lat) */}
+      <div className="space-y-2 md:hidden">
+        {filteredSorted.map((user) => {
+          const expanded = expandedUserId === user.id;
+          return (
+            <div
+              key={user.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onToggleRow(user.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onToggleRow(user.id);
+                }
+              }}
+              className={`rounded-xl border p-3 text-left shadow-[0_12px_36px_-28px_rgba(0,0,0,0.75)] transition-colors ${
+                expanded
+                  ? 'border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/[0.07] ring-1 ring-[var(--accent-primary)]/20'
+                  : 'border-white/[0.09] bg-[var(--bg-elevated)]/70 hover:bg-white/[0.03]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="break-words text-sm font-semibold leading-snug text-[var(--text-primary)]">
+                    {user.email}
+                  </div>
+                  {user.name ? (
+                    <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{user.name}</div>
+                  ) : null}
+                </div>
+                <StatusBadge user={user} />
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-[var(--text-secondary)]">
+                <div>
+                  <dt className="text-[var(--text-muted)]">Rol</dt>
+                  <dd className="font-medium">{ROLE_LABEL[user.role] ?? user.role}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--text-muted)]">Încredere</dt>
+                  <dd className="tabular-nums font-medium">{user.trustScore}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--text-muted)]">Anunțuri</dt>
+                  <dd className="tabular-nums font-medium">{user.listings}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--text-muted)]">Înregistrat</dt>
+                  <dd className="text-[10px] leading-tight">{fmtDate(user.createdAt)}</dd>
+                </div>
+              </dl>
+              <div className="mt-2 text-[11px] text-[var(--text-secondary)]">
+                <span className="tabular-nums font-medium">{user.credits} RON</span>
+                <span className="text-[var(--text-muted)]"> · −{user.discount}% · {user.freePromotions} promo</span>
+              </div>
+              <div className="mt-3 border-t border-white/[0.06] pt-3" onClick={(e) => e.stopPropagation()}>
+                {renderUserActions(user)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: tabel */}
+      <div className="hidden overflow-hidden rounded-lg border border-white/[0.09] bg-[var(--bg-elevated)]/52 shadow-[0_22px_50px_-40px_rgba(124,92,246,0.45)] ring-1 ring-black/25 md:block">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-left text-xs">
             <thead className="sticky top-0 z-10 border-b border-white/[0.07] bg-[color-mix(in_oklab,var(--bg-elevated)_94%,transparent)] backdrop-blur-md">
@@ -280,7 +419,6 @@ export default function UserModerationEnterprise({
             <tbody className="divide-y divide-white/[0.06]">
               {filteredSorted.map((user) => {
                 const expanded = expandedUserId === user.id;
-                const isAdmin = user.role === 'admin' || user.role === 'owner';
                 return (
                   <tr
                     key={user.id}
@@ -345,76 +483,7 @@ export default function UserModerationEnterprise({
                       {fmtDate(user.createdAt)}
                     </td>
                     <td className="max-w-[14rem] px-3 py-2 align-top text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => onOpenCredits(user)}
-                          className="rounded-md border border-amber-500/32 bg-amber-500/16 px-2 py-0.5 text-[10px] font-bold text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-500/26"
-                        >
-                          Beneficii
-                        </button>
-                        {user.listings > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => onViewUserListings(user)}
-                            className="rounded-md border border-cyan-500/32 bg-cyan-500/12 px-2 py-0.5 text-[10px] font-bold text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-cyan-500/22"
-                          >
-                            Anunțuri ({user.listings})
-                          </button>
-                        )}
-                        {!isAdmin && user.status === 'active' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setSuspendTarget(user)}
-                              className="rounded-md border border-amber-500/40 bg-amber-600/22 px-2 py-0.5 text-[10px] font-bold text-amber-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-amber-600/34"
-                            >
-                              Suspendă
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onMakeAdmin(user.id)}
-                              className="rounded-md border border-violet-500/34 bg-violet-500/16 px-2 py-0.5 text-[10px] font-bold text-violet-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-violet-500/26"
-                            >
-                              Admin
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onBan(user.id)}
-                              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
-                            >
-                              Blocare
-                            </button>
-                          </>
-                        )}
-                        {user.status === 'suspended' && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => onUnsuspend(user.id)}
-                              className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
-                            >
-                              Ridică
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onBan(user.id)}
-                              className="rounded-md border border-red-500/35 bg-red-500/14 px-2 py-0.5 text-[10px] font-bold text-red-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-red-500/24"
-                            >
-                              Blocare
-                            </button>
-                          </>
-                        )}
-                        {user.status === 'banned' && (
-                          <button
-                            type="button"
-                            onClick={() => onUnban(user.id)}
-                            className="rounded-md border border-emerald-500/34 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-emerald-500/26"
-                          >
-                            Deblocare
-                          </button>
-                        )}
-                      </div>
+                      {renderUserActions(user)}
                     </td>
                   </tr>
                 );

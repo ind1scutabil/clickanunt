@@ -1,5 +1,6 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { isAdminStaffRole } from '@/lib/is-admin-staff-client';
 
 type User = {
   id: string;
@@ -28,12 +29,7 @@ export function useAdminAuth() {
         }
 
         const parsedUser = JSON.parse(userStr) as User;
-        const roleNorm = String(parsedUser.role || '')
-          .trim()
-          .toLowerCase();
-
-        // CRITICAL: Only admin/owner roles allowed (aliniat cu RBAC din backend)
-        if (roleNorm !== 'admin' && roleNorm !== 'owner') {
+        if (!isAdminStaffRole(parsedUser.role)) {
           console.error('❌ SECURITY: Unauthorized admin access attempt!', {
             email: parsedUser.email,
             role: parsedUser.role,
