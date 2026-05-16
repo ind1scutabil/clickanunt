@@ -67,14 +67,14 @@ export function HomePremiumHero({
 
       <div className="hero-verification-scrim" aria-hidden />
 
-      <div className="relative z-[3] mx-auto flex min-h-[var(--hero-bg-h)] w-full max-w-7xl flex-1 flex-col justify-center px-3 pb-6 pt-5 max-md:flex-1 max-md:justify-between max-md:px-2.5 max-md:pb-3 max-md:pt-3 sm:px-4 md:min-h-[var(--hero-bg-h)] md:justify-center md:px-6 md:pb-10 md:pt-8 lg:px-8">
+      <div className="hero-premium-shell relative z-[3] mx-auto flex min-h-[var(--hero-bg-h)] w-full max-w-7xl flex-1 flex-col justify-center px-3 pb-6 pt-5 max-md:flex-1 max-md:justify-between max-md:px-2.5 max-md:pb-3 max-md:pt-3 sm:px-4 md:min-h-[var(--hero-bg-h)] md:justify-center md:px-6 md:pb-10 md:pt-8 lg:px-8">
         <div className="grid w-full min-h-0 flex-1 grid-cols-1 items-center gap-6 max-md:min-h-0 max-md:items-stretch max-md:gap-0 md:grid-cols-12 md:gap-8 lg:gap-10">
           <div className="relative flex w-full min-h-0 max-md:flex-1 max-md:flex-col md:col-span-6 lg:col-span-5 xl:col-span-5">
             <div
               className="hero-heading-readability-glow max-md:top-[-0.5rem] max-md:h-[8.5rem] max-md:max-w-[18rem]"
               aria-hidden
             />
-            <div className="relative z-10 flex min-h-0 w-full max-w-xl flex-col max-md:flex-1 max-md:justify-between md:max-w-none">
+            <div className="hero-premium-mobile-stack relative z-10 flex min-h-0 w-full max-w-xl flex-col max-md:flex-1 md:max-w-none">
               <div className="shrink-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500 max-md:text-[10px] max-md:tracking-[0.14em]">
                 Piață din România
@@ -134,7 +134,7 @@ export function HomePremiumHero({
               </div>
 
               {/* Mobile: elastic gap so BMW stays visible; CTAs sit just above tab bar zone */}
-              <div className="max-md:flex-1 max-md:min-h-[0.75rem]" aria-hidden />
+              <div className="hero-premium-mobile-gap max-md:flex-1 max-md:min-h-[0.75rem]" aria-hidden />
 
               <div className="mt-3 hidden max-w-xl md:mt-4 md:block">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 max-md:mb-1.5 max-md:text-[9px] max-md:tracking-[0.14em]">
@@ -194,7 +194,7 @@ export function HomePremiumHero({
                 </span>
               </div>
 
-              <div className="mt-4 flex w-full max-w-xl shrink-0 flex-col gap-2.5 max-md:mt-0 max-md:gap-2 max-md:border-t max-md:border-white/[0.08] max-md:pt-3 max-md:pb-1 sm:flex-row sm:flex-wrap sm:items-center md:mt-5">
+              <div className="hero-premium-mobile-cta mt-4 flex w-full max-w-xl shrink-0 flex-col gap-2.5 max-md:gap-2 max-md:border-t max-md:border-white/[0.08] max-md:pt-3 max-md:pb-1 sm:flex-row sm:flex-wrap sm:items-center md:mt-5">
                 <Link
                   href="/listings"
                   className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#ff5a00] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e65200] max-md:h-9 max-md:px-4 max-md:text-xs sm:w-auto sm:min-w-[13rem]"

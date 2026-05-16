@@ -87,10 +87,10 @@
   --hero-bg-h: min(46svh, 340px);
 }
 
-/* Mobile: hero up to ~6.55rem from viewport bottom = tab dock (~6.25rem) + thin air above its hairline */
+/* Mobile: shorter hero slot = less object-cover zoom; room for title + car + CTAs above tab dock */
 @media (max-width: 767.98px) {
   .hero-premium-root {
-    --hero-bg-h: calc(100svh - 4rem - 6.55rem);
+    --hero-bg-h: clamp(23rem, 54svh, 31.5rem);
     min-height: var(--hero-bg-h);
   }
 }
@@ -163,11 +163,27 @@
   object-position: 56% 44%;
 }
 
-/* Mobile: same landscape art as desktop — align focal point to vehicle + skyline (no subpixel overscale). */
+/* Mobile: center-right BMW, slightly zoomed out inside the crop box */
 @media (max-width: 767.98px) {
   .hero-premium-photo {
     object-fit: cover;
-    object-position: 68% 46%;
+    object-position: 58% 38%;
+    width: 116%;
+    height: 116%;
+    max-width: none;
+    max-height: none;
+    inset: auto;
+    left: 50%;
+    top: 44%;
+    transform: translate(-58%, -46%);
+  }
+}
+
+/* Narrow phones: keep rear profile readable without oversizing */
+@media (max-width: 479.98px) {
+  .hero-premium-photo {
+    object-position: 60% 36%;
+    transform: translate(-60%, -44%);
   }
 }
 
@@ -221,6 +237,42 @@
 
   .hero-premium-grain {
     opacity: 0.016;
+  }
+
+  /* Content shell: CTAs anchor to bottom of hero image area, not mid-frame over the car */
+  .hero-premium-shell {
+    justify-content: flex-start;
+    padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .hero-premium-shell > .grid {
+    flex: 1 1 auto;
+    min-height: calc(var(--hero-bg-h) - 1.75rem);
+    align-content: stretch;
+  }
+
+  .hero-premium-shell > .grid > div:first-child {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+  }
+
+  .hero-premium-mobile-stack {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    justify-content: flex-start !important;
+  }
+
+  .hero-premium-mobile-gap {
+    flex: 1 1 auto;
+    min-height: clamp(6.5rem, 24vw, 10.5rem);
+  }
+
+  .hero-premium-mobile-cta {
+    margin-top: auto !important;
+    flex-shrink: 0;
   }
 }
 
