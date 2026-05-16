@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 export default function CreateUserForm() {
   const [email, setEmail] = useState("");
@@ -13,9 +14,14 @@ export default function CreateUserForm() {
     setLoading(true);
     setMessage(null);
     try {
+      const csrf = await getCsrfToken();
       const res = await fetch("/api/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrf ? { "x-csrf-token": csrf } : {}),
+        },
+        credentials: "include",
         body: JSON.stringify({ email, password, role }),
       });
       const data = await res.json();

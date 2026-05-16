@@ -1,29 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { getUserFromRequest } from '@/lib/auth';
+import { validateSecureRequest } from '@/lib/security/middleware';
 import { SUBSCRIPTION_PLANS } from '@/lib/verification';
+
+const subscriptionTierSchema = z
+  .object({
+    tier: z.enum(['business', 'premium']),
+  })
+  .strict();
+
+async function requireAuthenticatedUser(request: NextRequest) {
+  const user = await getUserFromRequest(request);
+  if (!user) {
+    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+  return { user };
+}
 
 /**
  * Upgrade subscription
  */
 export async function POST(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireAuthenticatedUser(req);
+    if ('error' in auth) return auth.error;
+
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'api',
+      schema: subscriptionTierSchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+          ? 403
+          : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
-    const session = { user: { id: userId } };
 
-    const body = await req.json();
-    const { tier } = body;
+    const { tier } = security.data as z.infer<typeof subscriptionTierSchema>;
+    const session = { user: { id: auth.user.id } };
 
-    if (!tier || !['business', 'premium'].includes(tier)) {
-      return NextResponse.json(
-        { error: 'Invalid subscription tier' },
-        { status: 400 }
-      );
-    }
-
-    // Get user
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
@@ -32,7 +53,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if already on this tier or higher
     if (
       (tier === 'business' && user.subscriptionTier !== 'free') ||
       (tier === 'premium' && user.subscriptionTier === 'premium')
@@ -44,24 +64,21 @@ export async function POST(req: NextRequest) {
     }
 
     const plan = SUBSCRIPTION_PLANS[tier as keyof typeof SUBSCRIPTION_PLANS];
-    
-    // Calculate expiry date (1 month from now)
+
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + 1);
 
-    // Update user subscription
     const freeBoosts = tier === 'business' ? 3 : tier === 'premium' ? 5 : 0;
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        subscriptionTier: tier as any,
+        subscriptionTier: tier as 'business' | 'premium',
         subscriptionExpiresAt: expiresAt,
         subscriptionRenewsAt: expiresAt,
         freeBoostsRemaining: freeBoosts,
       },
     });
 
-    // Create audit log
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -86,7 +103,7 @@ export async function POST(req: NextRequest) {
         freeBoostsRemaining: updatedUser.freeBoostsRemaining,
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to upgrade subscription' },
       { status: 500 }
@@ -99,13 +116,25 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const session = { user: { id: userId } };
+    const auth = await requireAuthenticatedUser(req);
+    if ('error' in auth) return auth.error;
 
-    // Get user
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'api',
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+          ? 403
+          : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const session = { user: { id: auth.user.id } };
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     });
@@ -121,16 +150,13 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Set to expire at current period end
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        subscriptionRenewsAt: null, // Don't renew
-        // Keep subscriptionTier until expiry date
+        subscriptionRenewsAt: null,
       },
     });
 
-    // Create audit log
     await prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -154,7 +180,7 @@ export async function DELETE(req: NextRequest) {
         willRenew: false,
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to cancel subscription' },
       { status: 500 }
@@ -167,14 +193,11 @@ export async function DELETE(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const session = { user: { id: userId } };
+    const auth = await requireAuthenticatedUser(req);
+    if ('error' in auth) return auth.error;
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: auth.user.id },
       select: {
         subscriptionTier: true,
         subscriptionExpiresAt: true,
@@ -202,7 +225,7 @@ export async function GET(req: NextRequest) {
         limits: plan.limits,
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { error: 'Failed to get subscription' },
       { status: 500 }

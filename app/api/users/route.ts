@@ -1,22 +1,38 @@
 export const runtime = "nodejs";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
-import { 
-  sendVerificationEmail, 
-  generateVerificationToken, 
-  generateVerificationCode 
+import { z } from "zod";
+import { getUserFromRequest } from "@/lib/auth";
+import { hasPermission, Permission, canSetRole } from "@/lib/rbac";
+import type { UserRole } from "@prisma/client";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import {
+  sendVerificationEmail,
+  generateVerificationToken,
+  generateVerificationCode,
 } from "@/lib/email";
 
-export async function GET() {
+const adminCreateUserSchema = z
+  .object({
+    email: z.string().email("Email invalid").max(255),
+    password: z.string().min(8).max(128),
+    role: z.enum(["user", "dealer", "moderator", "admin", "owner", "support", "finance"]).optional(),
+  })
+  .strict();
+
+export async function GET(request: NextRequest) {
   try {
-    // Test connection
+    const adminUser = await getUserFromRequest(request);
+    if (!adminUser) {
+      return NextResponse.json({ error: "Neautentificat" }, { status: 401 });
+    }
+    if (!hasPermission(adminUser.role as UserRole, Permission.USERS_VIEW_ALL)) {
+      return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
+    }
+
     await db.testConnection();
 
-    // Get all users (excluding passwords)
-    const users: any[] = [];
-    
-    // This works for both in-memory and Prisma
     const allUsers = await db.user.findMany({
       select: {
         id: true,
@@ -24,36 +40,54 @@ export async function GET() {
         role: true,
         emailVerified: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
-    
+
     return NextResponse.json(allUsers || []);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Eroare internă";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password, role } = body;
+    const adminUser = await getUserFromRequest(request);
+    if (!adminUser) {
+      return NextResponse.json({ error: "Neautentificat" }, { status: 401 });
+    }
+    if (!hasPermission(adminUser.role as UserRole, Permission.USERS_CREATE)) {
+      return NextResponse.json({ error: "Acces interzis" }, { status: 403 });
+    }
 
-    if (!email) {
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      rateLimit: "register",
+      schema: adminCreateUserSchema,
+    });
+
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+          ? 403
+          : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { email, password, role: requestedRole } = security.data as z.infer<
+      typeof adminCreateUserSchema
+    >;
+
+    const roleToAssign = (requestedRole ?? "user") as UserRole;
+    if (!canSetRole({ role: adminUser.role as UserRole }, roleToAssign)) {
       return NextResponse.json(
-        { error: "Email este necesar" },
-        { status: 400 }
+        { error: "Nu poți atribui acest rol" },
+        { status: 403 }
       );
     }
 
-    if (!password || password.length < 8) {
-      return NextResponse.json(
-        { error: "Parola trebuie să aibă cel puțin 8 caractere" },
-        { status: 400 }
-      );
-    }
-
-    // Check if user already exists
     const existingUser = await db.findUserByEmail(email);
 
     if (existingUser) {
@@ -63,49 +97,42 @@ export async function POST(request: Request) {
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate verification token and code
     const verificationToken = generateVerificationToken();
     const verificationCode = generateVerificationCode();
-    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ore
+    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Create user
     const user = await db.createUser({
       email,
       password: hashedPassword,
-      role: role ?? "user",
+      role: roleToAssign,
       emailVerified: false,
       verificationToken,
       verificationCode,
       verificationTokenExpiry,
     });
 
-    // Send verification email (asynchronous - nu blocăm răspunsul)
-    sendVerificationEmail(email, verificationToken, verificationCode)
-      .then(result => {
-        // Email sent - no need to log in production
-      })
-      .catch(err => {
-        // Email failed - handled silently
-      });
+    void sendVerificationEmail(email, verificationToken, verificationCode).catch(() => {
+      /* non-blocking */
+    });
 
-    // Return without sensitive data (password and reset token)
-    const { password: _, ...userWithoutSensitiveData } = user as any;
-    
-    // În development mode, include codul în răspuns pentru testare
+    const { password: _, ...userWithoutSensitiveData } = user as Record<string, unknown>;
+
     const isDevelopment = !process.env.SMTP_HOST || !process.env.SMTP_USER;
-    
-    return NextResponse.json({ 
-      ...userWithoutSensitiveData,
-      message: "Cont creat cu succes! Verifică-ți emailul pentru a activa contul.",
-      // Include codul doar în development pentru testare ușoară
-      ...(isDevelopment && {
-        devNote: "⚠️ DEVELOPMENT MODE: Check email for verification code."
-      })
-    }, { status: 201 });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        ...userWithoutSensitiveData,
+        message: "Cont creat cu succes! Verifică-ți emailul pentru a activa contul.",
+        ...(isDevelopment && {
+          devNote: "⚠️ DEVELOPMENT MODE: Check email for verification code.",
+        }),
+      },
+      { status: 201 }
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Eroare internă";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
