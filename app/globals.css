@@ -1148,6 +1148,23 @@ input:-webkit-autofill:focus {
     ) !important;
     color: rgb(244 244 245) !important;
   }
+
+  /**
+   * Listing detail spec rows — prevent value column clipping on narrow viewports
+   * (Safari/iOS flex + justify-between could hide right-aligned values).
+   */
+  .listing-spec-row__value {
+    color: rgb(250 250 250) !important;
+    -webkit-text-fill-color: rgb(250 250 250) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    overflow: visible !important;
+    max-width: 62%;
+  }
+
+  .listing-spec-row__label {
+    max-width: 38%;
+  }
 }
 
 /* Homepage “Categorii populare”: lățimi fixe în CSS (clase stabile SSR/CSR). */
