@@ -66,7 +66,7 @@
     "audit:db-patterns": "node scripts/production/audit-db-patterns.mjs",
     "load:stability-evidence": "node scripts/load/run-stability-evidence.mjs",
     "prod:smoke": "node scripts/production/prod-smoke.mjs",
-    "images:backfill": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/images-backfill-variants.ts",
+    "images:backfill": "npx ts-node -r tsconfig-paths/register --transpile-only --project tsconfig.scripts.json scripts/images-backfill-variants.ts",
     "predeploy:audit": "node scripts/production/pre-deploy-audit.mjs",
     "staging:verify-redis": "node scripts/staging/verify-redis-integration.mjs",
     "staging:verify-sse-cluster": "node scripts/staging/verify-sse-cluster.mjs",
@@ -144,6 +144,7 @@
     "prisma": "5.22.0",
     "tailwindcss": "^3.4.17",
     "ts-node": "^10.9.1",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "5.9.3"
   }
 }

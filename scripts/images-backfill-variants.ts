@@ -5,6 +5,7 @@
  *
  *   npm run images:backfill
  *   npm run images:backfill -- --limit=50
+ *   npm run images:backfill -- --max-listings=5
  *   npm run images:backfill -- --dry-run
  */
 import { promises as fs } from "fs";
@@ -62,22 +63,119 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function main() {
-  const dryRun = process.argv.includes("--dry-run");
-  const limitArg = process.argv.find((a) => a.startsWith("--limit="));
-  const limit = limitArg ? Number(limitArg.split("=")[1]) : Infinity;
+function parsePositiveIntArg(flag: string): number | undefined {
+  const arg = process.argv.find((a) => a.startsWith(`${flag}=`));
+  if (!arg) return undefined;
+  const n = Number(arg.split("=")[1]);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
-  const state = await loadState();
-  const processedSet = new Set(state.processed);
-  const allKeys = await walkListingsOriginals();
-  const pending = allKeys.filter((k) => !processedSet.has(k)).slice(0, limit);
+/** Cap work to the first N distinct listing IDs (stable walk order). */
+function filterByMaxListings(keys: string[], maxListings: number): string[] {
+  const allowedListingIds = new Set<string>();
+  const out: string[] = [];
+  for (const key of keys) {
+    const lid = key.match(/^listings\/([^/]+)\//)?.[1];
+    if (!lid) continue;
+    if (!allowedListingIds.has(lid)) {
+      if (allowedListingIds.size >= maxListings) continue;
+      allowedListingIds.add(lid);
+    }
+    out.push(key);
+  }
+  return out;
+}
+
+async function variantExistsOnDisk(
+  originalKey: string
+): Promise<{ mediumExists: boolean; thumbExists: boolean }> {
+  const { medium, thumb } = siblingKeysForOriginal(originalKey);
+  const mediumPath = path.join(UPLOAD_ROOT, medium);
+  const thumbPath = path.join(UPLOAD_ROOT, thumb);
+  const [mediumExists, thumbExists] = await Promise.all([
+    fs
+      .access(mediumPath)
+      .then(() => true)
+      .catch(() => false),
+    fs
+      .access(thumbPath)
+      .then(() => true)
+      .catch(() => false),
+  ]);
+  return { mediumExists, thumbExists };
+}
+
+async function runDryRun(allKeys: string[]): Promise<void> {
+  let variantsComplete = 0;
+  let variantsMissing = 0;
+  let originalsBytes = 0;
+  const failed: string[] = [];
+
+  for (const originalKey of allKeys) {
+    const originalPath = path.join(UPLOAD_ROOT, originalKey);
+    try {
+      const stat = await fs.stat(originalPath);
+      originalsBytes += stat.size;
+      const { mediumExists, thumbExists } = await variantExistsOnDisk(originalKey);
+      if (mediumExists && thumbExists) {
+        variantsComplete += 1;
+        continue;
+      }
+      variantsMissing += 1;
+      console.log(`[dry-run] would process ${originalKey}`);
+    } catch {
+      failed.push(originalKey);
+    }
+  }
+
+  const estVariantBytes = Math.round(originalsBytes * 0.45);
+  const estSeconds = Math.max(30, Math.ceil((variantsMissing / BATCH_SIZE) * 2));
 
   console.log(
     JSON.stringify(
       {
-        dryRun,
+        dryRun: true,
+        originalsFound: allKeys.length,
+        variantsAlreadyExisting: variantsComplete,
+        variantsMissing,
+        failedFiles: failed.length,
+        failedKeys: failed.slice(0, 20),
+        originalsBytesTotal: originalsBytes,
+        estimatedVariantDiskGrowthBytes: estVariantBytes,
+        estimatedRuntimeSeconds: estSeconds,
+        batchSize: BATCH_SIZE,
+      },
+      null,
+      2
+    )
+  );
+}
+
+async function main() {
+  const dryRun = process.argv.includes("--dry-run");
+  const limit = parsePositiveIntArg("--limit") ?? Infinity;
+  const maxListings = parsePositiveIntArg("--max-listings");
+
+  const state = await loadState();
+  const processedSet = new Set(state.processed);
+  const allKeys = await walkListingsOriginals();
+
+  if (dryRun) {
+    await runDryRun(allKeys);
+    return;
+  }
+
+  let pending = allKeys.filter((k) => !processedSet.has(k));
+  if (maxListings) pending = filterByMaxListings(pending, maxListings);
+  pending = pending.slice(0, limit);
+
+  console.log(
+    JSON.stringify(
+      {
+        dryRun: false,
         totalOriginals: allKeys.length,
         pending: pending.length,
+        maxListings: maxListings ?? null,
         batchSize: BATCH_SIZE,
       },
       null,
@@ -98,35 +196,24 @@ async function main() {
       const thumbPath = path.join(UPLOAD_ROOT, thumb);
 
       try {
-        const [mediumExists, thumbExists] = await Promise.all([
-          fs
-            .access(mediumPath)
-            .then(() => true)
-            .catch(() => false),
-          fs
-            .access(thumbPath)
-            .then(() => true)
-            .catch(() => false),
-        ]);
+        const { mediumExists, thumbExists } = await variantExistsOnDisk(originalKey);
         if (mediumExists && thumbExists) {
           skipped += 1;
           processedSet.add(originalKey);
           continue;
         }
 
-        if (dryRun) {
-          console.log(`[dry-run] would process ${originalKey}`);
-          processedSet.add(originalKey);
-          done += 1;
-          continue;
-        }
-
+        const beforeStat = await fs.stat(originalPath);
         const buf = await fs.readFile(originalPath);
         const variants = await generateListingVariantBuffers(buf);
         await fs.mkdir(path.dirname(mediumPath), { recursive: true });
         await fs.mkdir(path.dirname(thumbPath), { recursive: true });
         if (!mediumExists) await fs.writeFile(mediumPath, variants.medium);
         if (!thumbExists) await fs.writeFile(thumbPath, variants.thumb);
+        const afterStat = await fs.stat(originalPath);
+        if (afterStat.size !== beforeStat.size || afterStat.mtimeMs !== beforeStat.mtimeMs) {
+          throw new Error("original file was modified (abort)");
+        }
         processedSet.add(originalKey);
         done += 1;
         console.log(`[ok] ${originalKey}`);
