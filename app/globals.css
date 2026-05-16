@@ -1177,6 +1177,27 @@ input:-webkit-autofill:focus {
     box-sizing: border-box;
   }
 
+  /**
+   * Grid min-content trap: horizontal thumbnail strip was sizing the column to ~650px
+   * on mobile, clipping the sidebar. Force a shrinkable single column track.
+   */
+  .listing-detail-page .listing-detail-grid {
+    width: 100%;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .listing-detail-page .listing-detail-grid > * {
+    min-width: 0 !important;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .listing-detail-page .listing-gallery-thumbs {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .listing-detail-sidebar .listing-sidebar-card {
     overflow-wrap: anywhere;
     word-break: break-word;

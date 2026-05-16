@@ -52,11 +52,84 @@ type ListingDetailPageClientProps = {
   id: string;
   /** SSR technical details block — shown on mobile (< md) only */
   mobileTechnicalDetails?: ReactNode;
+  layoutDebug?: boolean;
 };
+
+type LayoutDebugInfo = {
+  pathname: string;
+  viewportWidth: number;
+  bodyScrollWidth: number;
+  innerWidth: number;
+  horizontalOverflow: boolean;
+  gridTemplateColumns: string;
+  sidebarWidth: number;
+  sidebarClassName: string;
+  sellerBtnCount: number;
+  cssHrefs: string[];
+};
+
+function ListingLayoutDebugPanel({ enabled }: { enabled: boolean }) {
+  const [info, setInfo] = useState<LayoutDebugInfo | null>(null);
+
+  useEffect(() => {
+    if (!enabled || typeof window === 'undefined') return;
+
+    const measure = () => {
+      const grid = document.querySelector('.listing-detail-grid');
+      const sidebar = document.querySelector('.listing-detail-sidebar');
+      const vw = window.innerWidth;
+      const bodyScroll = document.body.scrollWidth;
+      setInfo({
+        pathname: window.location.pathname,
+        viewportWidth: vw,
+        bodyScrollWidth: bodyScroll,
+        innerWidth: window.innerWidth,
+        horizontalOverflow: bodyScroll > vw + 1,
+        gridTemplateColumns: grid ? getComputedStyle(grid).gridTemplateColumns : 'n/a',
+        sidebarWidth: sidebar ? Math.round(sidebar.getBoundingClientRect().width) : 0,
+        sidebarClassName: sidebar?.className ?? 'missing',
+        sellerBtnCount: document.querySelectorAll('.listing-sidebar-btn').length,
+        cssHrefs: Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).map(
+          (l) => l.href.split('/').pop() ?? l.href
+        ),
+      });
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    const t = window.setTimeout(measure, 1500);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.clearTimeout(t);
+    };
+  }, [enabled]);
+
+  if (!enabled || !info) return null;
+
+  return (
+    <div
+      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] left-2 right-2 z-[200] max-h-[40vh] overflow-y-auto rounded-lg border border-amber-500/50 bg-black/90 p-3 font-mono text-[10px] leading-relaxed text-amber-100 shadow-lg"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="mb-1 font-bold text-amber-300">layout_debug=1</p>
+      <p>path: {info.pathname}</p>
+      <p>viewport: {info.viewportWidth}px · inner: {info.innerWidth}px</p>
+      <p>body scrollWidth: {info.bodyScrollWidth}px · overflow: {String(info.horizontalOverflow)}</p>
+      <p>grid-template-columns: {info.gridTemplateColumns}</p>
+      <p>sidebar width: {info.sidebarWidth}px</p>
+      <p>seller .listing-sidebar-btn: {info.sellerBtnCount}</p>
+      <p className="break-all">sidebar: {info.sidebarClassName}</p>
+      <p className="break-all">CSS: {info.cssHrefs.join(', ')}</p>
+      <p className="mt-1 text-amber-200/80">Rendered by ListingDetailPageClient</p>
+    </div>
+  );
+}
 
 export default function ListingDetailPageClient({
   id,
   mobileTechnicalDetails,
+  layoutDebug = false,
 }: ListingDetailPageClientProps) {
   const router = useRouter();
   
@@ -329,8 +402,8 @@ export default function ListingDetailPageClient({
             {mobileTechnicalDetails ? (
               <div className="mb-4 md:hidden">{mobileTechnicalDetails}</div>
             ) : null}
-            <div className="grid min-w-0 gap-6 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
+            <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
+              <div className="min-w-0 max-w-full space-y-4 lg:col-span-2">
                 <div className="skeleton aspect-video w-full rounded-2xl" />
                 <div className="skeleton h-40 w-full rounded-2xl" />
                 <div className="skeleton h-48 w-full rounded-2xl" />
@@ -569,9 +642,9 @@ export default function ListingDetailPageClient({
       )}
       <main className="listing-detail-page min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-0">
         <div className="listing-detail-layout mx-auto max-w-7xl min-w-0 max-w-full px-4 py-6 max-md:overflow-x-hidden max-md:px-3 max-md:py-4">
-          <div className="grid min-w-0 gap-6 max-md:gap-3 lg:grid-cols-3">
+          <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
             {/* Main Content - Left/Center Column */}
-            <div className="space-y-4 max-md:space-y-3 lg:col-span-2">
+            <div className="min-w-0 max-w-full space-y-4 max-md:space-y-3 lg:col-span-2">
               {/* Image Gallery */}
               <div className="relative min-w-0 max-w-full overflow-hidden rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl">
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent blur-lg" />
@@ -604,7 +677,7 @@ export default function ListingDetailPageClient({
                 </div>
                 {photos.length > 1 && (
                   <div
-                    className="relative flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-smooth bg-gray-900/30 p-2 touch-pan-x [-webkit-overflow-scrolling:touch] sm:gap-2.5 sm:p-3 md:p-4"
+                    className="listing-gallery-thumbs relative flex min-w-0 max-w-full snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-smooth bg-gray-900/30 p-2 touch-pan-x [-webkit-overflow-scrolling:touch] sm:gap-2.5 sm:p-3 md:p-4"
                     onTouchStart={clearGallerySwipe}
                   >
                     {photos.map((photo: string, i: number) => (
@@ -756,7 +829,7 @@ export default function ListingDetailPageClient({
             </div>
 
             {/* Sidebar - Right Column */}
-            <div className="listing-detail-sidebar space-y-3 md:space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <div className="listing-detail-sidebar min-w-0 w-full max-w-full space-y-3 md:space-y-4 lg:sticky lg:top-24 lg:self-start">
               {/* Seller Card */}
               <div className="listing-sidebar-card relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3 shadow-sm shadow-black/15 ring-1 ring-white/[0.03] backdrop-blur-sm transition-shadow duration-300 ease-out hover:shadow-sm hover:shadow-black/25 md:rounded-2xl md:p-4">
                 <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.025] to-transparent md:rounded-2xl" />
@@ -1102,6 +1175,8 @@ export default function ListingDetailPageClient({
           </div>
         </div>
       </main>
+
+      <ListingLayoutDebugPanel enabled={layoutDebug} />
 
       {showReportModal && (
         <div
