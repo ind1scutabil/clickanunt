@@ -325,7 +325,10 @@ export default function ListingDetailPageClient({
       <>
         <Navbar />
         <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16">
-          <div className="mx-auto max-w-7xl px-4 py-8">
+          <div className="mx-auto max-w-7xl px-4 py-8 max-md:px-3 max-md:py-4">
+            {mobileTechnicalDetails ? (
+              <div className="mb-4 md:hidden">{mobileTechnicalDetails}</div>
+            ) : null}
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="space-y-4 lg:col-span-2">
                 <div className="skeleton aspect-video w-full rounded-2xl" />
