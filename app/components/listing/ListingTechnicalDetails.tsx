@@ -1,80 +1,56 @@
 'use client';
 
-import Link from 'next/link';
 import React, { useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
+import { ListingSpecRowsView } from '@/app/components/listing/ListingSpecRowsView';
 import { buildListingSpecRows, type ListingSpecSource } from '@/lib/listing-category-specs';
 
 type Props = {
   listing: ListingSpecSource;
-  /** Optional SEO hub link for city label */
   cityHref?: string | null;
+  /** When SSR mobile block is absent (e.g. in-memory DB), show on all breakpoints. */
+  forceVisible?: boolean;
 };
 
-function SpecRow({
-  label,
-  value,
+/**
+ * Client-rendered technical details — desktop (md+) only.
+ * Mobile uses ListingTechnicalDetailsServer (SSR) in page.tsx.
+ */
+export function ListingTechnicalDetails({
+  listing,
   cityHref,
-}: {
-  label: string;
-  value: string;
-  cityHref?: string | null;
-}): React.JSX.Element {
-  const isCity = label === 'Oraș' && cityHref;
-
-  return (
-    <div className="listing-spec-row">
-      <span className="listing-spec-row__label">{label}</span>
-      <span className="listing-spec-row__value" data-spec-value>
-        {isCity ? (
-          <Link href={cityHref} className="listing-spec-row__value-link">
-            {value}
-          </Link>
-        ) : (
-          value
-        )}
-      </span>
-    </div>
-  );
-}
-
-export function ListingTechnicalDetails({ listing, cityHref }: Props): React.JSX.Element | null {
+  forceVisible = false,
+}: Props): React.JSX.Element | null {
+  const searchParams = useSearchParams();
+  const specDebug = searchParams.get('spec_debug') === '1';
   const rows = useMemo(() => buildListingSpecRows(listing), [listing]);
 
   if (rows.length === 0) {
     return null;
   }
 
+  const debugFooter = specDebug ? (
+    <div className="mt-3 rounded border border-cyan-500/40 bg-cyan-950/40 p-2 text-xs text-cyan-100">
+      <p className="mb-2 font-semibold">[spec_debug] CSR desktop — raw fields</p>
+      <p>
+        county={String(listing.county ?? '')} | city={String(listing.city ?? '')} | make=
+        {String(listing.make ?? '')} | model={String(listing.model ?? '')}
+      </p>
+      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-[10px]">
+        {JSON.stringify({ rows, listing }, null, 2)}
+      </pre>
+    </div>
+  ) : null;
+
   return (
-    <section
-      className="listing-technical-details relative rounded-xl border border-zinc-700/40 bg-zinc-900 p-3.5 shadow-sm md:rounded-2xl md:bg-gradient-to-br md:from-zinc-900/95 md:to-zinc-950/95 md:p-5"
-      aria-labelledby="listing-technical-details-heading"
-    >
-      <div
-        className="pointer-events-none absolute inset-0 hidden rounded-xl bg-gradient-to-br from-zinc-800/35 to-transparent md:block md:rounded-2xl"
-        aria-hidden
+    <div className={forceVisible ? undefined : 'hidden md:block'}>
+      <ListingSpecRowsView
+        rows={rows}
+        cityHref={cityHref}
+        headingId="listing-technical-details-heading-desktop"
+        footer={debugFooter}
       />
-      <div className="listing-technical-details__content relative z-[1]">
-        <h2
-          id="listing-technical-details-heading"
-          className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-tight text-white md:mb-3 md:gap-2.5 md:text-base"
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] text-xs text-white md:h-9 md:w-9 md:rounded-lg md:text-sm">
-            📋
-          </span>
-          Detalii Tehnice
-        </h2>
-        <div className="listing-technical-details__grid">
-          {rows.map((row, index) => (
-            <SpecRow
-              key={`${row.label}-${index}`}
-              label={row.label}
-              value={row.value}
-              cityHref={row.label === 'Oraș' ? cityHref : undefined}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }

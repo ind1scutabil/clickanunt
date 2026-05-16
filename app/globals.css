@@ -1149,111 +1149,13 @@ input:-webkit-autofill:focus {
     color: rgb(244 244 245) !important;
   }
 
-  /**
-   * Listing detail spec rows — Safari/iOS: avoid flex+backdrop-blur text invisibility.
-   * Grid layout + explicit value paint (no gradient text / clip / blend).
-   */
-  .listing-technical-details {
-    isolation: isolate;
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-  }
-
-  .listing-technical-details__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.625rem;
-  }
-
-  .listing-spec-row {
-    display: grid;
-    grid-template-columns: minmax(5.5rem, 38%) minmax(min-content, 1fr);
-    align-items: start;
-    gap: 0.5rem 0.75rem;
-    border-radius: 0.375rem;
-    border: 1px solid rgb(63 63 70 / 0.4);
-    background: rgb(24 24 27 / 0.55);
-    padding: 0.625rem 0.75rem;
-    overflow: visible;
-    transform: none;
-  }
-
-  .listing-spec-row__label {
-    display: block;
-    flex-shrink: 0;
-    font-size: 0.875rem;
-    font-weight: 500;
-    line-height: 1.35;
-    color: rgb(161 161 170) !important;
-    -webkit-text-fill-color: rgb(161 161 170) !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    overflow: visible;
-    max-width: none;
-  }
-
-  .listing-spec-row__value,
-  .listing-spec-row__value-link {
-    display: block;
-    flex-shrink: 0;
-    min-width: fit-content;
-    width: auto;
-    max-width: none;
-    justify-self: end;
-    text-align: right;
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.35;
+  /** Listing spec entries — backup for inline styles (Safari/iOS). */
+  .listing-spec-entry__value,
+  .listing-spec-entry__value a {
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
     opacity: 1 !important;
     visibility: visible !important;
-    overflow: visible !important;
-    transform: none !important;
-    z-index: 2;
-    position: relative;
-    background: none !important;
-    background-image: none !important;
-    background-clip: border-box !important;
-    -webkit-background-clip: border-box !important;
-    mix-blend-mode: normal !important;
-    text-shadow: none;
-    filter: none;
-    -webkit-text-stroke: 0;
-  }
-
-  .listing-spec-row__value-link {
-    text-decoration: none;
-  }
-
-  .listing-spec-row__value-link:hover {
-    color: #a5f3fc !important;
-    -webkit-text-fill-color: #a5f3fc !important;
-    text-decoration: underline;
-    text-underline-offset: 4px;
-  }
-}
-
-/* iOS Safari — extra guard when touch-callout is supported */
-@supports (-webkit-touch-callout: none) {
-  @media (max-width: 767.98px) {
-    .listing-spec-row__value,
-    .listing-spec-row__value-link {
-      color: #ffffff !important;
-      -webkit-text-fill-color: #ffffff !important;
-    }
-  }
-}
-
-@media (min-width: 768px) {
-  .listing-technical-details__grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-  }
-
-  .listing-spec-row {
-    grid-template-columns: minmax(5.5rem, 42%) minmax(min-content, 1fr);
   }
 }
 
