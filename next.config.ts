@@ -137,13 +137,9 @@ const nextConfig: NextConfig = {
       }
     ];
     
-    if (process.env.NODE_ENV === 'production') {
-      baseHeaders.push({
-        key: 'Strict-Transport-Security',
-        value: 'max-age=63072000; includeSubDomains; preload'
-      });
-    }
-    
+    // HSTS: applied per-request in proxy.ts (host-aware; skipped on localhost only).
+    // next.config cannot vary headers by Host, so avoid blanket HSTS here.
+
     return [
       {
         source: '/:path*',

@@ -38,11 +38,15 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return applySecurityHeaders(response);
+  const hostname =
+    request.headers.get("host") ?? request.nextUrl.hostname ?? null;
+
+  return applySecurityHeaders(response, hostname);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // Include `/_next/static` so localhost `npm start` gets host-aware CSP/HSTS via proxy.
+    "/((?!_next/image|favicon.ico).*)",
   ],
 };

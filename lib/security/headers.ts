@@ -11,11 +11,17 @@
  */
 
 import { NextResponse } from 'next/server';
+import {
+  isLocalhostHostname,
+  shouldApplyProductionTransportSecurity,
+} from '@/lib/security/is-localhost-host';
+
+export { isLocalhostHostname, shouldApplyProductionTransportSecurity };
 
 /**
  * Content Security Policy configuration
  */
-export function getCSPHeader(): string {
+export function getCSPHeader(hostname?: string | null): string {
   const cspDirectives: Record<string, string[]> = {
     'default-src': ["'self'"],
     'script-src': [
@@ -61,9 +67,8 @@ export function getCSPHeader(): string {
     'object-src': ["'none'"],
   };
 
-  // Production HTTPS only — never in dev: Safari/Chrome upgrade http://localhost → https
-  // and break CSS/JS loading (no TLS on local dev).
-  if (process.env.NODE_ENV === 'production') {
+  // Production HTTPS only — skip on localhost (`npm start`) where TLS is unavailable.
+  if (shouldApplyProductionTransportSecurity(hostname)) {
     cspDirectives['upgrade-insecure-requests'] = [];
   }
 
@@ -80,15 +85,17 @@ export function getCSPHeader(): string {
 /**
  * Apply security headers to response
  */
-export function applySecurityHeaders(response: NextResponse): NextResponse {
+export function applySecurityHeaders(
+  response: NextResponse,
+  hostname?: string | null
+): NextResponse {
   const headers = response.headers;
   
   // Content Security Policy
-  headers.set('Content-Security-Policy', getCSPHeader());
+  headers.set('Content-Security-Policy', getCSPHeader(hostname));
   
-  // HTTP Strict Transport Security (HSTS)
-  // 2 years, includeSubDomains, preload
-  if (process.env.NODE_ENV === 'production') {
+  // HTTP Strict Transport Security (HSTS) — 2 years; omitted on localhost only.
+  if (shouldApplyProductionTransportSecurity(hostname)) {
     headers.set(
       'Strict-Transport-Security',
       'max-age=63072000; includeSubDomains; preload'
