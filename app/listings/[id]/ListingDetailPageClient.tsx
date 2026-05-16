@@ -324,12 +324,12 @@ export default function ListingDetailPageClient({
     return (
       <>
         <Navbar />
-        <main className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16">
-          <div className="mx-auto max-w-7xl px-4 py-8 max-md:px-3 max-md:py-4">
+        <main className="listing-detail-page min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16">
+          <div className="listing-detail-layout mx-auto max-w-7xl min-w-0 max-w-full px-4 py-8 max-md:overflow-x-hidden max-md:px-3 max-md:py-4">
             {mobileTechnicalDetails ? (
               <div className="mb-4 md:hidden">{mobileTechnicalDetails}</div>
             ) : null}
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-3">
               <div className="space-y-4 lg:col-span-2">
                 <div className="skeleton aspect-video w-full rounded-2xl" />
                 <div className="skeleton h-40 w-full rounded-2xl" />
@@ -567,9 +567,9 @@ export default function ListingDetailPageClient({
           </div>
         </div>
       )}
-      <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-10">
-        <div className="mx-auto max-w-7xl px-4 py-6 max-md:px-3 max-md:py-4">
-          <div className="grid gap-6 max-md:gap-3 lg:grid-cols-3">
+      <main className="listing-detail-page min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-0">
+        <div className="listing-detail-layout mx-auto max-w-7xl min-w-0 max-w-full px-4 py-6 max-md:overflow-x-hidden max-md:px-3 max-md:py-4">
+          <div className="grid min-w-0 gap-6 max-md:gap-3 lg:grid-cols-3">
             {/* Main Content - Left/Center Column */}
             <div className="space-y-4 max-md:space-y-3 lg:col-span-2">
               {/* Image Gallery */}
@@ -756,9 +756,9 @@ export default function ListingDetailPageClient({
             </div>
 
             {/* Sidebar - Right Column */}
-            <div className="space-y-3 md:space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <div className="listing-detail-sidebar space-y-3 md:space-y-4 lg:sticky lg:top-24 lg:self-start">
               {/* Seller Card */}
-              <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3 shadow-sm shadow-black/15 ring-1 ring-white/[0.03] backdrop-blur-sm transition-shadow duration-300 ease-out hover:shadow-sm hover:shadow-black/25 md:rounded-2xl md:p-4">
+              <div className="listing-sidebar-card relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3 shadow-sm shadow-black/15 ring-1 ring-white/[0.03] backdrop-blur-sm transition-shadow duration-300 ease-out hover:shadow-sm hover:shadow-black/25 md:rounded-2xl md:p-4">
                 <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-b from-white/[0.025] to-transparent md:rounded-2xl" />
                 <div className="relative">
                   <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-white md:mb-3 md:text-base">
@@ -770,8 +770,8 @@ export default function ListingDetailPageClient({
                       {sellerInitial || "?"}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white md:text-base">{sellerDisplayName}</p>
-                      <p className="flex items-center gap-1 text-xs text-gray-400 md:text-sm">
+                      <p className="listing-sidebar-seller-name truncate text-sm font-semibold text-white max-md:whitespace-normal md:text-base">{sellerDisplayName}</p>
+                      <p className="listing-sidebar-member-line flex items-center gap-1 text-xs text-gray-400 md:text-sm">
                         <span>✅</span>
                         {listing?.owner?.createdAt
                           ? `Membru din ${new Date(listing.owner.createdAt).toLocaleDateString("ro-RO", { month: "short", year: "numeric" })}`
@@ -780,12 +780,12 @@ export default function ListingDetailPageClient({
                     </div>
                   </div>
                   
-                  <div className="space-y-2 md:space-y-2.5">
+                  <div className="listing-sidebar-actions space-y-2 md:space-y-2.5">
                     {isOwner && (
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="listing-sidebar-actions-grid grid grid-cols-2 gap-3 max-md:grid-cols-1 max-md:gap-2">
                         <button 
                           onClick={() => router.push(`/listings/${id}/edit`)}
-                          className="flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-2 text-xs font-semibold text-white transition-all hover:scale-[1.01] hover:shadow-sm hover:shadow-blue-900/20 active:scale-[0.99] md:gap-2 md:py-2.5 md:text-sm"
+                          className="listing-sidebar-btn flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 py-2.5 text-xs font-semibold text-white transition-all hover:scale-[1.01] hover:shadow-sm hover:shadow-blue-900/20 active:scale-[0.99] md:gap-2 md:py-2.5 md:text-sm"
                         >
                           <span>✏️</span>
                           <span>Editează</span>
@@ -802,7 +802,7 @@ export default function ListingDetailPageClient({
                             if (!listingIsActiveForPromo) return;
                             router.push(`/listings/${id}/promote`);
                           }}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 py-2 text-xs font-semibold text-white transition-all md:gap-2 md:py-2.5 md:text-sm ${
+                          className={`listing-sidebar-btn flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 py-2.5 text-xs font-semibold text-white transition-all md:gap-2 md:py-2.5 md:text-sm ${
                             listingIsActiveForPromo
                               ? "hover:scale-[1.01] hover:shadow-sm hover:shadow-amber-900/20 active:scale-[0.99]"
                               : "cursor-not-allowed opacity-55"
@@ -819,7 +819,7 @@ export default function ListingDetailPageClient({
                         <button
                           type="button"
                           onClick={openMessages}
-                          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] py-2 text-xs font-semibold text-white shadow-sm shadow-black/20 transition-all duration-200 ease-out hover:shadow-sm hover:shadow-violet-900/30 active:scale-[0.99] md:py-2.5 md:text-sm"
+                          className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#6D5BFF] to-[#4E3CFF] py-2.5 text-xs font-semibold text-white shadow-sm shadow-black/20 transition-all duration-200 ease-out hover:shadow-sm hover:shadow-violet-900/30 active:scale-[0.99] md:py-2.5 md:text-sm"
                         >
                           <span>💬</span>
                           <span>Trimite mesaj</span>
@@ -829,7 +829,7 @@ export default function ListingDetailPageClient({
                             <a
                               href={`tel:${phoneTelHref}`}
                               onClick={() => id && void trackListingEngagement(id, "listing_phone_click")}
-                              className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-zinc-900/80 py-2 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 md:py-2.5 md:text-sm"
+                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/10 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
                               <span>{formatPhoneDisplay(sellerPhone)}</span>
@@ -841,7 +841,7 @@ export default function ListingDetailPageClient({
                                 if (id) void trackListingEngagement(id, "listing_contact_click");
                                 setShowPhone(true);
                               }}
-                              className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 md:py-2.5 md:text-sm"
+                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
                               <span>Afișează telefon</span>
@@ -873,7 +873,7 @@ export default function ListingDetailPageClient({
                         setShowReportModal(true);
                         setReportFeedback(null);
                       }}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 md:mt-3 md:py-2.5 md:text-xs"
+                      className="listing-sidebar-btn mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/15 hover:text-red-300 md:mt-3 md:py-2.5 md:text-xs"
                     >
                       <span>⚠️</span>
                       <span>Raportează anunțul</span>
@@ -883,29 +883,29 @@ export default function ListingDetailPageClient({
               </div>
 
               {isAutoListing && (
-                <div className="rounded-lg border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 p-3 backdrop-blur-sm md:p-3.5">
+                <div className="listing-sidebar-card rounded-lg border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 to-blue-500/10 p-3 backdrop-blur-sm md:p-3.5">
                   <h4 className="mb-1 flex items-center gap-2 text-xs font-semibold text-indigo-200/95 md:mb-1.5 md:text-sm">
                     <span>🛡️</span>
                     <span>Verificare istoric auto</span>
                   </h4>
-                  <p className="mb-2 text-xs leading-snug text-indigo-100/85 md:mb-3 md:text-sm">
+                  <p className="listing-sidebar-desc mb-2 text-xs leading-snug text-indigo-100/85 md:mb-3 md:text-sm md:line-clamp-none">
                     Verifică rapid istoricul mașinii (daune, kilometraj, furt, status juridic) direct în platforma CarVertical.
                   </p>
                   <a
                     href={carHistoryUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 px-3 py-2 text-xs font-semibold text-white transition-shadow hover:shadow-sm hover:shadow-indigo-900/25 md:px-4 md:text-sm"
+                    className="listing-sidebar-btn inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 px-3 py-2.5 text-xs font-semibold text-white transition-shadow hover:shadow-sm hover:shadow-indigo-900/25 md:px-4 md:text-sm"
                   >
                     <span>🔎</span>
                     <span>Verifică pe CarVertical</span>
                   </a>
                   {listing.vin ? (
-                    <p className="text-xs text-indigo-100/80 mt-3">
+                    <p className="listing-sidebar-vin mt-3 text-xs text-indigo-100/80">
                       VIN detectat pentru precompletare: <span className="font-mono">{listing.vin}</span>
                     </p>
                   ) : (
-                    <p className="text-xs text-indigo-100/80 mt-3">
+                    <p className="listing-sidebar-desc mt-3 text-xs text-indigo-100/80 md:line-clamp-none">
                       Nu există VIN în anunț. Utilizatorul poate continua verificarea manual pe pagina CarVertical.
                     </p>
                   )}
@@ -913,18 +913,18 @@ export default function ListingDetailPageClient({
               )}
 
               {isAutoListing && (
-                <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900/95 via-zinc-950 to-black/90 border border-zinc-600/35 rounded-lg p-3.5 shadow-sm">
+                <div className="listing-sidebar-card relative overflow-hidden rounded-lg border border-zinc-600/35 bg-gradient-to-br from-zinc-900/95 via-zinc-950 to-black/90 p-3.5 shadow-sm">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.06),transparent_55%)] pointer-events-none"></div>
                   <div className="relative">
                     <h4 className="font-semibold text-cyan-100/95 mb-1 flex items-center gap-2 text-sm">
                       <span>⚡</span>
                       <span>Verificări utile auto</span>
                     </h4>
-                    <p className="text-xs text-cyan-50/85 mb-3 leading-snug">
+                    <p className="listing-sidebar-desc mb-3 text-xs leading-snug text-cyan-50/85 md:line-clamp-none">
                       Toolkit rapid pentru decizie: verificare oficială, cost estimat și comparație directă cu piața.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-2.5 mb-3">
+                    <div className="listing-sidebar-stat-grid mb-3 grid grid-cols-2 gap-2.5 max-md:grid-cols-1">
                       <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-2.5">
                         <p className="text-[11px] text-cyan-100/75">Cost combustibil / lună</p>
                         <p className="text-sm font-bold text-white tabular-nums">{monthlyFuelCost.toLocaleString("ro-RO")} RON</p>
@@ -940,24 +940,24 @@ export default function ListingDetailPageClient({
                         href={rarAutoPassUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full inline-flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-zinc-600/40 hover:bg-cyan-500/10 hover:border-cyan-500/30 transition-colors text-white text-sm font-semibold"
+                        className="listing-sidebar-link-btn w-full rounded-lg border border-zinc-600/40 bg-white/[0.04] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:border-cyan-500/30 hover:bg-cyan-500/10 md:inline-flex md:items-center md:justify-between md:gap-3"
                       >
-                        <span className="inline-flex items-center gap-2">
+                        <span className="listing-sidebar-link-label inline-flex items-center gap-2">
                           <span>🏛️</span>
                           <span>Verifică RAR AutoPass</span>
                         </span>
-                        <span aria-hidden>↗</span>
+                        <span className="listing-sidebar-link-chevron" aria-hidden>↗</span>
                       </a>
 
                       <Link
                         href={similarAutoUrl}
-                        className="w-full inline-flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg bg-white/[0.04] border border-zinc-600/40 hover:bg-indigo-500/15 hover:border-indigo-400/30 transition-colors text-white text-sm font-semibold"
+                        className="listing-sidebar-link-btn w-full rounded-lg border border-zinc-600/40 bg-white/[0.04] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:border-indigo-400/30 hover:bg-indigo-500/15 md:inline-flex md:items-center md:justify-between md:gap-3"
                       >
-                        <span className="inline-flex items-center gap-2">
+                        <span className="listing-sidebar-link-label inline-flex items-center gap-2">
                           <span>📊</span>
                           <span>Compară cu anunțuri similare</span>
                         </span>
-                        <span aria-hidden>→</span>
+                        <span className="listing-sidebar-link-chevron" aria-hidden>→</span>
                       </Link>
                     </div>
                   </div>
@@ -965,7 +965,7 @@ export default function ListingDetailPageClient({
               )}
 
               {/* Safety Tips */}
-              <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-600/25 rounded-lg p-3.5 backdrop-blur-sm">
+              <div className="listing-sidebar-card rounded-lg border border-yellow-600/25 bg-gradient-to-br from-yellow-500/10 to-orange-500/10 p-3.5 backdrop-blur-sm max-md:mb-2">
                 <h4 className="font-semibold text-yellow-200/95 mb-2 flex items-center gap-2 text-sm">
                   <span>⚠️</span>
                   <span>Sfaturi de siguranță</span>
@@ -991,7 +991,7 @@ export default function ListingDetailPageClient({
               </div>
 
               {/* Share Buttons */}
-              <div className="bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 backdrop-blur-sm rounded-lg shadow-sm border border-zinc-700/40 p-4">
+              <div className="listing-sidebar-card rounded-lg border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-4 shadow-sm backdrop-blur-sm">
                 <h4 className="font-semibold text-white mb-2.5 text-sm flex items-center gap-2">
                   <svg className="w-6 h-6 text-[#00D4FF]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -1043,7 +1043,7 @@ export default function ListingDetailPageClient({
           </div>
 
           {/* Similar Listings */}
-          <div className="mt-8">
+          <div className="mt-8 min-w-0 max-w-full">
             <h2 className="mb-3 text-base font-semibold tracking-tight text-zinc-100">Anunțuri similare</h2>
             {similarLoading ? (
               <div className="text-sm text-gray-500">Se încarcă anunțurile similare…</div>
