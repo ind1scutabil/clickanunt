@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, type MouseEvent } from 'react';
 import Link from 'next/link';
+import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 import {
-  listingPrimaryPhotoSrc,
-  LISTING_PHOTO_ONERROR_FALLBACK,
-  normalizeListingPhotosArray,
-} from '@/lib/listing-photo-url';
+  applyListingImageFallback,
+  listingPrimaryPhotoSrcForVariant,
+} from '@/lib/listing-image-variants';
 import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
@@ -125,7 +125,10 @@ export function ListingCard({
 
   const photos = normalizeListingPhotosArray(listing.photos);
   const hasRealPhoto = photos.length > 0;
-  const mainPhoto = hasRealPhoto ? listingPrimaryPhotoSrc(listing.photos) : '';
+  const mainPhoto = hasRealPhoto
+    ? listingPrimaryPhotoSrcForVariant(listing.photos, 'medium')
+    : '';
+  const mainPhotoRaw = photos[0] ?? '';
   const locationLabel = [listing.city, listing.county].filter(Boolean).join(' · ');
   const verifiedSeller =
     typeof listing.owner?.trustScore === 'number' && listing.owner.trustScore >= 70;
@@ -177,9 +180,8 @@ export function ListingCard({
               } group-hover/card:scale-[1.012] motion-reduce:group-hover/card:scale-100`}
               style={{ transitionTimingFunction: motionEase }}
               onError={(e) => {
-                const el = e.currentTarget;
-                el.onerror = null;
-                el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                if (!mainPhotoRaw) return;
+                applyListingImageFallback(e.currentTarget, mainPhotoRaw, 'medium');
               }}
               onLoad={() => setImgLoaded(true)}
               loading="lazy"

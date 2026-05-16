@@ -12,6 +12,7 @@ import {
   UPLOAD_MAX_IMAGE_BYTES,
   UPLOAD_MAX_VIDEO_BYTES,
 } from "@/lib/infra/production-limits";
+import { uploadListingImageWithVariants } from "@/lib/listing-image-pipeline";
 
 const MAX_IMAGE_SIZE = UPLOAD_MAX_IMAGE_BYTES;
 const MAX_VIDEO_SIZE = UPLOAD_MAX_VIDEO_BYTES;
@@ -204,21 +205,22 @@ export async function POST(request: NextRequest) {
       // Strip EXIF data for privacy
       const cleanBuffer = await stripExifData(buf);
 
-      // Generate storage key with SAFE filename (ignore original filename completely)
       const id = listingId || uuidv4();
-      const safeExt = 'jpg'; // Default safe extension
+      const safeExt = "jpg";
       const tempFilename = `${uuidv4()}.${safeExt}`;
-      const key = generateImageKey(id, "original", tempFilename);
 
-      // Upload to cloud storage
-      let url = await uploadImage(cleanBuffer, key, "image/jpeg");
-      url = normalizePublicUrl(url, request);
+      const { url, key } = await uploadListingImageWithVariants(
+        cleanBuffer,
+        id,
+        tempFilename
+      );
+      const publicUrl = normalizePublicUrl(url, request);
 
-      return NextResponse.json({ 
-        url,
+      return NextResponse.json({
+        url: publicUrl,
         key,
         listingId: id,
-        type: "image"
+        type: "image",
       });
     }
 

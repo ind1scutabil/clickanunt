@@ -7,10 +7,12 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import {
   DEFAULT_LISTING_IMAGE_URL,
-  LISTING_PHOTO_ONERROR_FALLBACK,
-  normalizeListingPhotoUrl,
   normalizeListingPhotosArray,
 } from "@/lib/listing-photo-url";
+import {
+  applyListingImageFallback,
+  getListingImageUrl,
+} from "@/lib/listing-image-variants";
 import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
@@ -172,10 +174,71 @@ export default function ListingDetailPageClient({
     [listing]
   );
 
+  /** Defer thumbnail full-size downloads until near viewport (originals are 200–400KB each on prod). */
+  const thumbStripRef = useRef<HTMLDivElement>(null);
+  const [thumbLoadAllowed, setThumbLoadAllowed] = useState<Set<number>>(() => new Set([0]));
+
   useEffect(() => {
     setSelectedImageIndex(0);
     setShowPhone(false);
+    setThumbLoadAllowed(new Set([0]));
   }, [id]);
+
+  useEffect(() => {
+    setThumbLoadAllowed((prev) => {
+      const next = new Set(prev);
+      next.add(selectedImageIndex);
+      if (selectedImageIndex > 0) next.add(selectedImageIndex - 1);
+      if (selectedImageIndex < photos.length - 1) next.add(selectedImageIndex + 1);
+      return next;
+    });
+  }, [selectedImageIndex, photos.length]);
+
+  useEffect(() => {
+    const first = photos[0];
+    if (!first) return;
+    const href =
+      getListingImageUrl(first, "medium") || DEFAULT_LISTING_IMAGE_URL;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = href;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, [photos[0]]);
+
+  useEffect(() => {
+    const root = thumbStripRef.current;
+    if (!root || photos.length < 2) return;
+
+    const observeTargets = () => {
+      root.querySelectorAll<HTMLElement>("[data-thumb-index]").forEach((el) => io.observe(el));
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        setThumbLoadAllowed((prev) => {
+          let changed = false;
+          const next = new Set(prev);
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const idx = Number(entry.target.getAttribute("data-thumb-index"));
+            if (Number.isFinite(idx) && !next.has(idx)) {
+              next.add(idx);
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      },
+      { root, rootMargin: "64px", threshold: 0.01 }
+    );
+
+    observeTargets();
+    return () => io.disconnect();
+  }, [photos.length, listing?.id]);
 
   useEffect(() => {
     setSelectedImageIndex((i) => {
@@ -610,14 +673,21 @@ export default function ListingDetailPageClient({
           >
             <img
               key={`modal-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-              src={normalizeListingPhotoUrl(photos[selectedImageIndex]) || DEFAULT_LISTING_IMAGE_URL}
+              src={
+                getListingImageUrl(photos[selectedImageIndex], "original") ||
+                DEFAULT_LISTING_IMAGE_URL
+              }
               alt={listing.title}
               className="h-auto max-h-[min(88vh,88dvh)] w-full max-w-full object-contain [max-width:100vw] rounded-lg shadow-lg sm:max-h-[90vh]"
               sizes="100vw"
+              decoding="async"
+              fetchPriority="high"
               onError={(e) => {
-                const el = e.currentTarget;
-                el.onerror = null;
-                el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                applyListingImageFallback(
+                  e.currentTarget,
+                  photos[selectedImageIndex] ?? "",
+                  "original"
+                );
               }}
             />
             <div className="pointer-events-auto absolute bottom-4 left-1/2 z-[120] flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 sm:bottom-6">
@@ -657,14 +727,22 @@ export default function ListingDetailPageClient({
                 >
                   <img
                     key={`hero-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-                    src={normalizeListingPhotoUrl(photos[selectedImageIndex]) || DEFAULT_LISTING_IMAGE_URL}
+                    src={
+                      getListingImageUrl(photos[selectedImageIndex], "medium") ||
+                      DEFAULT_LISTING_IMAGE_URL
+                    }
                     alt={listing.title}
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out sm:group-hover:scale-[1.02]"
                     loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                    sizes="(max-width: 1024px) 100vw, 66vw"
                     onError={(e) => {
-                      const el = e.currentTarget;
-                      el.onerror = null;
-                      el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                      applyListingImageFallback(
+                        e.currentTarget,
+                        photos[selectedImageIndex] ?? "",
+                        "medium"
+                      );
                     }}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
@@ -677,12 +755,14 @@ export default function ListingDetailPageClient({
                 </div>
                 {photos.length > 1 && (
                   <div
+                    ref={thumbStripRef}
                     className="listing-gallery-thumbs relative flex min-w-0 max-w-full snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-smooth bg-gray-900/30 p-2 touch-pan-x [-webkit-overflow-scrolling:touch] sm:gap-2.5 sm:p-3 md:p-4"
                     onTouchStart={clearGallerySwipe}
                   >
                     {photos.map((photo: string, i: number) => (
-                      <div 
-                        key={`${i}-${photo}`} 
+                      <div
+                        key={`${i}-${photo}`}
+                        data-thumb-index={i}
                         onClick={() => setSelectedImageIndex(i)}
                         className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-lg border bg-gray-800 shadow-sm transition-all duration-200 ease-out cursor-pointer sm:h-16 sm:w-16 md:h-20 md:w-20 md:rounded-xl ${
                           selectedImageIndex === i 
@@ -690,20 +770,29 @@ export default function ListingDetailPageClient({
                             : 'border-gray-700/50 hover:border-[#6366F1]/50 hover:shadow-sm'
                         }`}
                       >
-                        <img
-                          key={`thumb-img-${i}-${photo}`}
-                          src={normalizeListingPhotoUrl(photo) || DEFAULT_LISTING_IMAGE_URL}
-                          alt={`${listing.title} ${i + 1}`}
-                          className={`absolute inset-0 h-full w-full object-cover transition ${
-                            selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
-                          }`}
-                          loading="lazy"
-                          onError={(e) => {
-                            const el = e.currentTarget;
-                            el.onerror = null;
-                            el.src = LISTING_PHOTO_ONERROR_FALLBACK;
-                          }}
-                        />
+                        {thumbLoadAllowed.has(i) ? (
+                          <img
+                            key={`thumb-img-${i}-${photo}`}
+                            src={
+                              getListingImageUrl(photo, "thumb") ||
+                              DEFAULT_LISTING_IMAGE_URL
+                            }
+                            alt={`${listing.title} ${i + 1}`}
+                            className={`absolute inset-0 h-full w-full object-cover transition ${
+                              selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
+                            }`}
+                            loading="lazy"
+                            decoding="async"
+                            fetchPriority="low"
+                            onError={(e) => {
+                              applyListingImageFallback(
+                                e.currentTarget,
+                                photo,
+                                "thumb"
+                              );
+                            }}
+                          />
+                        ) : null}
                       </div>
                     ))}
                   </div>
@@ -1136,7 +1225,8 @@ export default function ListingDetailPageClient({
                   const similarPhotos = normalizeListingPhotosArray(item?.photos);
                   const similarSrc =
                     similarPhotos.length > 0
-                      ? normalizeListingPhotoUrl(similarPhotos[0]) || DEFAULT_LISTING_IMAGE_URL
+                      ? getListingImageUrl(similarPhotos[0], "medium") ||
+                        DEFAULT_LISTING_IMAGE_URL
                       : DEFAULT_LISTING_IMAGE_URL;
                   return (
                     <Link
@@ -1150,9 +1240,13 @@ export default function ListingDetailPageClient({
                           alt={item.title || "Anunț similar"}
                           className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]"
                           onError={(e) => {
-                            const el = e.currentTarget;
-                            el.onerror = null;
-                            el.src = LISTING_PHOTO_ONERROR_FALLBACK;
+                            if (similarPhotos[0]) {
+                              applyListingImageFallback(
+                                e.currentTarget,
+                                similarPhotos[0],
+                                "medium"
+                              );
+                            }
                           }}
                         />
                       </div>

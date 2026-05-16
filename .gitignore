@@ -25,6 +25,9 @@ playwright-report/
 # load test artifacts (Phase 3C)
 scripts/load/results/
 
+# image variant backfill resume state
+.images-backfill-state.json
+
 # misc
 .DS_Store
 *.pem
