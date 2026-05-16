@@ -155,6 +155,7 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
                 showFavorite
                 appearance={appearance}
                 hotToday={i < 2 && !l.isPromoted}
+                imagePriority={i < 2}
               />
             </li>
           ))}

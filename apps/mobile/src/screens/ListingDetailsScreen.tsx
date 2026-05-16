@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { favoritesApi, getLastDataSource, listingsApi } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useLiveSync } from '../hooks/useLiveSync';
 import { THEME } from '../theme';
-import { listingPhotoGalleryUris } from '../utils/listingPhotos';
+import { normalizeListingPhotosArray } from '../../../../lib/listing-photo-url';
+import { ListingPhotoImage } from '../components/ListingPhotoImage';
 import type { Listing } from '../types';
 
 type Props = {
@@ -103,7 +104,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
     );
   }
 
-  const photos = listingPhotoGalleryUris(item.photos);
+  const photos = normalizeListingPhotosArray(item.photos);
   const inactiveListing = item.status && item.status !== 'active';
 
   const attributes = item.attributes && typeof item.attributes === 'object'
@@ -114,7 +115,13 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
         {photos.map((photo, idx) => (
-          <Image key={`${idx}-${photo}`} source={{ uri: photo }} style={styles.carouselImage} resizeMode="cover" />
+          <ListingPhotoImage
+            key={`${idx}-${photo}`}
+            photo={photo}
+            variant="medium"
+            style={styles.carouselImage}
+            resizeMode="cover"
+          />
         ))}
       </ScrollView>
 

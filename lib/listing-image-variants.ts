@@ -102,6 +102,17 @@ export function listingImageFallbackChain(
   return ["original"];
 }
 
+/** Next variant after a failed load (React Native / non-DOM clients). */
+export function getNextListingImageFallbackVariant(
+  requested: ListingImageVariant,
+  failed: ListingImageVariant
+): ListingImageVariant | null {
+  const chain = listingImageFallbackChain(requested);
+  const idx = chain.indexOf(failed);
+  const next = idx >= 0 ? chain[idx + 1] : undefined;
+  return next ?? null;
+}
+
 /**
  * Advance img src on error through thumb → medium → original (non-destructive).
  */

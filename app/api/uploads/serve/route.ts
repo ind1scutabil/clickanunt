@@ -24,6 +24,19 @@ function isSafeKey(key: string): boolean {
   return true;
 }
 
+/** Immutable listing uploads (original/medium/thumb); 404 must not be cached at edge. */
+function serveResponseHeaders(status: 200 | 404): Record<string, string> {
+  if (status === 404) {
+    return {
+      'Cache-Control': 'private, no-store, max-age=0',
+    };
+  }
+  return {
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff',
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const key = req.nextUrl.searchParams.get('key') || '';
@@ -38,10 +51,7 @@ export async function GET(req: NextRequest) {
     if (!fs.existsSync(filePath)) {
       return new NextResponse('Not found', {
         status: 404,
-        headers: {
-          // Evită cache la edge/browser după restaurare fișiere pe disc.
-          'Cache-Control': 'private, no-store, max-age=0',
-        },
+        headers: serveResponseHeaders(404),
       });
     }
 
@@ -52,8 +62,7 @@ export async function GET(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        // Uploaded images are immutable after creation (storage keys are timestamped).
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        ...serveResponseHeaders(200),
       },
     });
   } catch (error: any) {

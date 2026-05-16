@@ -63,6 +63,8 @@ interface ListingCardProps {
   hotToday?: boolean;
   /** Show date + views row */
   showMetaRow?: boolean;
+  /** First visible row / LCP — eager load + fetch priority */
+  imagePriority?: boolean;
 }
 
 export function ListingCard({
@@ -73,6 +75,7 @@ export function ListingCard({
   compact = false,
   hotToday = false,
   showMetaRow = true,
+  imagePriority = false,
 }: ListingCardProps) {
   const [formattedDate, setFormattedDate] = useState<string>('—');
   const [isNew, setIsNew] = useState(false);
@@ -184,8 +187,9 @@ export function ListingCard({
                 applyListingImageFallback(e.currentTarget, mainPhotoRaw, 'medium');
               }}
               onLoad={() => setImgLoaded(true)}
-              loading="lazy"
+              loading={imagePriority ? 'eager' : 'lazy'}
               decoding="async"
+              {...(imagePriority ? { fetchPriority: 'high' as const } : {})}
             />
           ) : (
             <ListingCategoryPhotoFallback category={listing.category} compact={compact} appearance={ink ? 'ink' : 'paper'} />

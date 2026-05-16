@@ -1,5 +1,6 @@
 import {
   getListingImageUrl,
+  getNextListingImageFallbackVariant,
   rewriteListingPhotoToVariant,
   siblingVariantStorageKey,
 } from "@/lib/listing-image-variants";
@@ -22,5 +23,13 @@ describe("listing-image-variants", () => {
     expect(
       siblingVariantStorageKey("listings/u1/original/x.jpg", "medium")
     ).toBe("listings/u1/medium/x.jpg");
+  });
+
+  it("getNextListingImageFallbackVariant advances chain", () => {
+    expect(getNextListingImageFallbackVariant("medium", "medium")).toBe(
+      "original"
+    );
+    expect(getNextListingImageFallbackVariant("thumb", "thumb")).toBe("medium");
+    expect(getNextListingImageFallbackVariant("medium", "original")).toBeNull();
   });
 });

@@ -793,8 +793,14 @@ export default function ListingsView({
           </div>
 
           <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-            {listings.map((listing) => (
-              <ListingCard key={listing.id} listing={mapPublicListingToCardProps(listing)} showFavorite appearance="ink" />
+            {listings.map((listing, index) => (
+              <ListingCard
+                key={listing.id}
+                listing={mapPublicListingToCardProps(listing)}
+                showFavorite
+                appearance="ink"
+                imagePriority={index < 4}
+              />
             ))}
           </div>
 

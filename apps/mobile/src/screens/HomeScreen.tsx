@@ -3,7 +3,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,7 +17,7 @@ import { categoriesApi, getLastDataSource, listingsApi, listingsBrowseQueryStrin
 import { useLiveSync } from '../hooks/useLiveSync';
 import { addBreadcrumb, trackEvent } from '../telemetry';
 import { THEME } from '../theme';
-import { primaryListingPhotoUri } from '../utils/listingPhotos';
+import { ListingPhotoImage } from '../components/ListingPhotoImage';
 import type { Listing } from '../types';
 
 type Props = {
@@ -202,6 +201,9 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
         data={items}
         keyExtractor={(item) => item.id}
         numColumns={2}
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={7}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.columnWrapper}
@@ -218,8 +220,9 @@ export function HomeScreen({ onOpenListing, onOpenCreateListing }: Props): React
               onOpenListing(item.id);
             }}
           >
-            <Image
-              source={{ uri: primaryListingPhotoUri(item.photos) }}
+            <ListingPhotoImage
+              photo={item.photos?.[0]}
+              variant="medium"
               style={styles.coverImage}
               resizeMode="cover"
             />

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -18,7 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useLiveSync } from '../hooks/useLiveSync';
 import type { FavoritesScreenNavigation } from '../navigation/types';
 import { THEME } from '../theme';
-import { primaryListingPhotoUri } from '../utils/listingPhotos';
+import { ListingPhotoImage } from '../components/ListingPhotoImage';
 
 const E = THEME.enterprise;
 
@@ -120,9 +119,11 @@ export function FavoritesScreen(): React.JSX.Element {
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.content}
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={7}
         renderItem={({ item }) => {
           const listing = item.listing;
-          const photoUri = primaryListingPhotoUri(listing.photos);
           return (
             <View style={styles.card}>
               <Pressable
@@ -131,7 +132,12 @@ export function FavoritesScreen(): React.JSX.Element {
                 onPress={() => openListing(listing.id)}
                 style={({ pressed }) => [styles.cardMain, pressed && styles.cardMainPressed]}
               >
-                <Image source={{ uri: photoUri }} style={styles.cardImage} resizeMode="cover" />
+                <ListingPhotoImage
+                  photo={listing.photos?.[0]}
+                  variant="medium"
+                  style={styles.cardImage}
+                  resizeMode="cover"
+                />
                 {listing.isFeatured ? (
                   <View style={styles.featuredBadge}>
                     <Text style={styles.featuredBadgeText}>TOP</Text>

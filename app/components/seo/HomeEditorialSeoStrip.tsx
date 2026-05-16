@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { hubWhereBase } from "@/lib/seo/hub-queries";
-import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
+import { listingPrimaryPhotoSrcForVariant } from "@/lib/listing-image-variants";
 import { SEO_HIGHLIGHT_CITY_LABELS, SEO_NAV_CATEGORY_SLUGS, CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 
@@ -31,7 +31,7 @@ export async function HomeEditorialSeoStrip() {
 
         {latest.length > 0 ? (
           <div className="mb-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {latest.map((l) => (
+            {latest.map((l, index) => (
               <Link
                 key={l.id}
                 href={`/listings/${l.id}`}
@@ -39,12 +39,13 @@ export async function HomeEditorialSeoStrip() {
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-[#1e293b] to-[#0f172a]">
                   <img
-                    src={listingPrimaryPhotoSrc(l.photos)}
+                    src={listingPrimaryPhotoSrcForVariant(l.photos, "medium")}
                     alt=""
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                    loading="lazy"
+                    loading={index === 0 ? "eager" : "lazy"}
                     decoding="async"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    {...(index === 0 ? { fetchPriority: "high" as const } : {})}
                   />
                 </div>
                 <div className="p-4">
