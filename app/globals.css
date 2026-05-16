@@ -163,27 +163,27 @@
   object-position: 56% 44%;
 }
 
-/* Mobile: BMW ~12% smaller than live (116%→102%); car right + lower in frame */
+/* Mobile: center-right BMW, slightly zoomed out inside the crop box */
 @media (max-width: 767.98px) {
   .hero-premium-photo {
     object-fit: cover;
-    object-position: 74% 44%;
-    width: 102%;
-    height: 102%;
+    object-position: 58% 38%;
+    width: 116%;
+    height: 116%;
     max-width: none;
     max-height: none;
     inset: auto;
     left: 50%;
-    top: 50%;
-    transform: translate(-74%, -40%);
+    top: 44%;
+    transform: translate(-58%, -46%);
   }
 }
 
-/* Narrow phones */
+/* Narrow phones: keep rear profile readable without oversizing */
 @media (max-width: 479.98px) {
   .hero-premium-photo {
-    object-position: 76% 42%;
-    transform: translate(-76%, -38%);
+    object-position: 60% 36%;
+    transform: translate(-60%, -44%);
   }
 }
 
