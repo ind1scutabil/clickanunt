@@ -2,15 +2,19 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
 import { uploadImage, generateImageKey } from "@/lib/storage";
 import { validateImage, stripExifData } from "@/lib/imageProcessing";
 import { v4 as uuidv4 } from "uuid";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { uploadBase64Schema } from "@/lib/security/validation-schemas";
+import { logUploadEvent } from "@/lib/observability/domain-events";
+import {
+  UPLOAD_MAX_IMAGE_BYTES,
+  UPLOAD_MAX_VIDEO_BYTES,
+} from "@/lib/infra/production-limits";
 
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_IMAGE_SIZE = UPLOAD_MAX_IMAGE_BYTES;
+const MAX_VIDEO_SIZE = UPLOAD_MAX_VIDEO_BYTES;
 
 function getPublicBaseUrl(request: NextRequest): string {
   const forwardedProto = request.headers.get('x-forwarded-proto');
@@ -93,15 +97,6 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
  */
 export async function POST(request: NextRequest) {
   try {
-    const logUploadDebug = (message: string, meta: Record<string, unknown> = {}) => {
-      try {
-        const line = JSON.stringify({ ts: new Date().toISOString(), message, meta });
-        fs.appendFileSync("/tmp/uploads-debug.log", line + "\n");
-      } catch {
-        // no-op
-      }
-    };
-
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
       rateLimit: 'upload',
@@ -123,10 +118,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
     }
 
-    logUploadDebug("request_received", {
+    logUploadEvent("request_received", {
       method: request.method,
       hasBody: !!body,
-      bodyKeys: body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [],
     });
 
     let parsed = uploadBase64Schema.safeParse(body);
@@ -141,10 +135,11 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       const issues = parsed.error.issues;
       const bodyKeys = body && typeof body === 'object' ? Object.keys(body as Record<string, unknown>) : [];
-      logUploadDebug("validation_failed", {
-        issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
-        bodyKeys,
-      });
+      logUploadEvent(
+        "validation_failed",
+        { issueCount: issues.length, bodyKeyCount: bodyKeys.length },
+        "warn"
+      );
       const errors = issues
         .map(e => `${e.path.join('.')}: ${e.message}`)
         .join('; ');

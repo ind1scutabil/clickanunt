@@ -1,8 +1,15 @@
 import type { MetadataRoute } from "next";
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
+import { isStagingSite } from "@/lib/staging/site-mode";
 
 /** Single `/robots.txt` — keep disjoint from manual `robots.txt` route files. */
 export default function robots(): MetadataRoute.Robots {
+  if (isStagingSite()) {
+    return {
+      rules: [{ userAgent: "*", disallow: "/" }],
+    };
+  }
+
   const base = siteOriginForSeoFeeds();
   const sitemaps = [
     `${base}/sitemap.xml`,

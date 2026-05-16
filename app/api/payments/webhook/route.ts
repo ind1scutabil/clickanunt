@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignature, stripe } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/observability';
+import { logPaymentEvent } from '@/lib/observability/domain-events';
 import { createInvoice, markInvoiceAsPaid, generateInvoiceItemsFromPayment } from '@/lib/invoice';
 import { sendInvoiceEmail, sendPaymentConfirmationEmail } from '@/lib/invoice-mailer';
 import { createAuditLog } from '@/lib/audit';
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get('stripe-signature');
 
     if (!signature) {
-      logger.error('Missing Stripe signature');
+      logPaymentEvent('webhook_missing_signature', {}, 'error');
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     try {
       event = verifyWebhookSignature(rawBody, signature);
     } catch (error) {
-      logger.error('Webhook signature verification failed', { error });
+      logPaymentEvent('webhook_invalid_signature', {}, 'error');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 

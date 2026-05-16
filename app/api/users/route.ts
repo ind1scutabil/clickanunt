@@ -12,6 +12,10 @@ import {
   generateVerificationToken,
   generateVerificationCode,
 } from "@/lib/email";
+import {
+  resolveAdminUsersListLimit,
+  resolveAdminUsersOffset,
+} from "@/lib/admin/users-query";
 
 const adminCreateUserSchema = z
   .object({
@@ -33,6 +37,10 @@ export async function GET(request: NextRequest) {
 
     await db.testConnection();
 
+    const { searchParams } = new URL(request.url);
+    const take = resolveAdminUsersListLimit(searchParams.get("limit"));
+    const skip = resolveAdminUsersOffset(searchParams.get("offset"));
+
     const allUsers = await db.user.findMany({
       select: {
         id: true,
@@ -42,6 +50,9 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         updatedAt: true,
       },
+      orderBy: { createdAt: "desc" },
+      take,
+      skip,
     });
 
     return NextResponse.json(allUsers || []);

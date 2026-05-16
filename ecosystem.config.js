@@ -13,7 +13,8 @@ module.exports = {
     exec_mode: 'fork',
     autorestart: true,
     watch: false,
-    max_memory_restart: '500M',
+    // ~3.7GB VPS: leave headroom for Postgres + OS; restart before OOM under traffic spikes
+    max_memory_restart: '900M',
     env_file: '.env',
     env: {
       NODE_ENV: 'production',
@@ -34,15 +35,20 @@ module.exports = {
     wait_ready: false,
     listen_timeout: 10000,
     
-    // Auto-restart on crash
+    // Auto-restart on crash (exponential backoff reduces restart storms)
     min_uptime: '10s',
     max_restarts: 10,
+    exp_backoff_restart_delay: 100,
+    restart_delay: 1000,
+    
+    // Log rotation: configure on VPS with `pm2 install pm2-logrotate` (see docs/PRODUCTION_PM2.md)
     
     // Instance management
     increment_var: 'PORT',
     
-    // Advanced features (uncomment if needed)
-    // instances: 'max',  // Use all CPU cores
-    // exec_mode: 'cluster',  // Cluster mode (requires Redis for rate limiting)
+    // Cluster mode — OFF by default. Requires REDIS_URL + messaging Redis bus + sticky SSE.
+    // Do not enable on live until staging load tests pass (see docs/STAGING_REDIS.md).
+    // instances: 'max',
+    // exec_mode: 'cluster',
   }]
 };

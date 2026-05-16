@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyToken } from '@/lib/auth';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
+import { FAVORITES_LIST_MAX } from '@/lib/infra/production-limits';
 
 // GET /api/favorites - Get user's favorites
 export async function GET(req: NextRequest) {
@@ -65,6 +66,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: FAVORITES_LIST_MAX,
     });
 
     const slim = favorites.map((f) => ({

@@ -22,6 +22,9 @@ playwright-report/
 # next.js
 /out/
 
+# load test artifacts (Phase 3C)
+scripts/load/results/
+
 # misc
 .DS_Store
 *.pem

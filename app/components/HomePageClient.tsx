@@ -72,7 +72,10 @@ export default function HomePageClient({
   const [categoryCountsError, setCategoryCountsError] = useState(initialCategoryStatsError);
   const [activeListingsTotal, setActiveListingsTotal] = useState<number | null>(initialActiveListings);
 
+  const serverStatsProvided = initialCategoryStatsError === false;
+
   useEffect(() => {
+    if (serverStatsProvided) return;
     let cancelled = false;
     (async () => {
       try {
@@ -93,9 +96,10 @@ export default function HomePageClient({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [serverStatsProvided]);
 
   useEffect(() => {
+    if (serverStatsProvided) return;
     let cancelled = false;
     (async () => {
       try {
@@ -120,7 +124,7 @@ export default function HomePageClient({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [serverStatsProvided]);
 
   const popularCategories = new Set([
     "Auto, moto și ambarcațiuni",

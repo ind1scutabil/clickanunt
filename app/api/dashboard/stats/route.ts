@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { ANALYTICS_EVENT } from "@/lib/analytics-events";
+import { totalViewsFromAggregate } from "@/lib/dashboard-stats";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     const startOfTodayUtc = new Date();
     startOfTodayUtc.setUTCHours(0, 0, 0, 0);
 
-    const [activeListingsCount, userListings, favoritesCount, unreadMessagesCount] =
+    const [activeListingsCount, viewsAggregate, favoritesCount, unreadMessagesCount] =
       await Promise.all([
         prisma.listing.count({
           where: {
@@ -31,9 +32,9 @@ export async function GET(request: NextRequest) {
             status: "active",
           },
         }),
-        prisma.listing.findMany({
+        prisma.listing.aggregate({
           where: { ownerUserId: user.id },
-          select: { views: true },
+          _sum: { views: true },
         }),
         prisma.favorite.count({ where: { userId: user.id } }),
         prisma.message.count({
@@ -41,11 +42,7 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
-    const totalViews = userListings.reduce(
-      (sum: number, listing: { views: number | null }) =>
-        sum + (listing.views || 0),
-      0
-    );
+    const totalViews = totalViewsFromAggregate(viewsAggregate._sum);
 
     const start7d = new Date(startOfTodayUtc);
     start7d.setUTCDate(start7d.getUTCDate() - 6);

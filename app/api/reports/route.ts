@@ -9,6 +9,8 @@ import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 import { AdminNotificationSeverity } from "@prisma/client";
 import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
+import { clampInt } from "@/lib/infra/clamp-int";
+import { ADMIN_REPORTS_MAX } from "@/lib/infra/production-limits";
 
 export async function POST(request: NextRequest) {
   try {
@@ -232,8 +234,18 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status") || "pending";
-    const limit = parseInt(url.searchParams.get("limit") || "50");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+    const limit = clampInt(
+      parseInt(url.searchParams.get("limit") || "50", 10),
+      1,
+      ADMIN_REPORTS_MAX,
+      50
+    );
+    const offset = clampInt(
+      parseInt(url.searchParams.get("offset") || "0", 10),
+      0,
+      10_000,
+      0
+    );
 
     const reports = await prisma.report.findMany({
       where: {

@@ -48,6 +48,20 @@ fi
 
 log "✅ Working tree curat (doar conținut versionat va fi împins)."
 
+if [ "${CONFIRM_PROD_DEPLOY:-}" != "1" ]; then
+  banner "Confirmare producție necesară"
+  log "❌ Setează CONFIRM_PROD_DEPLOY=1 pentru a continua deploy pe ${DEPLOY_SERVER}."
+  log "   Exemplu: CONFIRM_PROD_DEPLOY=1 npm run deploy:prod"
+  exit 1
+fi
+
+if [[ "$DEPLOY_SERVER" == *"46.225.69.155"* ]] && [[ "${ALLOW_STAGING_DIR_ON_PROD:-}" != "1" ]]; then
+  if [ "${DEPLOY_DIR:-/var/www/clickanunt}" != "/var/www/clickanunt" ]; then
+    log "❌ DEPLOY_DIR neobișnuit pentru producție: ${DEPLOY_DIR:-}"
+    exit 1
+  fi
+fi
+
 banner "Push origin $BRANCH"
 git push origin "$BRANCH"
 log "✅ Push OK."

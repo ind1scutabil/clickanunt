@@ -11,6 +11,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateCSRFToken } from '@/lib/security/csrf';
 import { rateLimitPresets, getClientIp, RateLimitResult } from '@/lib/rateLimit';
+import {
+  resolveSecureRateLimit,
+  type SecureRateLimitPreset,
+} from '@/lib/rate-limit-distributed';
+import { logApiRouteError } from '@/lib/observability/api-route-error';
+import { recordRequestDurationMs } from '@/lib/infra/request-metrics';
 import { parseAndValidate } from '@/lib/security/validation-schemas';
 import { logger } from '@/lib/observability';
 import { verifyAccessToken } from '@/lib/security/tokens';
@@ -44,6 +50,9 @@ export async function validateSecureRequest(
     rateLimit = null,
     schema = null,
   } = options;
+
+  const metricsStart =
+    process.env.ENABLE_PRODUCTION_HEALTH_OPS === '1' ? performance.now() : null;
 
   try {
     // Get client IP for rate limiting and logging
@@ -106,59 +115,49 @@ export async function validateSecureRequest(
     // ===== 3. RATE LIMITING =====
     if (rateLimit) {
       let rateLimitResult: RateLimitResult;
-      
+
       switch (rateLimit) {
         case 'login': {
-          let loginHint = "";
+          let loginHint = '';
           const vd =
-            validatedData && typeof validatedData === "object"
+            validatedData && typeof validatedData === 'object'
               ? (validatedData as Record<string, unknown>)
               : null;
           if (vd) {
             const em = vd.email;
-            if (typeof em === "string" && em.trim()) {
+            if (typeof em === 'string' && em.trim()) {
               loginHint = em;
-            } else if (typeof vd.sessionToken === "string" && vd.sessionToken) {
+            } else if (typeof vd.sessionToken === 'string' && vd.sessionToken) {
               loginHint =
-                "2fa:" +
+                '2fa:' +
                 crypto
-                  .createHash("sha256")
+                  .createHash('sha256')
                   .update(vd.sessionToken)
-                  .digest("hex")
+                  .digest('hex')
                   .slice(0, 24);
             }
           }
-          rateLimitResult = rateLimitPresets.login(clientIp, loginHint);
+          rateLimitResult = await resolveSecureRateLimit(
+            'login',
+            clientIp,
+            userId,
+            loginHint
+          );
           break;
         }
         case 'register':
-          rateLimitResult = rateLimitPresets.register(clientIp);
-          break;
         case 'listings':
-          rateLimitResult = userId
-            ? rateLimitPresets.createListing(userId)
-            : rateLimitPresets.api(clientIp);
-          break;
         case 'messages':
-          rateLimitResult = userId
-            ? rateLimitPresets.messages(userId, 'user')
-            : rateLimitPresets.messages(clientIp, 'ip');
-          break;
         case 'reports':
-          rateLimitResult = userId
-            ? rateLimitPresets.createReport(userId)
-            : rateLimitPresets.reports(clientIp);
-          break;
         case 'upload':
-          rateLimitResult = userId
-            ? rateLimitPresets.uploadImage(userId)
-            : rateLimitPresets.upload(clientIp);
-          break;
         case 'contact':
-          rateLimitResult = rateLimitPresets.contact(clientIp);
-          break;
         case 'api':
-          rateLimitResult = rateLimitPresets.api(clientIp);
+        case 'moderation':
+          rateLimitResult = await resolveSecureRateLimit(
+            rateLimit as SecureRateLimitPreset,
+            clientIp,
+            userId
+          );
           break;
         case 'payment':
           try {
@@ -207,18 +206,21 @@ export async function validateSecureRequest(
       data: validatedData,
     };
   } catch (error) {
-    logger.error('Security validation error', {
-      metadata: {
-        error: error instanceof Error ? error.message : String(error),
-        path: request.nextUrl.pathname,
-        method: request.method,
-      },
+    logApiRouteError('Security validation error', error, {
+      route: request.nextUrl.pathname,
+      method: request.method,
+      requestId: request.headers.get('x-request-id'),
+      code: 'security_validation',
     });
 
     return {
       success: false,
       error: 'Internal validation error',
     };
+  } finally {
+    if (metricsStart != null) {
+      recordRequestDurationMs(performance.now() - metricsStart);
+    }
   }
 }
 

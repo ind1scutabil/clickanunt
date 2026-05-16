@@ -67,20 +67,25 @@ export async function GET(
       take: 50,
     });
 
-    // Calculate stats
-    const allListings = await prisma.listing.findMany({
-      where: { ownerUserId: userId },
-      select: {
-        status: true,
-        views: true,
-      },
-    });
+    const [totalListings, activeListings, soldListings, viewsAgg] = await Promise.all([
+      prisma.listing.count({ where: { ownerUserId: userId } }),
+      prisma.listing.count({
+        where: { ownerUserId: userId, status: 'active' },
+      }),
+      prisma.listing.count({
+        where: { ownerUserId: userId, status: 'sold' },
+      }),
+      prisma.listing.aggregate({
+        where: { ownerUserId: userId },
+        _sum: { views: true },
+      }),
+    ]);
 
     const stats = {
-      totalListings: allListings.length,
-      activeListings: allListings.filter((l: any) => l.status === 'active').length,
-      soldListings: allListings.filter((l: any) => l.status === 'sold').length,
-      totalViews: allListings.reduce((sum: number, l: any) => sum + l.views, 0),
+      totalListings,
+      activeListings,
+      soldListings,
+      totalViews: viewsAgg._sum.views ?? 0,
     };
 
     return NextResponse.json({

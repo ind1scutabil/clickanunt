@@ -7,6 +7,7 @@ import { MicrosoftClarity } from "./components/analytics/MicrosoftClarity";
 import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
 import { warnIfProductionSiteUrlMissing } from "@/lib/seo/site-url-guard";
 import { siteOrigin } from "@/lib/site-url";
+import { stagingRobotsMetadata } from "@/lib/staging/site-mode";
 
 const googleVerification =
   process.env.GOOGLE_SITE_VERIFICATION?.trim() ||
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   authors: [{ name: "ClickAnunț" }],
   creator: "ClickAnunț",
   publisher: "ClickAnunț",
-  robots: "index, follow",
+  robots: stagingRobotsMetadata(),
   metadataBase: new URL(siteOrigin()),
   alternates: {
     canonical: '/',

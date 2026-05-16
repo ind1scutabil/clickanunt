@@ -92,52 +92,63 @@ async function checkStorage(): Promise<HealthCheck> {
 }
 
 /**
- * Check Redis connectivity (optional) - Not currently used
+ * Check Redis connectivity when REDIS_URL is set (optional dependency).
  */
-async function _checkRedis(): Promise<HealthCheck> {
-  // TODO: Implement actual Redis check when integrated
-  if (!process.env.REDIS_URL) {
-    return {
-      status: 'down',
-      error: 'Redis not configured (using memory fallback)',
-    };
+export async function checkRedis(): Promise<HealthCheck | null> {
+  if (!process.env.REDIS_URL?.trim()) {
+    return null;
   }
 
-  return {
-    status: 'up',
-    details: {
-      note: 'Redis check not implemented yet',
-    },
-  };
+  const start = Date.now();
+  try {
+    const { getRedisClient } = await import('./redis');
+    const redis = getRedisClient();
+    await redis.ping();
+    return {
+      status: 'up',
+      latency: Date.now() - start,
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Redis ping failed';
+    return {
+      status: 'down',
+      error: message,
+      latency: Date.now() - start,
+    };
+  }
 }
 
 /**
  * Run all health checks
  */
 export async function performHealthCheck(): Promise<HealthStatus> {
-  const [database, storage] = await Promise.all([
+  const [database, storage, redis] = await Promise.all([
     checkDatabase(),
     checkStorage(),
+    checkRedis(),
   ]);
 
   // Determine overall status: healthy only if database AND storage are up
   let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-  
+
   if (database.status === 'down') {
     status = 'unhealthy';
   } else if (storage.status === 'down') {
     status = 'degraded';
+  } else if (redis?.status === 'down') {
+    status = 'degraded';
   }
-  // Storage being "local" (up) doesn't degrade the status
+
+  const checks: HealthStatus['checks'] = { database, storage };
+  if (redis) {
+    checks.redis = redis;
+  }
 
   return {
     status,
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    checks: {
-      database,
-      storage,
-    },
+    checks,
   };
 }
 

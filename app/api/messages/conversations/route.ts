@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { prisma } from "@/lib/prisma";
 import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging-user-id";
+import { resolveConversationsTake } from "@/lib/messaging/conversations-limit";
+import { stagingServerTimingHeader } from "@/lib/observability/route-timing-header";
+import { logger } from "@/lib/observability";
 
 /**
  * GET /api/messages/conversations
@@ -28,6 +31,10 @@ export async function GET(request: NextRequest) {
 
     const userCanon =
       canonicalMessagingUserId(userId) ?? userId.trim().toLowerCase();
+
+    const { searchParams } = new URL(request.url);
+    const take = resolveConversationsTake(searchParams.get("limit"));
+    const t0 = Date.now();
 
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -73,6 +80,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { lastMessageAt: "desc" },
+      take,
     });
 
     const formattedConversations = conversations.map((conv) => {
@@ -92,20 +100,20 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const unreadSum = formattedConversations.reduce((a, c) => a + c.unreadCount, 0);
-    console.log("[api/messages/conversations]", {
-      userId: userCanon,
-      conversationsCount: formattedConversations.length,
-      unreadAcrossThreads: unreadSum,
-    });
-    console.log("[MSG_DEBUG] FETCH CONVERSATIONS", {
-      currentUserId: userCanon,
-      conversationCount: conversations.length,
-      conversationIds: conversations.map((c) => c.id),
+    const durationMs = Date.now() - t0;
+    logger.debug("messages.conversations.fetched", {
+      userIdSuffix: userCanon.slice(0, 8),
+      count: formattedConversations.length,
+      takeCap: take,
+      durationMs,
     });
 
+    const timingHeaders = stagingServerTimingHeader(durationMs, "db");
     return NextResponse.json(formattedConversations, {
-      headers: { "Cache-Control": "private, no-store" },
+      headers: {
+        "Cache-Control": "private, no-store",
+        ...(timingHeaders ?? {}),
+      },
     });
   } catch (error: unknown) {
     console.error("Error fetching conversations:", error);
