@@ -23,14 +23,11 @@ function SpecRow({
   const isCity = label === 'Oraș' && cityHref;
 
   return (
-    <div className="listing-spec-row flex items-start justify-between gap-3 rounded-md border border-zinc-700/40 bg-zinc-900/55 px-3 py-2.5">
-      <span className="listing-spec-row__label shrink-0 text-sm font-medium text-zinc-400">{label}</span>
-      <span className="listing-spec-row__value min-w-0 flex-1 text-right text-sm font-semibold leading-snug text-zinc-50">
+    <div className="listing-spec-row">
+      <span className="listing-spec-row__label">{label}</span>
+      <span className="listing-spec-row__value" data-spec-value>
         {isCity ? (
-          <Link
-            href={cityHref}
-            className="text-zinc-50 underline-offset-4 transition-colors hover:text-cyan-200 hover:underline"
-          >
+          <Link href={cityHref} className="listing-spec-row__value-link">
             {value}
           </Link>
         ) : (
@@ -49,19 +46,25 @@ export function ListingTechnicalDetails({ listing, cityHref }: Props): React.JSX
   }
 
   return (
-    <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3.5 shadow-sm backdrop-blur-sm md:rounded-2xl md:p-5">
+    <section
+      className="listing-technical-details relative rounded-xl border border-zinc-700/40 bg-zinc-900 p-3.5 shadow-sm md:rounded-2xl md:bg-gradient-to-br md:from-zinc-900/95 md:to-zinc-950/95 md:p-5"
+      aria-labelledby="listing-technical-details-heading"
+    >
       <div
-        className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br from-zinc-800/35 to-transparent md:rounded-2xl"
+        className="pointer-events-none absolute inset-0 hidden rounded-xl bg-gradient-to-br from-zinc-800/35 to-transparent md:block md:rounded-2xl"
         aria-hidden
       />
-      <div className="relative z-[1]">
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-tight text-white md:mb-3 md:gap-2.5 md:text-base">
+      <div className="listing-technical-details__content relative z-[1]">
+        <h2
+          id="listing-technical-details-heading"
+          className="mb-2 flex items-center gap-2 text-sm font-semibold tracking-tight text-white md:mb-3 md:gap-2.5 md:text-base"
+        >
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-[#6D5BFF] to-[#4E3CFF] text-xs text-white md:h-9 md:w-9 md:rounded-lg md:text-sm">
             📋
           </span>
           Detalii Tehnice
         </h2>
-        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
+        <div className="listing-technical-details__grid">
           {rows.map((row, index) => (
             <SpecRow
               key={`${row.label}-${index}`}
@@ -72,6 +75,6 @@ export function ListingTechnicalDetails({ listing, cityHref }: Props): React.JSX
           ))}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
