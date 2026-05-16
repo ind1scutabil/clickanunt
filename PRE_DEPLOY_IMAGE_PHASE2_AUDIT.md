@@ -3,7 +3,7 @@
 **Date:** 2026-05-16  
 **Branch:** `current-infra-stability-safe`  
 **Rollback commit (production + local HEAD before deploy):** `fad54421`  
-**Deploy commit:** _(filled after commit)_
+**Deploy commit:** `da6f05f0`
 
 ---
 
