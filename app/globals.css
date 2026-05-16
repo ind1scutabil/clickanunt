@@ -87,7 +87,7 @@
   --hero-bg-h: min(46svh, 340px);
 }
 
-/* Mobile: shorter hero slot = less object-cover zoom; room for title + car + CTAs above tab dock */
+/* Mobile: balanced hero slot — less crop zoom than full viewport, room for car + lower CTAs */
 @media (max-width: 767.98px) {
   .hero-premium-root {
     --hero-bg-h: clamp(23rem, 54svh, 31.5rem);
@@ -163,27 +163,27 @@
   object-position: 56% 44%;
 }
 
-/* Mobile: center-right BMW, slightly zoomed out inside the crop box */
+/* Mobile: BMW ~12% smaller than live (116%→102%); car right + lower in frame */
 @media (max-width: 767.98px) {
   .hero-premium-photo {
     object-fit: cover;
-    object-position: 58% 38%;
-    width: 116%;
-    height: 116%;
+    object-position: 74% 44%;
+    width: 102%;
+    height: 102%;
     max-width: none;
     max-height: none;
     inset: auto;
     left: 50%;
-    top: 44%;
-    transform: translate(-58%, -46%);
+    top: 50%;
+    transform: translate(-74%, -40%);
   }
 }
 
-/* Narrow phones: keep rear profile readable without oversizing */
+/* Narrow phones */
 @media (max-width: 479.98px) {
   .hero-premium-photo {
-    object-position: 60% 36%;
-    transform: translate(-60%, -44%);
+    object-position: 76% 42%;
+    transform: translate(-76%, -38%);
   }
 }
 
@@ -225,24 +225,34 @@
 
 @media (max-width: 767.98px) {
   .hero-overlay-responsive {
-    /* Lighter scrim so the mobile hero asset reads sharper */
-    background: linear-gradient(
-      180deg,
-      rgba(12, 14, 20, 0.32) 0%,
-      rgba(10, 11, 17, 0.14) 44%,
-      rgba(6, 7, 11, 0.05) 82%,
-      rgba(0, 0, 0, 0) 100%
-    );
+    /* Top readable; left + lower bands keep CTAs off bright trunk */
+    background:
+      linear-gradient(
+        108deg,
+        rgba(10, 11, 17, 0.42) 0%,
+        rgba(8, 9, 14, 0.22) 38%,
+        rgba(0, 0, 0, 0) 62%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(12, 14, 20, 0.34) 0%,
+        rgba(10, 11, 17, 0.12) 34%,
+        rgba(8, 9, 14, 0.08) 50%,
+        rgba(6, 7, 11, 0.16) 70%,
+        rgba(5, 6, 10, 0.1) 88%,
+        rgba(0, 0, 0, 0) 100%
+      );
   }
 
   .hero-premium-grain {
     opacity: 0.016;
   }
 
-  /* Content shell: CTAs anchor to bottom of hero image area, not mid-frame over the car */
+  /* Content shell: title/search top; CTAs pinned to bottom of hero image band */
   .hero-premium-shell {
+    position: relative;
     justify-content: flex-start;
-    padding-bottom: max(0.35rem, env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 
   .hero-premium-shell > .grid {
@@ -263,16 +273,33 @@
     flex-direction: column;
     min-height: 0;
     justify-content: flex-start !important;
+    padding-bottom: 8.5rem;
   }
 
   .hero-premium-mobile-gap {
-    flex: 1 1 auto;
-    min-height: clamp(6.5rem, 24vw, 10.5rem);
+    flex: 0 0 auto;
+    min-height: clamp(2.75rem, 9vw, 4.25rem);
   }
 
   .hero-premium-mobile-cta {
-    margin-top: auto !important;
+    position: absolute;
+    left: 0.625rem;
+    right: 0.625rem;
+    bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    width: auto;
+    max-width: 18rem;
+    margin-top: 0 !important;
     flex-shrink: 0;
+    padding-bottom: 0.15rem;
+  }
+}
+
+/* Narrow mobile (≤430): CTA ~16px lower — clears trunk, title/search unchanged */
+@media (max-width: 430px) {
+  .hero-premium-mobile-cta {
+    bottom: max(0px, env(safe-area-inset-bottom, 0px));
+    transform: translateY(0.5rem);
   }
 }
 
