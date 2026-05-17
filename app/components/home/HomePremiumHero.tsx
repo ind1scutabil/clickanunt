@@ -194,10 +194,10 @@ export function HomePremiumHero({
                 </span>
               </div>
 
-              <div className="hero-premium-mobile-cta mt-4 flex w-full max-w-xl shrink-0 flex-col gap-2.5 max-md:gap-2 max-md:border-t max-md:border-white/[0.08] max-md:pt-3 max-md:pb-1 sm:flex-row sm:flex-wrap sm:items-center md:mt-5">
+              <div className="hero-premium-mobile-cta mt-4 flex w-full max-w-xl shrink-0 flex-col gap-2.5 max-md:gap-2 max-md:border-t max-md:border-white/[0.08] max-md:pt-3 max-md:pb-1 md:mt-5 md:flex-row md:flex-wrap md:items-center">
                 <Link
                   href="/listings"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#ff5a00] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e65200] max-md:h-9 max-md:px-4 max-md:text-xs sm:w-auto sm:min-w-[13rem]"
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#ff5a00] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e65200] max-md:h-9 max-md:px-4 max-md:text-xs md:w-auto md:min-w-[13rem]"
                 >
                   <span className="tabular-nums">{listingsCta}</span>
                   <span className="ml-1" aria-hidden>
@@ -206,13 +206,13 @@ export function HomePremiumHero({
                 </Link>
                 <Link
                   href="/listings/new"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full border border-white/[0.2] bg-zinc-900/60 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.28] hover:bg-zinc-800/70 max-md:h-9 max-md:px-4 max-md:text-xs sm:w-auto"
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full border border-white/[0.2] bg-zinc-900/60 px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.28] hover:bg-zinc-800/70 max-md:h-9 max-md:px-4 max-md:text-xs md:w-auto"
                 >
                   Publică anunț
                 </Link>
                 <Link
                   href="/auth/login"
-                  className="inline-flex h-11 items-center justify-center px-2 text-sm font-medium text-zinc-400/90 underline-offset-[3px] transition-colors hover:text-zinc-100 hover:underline max-md:mx-auto max-md:min-h-[2rem] max-md:px-4 max-md:py-1.5 max-md:text-[11px] sm:px-3"
+                  className="inline-flex h-11 items-center justify-center px-2 text-sm font-medium text-zinc-400/90 underline-offset-[3px] transition-colors hover:text-zinc-100 hover:underline max-md:mx-auto max-md:min-h-[2rem] max-md:px-4 max-md:py-1.5 max-md:text-[11px] md:px-3"
                 >
                   Autentificare
                 </Link>
