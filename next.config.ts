@@ -72,6 +72,7 @@ const nextConfig: NextConfig = {
       { source: "/sitemap-cities.xml", destination: "/sitemap-serve/cities" },
       { source: "/sitemap-listings.xml", destination: "/sitemap-serve/listings-index" },
       { source: "/sitemap-listings-:chunk.xml", destination: "/sitemap-serve/listings/:chunk" },
+      { source: "/sitemap-auto-hubs.xml", destination: "/sitemap-serve/auto-hubs" },
     ];
   },
   

@@ -56,6 +56,8 @@ export interface ListingsViewProps {
   initialCategory?: string;
   initialCity?: string;
   initialCounty?: string;
+  initialMake?: string;
+  initialModel?: string;
   pageTitle?: string;
   seoIntro?: ReactNode;
 }
@@ -83,6 +85,8 @@ export default function ListingsView({
   initialCategory,
   initialCity,
   initialCounty,
+  initialMake,
+  initialModel,
   pageTitle,
   seoIntro,
 }: ListingsViewProps = {}) {
@@ -158,12 +162,18 @@ export default function ListingsView({
     const hasListingQuery =
       Boolean(searchQuery) || Boolean(category) || Boolean(subcategory) || Boolean(county) || Boolean(city);
 
-    if (!hasListingQuery && routeBase && (initialCategory || initialCity || initialCounty)) {
+    if (
+      !hasListingQuery &&
+      routeBase &&
+      (initialCategory || initialCity || initialCounty || initialMake || initialModel)
+    ) {
       setFilters((prev) => ({
         ...prev,
         ...(initialCategory ? { category: initialCategory } : {}),
         ...(initialCounty ? { county: initialCounty } : {}),
         ...(initialCity ? { city: initialCity } : {}),
+        ...(initialMake ? { make: initialMake } : {}),
+        ...(initialModel ? { model: initialModel } : {}),
       }));
       setIsFiltersOpen(false);
     } else if (hasListingQuery) {
@@ -181,7 +191,7 @@ export default function ListingsView({
     if (!Number.isNaN(pageParam) && pageParam > 0) {
       setPage(pageParam);
     }
-  }, [searchParams, routeBase, initialCategory, initialCity, initialCounty]);
+  }, [searchParams, routeBase, initialCategory, initialCity, initialCounty, initialMake, initialModel]);
 
   useEffect(() => {
     loadListings();

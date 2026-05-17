@@ -16,6 +16,7 @@ export default function robots(): MetadataRoute.Robots {
     `${base}/sitemap-categories.xml`,
     `${base}/sitemap-cities.xml`,
     `${base}/sitemap-listings.xml`,
+    `${base}/sitemap-auto-hubs.xml`,
   ];
 
   const privatePaths = [
