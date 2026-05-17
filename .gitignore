@@ -18,6 +18,7 @@ playwright-report/
 
 # testing
 /coverage
+/tests/fixtures/listing-photos/
 
 # next.js
 /out/

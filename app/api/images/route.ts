@@ -8,7 +8,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60; // Extended timeout for image processing
 
 import { NextRequest, NextResponse } from "next/server";
-import { processImageMultipleSizes, validateImage, stripExifData } from "@/lib/imageProcessing";
+import {
+  processImageMultipleSizes,
+  prepareListingImageForUpload,
+} from "@/lib/imageProcessing";
 import { uploadImage, generateImageKey } from "@/lib/storage";
 import { moderateImage } from "@/lib/moderation";
 import { validateCSRFToken, CSRFValidationError } from "@/lib/security/csrf";
@@ -67,18 +70,16 @@ export async function POST(request: NextRequest) {
             };
           }
 
-          // Validate image
-          const validation = await validateImage(buffer);
-          if (!validation.valid) {
+          const prepared = await prepareListingImageForUpload(buffer);
+          if (!prepared.success) {
             return {
               success: false,
               filename: file.name,
-              error: validation.error,
+              error: prepared.error,
             };
           }
 
-          // Strip EXIF data for privacy
-          const cleanBuffer = await stripExifData(buffer);
+          const cleanBuffer = prepared.buffer;
 
           // Process image into multiple sizes
           const processedImages = await processImageMultipleSizes(cleanBuffer, [

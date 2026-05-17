@@ -4,6 +4,10 @@
  */
 
 import sharp from 'sharp';
+import {
+  LISTING_IMAGE_PROCESS_ERROR,
+  LISTING_IMAGE_UPLOAD,
+} from '@/lib/listing-image-upload-config';
 
 // Image size presets for responsive images
 export const IMAGE_SIZES = {
@@ -101,16 +105,6 @@ export async function validateImage(buffer: Buffer): Promise<{
       };
     }
 
-    // Check dimensions
-    const maxWidth = 5000;
-    const maxHeight = 5000;
-    if (metadata.width! > maxWidth || metadata.height! > maxHeight) {
-      return {
-        valid: false,
-        error: `Image too large. Max dimensions: ${maxWidth}x${maxHeight}`,
-      };
-    }
-
     // Check file size (from buffer length)
     const maxSizeBytes = 10 * 1024 * 1024; // 10MB
     if (buffer.length > maxSizeBytes) {
@@ -201,6 +195,81 @@ export async function batchProcessImages(
       filename: img.filename,
     }))
   );
+}
+
+export type PrepareListingImageResult =
+  | { success: true; buffer: Buffer }
+  | { success: false; error: string };
+
+/**
+ * Normalize listing upload: EXIF orientation, resize if oversized, JPEG output.
+ * Replaces hard dimension rejection — mobile photos are resized instead of blocked.
+ */
+export async function prepareListingImageForUpload(
+  buffer: Buffer
+): Promise<PrepareListingImageResult> {
+  const {
+    maxDecodeBytes,
+    maxInputFileBytes,
+    maxOutputLongestSide,
+    jpegQuality,
+    jpegQualityFallback,
+    acceptedSharpFormats,
+  } = LISTING_IMAGE_UPLOAD;
+
+  if (buffer.length > maxDecodeBytes) {
+    return {
+      success: false,
+      error: "Fișierul este prea mare. Încearcă o poză mai mică.",
+    };
+  }
+
+  try {
+    const meta = await sharp(buffer, { failOn: "none" }).rotate().metadata();
+    const format = meta.format?.toLowerCase();
+
+    if (!format || !acceptedSharpFormats.has(format)) {
+      return {
+        success: false,
+        error: "Format neacceptat. Folosește JPEG, PNG sau WebP.",
+      };
+    }
+
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    if (width < 1 || height < 1) {
+      return { success: false, error: LISTING_IMAGE_PROCESS_ERROR };
+    }
+
+    let pipeline = sharp(buffer, { failOn: "none" }).rotate();
+    const longest = Math.max(width, height);
+    if (longest > maxOutputLongestSide) {
+      pipeline = pipeline.resize(maxOutputLongestSide, maxOutputLongestSide, {
+        fit: "inside",
+        withoutEnlargement: true,
+      });
+    }
+
+    let out = await pipeline
+      .jpeg({ quality: jpegQuality, progressive: true, mozjpeg: true })
+      .toBuffer();
+    if (out.length > maxInputFileBytes) {
+      out = await sharp(out)
+        .jpeg({
+          quality: jpegQualityFallback,
+          progressive: true,
+          mozjpeg: true,
+        })
+        .toBuffer();
+    }
+    if (out.length > maxInputFileBytes) {
+      return { success: false, error: LISTING_IMAGE_PROCESS_ERROR };
+    }
+
+    return { success: true, buffer: out };
+  } catch {
+    return { success: false, error: LISTING_IMAGE_PROCESS_ERROR };
+  }
 }
 
 /**

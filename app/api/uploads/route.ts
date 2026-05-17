@@ -3,7 +3,7 @@ export const maxDuration = 120;
 
 import { NextRequest, NextResponse } from "next/server";
 import { uploadImage, generateImageKey } from "@/lib/storage";
-import { validateImage, stripExifData } from "@/lib/imageProcessing";
+import { prepareListingImageForUpload } from "@/lib/imageProcessing";
 import { v4 as uuidv4 } from "uuid";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { uploadBase64Schema } from "@/lib/security/validation-schemas";
@@ -193,17 +193,12 @@ export async function POST(request: NextRequest) {
 
     // For images: validate and process
     if (fileType === "image") {
-      // Validate image
-      const validation = await validateImage(buf);
-      if (!validation.valid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
+      const prepared = await prepareListingImageForUpload(buf);
+      if (!prepared.success) {
+        return NextResponse.json({ error: prepared.error }, { status: 400 });
       }
 
-      // Strip EXIF data for privacy
-      const cleanBuffer = await stripExifData(buf);
+      const cleanBuffer = prepared.buffer;
 
       const id = listingId || uuidv4();
       const safeExt = "jpg";
