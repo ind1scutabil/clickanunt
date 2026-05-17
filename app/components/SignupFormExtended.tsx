@@ -455,8 +455,8 @@ export default function SignupFormExtended() {
             minLength={8}
           />
           <p className="text-xs text-[#9AA3B2] mt-1">
-            Minim 8 caractere: literă mare, literă mică, cifră și simbol{" "}
-            <span className="font-mono text-[#C9D1DD]">{PASSWORD_SPECIAL_CHARS_LABEL}</span>
+            Minim 8 caractere: literă mare, literă mică, cifră și simbol special (
+            <span className="font-mono text-[#C9D1DD]">{PASSWORD_SPECIAL_CHARS_LABEL}</span>)
           </p>
           {passwordFailures.length > 0 && (
             <p className="mt-2 text-xs text-amber-200/95" role="alert" aria-live="polite">

@@ -78,6 +78,22 @@ test.describe('Authentication - Registration validation', () => {
     await expect(page.locator('button[type="submit"]')).not.toBeDisabled();
   });
 
+  test('register with Test123. on mobile submits to dashboard', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/auth/register');
+    const email = `mobile-dot-${Date.now()}@example.com`;
+    await fillRegisterForm(page, {
+      name: 'Test User',
+      email,
+      password: 'Test123.',
+    });
+    const submitButton = page.locator('button[type="submit"]');
+    await expect(submitButton).not.toBeDisabled();
+    await submitButton.click();
+    await page.waitForURL(/\/dashboard/, { timeout: 15000 });
+    expect(page.url()).toContain('/dashboard');
+  });
+
   test('shows password hint when uppercase-only password on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/auth/register');

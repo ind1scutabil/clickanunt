@@ -1,15 +1,24 @@
 import { z } from 'zod';
+import {
+  PASSWORD_DIGIT_RE,
+  PASSWORD_LOWERCASE_RE,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_SPECIAL_RE,
+  PASSWORD_UPPERCASE_RE,
+} from '@/lib/security/password-rules';
 
-// Validation Schemas
+// Validation Schemas (mirror production passwordSchema)
 const EmailSchema = z.string().email('Invalid email address');
 
 const PasswordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter')
-  .regex(/[0-9]/, 'Password must contain a number')
-  .regex(/[!@#$%^&*]/, 'Password must contain a special character');
+  .min(PASSWORD_MIN_LENGTH, 'Password must be at least 8 characters')
+  .max(PASSWORD_MAX_LENGTH, 'Password too long')
+  .regex(PASSWORD_UPPERCASE_RE, 'Password must contain an uppercase letter')
+  .regex(PASSWORD_LOWERCASE_RE, 'Password must contain a lowercase letter')
+  .regex(PASSWORD_DIGIT_RE, 'Password must contain a number')
+  .regex(PASSWORD_SPECIAL_RE, 'Password must contain a special character');
 
 const RegisterSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -292,6 +301,9 @@ describe('Validation - Password', () => {
       'SecurePass123!',
       'MyPassword456@',
       'Test1234!',
+      'Test123.',
+      'Test123_',
+      'Test123-',
     ];
 
     strongPasswords.forEach((password) => {

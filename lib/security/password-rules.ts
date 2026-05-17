@@ -6,13 +6,14 @@
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
-/** Shown in UI — only these specials satisfy validation. */
-export const PASSWORD_SPECIAL_CHARS_LABEL = '!@#$%^&*';
+/** Shown in UI — only these specials satisfy validation (register / reset). */
+export const PASSWORD_SPECIAL_CHARS_LABEL = '!@#$%^&*._-';
 
 export const PASSWORD_UPPERCASE_RE = /[A-Z]/;
 export const PASSWORD_LOWERCASE_RE = /[a-z]/;
 export const PASSWORD_DIGIT_RE = /\d/;
-export const PASSWORD_SPECIAL_RE = /[!@#$%^&*]/;
+/** Hyphen at end of class is literal; dot and underscore are common on mobile keyboards. */
+export const PASSWORD_SPECIAL_RE = /[!@#$%^&*._-]/;
 
 export type PasswordRuleKey = 'minLength' | 'uppercase' | 'lowercase' | 'digit' | 'special';
 
