@@ -13,6 +13,7 @@ import {
 } from "@/lib/promotion-packages";
 import { z } from "zod";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { notifyListingPromoted } from "@/lib/user-notifications";
 
 const promotePostBodySchema = z
   .object({
@@ -59,7 +60,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const listing = await prisma.listing.findUnique({
       where: { id: listingId },
-      select: { id: true, ownerUserId: true, status: true },
+      select: {
+        id: true,
+        title: true,
+        ownerUserId: true,
+        status: true,
+        isPromoted: true,
+        promotionExpiresAt: true,
+      },
     });
 
     if (!listing) {
@@ -113,6 +121,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         paymentMethod: paymentMethod ?? null,
       },
       request,
+    });
+
+    void notifyListingPromoted({
+      userId: listing.ownerUserId,
+      listingTitle: listing.title,
+      promotionExpiresAt: expiresAt,
+      wasPromoted: listing.isPromoted,
+      previousPromotionExpiresAt: listing.promotionExpiresAt,
     });
 
     return NextResponse.json({

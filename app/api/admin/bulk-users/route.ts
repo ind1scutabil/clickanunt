@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
+import { notifyBenefitsGranted } from "@/lib/user-notifications";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 
@@ -100,6 +101,12 @@ export async function POST(request: NextRequest) {
         data: { promotionDiscountPercent: discountValue },
       });
       updated = result.count;
+      if (discountValue > 0) {
+        const segmentUsers = await prisma.user.findMany({ where, select: { id: true } });
+        for (const target of segmentUsers) {
+          void notifyBenefitsGranted(target.id);
+        }
+      }
     } else if (action === 'grant_free_promos') {
       const count = Math.max(0, parseInt(String(freePromos ?? 0), 10));
       const promoType = promotionType || 'top';
@@ -118,6 +125,9 @@ export async function POST(request: NextRequest) {
           where: { id: target.id },
           data: { promotionBenefits: { ...benefits, promotions } },
         });
+        if (count > 0) {
+          void notifyBenefitsGranted(target.id);
+        }
         updated++;
       }
     } else {

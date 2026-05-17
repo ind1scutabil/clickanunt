@@ -370,6 +370,16 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
       }
 
       if (promotionTypeStr) {
+        const listingBeforePromo = await prisma.listing.findUnique({
+          where: { id: listingId },
+          select: {
+            title: true,
+            ownerUserId: true,
+            isPromoted: true,
+            promotionExpiresAt: true,
+          },
+        });
+
         await prisma.listing.update({
           where: { id: listingId },
           data: {
@@ -382,6 +392,17 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
             updatedAt: new Date(),
           },
         });
+
+        if (listingBeforePromo) {
+          const { notifyListingPromoted } = await import('@/lib/user-notifications');
+          void notifyListingPromoted({
+            userId: listingBeforePromo.ownerUserId,
+            listingTitle: listingBeforePromo.title,
+            promotionExpiresAt: promotionEnd,
+            wasPromoted: listingBeforePromo.isPromoted,
+            previousPromotionExpiresAt: listingBeforePromo.promotionExpiresAt,
+          });
+        }
 
         logger.info('Listing promotion activated', {
           listingId,

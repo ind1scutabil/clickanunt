@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
+import { notifyBenefitsGranted } from "@/lib/user-notifications";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { z } from "zod";
@@ -89,6 +90,7 @@ export async function POST(request: NextRequest) {
 
     const expiresAt = new Date(Date.now() + expiryValue * 24 * 60 * 60 * 1000);
     let updated = 0;
+    const shouldNotifyUsers = creditsValue > 0 || freeCount > 0 || discountValue > 0;
 
     for (const target of users) {
       const benefits = (target.promotionBenefits as PromotionBenefits) || {};
@@ -108,6 +110,9 @@ export async function POST(request: NextRequest) {
           promotionBenefits: { ...benefits, promotions },
         },
       });
+      if (shouldNotifyUsers) {
+        void notifyBenefitsGranted(target.id);
+      }
       updated++;
     }
 

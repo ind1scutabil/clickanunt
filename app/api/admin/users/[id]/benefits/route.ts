@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { getUserFromRequest } from "@/lib/auth";
 import { hasPermission, Permission } from "@/lib/rbac";
 import { createAuditLog } from "@/lib/audit";
+import { notifyBenefitsGranted } from "@/lib/user-notifications";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { z } from "zod";
@@ -119,6 +120,15 @@ export async function POST(
     }
 
     await withTimeout(db.updateUser(id, updateData), timeoutMs, 'updateUser');
+
+    const grantedBenefits =
+      (data.creditsBonus !== undefined && data.creditsBonus > 0) ||
+      (data.freePromotions !== undefined && data.freePromotions > 0 && !!data.promotionType) ||
+      data.globalDiscount !== undefined;
+
+    if (grantedBenefits) {
+      void notifyBenefitsGranted(id);
+    }
 
     await withTimeout(
       createAuditLog({

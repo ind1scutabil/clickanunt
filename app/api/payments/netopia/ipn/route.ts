@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
             : metadata.promotionType === 'boost_7days' ? 168
             : 24;
 
+          const promotionExpiresAt = new Date(Date.now() + promotionDuration * 60 * 60 * 1000);
           const { computeFeedBoost } = await import("@/lib/listing-feed-boost");
           await prisma.listing.update({
             where: { id: listing.id },
@@ -192,8 +193,17 @@ export async function POST(req: NextRequest) {
               feedBoost: computeFeedBoost(true, !!listing.isFeatured),
               promotionType: metadata.promotionType,
               promotionStartedAt: new Date(),
-              promotionExpiresAt: new Date(Date.now() + promotionDuration * 60 * 60 * 1000),
+              promotionExpiresAt,
             },
+          });
+
+          const { notifyListingPromoted } = await import("@/lib/user-notifications");
+          void notifyListingPromoted({
+            userId: listing.ownerUserId,
+            listingTitle: listing.title,
+            promotionExpiresAt,
+            wasPromoted: listing.isPromoted,
+            previousPromotionExpiresAt: listing.promotionExpiresAt,
           });
 
           console.log('Netopia: Promotion activated:', listing.id);
