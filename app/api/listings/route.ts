@@ -31,6 +31,11 @@ import {
   prismaOrderByForListingSort,
 } from "@/lib/listing-feed-sort";
 import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-query";
+import {
+  activePublicListingExpiryWhere,
+  applyListingPublishExpiryIfMissing,
+  listingPublishExpiryFields,
+} from "@/lib/listing-expiry";
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +104,15 @@ export async function GET(request: NextRequest) {
 
     if (statusParam !== "all") {
       where.status = statusParam;
+    }
+
+    if (statusParam === "active" && !userIdParam) {
+      const expiryFilter = activePublicListingExpiryWhere();
+      where.AND = Array.isArray(where.AND)
+        ? [...where.AND, expiryFilter]
+        : where.AND
+          ? [where.AND, expiryFilter]
+          : [expiryFilter];
     }
 
     if (userIdParam) {
@@ -656,6 +670,10 @@ export async function POST(request: Request) {
       scamScore: scamResult.score,
       scamFlags: scamResult.flags?.length ? scamResult.flags.map((f) => f.description) : [],
     };
+
+    if (data.status === "active") {
+      Object.assign(data, listingPublishExpiryFields());
+    }
 
     const listing = await prisma.listing.create({ data });
 

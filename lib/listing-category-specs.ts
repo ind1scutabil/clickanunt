@@ -3,6 +3,8 @@
  * Only emits rows with real values (no empty "—" placeholders).
  */
 
+import { formatCountryOfOriginDisplay } from '@/lib/listing-country-options';
+
 export const AUTO_CATEGORY = 'Auto, moto și ambarcațiuni';
 
 export type ListingSpecRow = {
@@ -253,8 +255,25 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
   pushAttrRow(rows, 'Chei', ['keys', 'key_count'], attrs);
   pushAttrRow(rows, 'Istoric service', ['serviceHistory', 'service_history'], attrs);
   pushAttrRow(rows, 'Normă poluare', ['environmentalClass', 'environmental_class', 'emission_standard'], attrs);
-  pushAttrRow(rows, 'ITP valabil până', ['inspectionValid', 'inspection_valid', 'itp'], attrs);
+  pushAttrRow(rows, 'ITP valabil până', ['inspectionValid', 'inspection_valid', 'itp', 'inspectionExpires'], attrs);
   pushAttrRow(rows, 'Garanție', ['warranty', 'garantie'], attrs);
+  const countryRaw = attrFirst(attrs, ['countryOfOrigin', 'country_of_origin']);
+  if (countryRaw) {
+    rows.push({
+      label: 'Țara de proveniență',
+      value: formatCountryOfOriginDisplay(countryRaw),
+    });
+  }
+  const lastRegRaw = attrFirst(attrs, [
+    'lastRegistrationCountry',
+    'last_registration_country',
+  ]);
+  if (lastRegRaw) {
+    rows.push({
+      label: 'Ultima țară de înmatriculare',
+      value: formatCountryOfOriginDisplay(lastRegRaw),
+    });
+  }
 
   const usedKeys = new Set<string>();
   for (const field of REAL_ESTATE_ATTRIBUTE_FIELDS) {

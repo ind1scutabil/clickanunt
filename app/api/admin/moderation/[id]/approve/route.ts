@@ -11,6 +11,7 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { applyListingPublishExpiryIfMissing } from "@/lib/listing-expiry";
 
 export async function POST(
   request: NextRequest,
@@ -48,6 +49,11 @@ export async function POST(
       );
     }
 
+    const existingListing = await prisma.listing.findUnique({
+      where: { id: item.listingId },
+      select: { publishedAt: true, expiresAt: true },
+    });
+
     // Update listing status
     await prisma.listing.update({
       where: { id: item.listingId },
@@ -56,6 +62,7 @@ export async function POST(
         moderatedAt: new Date(),
         moderatedBy: user.id,
         status: 'active',
+        ...applyListingPublishExpiryIfMissing(existingListing ?? {}),
       },
     });
 

@@ -12,6 +12,7 @@ import { createAuditLog } from "@/lib/audit";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promotions";
+import { isListingExplicitlyExpired } from "@/lib/listing-expiry";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -68,13 +69,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const listingFresh = await applyListingPromotionExpiryIfNeeded(prisma, listing);
 
+    const viewer = await getUserFromRequest(request as any);
+    const isOwnerOrAdmin =
+      !!viewer &&
+      (viewer.id === listingFresh.ownerUserId ||
+        hasPermission(viewer.role as UserRole, Permission.LISTINGS_UPDATE_ANY) ||
+        hasPermission(viewer.role as UserRole, Permission.MODERATION_APPROVE_REJECT));
+
+    if (isListingExplicitlyExpired(listingFresh) && !isOwnerOrAdmin) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     // Increment views count
     await prisma.listing.update({
       where: { id },
       data: { views: { increment: 1 } },
     });
 
-    const viewer = await getUserFromRequest(request as any);
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.listing_view,
       userId: viewer?.id ?? null,

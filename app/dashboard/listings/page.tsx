@@ -10,6 +10,11 @@ import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
+import {
+  formatListingExpiryDateRO,
+  formatListingExpiryDisplay,
+  isListingDateExpired,
+} from "@/lib/listing-expiry";
 
 /** Token-uri vizuale — doar această pagină. */
 const pageAmbient =
@@ -57,6 +62,17 @@ export default function MyListingsPage() {
     if (s === "pending" || mod === "pending" || mod === "flagged") return "pending";
     if (s === "rejected" || s === "hidden" || s === "paused") return "pending";
     if (s === "active" && mod === "rejected") return "pending";
+
+    if (
+      s === "active" &&
+      isListingDateExpired({
+        expiresAt: listing.expiresAt as string | Date | null | undefined,
+        createdAt: listing.createdAt as string | Date | null | undefined,
+        publishedAt: listing.publishedAt as string | Date | null | undefined,
+      })
+    ) {
+      return "expired";
+    }
 
     if (s === "active") return "active";
 
@@ -438,8 +454,19 @@ export default function MyListingsPage() {
                           : "—"}
                       </div>
                       <div className="col-span-2 md:col-span-1">
-                        Expiră: {listing.expiresIn != null ? String(listing.expiresIn) : "—"}
+                        Expiră:{" "}
+                        {formatListingExpiryDisplay({
+                          expiresAt: listing.expiresAt as string | null | undefined,
+                          createdAt: listing.createdAt as string | null | undefined,
+                          publishedAt: listing.publishedAt as string | null | undefined,
+                        })}
                       </div>
+                      {listing.isPromoted && listing.promotionExpiresAt ? (
+                        <div className="col-span-2 text-sm text-amber-400/90 md:col-span-4">
+                          Promovare până:{" "}
+                          {formatListingExpiryDateRO(listing.promotionExpiresAt as string)}
+                        </div>
+                      ) : null}
                     </div>
 
                     {listing.moderationNotes && getListingTab(listing) !== "active" && (

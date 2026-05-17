@@ -13,6 +13,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { createAuditLog } from "@/lib/audit";
 import { uuidSchema } from "@/lib/security/validation-schemas";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
+import { applyListingPublishExpiryIfMissing } from "@/lib/listing-expiry";
 
 const adminListingPatchSchema = z
   .object({
@@ -62,7 +63,16 @@ export async function PATCH(
 
     const existing = await prisma.listing.findUnique({
       where: { id },
-      select: { id: true, title: true, ownerUserId: true, status: true, isPromoted: true, isFeatured: true },
+      select: {
+        id: true,
+        title: true,
+        ownerUserId: true,
+        status: true,
+        isPromoted: true,
+        isFeatured: true,
+        publishedAt: true,
+        expiresAt: true,
+      },
     });
 
     if (!existing) {
@@ -87,7 +97,13 @@ export async function PATCH(
       updateData.status = data.status;
       if (data.status === ListingStatus.active) {
         updateData.moderationStatus = ModerationStatus.approved;
-        updateData.publishedAt = new Date();
+        Object.assign(
+          updateData,
+          applyListingPublishExpiryIfMissing({
+            publishedAt: existing.publishedAt,
+            expiresAt: existing.expiresAt,
+          })
+        );
       } else if (data.status === ListingStatus.rejected || data.status === ListingStatus.hidden) {
         updateData.moderationStatus = ModerationStatus.rejected;
       } else if (data.status === ListingStatus.pending) {

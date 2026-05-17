@@ -7,6 +7,8 @@ import { getCsrfToken } from '@/lib/security/csrf-client';
 import { CarSelectorPro } from '@/app/components/CarSelectorPro';
 import { ALL_CATEGORIES, CATEGORIES, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from '@/lib/carData';
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from '@/lib/listing-photo-url';
+import { normalizeCountryOfOriginValue } from '@/lib/listing-country-options';
+import CountryOfOriginSelect from '@/app/components/listing/CountryOfOriginSelect';
 
 const AUTO_CATEGORY = 'Auto, moto și ambarcațiuni';
 
@@ -101,6 +103,17 @@ function sanitizeLoadedNumericAttributes(attrs: Record<string, unknown> | null |
     const disp = numericAttrDisplay(o[k]);
     if (disp === '') delete o[k];
     else o[k] = disp;
+  }
+  return o;
+}
+
+function sanitizeLoadedListingAttributes(attrs: Record<string, unknown> | null | undefined) {
+  const o = sanitizeLoadedNumericAttributes(attrs);
+  for (const key of ['countryOfOrigin', 'lastRegistrationCountry'] as const) {
+    const raw = o[key];
+    if (raw != null && String(raw).trim()) {
+      o[key] = normalizeCountryOfOriginValue(String(raw));
+    }
   }
   return o;
 }
@@ -285,7 +298,7 @@ export default function EditListingPage() {
               fuel: normalizeFuel(data.fuel || ''),
               transmission: normalizeTransmission(data.transmission || ''),
               vin: data.vin || '',
-              attributes: sanitizeLoadedNumericAttributes(data.attributes || {})
+              attributes: sanitizeLoadedListingAttributes(data.attributes || {})
             });
             setPhotos(Array.isArray(data.photos) ? [...data.photos] : []);
           }
@@ -326,7 +339,7 @@ export default function EditListingPage() {
             fuel: normalizeFuel(data.fuel || ''),
             transmission: normalizeTransmission(data.transmission || ''),
             vin: data.vin || '',
-            attributes: sanitizeLoadedNumericAttributes(data.attributes || {})
+            attributes: sanitizeLoadedListingAttributes(data.attributes || {})
           });
           setPhotos(Array.isArray(data.photos) ? [...data.photos] : []);
         }
@@ -384,6 +397,14 @@ export default function EditListingPage() {
       const condition =
         condRaw && ['new', 'used', 'refurbished', 'for_parts'].includes(condRaw) ? condRaw : null;
 
+      const attrs = { ...formData.attributes };
+      for (const key of ['countryOfOrigin', 'lastRegistrationCountry'] as const) {
+        const raw = attrs[key];
+        if (raw != null && String(raw).trim()) {
+          attrs[key] = normalizeCountryOfOriginValue(String(raw));
+        }
+      }
+
       const payload: Record<string, unknown> = {
         ...formData,
         title: formData.title.trim(),
@@ -397,7 +418,7 @@ export default function EditListingPage() {
         priceAmount: formData.priceAmount,
         priceCurrency: formData.priceCurrency,
         photos,
-        attributes: formData.attributes,
+        attributes: attrs,
       };
 
       if (isAutoCategory) {
@@ -1119,14 +1140,17 @@ export default function EditListingPage() {
                 <div className="grid md:grid-cols-2 gap-4 mt-4">
                   <div className="relative group">
                     <label className="block text-sm font-medium text-gray-400 mb-2">
-                      🌍 Țara de origine
+                      🌍 Țara de proveniență
                     </label>
-                    <input
-                      type="text"
-                      value={formData.attributes?.countryOfOrigin || ''}
-                      onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, countryOfOrigin: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
-                      placeholder="ex: Germania, România"
+                    <CountryOfOriginSelect
+                      value={String(formData.attributes?.countryOfOrigin || '')}
+                      onChange={(v) =>
+                        setFormData({
+                          ...formData,
+                          attributes: { ...formData.attributes, countryOfOrigin: v },
+                        })
+                      }
+                      className="w-full max-h-48 px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
                     />
                   </div>
 
@@ -1134,12 +1158,16 @@ export default function EditListingPage() {
                     <label className="block text-sm font-medium text-gray-400 mb-2">
                       🌍 Ultima țară de înmatriculare
                     </label>
-                    <input
-                      type="text"
-                      value={formData.attributes?.lastRegistrationCountry || ''}
-                      onChange={(e) => setFormData({ ...formData, attributes: { ...formData.attributes, lastRegistrationCountry: e.target.value }})}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
-                      placeholder="ex: România"
+                    <CountryOfOriginSelect
+                      value={String(formData.attributes?.lastRegistrationCountry || '')}
+                      onChange={(v) =>
+                        setFormData({
+                          ...formData,
+                          attributes: { ...formData.attributes, lastRegistrationCountry: v },
+                        })
+                      }
+                      className="w-full max-h-48 px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
+                      emptyLabel="La fel / necunoscut"
                     />
                   </div>
                 </div>

@@ -5,6 +5,8 @@ import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUN
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/listing-photo-url";
+import { appendAutoFieldsToListingPayload } from "@/lib/listing-auto-create-payload";
+import CountryOfOriginSelect from "@/app/components/listing/CountryOfOriginSelect";
 
 // Types
 interface DraftListing {
@@ -42,6 +44,7 @@ interface DraftListing {
   registrationDate?: string;
   inspectionExpires?: string;
   countryOfOrigin?: string;
+  lastRegistrationCountry?: string;
   environmentalClass?: string;
   co2Emissions?: number | "";
   upholstery?: string;
@@ -90,6 +93,7 @@ const INITIAL_DRAFT: DraftListing = {
   registrationDate: "",
   inspectionExpires: "",
   countryOfOrigin: "",
+  lastRegistrationCountry: "",
   environmentalClass: "",
   co2Emissions: "",
   upholstery: "",
@@ -557,6 +561,8 @@ export default function OptimizedListingFlow() {
         payload.transmission = normalizedTransmission && validTransmission.has(normalizedTransmission)
           ? normalizedTransmission
           : null;
+
+        appendAutoFieldsToListingPayload(payload, draft);
       }
     
       console.log('📤 Trimis payload la API:', payload);
@@ -1347,24 +1353,30 @@ export default function OptimizedListingFlow() {
 
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
-                      <label className="block text-white font-semibold mb-2">Țara de origine</label>
-                      <select
-                        value={(draft as any).countryOfOrigin || ""}
-                        onChange={(e) => updateField("countryOfOrigin", e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
-                      >
-                        <option value="">Selectează</option>
-                        <option value="DE">Germania</option>
-                        <option value="FR">Franța</option>
-                        <option value="IT">Italia</option>
-                        <option value="AT">Austria</option>
-                        <option value="PL">Polonia</option>
-                        <option value="RO">România</option>
-                        <option value="HU">Ungaria</option>
-                        <option value="BE">Belgia</option>
-                        <option value="NL">Olanda</option>
-                      </select>
+                      <label className="block text-white font-semibold mb-2">
+                        Țara de proveniență
+                      </label>
+                      <CountryOfOriginSelect
+                        value={draft.countryOfOrigin || ""}
+                        onChange={(v) => updateField("countryOfOrigin", v)}
+                        className="w-full max-h-48 px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      />
                     </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-white font-semibold mb-2">
+                      Ultima țară de înmatriculare
+                    </label>
+                    <CountryOfOriginSelect
+                      value={draft.lastRegistrationCountry || ""}
+                      onChange={(v) => updateField("lastRegistrationCountry", v)}
+                      className="w-full max-h-48 px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                      emptyLabel="La fel / necunoscut"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
                       <label className="block text-white font-semibold mb-2">Clasa de mediu</label>
                       <select

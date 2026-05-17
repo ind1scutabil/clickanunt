@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { normalizeCountryOfOriginValue } from '@/lib/listing-country-options';
 import { isValidListingPhotoUrl } from '../listing-photo-url';
 import {
   PASSWORD_DIGIT_RE,
@@ -281,7 +282,13 @@ export const listingCreateSchema = z.object({
   keys: z.coerce.number().int().min(0).max(10).optional().nullable(),
   registrationDate: z.string().optional().nullable(),
   inspectionExpires: z.string().optional().nullable(),
-  countryOfOrigin: z.string().max(2).optional().nullable(),
+  countryOfOrigin: z.preprocess(
+    (v) =>
+      typeof v === "string" && v.trim()
+        ? normalizeCountryOfOriginValue(v) || v.trim()
+        : v,
+    z.string().max(16).optional().nullable()
+  ),
   environmentalClass: z.string().optional().nullable(),
   co2Emissions: z.coerce.number().int().min(0).max(10000).optional().nullable(),
   upholstery: z.string().optional().nullable(),

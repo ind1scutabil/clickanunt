@@ -72,6 +72,12 @@ export async function ftsSearchListingIds(
     FROM listings
     WHERE 
       (${activeOnly}::boolean = false OR status = 'active')
+      AND (
+        ${activeOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "expiresAt" IS NULL
+        OR "expiresAt" > NOW()
+      )
       AND "deletedAt" IS NULL
       AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
       AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
@@ -97,6 +103,12 @@ export async function ftsSearchListingIds(
     FROM listings
     WHERE 
       (${activeOnly}::boolean = false OR status = 'active')
+      AND (
+        ${activeOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "expiresAt" IS NULL
+        OR "expiresAt" > NOW()
+      )
       AND "deletedAt" IS NULL
       AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
       AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
