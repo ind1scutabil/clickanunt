@@ -7,6 +7,14 @@
 
 import { z } from 'zod';
 import { isValidListingPhotoUrl } from '../listing-photo-url';
+import {
+  PASSWORD_DIGIT_RE,
+  PASSWORD_LOWERCASE_RE,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_SPECIAL_RE,
+  PASSWORD_UPPERCASE_RE,
+} from './password-rules';
 
 /**
  * URL pentru foto la create/edit/listing draft: permite https/http (CDN/stocare) și căi interne de upload
@@ -34,12 +42,12 @@ export const emailSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Parola minimum 8 caractere')
-  .max(128, 'Parola prea lungă')
-  .regex(/[A-Z]/, 'Parola trebuie să conțină o literă mare')
-  .regex(/[a-z]/, 'Parola trebuie să conțină o literă mică')
-  .regex(/\d/, 'Parola trebuie să conțină o cifră')
-  .regex(/[!@#$%^&*]/, 'Parola trebuie să conțină un simbol special');
+  .min(PASSWORD_MIN_LENGTH, 'Parola minimum 8 caractere')
+  .max(PASSWORD_MAX_LENGTH, 'Parola prea lungă')
+  .regex(PASSWORD_UPPERCASE_RE, 'Parola trebuie să conțină o literă mare')
+  .regex(PASSWORD_LOWERCASE_RE, 'Parola trebuie să conțină o literă mică')
+  .regex(PASSWORD_DIGIT_RE, 'Parola trebuie să conțină o cifră')
+  .regex(PASSWORD_SPECIAL_RE, 'Parola trebuie să conțină un simbol special');
 
 export const nameSchema = z
   .string()

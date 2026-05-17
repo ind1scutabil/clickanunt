@@ -67,6 +67,28 @@ test.describe.serial('Authentication - Registration & session', () => {
 });
 
 test.describe('Authentication - Registration validation', () => {
+  test('enables submit for Test123! on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/auth/register');
+    await fillRegisterForm(page, {
+      name: 'Test User',
+      email: `mobile-${Date.now()}@example.com`,
+      password: 'Test123!',
+    });
+    await expect(page.locator('button[type="submit"]')).not.toBeDisabled();
+  });
+
+  test('shows password hint when uppercase-only password on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/auth/register');
+    await page.fill('input[name="name"]', 'Test User');
+    await page.fill('input[name="email"]', `hint-${Date.now()}@example.com`);
+    await page.fill('input[name="password"]', 'TEST123!');
+    await page.fill('input[name="confirmPassword"]', 'TEST123!');
+    await expect(page.getByRole('alert').filter({ hasText: /literă mică/i })).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toBeDisabled();
+  });
+
   test('should reject registration with invalid password', async ({ page }) => {
     await page.goto('/auth/register');
     await fillRegisterForm(page, {

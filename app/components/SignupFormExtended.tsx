@@ -4,16 +4,12 @@ import { useMemo, useState } from "react";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
 import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
-
-/** Mirrors lib/security/validation-schemas passwordSchema for client-side enable/disable */
-function meetsPasswordRules(p: string): boolean {
-  if (p.length < 8 || p.length > 128) return false;
-  if (!/[A-Z]/.test(p)) return false;
-  if (!/[a-z]/.test(p)) return false;
-  if (!/\d/.test(p)) return false;
-  if (!/[!@#$%^&*]/.test(p)) return false;
-  return true;
-}
+import {
+  formatPasswordRuleFailures,
+  getPasswordRuleFailures,
+  meetsPasswordRules,
+  PASSWORD_SPECIAL_CHARS_LABEL,
+} from "@/lib/security/password-rules";
 
 const PHONE_RE = /^[0-9+\-\s().]{7,32}$/;
 
@@ -51,6 +47,14 @@ export default function SignupFormExtended() {
     if (t.length < 3 || t.length > 255) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
   }, [email]);
+
+  const passwordFailures = useMemo(
+    () => (password.length > 0 ? getPasswordRuleFailures(password) : []),
+    [password],
+  );
+
+  const passwordsMismatch =
+    confirmPassword.length > 0 && password.length > 0 && password !== confirmPassword;
 
   const canSubmit = useMemo(() => {
     if (password !== confirmPassword) return false;
@@ -451,9 +455,14 @@ export default function SignupFormExtended() {
             minLength={8}
           />
           <p className="text-xs text-[#9AA3B2] mt-1">
-            Minim 8 caractere, inclusiv o literă mare, o cifră și un simbol special{" "}
-            <span className="font-mono text-[#C9D1DD]">!@#$%^&*</span>
+            Minim 8 caractere: literă mare, literă mică, cifră și simbol{" "}
+            <span className="font-mono text-[#C9D1DD]">{PASSWORD_SPECIAL_CHARS_LABEL}</span>
           </p>
+          {passwordFailures.length > 0 && (
+            <p className="mt-2 text-xs text-amber-200/95" role="alert" aria-live="polite">
+              Parola încă necesită: {formatPasswordRuleFailures(passwordFailures)}.
+            </p>
+          )}
         </div>
 
         <div>
@@ -469,6 +478,11 @@ export default function SignupFormExtended() {
             required
             minLength={8}
           />
+          {passwordsMismatch && (
+            <p className="mt-2 text-xs text-red-300/95" role="alert" aria-live="polite">
+              Parolele nu coincid.
+            </p>
+          )}
         </div>
       </div>
 
