@@ -8,6 +8,8 @@ import {
   normalizeListingPhotosArray,
   setListingPhotoSiteOriginOverride,
 } from '../../../../lib/listing-photo-url';
+
+export { normalizeListingPhotosArray };
 import {
   getListingImageUrl,
   getNextListingImageFallbackVariant,

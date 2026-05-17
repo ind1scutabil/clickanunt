@@ -355,7 +355,13 @@ export function AppNavigator(): React.JSX.Element {
             {({ navigation }) => <ListingFormScreen mode="create" onSuccess={() => navigation.goBack()} />}
           </Stack.Screen>
           <Stack.Screen name="ListingEdit" options={{ title: 'Editează anunț' }}>
-            {({ navigation }) => <ListingFormScreen mode="edit" onSuccess={() => navigation.goBack()} />}
+            {({ navigation, route }) => (
+              <ListingFormScreen
+                mode="edit"
+                listingId={route.params.listingId}
+                onSuccess={() => navigation.goBack()}
+              />
+            )}
           </Stack.Screen>
           <Stack.Screen name="Conversation" options={({ route }) => ({ title: route.params.title || 'Conversație' })}>
             {({ route }) => (

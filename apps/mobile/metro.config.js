@@ -11,5 +11,9 @@ config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),
 ];
+config.resolver.alias = {
+  ...(config.resolver.alias || {}),
+  '@': monorepoRoot,
+};
 
 module.exports = config;

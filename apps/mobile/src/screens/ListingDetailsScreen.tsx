@@ -1,12 +1,15 @@
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { favoritesApi, getLastDataSource, listingsApi } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useLiveSync } from '../hooks/useLiveSync';
+import type { RootStackParamList } from '../navigation/types';
 import { THEME } from '../theme';
-import { normalizeListingPhotosArray } from '../../../../lib/listing-photo-url';
 import { ListingPhotoImage } from '../components/ListingPhotoImage';
+import { normalizeListingPhotosArray } from '../utils/listingPhotos';
 import type { Listing } from '../types';
 
 type Props = {
@@ -14,6 +17,7 @@ type Props = {
 };
 
 export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const [item, setItem] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +137,14 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           </Text>
         ) : null}
         <Text style={styles.title}>{item.title}</Text>
+        {user && item.ownerUserId === user.id ? (
+          <Pressable
+            style={({ pressed }) => [styles.editRow, pressed && styles.favRowPressed]}
+            onPress={() => navigation.navigate('ListingEdit', { listingId: item.id })}
+          >
+            <Text style={styles.editText}>Editează anunțul</Text>
+          </Pressable>
+        ) : null}
         {user && item.status === 'active' ? (
           <Pressable
             onPress={() => {
@@ -155,6 +167,12 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           <Text style={styles.specLabel}>Categorie</Text>
           <Text style={styles.specValue}>{item.category || '—'}</Text>
         </View>
+        {item.subcategory ? (
+          <View style={styles.specRow}>
+            <Text style={styles.specLabel}>Subcategorie</Text>
+            <Text style={styles.specValue}>{item.subcategory}</Text>
+          </View>
+        ) : null}
         <View style={styles.specRow}>
           <Text style={styles.specLabel}>Marcă</Text>
           <Text style={styles.specValue}>{item.make || '—'}</Text>
@@ -244,6 +262,17 @@ const styles = StyleSheet.create({
     ...THEME.shadow.card,
   },
   title: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
+  editRow: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 90, 0, 0.35)',
+    backgroundColor: 'rgba(255, 90, 0, 0.08)',
+  },
+  editText: { color: THEME.colors.primary, fontWeight: '700', fontSize: 14 },
   favRow: {
     marginTop: 10,
     alignSelf: 'flex-start',
