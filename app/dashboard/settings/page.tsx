@@ -159,7 +159,8 @@ export default function SettingsPage() {
       }
       showToast({ kind: "success", text: "Salvat cu succes." });
       await load({ silent: true });
-      showToast({ kind: "error", text: "Eroare, încearcă din nou." });
+    } catch {
+      showToast({ kind: "error", text: "Eroare de rețea. Încearcă din nou." });
     } finally {
       setSavingProfile(false);
     }
@@ -188,7 +189,8 @@ export default function SettingsPage() {
       if (data.notifications) setNotifications(data.notifications);
       showToast({ kind: "success", text: "Preferințe salvate." });
       await load({ silent: true });
-      showToast({ kind: "error", text: "Eroare, încearcă din nou." });
+    } catch {
+      showToast({ kind: "error", text: "Eroare de rețea. Încearcă din nou." });
     } finally {
       setSavingNotif(false);
     }
