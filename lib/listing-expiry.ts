@@ -1,5 +1,3 @@
-import type { Prisma } from "@prisma/client";
-
 /** Standard free listing lifetime (days from publish). */
 export const LISTING_STANDARD_DURATION_DAYS = 30;
 
@@ -54,7 +52,11 @@ export function isListingExplicitlyExpired(
 }
 
 export function formatListingExpiryDateRO(date: Date | string): string {
-  return toDate(date).toLocaleDateString("ro-RO", {
+  const d = toDate(date);
+  if (Number.isNaN(d.getTime())) {
+    return "—";
+  }
+  return d.toLocaleDateString("ro-RO", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -92,9 +94,7 @@ export function applyListingPublishExpiryIfMissing(
 }
 
 /** Public active feed: hide only rows with explicit past `expiresAt` (legacy null stays visible). */
-export function activePublicListingExpiryWhere(
-  now: Date = new Date()
-): Prisma.ListingWhereInput {
+export function activePublicListingExpiryWhere(now: Date = new Date()) {
   return {
     OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
   };

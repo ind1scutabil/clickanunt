@@ -2,7 +2,7 @@
 
 import {
   LISTING_COUNTRY_OF_ORIGIN_OPTIONS,
-  normalizeCountryOfOriginValue,
+  coerceCountrySelectValue,
 } from "@/lib/listing-country-options";
 
 type CountryOfOriginSelectProps = {
@@ -20,12 +20,12 @@ export default function CountryOfOriginSelect({
   id,
   emptyLabel = "Selectează",
 }: CountryOfOriginSelectProps) {
-  const normalized = normalizeCountryOfOriginValue(value);
+  const selectValue = coerceCountrySelectValue(value);
 
   return (
     <select
       id={id}
-      value={normalized}
+      value={selectValue}
       onChange={(e) => onChange(e.target.value)}
       className={className}
     >

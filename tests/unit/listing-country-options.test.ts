@@ -1,5 +1,6 @@
 import {
   LISTING_COUNTRY_OF_ORIGIN_OPTIONS,
+  coerceCountrySelectValue,
   formatCountryOfOriginDisplay,
   isKnownCountryOfOriginValue,
   normalizeCountryOfOriginValue,
@@ -42,6 +43,11 @@ describe("listing-country-options", () => {
         LISTING_COUNTRY_OF_ORIGIN_OPTIONS.length - 1
       ].label
     ).toBe("Altă țară");
+  });
+
+  it("coerceCountrySelectValue returns empty for unknown legacy text", () => {
+    expect(coerceCountrySelectValue("Cehoslovacia")).toBe("");
+    expect(coerceCountrySelectValue("ES")).toBe("ES");
   });
 
   it("normalizes legacy ISO and Romanian labels", () => {

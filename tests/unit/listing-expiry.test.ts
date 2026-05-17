@@ -94,6 +94,10 @@ describe("listing-expiry", () => {
     expect(resolved.getTime() - createdAt.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
+  it("formatListingExpiryDateRO returns em dash for invalid date", () => {
+    expect(formatListingExpiryDateRO("not-a-date")).toBe("—");
+  });
+
   it("formatListingExpiryDisplay returns Romanian date string", () => {
     const display = formatListingExpiryDisplay({
       expiresAt: new Date("2026-06-15T12:00:00.000Z"),

@@ -112,6 +112,16 @@ export function normalizeCountryOfOriginValue(
 }
 
 /**
+ * Value safe for <select> — must match an option or be "".
+ * Unknown legacy free-text must not be passed as `value` (iOS / Messenger WebView crash).
+ */
+export function coerceCountrySelectValue(raw: string | null | undefined): string {
+  const normalized = normalizeCountryOfOriginValue(raw);
+  if (!normalized) return "";
+  return BY_VALUE.has(normalized) ? normalized : "";
+}
+
+/**
  * Romanian display label for listing detail / specs.
  */
 export function formatCountryOfOriginDisplay(
