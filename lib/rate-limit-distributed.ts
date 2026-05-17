@@ -6,6 +6,10 @@
 import { getRedisClient } from '@/lib/redis';
 import { isRedisUrlConfigured } from '@/lib/redis-config';
 import {
+  UPLOAD_RATE_LIMIT_AUTH_PER_HOUR,
+  UPLOAD_RATE_LIMIT_IP_PER_HOUR,
+} from '@/lib/infra/production-limits';
+import {
   rateLimit,
   rateLimitPresets,
   type RateLimitConfig,
@@ -167,11 +171,11 @@ export async function resolveSecureRateLimit(
       return userId
         ? resolveRateLimit(`image:upload:${userId}`, {
             windowMs: 60 * 60 * 1000,
-            maxRequests: 20,
+            maxRequests: UPLOAD_RATE_LIMIT_AUTH_PER_HOUR,
           })
         : resolveRateLimit(`upload:${clientIp}`, {
             windowMs: 60 * 60 * 1000,
-            maxRequests: 50,
+            maxRequests: UPLOAD_RATE_LIMIT_IP_PER_HOUR,
           });
     case 'contact':
       return resolveRateLimit(`contact:${clientIp}`, {

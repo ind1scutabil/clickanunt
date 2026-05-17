@@ -2,6 +2,11 @@
  * Rate Limiting pentru protecție bruteforce
  */
 
+import {
+  UPLOAD_RATE_LIMIT_AUTH_PER_HOUR,
+  UPLOAD_RATE_LIMIT_IP_PER_HOUR,
+} from '@/lib/infra/production-limits';
+
 interface RateLimitStore {
   [key: string]: {
     count: number;
@@ -150,11 +155,11 @@ export const rateLimitPresets = {
       maxRequests: 100,
     }),
 
-  // Upload imagini: 20 per oră per user
+  // Upload imagini: per user (see UPLOAD_RATE_LIMIT_AUTH_PER_HOUR)
   uploadImage: (userId: string) =>
     rateLimit(`image:upload:${userId}`, {
       windowMs: 60 * 60 * 1000,
-      maxRequests: 20,
+      maxRequests: UPLOAD_RATE_LIMIT_AUTH_PER_HOUR,
     }),
 
   // Moderare (pentru moderatori): 200 per oră
@@ -178,11 +183,11 @@ export const rateLimitPresets = {
       maxRequests: 5,
     }),
 
-  // Incărcare fișiere: 50 per oră per IP
+  // Incărcare fișiere: per IP fallback (see UPLOAD_RATE_LIMIT_IP_PER_HOUR)
   upload: (ip: string) =>
     rateLimit(`upload:${ip}`, {
       windowMs: 60 * 60 * 1000,
-      maxRequests: 50,
+      maxRequests: UPLOAD_RATE_LIMIT_IP_PER_HOUR,
     }),
 
   // Contact/Formular: 5 per oră per IP

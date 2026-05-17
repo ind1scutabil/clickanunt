@@ -33,6 +33,15 @@ export const UPLOAD_MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 /** Listing form validation (lib/security/validation-schemas.ts) */
 export const LISTING_MAX_PHOTOS = 20;
 
+/**
+ * POST /api/uploads — per authenticated user per hour.
+ * Must exceed LISTING_MAX_PHOTOS × typical sessions (create + edit + retries).
+ */
+export const UPLOAD_RATE_LIMIT_AUTH_PER_HOUR = 100;
+
+/** POST /api/uploads — per IP when no user token (fallback). */
+export const UPLOAD_RATE_LIMIT_IP_PER_HOUR = 80;
+
 /** JSON body guard for large API payloads (middleware / manual checks) */
 export const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
 

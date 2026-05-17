@@ -298,14 +298,6 @@ export default function OptimizedListingFlow() {
     const uploadErrors: string[] = [];
     
     try {
-      const csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        console.error("❌ CSRF token missing");
-        setErrors(prev => ({ ...prev, photos: "Eroare de securitate - token CSRF lipsă. Încearcă din nou." }));
-        setUploadingImage(false);
-        return;
-      }
-
       const filesToUpload = Math.min(files.length, remainingSlots);
       console.log(`📸 Încep upload pentru ${filesToUpload} poze...`);
       
@@ -350,16 +342,9 @@ export default function OptimizedListingFlow() {
           const safeFilename = `photo_${Date.now()}_${i}.${safeExt}`;
 
           console.log(`📤 Trimit la API (fără filename)`);
-          const res = await fetch("/api/uploads", {
-            method: "POST",
-            headers: { 
-              "Content-Type": "application/json",
-              "x-csrf-token": csrfToken,
-            },
-            body: JSON.stringify({ 
-              data: b64,
-              type: "image"
-            }),
+          const res = await postJsonWithAuthRefresh("/api/uploads", {
+            data: b64,
+            type: "image",
           });
 
           console.log(`📥 Răspuns API status: ${res.status}`);
@@ -423,13 +408,6 @@ export default function OptimizedListingFlow() {
     setUploadingImage(true);
     
     try {
-      const csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        setErrors(prev => ({ ...prev, video: "Eroare de securitate - token CSRF lipsă" }));
-        setUploadingImage(false);
-        return;
-      }
-
       const b64 = await fileToBase64(file);
       
       // Validate base64 conversion
@@ -445,16 +423,9 @@ export default function OptimizedListingFlow() {
       else if (file.type === 'video/quicktime') safeExt = 'mov';
       else if (file.type === 'video/x-msvideo') safeExt = 'avi';
       
-      const res = await fetch("/api/uploads", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken,
-        },
-        body: JSON.stringify({ 
-          data: b64,
-          type: "video"
-        }),
+      const res = await postJsonWithAuthRefresh("/api/uploads", {
+        data: b64,
+        type: "video",
       });
       
       const data = await res.json();

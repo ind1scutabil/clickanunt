@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
 import { getCsrfToken } from '@/lib/security/csrf-client';
+import { postJsonWithAuthRefresh } from '@/lib/admin-fetch';
 import { CarSelectorPro } from '@/app/components/CarSelectorPro';
 import { ALL_CATEGORIES, CATEGORIES, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from '@/lib/carData';
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from '@/lib/listing-photo-url';
@@ -238,14 +239,9 @@ export default function EditListingPage() {
             uploadErrors.push(`${file.name}: eroare conversie`);
             continue;
           }
-          const res = await fetch('/api/uploads', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-csrf-token': csrfToken,
-            },
-            credentials: 'include',
-            body: JSON.stringify({ data: b64, type: 'image' }),
+          const res = await postJsonWithAuthRefresh('/api/uploads', {
+            data: b64,
+            type: 'image',
           });
           const data = await res.json();
           if (res.ok && data.url) newPhotos.push(data.url);
