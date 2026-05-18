@@ -18,20 +18,16 @@ export function isStripeTestSecretKey(secret: string): boolean {
   return s.startsWith('sk_test_') || s.startsWith('rk_test_');
 }
 
-/**
- * Avertizare la pornire (nu blochează plățile — Stripe aplică propriile reguli).
- */
+/** @deprecated Use enforceStripeProductionCredentials from stripe-production-guard */
 export function warnIfStripeMisconfiguredForProduction(): void {
+  // Kept for backwards compatibility; production boot is enforced in instrumentation.ts
   if (process.env.NODE_ENV !== 'production') return;
-  if (process.env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') return;
-
   const sk = (getStripeSecretKeyRuntime() || '').trim();
   const pk = getStripePublishableKey();
   if (!sk || !pk) return;
-
   if (isStripeTestSecretKey(sk) || pk.startsWith('pk_test_')) {
     console.warn(
-      '[STRIPE] În producție apar prefixe de chei de test în .env. Pentru carduri reale folosește Live (sk_live_/pk_live_/rk_live_: https://dashboard.stripe.com/apikeys)'
+      '[STRIPE] Test key prefixes detected — production boot should be blocked by stripe-production-guard'
     );
   }
 }

@@ -5,8 +5,9 @@
  */
 
 import { enforceEnvironment } from './lib/env-validator';
-import { getStripePublishableKey, warnIfStripeMisconfiguredForProduction } from './lib/stripe-publishable-key';
+import { getStripePublishableKey } from './lib/stripe-publishable-key';
 import { getStripeSecretKeyRuntime } from './lib/stripe-env-runtime';
+import { enforceStripeProductionCredentials } from './lib/stripe-production-guard';
 import { warnIfProductionUsesLocalDiskUploads } from './lib/storage-production-warn';
 
 export async function register() {
@@ -17,7 +18,7 @@ export async function register() {
       hasStripePublishable: !!getStripePublishableKey(),
     });
     enforceEnvironment();
-    warnIfStripeMisconfiguredForProduction();
+    enforceStripeProductionCredentials();
     warnIfProductionUsesLocalDiskUploads();
   }
 }

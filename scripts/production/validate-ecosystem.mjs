@@ -60,5 +60,17 @@ if (/wait_ready:\s*false/.test(src)) {
   fail('wait_ready should be false for next start');
 }
 
+if (/scripts\/production\/pm2-start\.mjs/.test(src)) {
+  pass('pm2-start.mjs guards Stripe env before boot');
+} else {
+  fail('PM2 must use scripts/production/pm2-start.mjs for Stripe production guard');
+}
+
+if (/env_file:\s*['"]\.env['"]/.test(src)) {
+  pass('env_file .env (Stripe aligned via .env.production at start)');
+} else {
+  fail('env_file should be .env with Stripe sync from .env.production');
+}
+
 console.log(failed ? `\n${failed} failure(s)` : '\nEcosystem validation OK');
 process.exit(failed ? 1 : 0);

@@ -63,6 +63,7 @@
     "safety:audit:ssh": "node scripts/production/safety-audit.mjs --ssh",
     "pm2:validate": "node scripts/production/validate-ecosystem.mjs",
     "audit:stripe": "node scripts/production/audit-stripe-safety.mjs",
+    "validate:production-env": "npx ts-node --transpile-only --project tsconfig.scripts.json scripts/production/validate-production-env.ts",
     "audit:db-patterns": "node scripts/production/audit-db-patterns.mjs",
     "load:stability-evidence": "node scripts/load/run-stability-evidence.mjs",
     "prod:smoke": "node scripts/production/prod-smoke.mjs",

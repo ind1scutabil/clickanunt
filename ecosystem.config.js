@@ -7,14 +7,16 @@ module.exports = {
   apps: [{
     name: 'clickanunt',
     cwd: '/var/www/clickanunt',
-    script: 'npm',
-    args: 'start',
+    // Validates Stripe live keys + sync from .env.production before next start
+    script: 'scripts/production/pm2-start.mjs',
+    interpreter: 'node',
     instances: 1,
     exec_mode: 'fork',
     autorestart: true,
     watch: false,
     // ~3.7GB VPS: leave headroom for Postgres + OS; restart before OOM under traffic spikes
     max_memory_restart: '900M',
+    // Runtime secrets (DB, JWT, …). Stripe live keys must match .env.production (see pm2-start.mjs).
     env_file: '.env',
     env: {
       NODE_ENV: 'production',

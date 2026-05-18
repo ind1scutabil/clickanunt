@@ -48,6 +48,11 @@ fi
 
 log "✅ Working tree curat (doar conținut versionat va fi împins)."
 
+banner "Validate production env (local gate)"
+if ! npm run validate:production-env -- --check-files-only 2>&1; then
+  log "⚠️  .env / .env.production Stripe alignment check failed (ok if only deploying from VPS .env)"
+fi
+
 if [ "${CONFIRM_PROD_DEPLOY:-}" != "1" ]; then
   banner "Confirmare producție necesară"
   log "❌ Setează CONFIRM_PROD_DEPLOY=1 pentru a continua deploy pe ${DEPLOY_SERVER}."
@@ -76,6 +81,10 @@ log "Director: \$DEPLOY_DIR | branch: \$BRANCH"
 cd "\$DEPLOY_DIR"
 log "git pull origin \$BRANCH (sau git pull)"
 git pull origin "\$BRANCH" || git pull
+log "Sync Stripe live keys .env.production → .env"
+node scripts/production/sync-stripe-env-from-production.mjs
+log "Validate production Stripe env (strict)"
+NODE_ENV=production npx ts-node --transpile-only --project tsconfig.scripts.json scripts/production/validate-production-env.ts --strict
 log "Asigură directoare uploads locale (nu sunt în git)"
 mkdir -p "\$DEPLOY_DIR/public/uploads/listings" "\$DEPLOY_DIR/public/uploads/avatars" "\$DEPLOY_DIR/public/uploads/messages"
 log "npm ci"
