@@ -155,7 +155,8 @@ export function verifyWebhookSignature(
     logger.info('Webhook signature verified', { eventType: event.type });
     return event;
   } catch (error) {
-    logger.error('Webhook signature verification failed', { error });
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Webhook signature verification failed', { reason: message });
     throw new Error('Invalid webhook signature');
   }
 }

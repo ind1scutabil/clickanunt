@@ -27,24 +27,16 @@ import {
 } from '@/lib/promotion-packages';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// Helper: Read raw body
-async function getRawBody(req: NextRequest): Promise<string> {
-  const chunks: Uint8Array[] = [];
-  const reader = req.body?.getReader();
-  
-  if (!reader) {
-    throw new Error('No request body');
-  }
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-
-  const buffer = Buffer.concat(chunks);
-  return buffer.toString('utf8');
+function logStripeWebhookEvent(event: Stripe.Event, phase: 'received' | 'duplicate' | 'unhandled') {
+  logger.info('Stripe webhook event', {
+    phase,
+    eventId: event.id,
+    eventType: event.type,
+    livemode: event.livemode,
+    created: event.created,
+  });
 }
 
 /**
@@ -52,8 +44,12 @@ async function getRawBody(req: NextRequest): Promise<string> {
  */
 export async function POST(req: NextRequest) {
   try {
-    // Get raw body și signature
-    const rawBody = await getRawBody(req);
+    const rawBody = await req.text();
+    if (!rawBody) {
+      logPaymentEvent('webhook_empty_body', {}, 'error');
+      return NextResponse.json({ error: 'Empty body' }, { status: 400 });
+    }
+
     const signature = req.headers.get('stripe-signature');
 
     if (!signature) {
@@ -61,16 +57,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
-    // Verificare semnătură
     let event: Stripe.Event;
     try {
       event = verifyWebhookSignature(rawBody, signature);
     } catch (error) {
-      logPaymentEvent('webhook_invalid_signature', {}, 'error');
+      const message = error instanceof Error ? error.message : String(error);
+      logPaymentEvent('webhook_invalid_signature', { reason: message }, 'error');
+      logger.warn('Stripe webhook signature verification failed', {
+        reason: message,
+        hasWebhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim()),
+      });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    logger.info('Webhook received', { eventType: event.type, eventId: event.id });
+    logStripeWebhookEvent(event, 'received');
 
     // Idempotency guard: prevent duplicate processing on webhook retries.
     // Stripe can deliver the same event multiple times; we treat each `event.id` as unique.
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       try {
         const res = await redis.set(dedupeKey, '1', 'EX', ttlSeconds, 'NX');
         if (!res) {
-          logger.info('Duplicate Stripe webhook event ignored', { eventId: event.id, eventType: event.type });
+          logStripeWebhookEvent(event, 'duplicate');
           return NextResponse.json({ received: true, duplicate: true });
         }
       } catch (e) {
@@ -90,7 +90,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Handle evenimente
     switch (event.type) {
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent);
@@ -108,17 +107,29 @@ export async function POST(req: NextRequest) {
         await handleChargeRefunded(event.data.object as Stripe.Charge);
         break;
 
+      case 'checkout.session.completed':
+        // Checkout not used for promotions today; acknowledge so Stripe does not retry.
+        logStripeWebhookEvent(event, 'unhandled');
+        break;
+
+      case 'invoice.created':
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded':
+        // Platform invoices are created on payment_intent.succeeded.
+        logStripeWebhookEvent(event, 'unhandled');
+        break;
+
       default:
-        logger.info('Unhandled webhook event type', { eventType: event.type });
+        logStripeWebhookEvent(event, 'unhandled');
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    logger.error('Webhook processing failed', { error });
-    return NextResponse.json(
-      { error: error.message || 'Webhook processing failed' },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Webhook processing failed';
+    logger.error('Webhook processing failed', {
+      error: message,
+    });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
