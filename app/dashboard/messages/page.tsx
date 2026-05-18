@@ -101,6 +101,8 @@ export default function MessagesPage() {
     null
   );
   const lastInboxNotifyAtRef = useRef(0);
+  /** Mobil: după „Înapoi la conversații” — polling/SSE nu trebuie să re-deschidă primul fir */
+  const blockAutoSelectConversationRef = useRef(false);
   const fetchMessagesRefForSse = useRef<
     (userId: string, listingId?: string, conversationId?: string) => Promise<void>
   >(async () => {});
@@ -109,6 +111,16 @@ export default function MessagesPage() {
     fetchConversations: async () => {},
   });
   const ensurePollingIntervalsRef = useRef<() => void>(() => {});
+
+  const isMobileInboxLayout = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+
+  const shouldAutoSelectFirstConversation = () => {
+    if (blockAutoSelectConversationRef.current) return false;
+    if (isMobileInboxLayout()) return false;
+    return true;
+  };
 
   const clearFallbackPolling = () => {
     if (conversationsPollingRef.current) {
@@ -323,7 +335,7 @@ export default function MessagesPage() {
           : data.conversations || [];
         setConversations(conversationsList);
         const sel = selectedConversationRef.current;
-        if (!sel && conversationsList.length > 0) {
+        if (!sel && conversationsList.length > 0 && shouldAutoSelectFirstConversation()) {
           void handleSelectConversation(conversationsList[0]);
         } else if (sel && conversationsList.length > 0) {
           const fresh = conversationsList.find((c) => c.id === sel.id);
@@ -405,7 +417,7 @@ export default function MessagesPage() {
       setIsLoadingConversations(false);
 
       const sel = selectedConversationRef.current;
-      if (!sel && conversationsList.length > 0) {
+      if (!sel && conversationsList.length > 0 && shouldAutoSelectFirstConversation()) {
         void handleSelectConversation(conversationsList[0]);
       } else if (sel && conversationsList.length > 0) {
         const fresh = conversationsList.find((c) => c.id === sel.id);
@@ -429,6 +441,7 @@ export default function MessagesPage() {
 
   const handleSelectConversation = async (conversation: Conversation) => {
     /** Evită respingerea primului GET din coadă dacă seq global e mare de la alt thread */
+    blockAutoSelectConversationRef.current = false;
     lastAppliedMessagesSeqRef.current = 0;
     setSelectedConversation(conversation);
     selectedConversationRef.current = conversation;
@@ -456,6 +469,7 @@ export default function MessagesPage() {
   };
 
   const handleMobileBackToList = () => {
+    blockAutoSelectConversationRef.current = true;
     if (messagesPollingRef.current) {
       clearInterval(messagesPollingRef.current);
       messagesPollingRef.current = null;
