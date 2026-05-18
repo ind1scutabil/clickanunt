@@ -170,6 +170,19 @@ export default function MessagesPage() {
     isSendingRef.current = isSending;
   }, [isSending]);
 
+  const scrollThreadToBottom = (
+    behavior: ScrollBehavior = "smooth",
+    force = false
+  ) => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+    if (force || isNearBottom) {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    }
+  };
+
   useEffect(() => {
     const newestMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
 
@@ -178,22 +191,20 @@ export default function MessagesPage() {
       return;
     }
 
-    // Only scroll if:
-    // 1. A NEW message was actually added (not just a re-render)
-    // 2. AND the user is already at or near the bottom (within 100px)
     if (newestMessageId !== lastMessageIdRef.current) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        const isNearBottom = 
-          container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-        
-        if (isNearBottom) {
-          container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-        }
-      }
+      scrollThreadToBottom("smooth", false);
       lastMessageIdRef.current = newestMessageId;
     }
   }, [messages]);
+
+  /** Mobil + desktop: la deschiderea firului, derulează la ultimul mesaj */
+  useEffect(() => {
+    if (!selectedConversation || isLoadingThread) return;
+    const frame = requestAnimationFrame(() => {
+      scrollThreadToBottom("auto", true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [selectedConversation?.id, isLoadingThread]);
 
   const fetchMessages = async (
     userId: string,
@@ -440,6 +451,22 @@ export default function MessagesPage() {
     messagesPollingRef.current = window.setInterval(() => {
       void runMessagesPollTick();
     }, MSG_FALLBACK_MS) as unknown as number;
+
+    requestAnimationFrame(() => scrollThreadToBottom("auto", true));
+  };
+
+  const handleMobileBackToList = () => {
+    if (messagesPollingRef.current) {
+      clearInterval(messagesPollingRef.current);
+      messagesPollingRef.current = null;
+    }
+    setSelectedConversation(null);
+    selectedConversationRef.current = null;
+    setMessages([]);
+    setIsLoadingThread(false);
+    setSendError(null);
+    setRetryPayload(null);
+    lastMessageIdRef.current = null;
   };
 
   sseHandlerRef.current = { fetchConversations };
@@ -652,6 +679,7 @@ export default function MessagesPage() {
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
+    requestAnimationFrame(() => scrollThreadToBottom("smooth", true));
 
     const sendBarrierSeq = ++messagesRequestSeqRef.current;
     lastAppliedMessagesSeqRef.current = sendBarrierSeq;
@@ -759,8 +787,10 @@ export default function MessagesPage() {
     <div className="enterprise-page-bg enterprise-mesh flex min-h-screen flex-col text-white">
       <Navbar />
 
-      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] max-md:min-h-0 max-md:pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:px-6 md:py-8">
-        <header className="mb-4 max-md:mb-5 md:mb-8">
+      <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] max-md:min-h-0 max-md:px-3 max-md:py-3 max-md:pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:px-6 md:py-8">
+        <header
+          className={`mb-4 max-md:mb-3 md:mb-8 ${selectedConversation ? "max-md:hidden" : ""}`}
+        >
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)] max-md:mb-1 md:text-xs md:tracking-[0.2em]">
             Inbox
           </p>
@@ -770,9 +800,13 @@ export default function MessagesPage() {
           <p className="text-xs text-[var(--text-secondary)] md:text-base">Comunică cu cumpărători și vânzători</p>
         </header>
 
-        <div className="grid min-h-0 min-w-0 grid-cols-1 gap-3 max-md:min-h-[calc(100dvh-10.25rem-env(safe-area-inset-bottom,0px))] max-md:grid-rows-[minmax(0,min(36vh,260px))_minmax(0,1fr)] md:h-[min(70dvh,640px)] md:grid-cols-3 md:gap-5 md:grid-rows-1">
-          {/* Conversations List */}
-            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm md:rounded-xl">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 max-md:min-h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom,0px))] md:grid md:h-[min(70dvh,640px)] md:grid-cols-3 md:gap-5 md:grid-rows-1">
+          {/* Conversations List — mobil: ecran complet când nu e fir deschis */}
+            <div
+              className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm md:rounded-xl ${
+                selectedConversation ? "max-md:hidden" : "max-md:min-h-0 max-md:flex-1"
+              }`}
+            >
             <div className="border-b border-white/[0.06] bg-black/20 px-3 py-2.5 md:px-5 md:py-3.5">
               <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)] md:text-sm">
                 Conversații
@@ -817,9 +851,9 @@ export default function MessagesPage() {
                   <button
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv)}
-                      className={`flex w-full min-w-0 border-b border-white/[0.05] text-left transition max-md:h-[5.25rem] max-md:max-h-[5.75rem] max-md:min-h-[4.5rem] max-md:items-center max-md:gap-2.5 max-md:px-3 max-md:py-0 md:flex-col md:items-stretch md:px-4 md:py-3.5 ${
+                      className={`flex w-full min-w-0 border-b border-white/[0.05] text-left transition max-md:items-start max-md:gap-2.5 max-md:px-3 max-md:py-3 md:flex-col md:items-stretch md:px-4 md:py-3.5 ${
                       selectedConversation?.id === conv.id
-                        ? "bg-primary-600/15 ring-1 ring-inset ring-primary-500/25"
+                        ? "bg-white/[0.06] ring-1 ring-inset ring-primary-500/35 max-md:border-l-2 max-md:border-l-primary-500/70"
                         : "active:bg-white/[0.04] hover:bg-white/[0.05]"
                     }`}
                   >
@@ -850,7 +884,7 @@ export default function MessagesPage() {
                           </p>
                         )}
                         {lastStr.length > 0 && (
-                          <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-[var(--text-secondary)]">
+                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-[var(--text-secondary)]">
                             {lastStr}
                           </p>
                         )}
@@ -899,10 +933,22 @@ export default function MessagesPage() {
           </div>
 
           {/* Messages Area */}
-          <div className="relative flex min-h-0 min-w-0 flex-col overflow-x-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm max-md:min-h-0 md:col-span-2 md:overflow-hidden">
+          <div
+            className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)] shadow-sm md:col-span-2 ${
+              selectedConversation ? "max-md:min-h-0 max-md:flex-1" : "max-md:hidden"
+            }`}
+          >
             {selectedConversation ? (
               <>
-                <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2.5 max-md:min-h-0 md:gap-4 md:px-5 md:py-4">
+                <button
+                  type="button"
+                  onClick={handleMobileBackToList}
+                  className="flex min-h-[2.75rem] w-full shrink-0 items-center gap-2 border-b border-white/[0.06] bg-black/25 px-3 py-2.5 text-left text-sm font-semibold text-[var(--accent-secondary)] transition active:bg-white/[0.04] md:hidden"
+                >
+                  <span aria-hidden>←</span>
+                  Înapoi la conversații
+                </button>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2.5 md:gap-4 md:px-5 md:py-4">
                   <div className="flex min-w-0 flex-1 items-center gap-2.5 md:gap-3">
                     {selectedConversation.otherParticipant.avatar ? (
                       <img
@@ -937,7 +983,7 @@ export default function MessagesPage() {
 
                 <div
                   ref={messagesContainerRef}
-                  className="min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-y-contain bg-[var(--bg-primary)]/40 px-3 py-3 [-webkit-overflow-scrolling:touch] max-md:pb-4 md:space-y-3 md:px-5 md:py-5"
+                  className="min-h-0 flex-1 touch-pan-y space-y-2.5 overflow-y-auto overscroll-y-contain bg-[var(--bg-primary)]/40 px-3 py-3 [-webkit-overflow-scrolling:touch] max-md:pb-2 md:space-y-3 md:px-5 md:py-5"
                 >
                   {isLoadingThread && messages.length === 0 ? (
                     <div className="space-y-4 py-6" aria-busy="true" aria-label="Se încarcă mesajele">
@@ -960,19 +1006,26 @@ export default function MessagesPage() {
                       <p>Niciun mesaj încă. Începe conversația.</p>
                     </div>
                   ) : (
-                    messages.map((msg) => (
+                    messages.map((msg, msgIndex) => {
+                      const isOwn = messagingUserIdsEqual(msg.sender.id, currentUserId);
+                      const prev = msgIndex > 0 ? messages[msgIndex - 1] : null;
+                      const showSenderLabel =
+                        !isOwn &&
+                        (!prev ||
+                          !messagingUserIdsEqual(prev.sender.id, msg.sender.id));
+                      return (
                       <div
                         key={msg.id}
-                        className={`flex flex-col ${messagingUserIdsEqual(msg.sender.id, currentUserId) ? "items-end" : "items-start"}`}
+                        className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
                       >
-                        {!messagingUserIdsEqual(msg.sender.id, currentUserId) && (
+                        {showSenderLabel && (
                           <span className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                             {displayNameForMessagingUser(msg.sender)}
                           </span>
                         )}
                           <div
-                          className={`max-w-[min(100%,78%)] rounded-2xl px-3.5 py-2.5 text-[13px] leading-snug md:max-w-[min(100%,20rem)] md:px-4 md:py-3 md:text-sm md:leading-relaxed ${
-                            messagingUserIdsEqual(msg.sender.id, currentUserId)
+                          className={`max-w-[min(100%,82%)] rounded-2xl px-3.5 py-2.5 text-[13px] leading-snug md:max-w-[min(100%,20rem)] md:px-4 md:py-3 md:text-sm md:leading-relaxed ${
+                            isOwn
                               ? "bg-primary-600 text-white ring-1 ring-white/10"
                               : "border border-white/[0.08] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                           }`}
@@ -986,7 +1039,8 @@ export default function MessagesPage() {
                           </p>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -1015,7 +1069,7 @@ export default function MessagesPage() {
                 )}
                 <form
                   onSubmit={handleSendMessage}
-                  className="sticky z-[45] flex gap-2 border-t border-white/[0.08] bg-[var(--bg-primary)] px-3 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.35)] max-md:bottom-[calc(4.55rem+env(safe-area-inset-bottom,0px))] md:static md:z-auto md:gap-3 md:px-5 md:py-4 md:pb-[max(1rem,env(safe-area-inset-bottom))] md:shadow-none"
+                  className="flex shrink-0 gap-2 border-t border-white/[0.08] bg-[var(--bg-primary)] px-3 py-3 shadow-[0_-4px_24px_-8px_rgba(0,0,0,0.35)] md:gap-3 md:px-5 md:py-4 md:shadow-none"
                   id="message-form"
                 >
                   <input
@@ -1042,7 +1096,7 @@ export default function MessagesPage() {
                 </form>
               </>
             ) : (
-              <div className="flex h-full min-h-[240px] items-center justify-center px-6 text-sm text-[var(--text-tertiary)]">
+              <div className="hidden h-full min-h-[240px] items-center justify-center px-6 text-sm text-[var(--text-tertiary)] md:flex">
                 <p>
                   {isLoadingConversations
                     ? "Se încarcă conversațiile…"
@@ -1055,7 +1109,7 @@ export default function MessagesPage() {
 
         <Link
           href="/dashboard"
-          className="mt-5 inline-flex text-sm font-semibold text-[var(--accent-secondary)] transition hover:text-white max-md:mb-1 md:mt-8"
+          className={`mt-5 inline-flex text-sm font-semibold text-[var(--accent-secondary)] transition hover:text-white md:mt-8 ${selectedConversation ? "max-md:hidden" : "max-md:mb-1"}`}
         >
           ← Înapoi la dashboard
         </Link>
