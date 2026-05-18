@@ -181,7 +181,7 @@ function ModerationCommandArt() {
 function AdminModerationPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthorized, isLoading } = useAdminAuth();
+  const { user: adminSessionUser, isAuthorized, isLoading } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<ModerationTab>(() => {
     const t = searchParams.get('tab');
     if (t && (MODERATION_TABS as readonly string[]).includes(t)) return t as ModerationTab;
@@ -1319,6 +1319,35 @@ function AdminModerationPageInner() {
     setTimeout(() => setShowNotification(false), 3000);
   };
 
+  const sendDirectMessageToUser = async (
+    userId: string,
+    content: string
+  ): Promise<{ ok: true } | { ok: false; error: string }> => {
+    try {
+      const response = await postJsonWithAuthRefresh(`/api/admin/users/${userId}/message`, {
+        content,
+      });
+      if (!response.ok) {
+        const t = await response.text();
+        let err = 'Nu am putut trimite mesajul';
+        try {
+          const j = t ? JSON.parse(t) : null;
+          if (j?.error) err = String(j.error);
+        } catch {
+          /* ignore */
+        }
+        return { ok: false, error: err };
+      }
+      setNotificationMessage('✅ Mesaj trimis utilizatorului');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return { ok: true };
+    } catch (error) {
+      console.error('Error sending direct message:', error);
+      return { ok: false, error: 'Nu am putut trimite mesajul' };
+    }
+  };
+
   const toggleUserRow = (userId: string) => {
     if (expandedUserId === userId) {
       setExpandedUserId(null);
@@ -1645,7 +1674,13 @@ function AdminModerationPageInner() {
             </Link>
           </header>
 
-          <AdminAlertCenter />
+          <section aria-labelledby="moderation-work-heading">
+            <h2
+              id="moderation-work-heading"
+              className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+            >
+              Moderare anunțuri și utilizatori
+            </h2>
 
           <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <button
@@ -2176,6 +2211,8 @@ function AdminModerationPageInner() {
                 onMakeAdmin={makeAdmin}
                 onSuspend={suspendUserApi}
                 onUnsuspend={unsuspendUserApi}
+                currentAdminUserId={adminSessionUser?.id ?? null}
+                onSendDirectMessage={sendDirectMessageToUser}
               />
               {expandedUserId &&
                 !usersLoading &&
@@ -2490,6 +2527,14 @@ function AdminModerationPageInner() {
                 })()}
             </div>
           )}
+          </section>
+
+          <div className="mt-10 border-t border-white/[0.07] pt-8">
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Alertă admin / jurnal activitate
+            </p>
+            <AdminAlertCenter />
+          </div>
         </div>
 
         {/* Credits Modal */}

@@ -45,6 +45,12 @@ type Props = {
   onMakeAdmin: (userId: string) => void;
   onSuspend: (userId: string, durationHours: number, reason: string) => Promise<void>;
   onUnsuspend: (userId: string) => Promise<void>;
+  /** ID admin curent — ascunde „Mesaj” pentru propriul rând */
+  currentAdminUserId?: string | null;
+  onSendDirectMessage: (
+    userId: string,
+    content: string
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -107,6 +113,8 @@ export default function UserModerationEnterprise({
   onMakeAdmin,
   onSuspend,
   onUnsuspend,
+  currentAdminUserId,
+  onSendDirectMessage,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('created');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -114,6 +122,10 @@ export default function UserModerationEnterprise({
   const [suspendHours, setSuspendHours] = useState(24);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspendBusy, setSuspendBusy] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<EnterpriseModerationUser | null>(null);
+  const [messageBody, setMessageBody] = useState('');
+  const [messageBusy, setMessageBusy] = useState(false);
+  const [messageError, setMessageError] = useState('');
 
   const filteredSorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -177,6 +189,19 @@ export default function UserModerationEnterprise({
         >
           Beneficii
         </button>
+        {currentAdminUserId !== user.id && (
+          <button
+            type="button"
+            onClick={() => {
+              setMessageTarget(user);
+              setMessageBody('');
+              setMessageError('');
+            }}
+            className="rounded-md border border-sky-500/32 bg-sky-500/14 px-2 py-0.5 text-[10px] font-bold text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:bg-sky-500/24"
+          >
+            Mesaj
+          </button>
+        )}
         {user.listings > 0 && (
           <button
             type="button"
@@ -498,6 +523,91 @@ export default function UserModerationEnterprise({
         <strong className="text-[var(--text-secondary)]">Anunțuri (N)</strong> · panoul de listă ·{' '}
         <strong className="text-[var(--text-secondary)]">Beneficii</strong> / <strong className="text-[var(--text-secondary)]">Modifică</strong>.
       </p>
+
+      {/* Direct message modal */}
+      {messageTarget && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md" role="dialog" aria-modal="true">
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/[0.1] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow-xl)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-1 text-lg font-semibold text-[var(--text-primary)]">Mesaj către utilizator</h3>
+            <p className="mb-1 text-sm font-medium text-[var(--text-secondary)]">{messageTarget.email}</p>
+            {messageTarget.name ? (
+              <p className="mb-4 text-xs text-[var(--text-tertiary)]">{messageTarget.name}</p>
+            ) : (
+              <div className="mb-4" />
+            )}
+            <label className="mb-2 block text-xs font-medium text-[var(--text-muted)]">
+              Mesaj (max. 2000 caractere)
+            </label>
+            <textarea
+              value={messageBody}
+              onChange={(e) => {
+                setMessageBody(e.target.value);
+                setMessageError('');
+              }}
+              rows={5}
+              maxLength={2000}
+              className="enterprise-input mb-2 w-full resize-y px-3 py-2 text-sm"
+              placeholder="Scrie mesajul pentru acest utilizator…"
+            />
+            <p className="mb-3 text-right text-[10px] tabular-nums text-[var(--text-muted)]">
+              {messageBody.trim().length}/2000
+            </p>
+            {messageError ? (
+              <p className="mb-3 text-xs text-red-300" role="alert">
+                {messageError}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMessageTarget(null);
+                  setMessageBody('');
+                  setMessageError('');
+                }}
+                disabled={messageBusy}
+                className="rounded-xl border border-white/[0.1] bg-[var(--bg-secondary)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/[0.05] disabled:opacity-50"
+              >
+                Anulează
+              </button>
+              <button
+                type="button"
+                disabled={messageBusy || messageBody.trim().length < 1}
+                onClick={async () => {
+                  setMessageBusy(true);
+                  setMessageError('');
+                  try {
+                    const result = await onSendDirectMessage(
+                      messageTarget.id,
+                      messageBody.trim()
+                    );
+                    if (result.ok) {
+                      setMessageTarget(null);
+                      setMessageBody('');
+                    } else {
+                      setMessageError(result.error);
+                    }
+                  } finally {
+                    setMessageBusy(false);
+                  }
+                }}
+                className="rounded-xl bg-sky-600/90 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600 disabled:opacity-50"
+              >
+                {messageBusy ? 'Se trimite…' : 'Trimite'}
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="absolute inset-0 -z-10"
+            aria-label="Închide"
+            onClick={() => !messageBusy && setMessageTarget(null)}
+          />
+        </div>
+      )}
 
       {/* Suspend modal */}
       {suspendTarget && (
