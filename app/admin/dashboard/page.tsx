@@ -5,6 +5,7 @@ import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
 import AdminAlertCenter from "@/app/components/admin/AdminAlertCenter";
+import AdminCommandCenter from "@/app/components/admin/AdminCommandCenter";
 
 type PromotionType = 'top' | 'urgent' | 'featured' | 'refresh';
 type ApplyTo = 'all' | 'new' | 'active' | 'inactive';
@@ -549,6 +550,8 @@ export default function AdminDashboard() {
             </div>
           </header>
 
+          <AdminCommandCenter stats={stats} />
+
           <div className="mb-8 rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-transparent p-1 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.65)] ring-1 ring-inset ring-white/[0.04]">
             <AdminAlertCenter />
           </div>
@@ -559,76 +562,11 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Module shortcuts */}
-          <div className="mb-7 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <Link
-              href="/admin/moderation?tab=pending"
-              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
-            >
-              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/15 text-base" aria-hidden>
-                🛡️
-              </div>
-              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Moderare</h3>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
-                Coadă anunțuri, utilizatori și conținut raportat
-              </p>
-            </Link>
-
-            <Link
-              href="/admin/promotions"
-              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
-            >
-              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-base" aria-hidden>
-                ✨
-              </div>
-              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Promovări</h3>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
-                Pachete, vizibilitate și campanii
-              </p>
-            </Link>
-
-            <Link
-              href="/admin/invoices"
-              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
-            >
-              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/10 text-base" aria-hidden>
-                💵
-              </div>
-              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Facturi & venituri</h3>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
-                Facturare, ANAF și rapoarte financiare
-              </p>
-            </Link>
-
-            <Link
-              href="/admin/messaging"
-              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
-            >
-              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/15 text-base" aria-hidden>
-                📡
-              </div>
-              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Mesagerie (obs.)</h3>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
-                SSE, Redis și conversații — diagnostic operațional
-              </p>
-            </Link>
-
-            <Link
-              href="/listings"
-              className="group rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 p-4 shadow-[var(--shadow-md)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow,transform] duration-200 ease-out hover:border-[var(--border-focus)] hover:shadow-[var(--shadow-lg)] hover:-translate-y-px"
-            >
-              <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/12 text-base" aria-hidden>
-                📋
-              </div>
-              <h3 className="text-[15px] font-semibold leading-tight text-[var(--text-primary)]">Catalog anunțuri</h3>
-              <p className="mt-1 text-[12px] leading-snug text-[var(--text-tertiary)]">
-                Vizualizare publică și filtre rapide
-              </p>
-            </Link>
-          </div>
-
           {/* KPI */}
-          <div className="mb-7 grid grid-cols-2 gap-2.5 md:grid-cols-4 sm:gap-3">
+          <div
+            id="admin-kpi-section"
+            className="mb-7 grid grid-cols-2 gap-2.5 scroll-mt-24 md:grid-cols-4 sm:gap-3"
+          >
             <div className="rounded-xl border border-white/[0.09] border-t-2 border-t-emerald-500/50 bg-gradient-to-b from-emerald-500/[0.07] to-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-sm)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow] duration-200 ease-out hover:border-white/[0.14] sm:p-4">
               <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-2">
                 <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
@@ -1369,8 +1307,11 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Command Center */}
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 shadow-[var(--shadow-lg)] ring-1 ring-inset ring-white/[0.02]">
+          {/* Command Center — operațiuni globale (broadcast, beneficii, bulk) */}
+          <div
+            id="admin-global-ops"
+            className="scroll-mt-24 overflow-hidden rounded-xl border border-white/[0.08] bg-[var(--bg-elevated)]/95 shadow-[var(--shadow-lg)] ring-1 ring-inset ring-white/[0.02]"
+          >
             <div className="border-b border-white/[0.06] px-5 py-4 sm:px-6">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0">

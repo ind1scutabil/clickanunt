@@ -84,6 +84,21 @@ test.describe('Admin Dashboard', () => {
     await expect(adminHeader).toBeVisible();
   });
 
+  test('admin dashboard shows command center with moderation links', async ({ page }) => {
+    await page.goto('/admin/dashboard');
+    const commandCenter = page.getByTestId('admin-command-center');
+    await expect(commandCenter).toBeVisible();
+    await expect(page.getByTestId('admin-command-card-moderation')).toBeVisible();
+    await expect(page.getByTestId('admin-moderation-link-pending')).toHaveAttribute(
+      'href',
+      '/admin/moderation?tab=pending'
+    );
+    await expect(page.getByTestId('admin-command-card-promotions')).toHaveAttribute(
+      'href',
+      '/admin/promotions'
+    );
+  });
+
   test('should view listings pending approval', async ({ page }) => {
     await page.goto('/admin/listings');
     
