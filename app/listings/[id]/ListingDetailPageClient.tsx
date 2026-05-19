@@ -19,6 +19,7 @@ import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
+import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
 
 async function trackListingEngagement(
   listingId: string,
@@ -330,8 +331,9 @@ export default function ListingDetailPageClient({
         const res = await fetch(`/api/listings/${id}`, {
           cache: "no-store",
           headers: {
-            'Content-Type': 'application/json',
-          }
+            "Content-Type": "application/json",
+            ...analyticsSessionHeaders(),
+          },
         });
         
         if (res.ok) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateSitemapXML, type SitemapEntry } from "@/lib/seo";
 import { LISTING_SITEMAP_CHUNK_SIZE } from "@/lib/seo/sitemap-constants";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export async function GET(_req: Request, context: { params: Promise<{ chunk: str
   const skip = idx * LISTING_SITEMAP_CHUNK_SIZE;
 
   const listings = await prisma.listing.findMany({
-    where: { status: "active", deletedAt: null },
+    where: seoIndexableListingWhere(),
     select: { id: true, updatedAt: true },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: LISTING_SITEMAP_CHUNK_SIZE,

@@ -10,6 +10,7 @@ import {
   CITIES_BY_COUNTY 
 } from "@/lib/carData";
 import { ListingCard } from "@/app/components/ListingCard";
+import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
 type Listing = ListingPublicDto;
@@ -60,6 +61,11 @@ export interface ListingsViewProps {
   initialModel?: string;
   pageTitle?: string;
   seoIntro?: ReactNode;
+  /** SSR seed for /listings — avoids empty shell for crawlers on first paint. */
+  initialListings?: Listing[];
+  initialTotal?: number;
+  initialPage?: number;
+  ssrFiltersSignature?: string;
 }
 
 interface Filters {
@@ -89,6 +95,10 @@ export default function ListingsView({
   initialModel,
   pageTitle,
   seoIntro,
+  initialListings,
+  initialTotal,
+  initialPage,
+  ssrFiltersSignature,
 }: ListingsViewProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -100,11 +110,11 @@ export default function ListingsView({
       searchParams.get('county') ||
       searchParams.get('city')
   );
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [listings, setListings] = useState<Listing[]>(initialListings ?? []);
+  const [loading, setLoading] = useState(initialListings === undefined);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(initialTotal ?? 0);
   const [isFilterSticky, setIsFilterSticky] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
   const [showFiltersApplied, setShowFiltersApplied] = useState(false);
@@ -113,6 +123,7 @@ export default function ListingsView({
     sortOrder: 'desc',
   });
   const activeRequestRef = useRef(0);
+  const ssrSeedConsumedRef = useRef(false);
 
   const limit = 12;
 
@@ -194,6 +205,11 @@ export default function ListingsView({
   }, [searchParams, routeBase, initialCategory, initialCity, initialCounty, initialMake, initialModel]);
 
   useEffect(() => {
+    if (initialListings !== undefined && !ssrSeedConsumedRef.current && page === (initialPage ?? 1)) {
+      ssrSeedConsumedRef.current = true;
+      setLoading(false);
+      return;
+    }
     loadListings();
   }, [page, filters]);
 
@@ -236,7 +252,10 @@ export default function ListingsView({
         params.set('sort', sort);
       }
 
-      const res = await fetch(`/api/listings?${params}`, { cache: 'no-store' });
+      const res = await fetch(`/api/listings?${params}`, {
+        cache: "no-store",
+        headers: analyticsSessionHeaders(),
+      });
       const data = (await res.json().catch(() => ({}))) as {
         data?: Listing[];
         listings?: Listing[];

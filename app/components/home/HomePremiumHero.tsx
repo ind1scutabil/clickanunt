@@ -83,7 +83,7 @@ export function HomePremiumHero({
                 id="home-hero-heading"
                 className="mt-2 max-md:mt-1.5 text-[1.1875rem] font-semibold leading-[1.18] tracking-tight text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.35)] sm:text-[1.3125rem] sm:leading-[1.14] md:text-[2rem] md:leading-[1.12] lg:text-[2.125rem]"
               >
-                Găsești rapid anunțuri active
+                ClickAnunt — Anunțuri gratuite în România
               </h1>
               <p className="mt-2 hidden max-w-lg text-[12px] leading-snug text-white/92 sm:text-[13px] md:mt-2 md:block md:text-[0.9375rem] md:leading-relaxed">
                 Mașini, locuințe, electronice, joburi și servicii. Căutare rapidă, anunțuri moderate,

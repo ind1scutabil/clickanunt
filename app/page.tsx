@@ -7,18 +7,20 @@ import { getHomePageInitialStats } from "@/lib/home-page-stats";
 
 export async function generateMetadata(): Promise<Metadata> {
   return createPageMetadata({
-    title: "Anunțuri gratuite în România — Auto, Imobiliare, Electronice | ClickAnunț",
+    title:
+      "ClickAnunt.ro - Anunțuri Auto, Imobiliare, Locuri de Muncă și Marketplace România",
     description:
-      "Publică și caută anunțuri gratuite pe ClickAnunț: auto și moto, apartamente, electronice, telefoane, locuri de muncă și multe altele. Oferte verificate din toată România.",
+      "Publică rapid anunțuri gratuite în România pe ClickAnunt.ro. Auto, imobiliare, locuri de muncă, servicii și marketplace național.",
     canonicalPath: "/",
     keywords: [
+      "ClickAnunt",
+      "ClickAnunt.ro",
       "anunțuri gratuite",
       "anunțuri România",
-      "vânzări second hand",
-      "mașini second hand",
+      "marketplace România",
+      "auto",
       "imobiliare",
-      "electronice",
-      "ClickAnunț",
+      "locuri de muncă",
     ],
     ogImage: "/opengraph-image",
   });

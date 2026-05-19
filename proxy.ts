@@ -5,8 +5,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
+import { buildWwwRedirectUrl, shouldRedirectApexToWww } from "@/lib/seo/apex-canonical-host";
 
 export function proxy(request: NextRequest) {
+  const hostname =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ??
+    request.headers.get("host") ??
+    request.nextUrl.hostname;
+
+  if (shouldRedirectApexToWww(hostname)) {
+    const target = buildWwwRedirectUrl(request.nextUrl, true);
+    return NextResponse.redirect(target.href, 301);
+  }
+
   const requestHeaders = new Headers(request.headers);
   const traceId = request.headers.get("x-request-id") || crypto.randomUUID();
   requestHeaders.set("x-request-id", traceId);
@@ -38,10 +49,7 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  const hostname =
-    request.headers.get("host") ?? request.nextUrl.hostname ?? null;
-
-  return applySecurityHeaders(response, hostname);
+  return applySecurityHeaders(response, hostname ?? null);
 }
 
 export const config = {

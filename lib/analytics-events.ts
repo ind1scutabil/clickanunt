@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import type { NextRequest } from "next/server";
-import { buildAnalyticsContext } from "@/lib/analytics-context";
+import { analyticsContextMetadata, buildAnalyticsContext } from "@/lib/analytics-context";
 import { analyticsEventWouldDuplicate } from "@/lib/analytics-dedupe";
 import { shouldRecordListingView } from "@/lib/analytics-sampling";
 import {
@@ -113,6 +113,11 @@ export async function recordAnalyticsEvent(input: {
       await touchAnalyticsSession(sessionId, input.userId ?? null, ipHash);
     }
 
+    const mergedMeta = analyticsContextMetadata(
+      input.request ?? null,
+      (input.metadata as Record<string, unknown> | null | undefined) ?? null
+    );
+
     await prisma.analyticsEvent.create({
       data: {
         eventType: input.eventType.slice(0, 80),
@@ -120,9 +125,9 @@ export async function recordAnalyticsEvent(input: {
         sessionId: sessionId ?? undefined,
         listingId: input.listingId ?? undefined,
         metadata:
-          input.metadata === null || input.metadata === undefined
+          mergedMeta === null || mergedMeta === undefined
             ? undefined
-            : (input.metadata as Prisma.InputJsonValue),
+            : (mergedMeta as Prisma.InputJsonValue),
       },
     });
   };
@@ -199,20 +204,24 @@ export async function recordAnalyticsEventsBatch(
     }
 
     await prisma.$transaction(
-      toWrite.map((item) =>
-        prisma.analyticsEvent.create({
+      toWrite.map((item) => {
+        const mergedMeta = analyticsContextMetadata(
+          options.request ?? null,
+          (item.metadata as Record<string, unknown> | null | undefined) ?? null
+        );
+        return prisma.analyticsEvent.create({
           data: {
             eventType: item.eventType.slice(0, 80),
             userId: item.userId ?? undefined,
             sessionId: sessionId ?? undefined,
             listingId: item.listingId ?? undefined,
             metadata:
-              item.metadata === null || item.metadata === undefined
+              mergedMeta === null || mergedMeta === undefined
                 ? undefined
-                : (item.metadata as Prisma.InputJsonValue),
+                : (mergedMeta as Prisma.InputJsonValue),
           },
-        })
-      )
+        });
+      })
     );
   };
 

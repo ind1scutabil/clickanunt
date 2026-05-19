@@ -4,6 +4,11 @@ import Navbar from "@/app/components/Navbar";
 import ListingsView from "@/app/components/ListingsView";
 import { createPageMetadata } from "@/lib/seo";
 import { siteOrigin } from "@/lib/site-url";
+import {
+  getPublicBrowseListingsPage,
+  parsePublicBrowseFiltersFromSearchParams,
+  publicBrowseFiltersSignature,
+} from "@/lib/listings/public-browse-server";
 
 function listingsCanonical(sp: Record<string, string | string[] | undefined>): string {
   const get = (k: string) => (typeof sp[k] === "string" ? sp[k] : undefined);
@@ -92,14 +97,34 @@ export async function generateMetadata({
   });
 }
 
-export default function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = (await searchParams) ?? {};
+  const filters = parsePublicBrowseFiltersFromSearchParams(sp);
+  const pageParam = parseInt(typeof sp.page === "string" ? sp.page : "1", 10);
+  const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+
+  const browseSeed = await getPublicBrowseListingsPage({
+    page,
+    limit: 12,
+    filters,
+  });
+
+  const ssrSignature = publicBrowseFiltersSignature(filters, page);
+
   return (
     <div className="relative min-h-screen max-w-[100vw] overflow-x-hidden bg-[#030304] text-zinc-100 antialiased selection:bg-orange-500/25">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_88%_52%_at_50%_-16%,rgba(251,146,60,0.07),transparent_58%)]"
         aria-hidden
       />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_36%_at_100%_0%,rgba(139,92,246,0.05),transparent_50%)]" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_40%_36%_at_100%_0%,rgba(139,92,246,0.05),transparent_50%)]"
+        aria-hidden
+      />
       <Navbar />
       <div className="relative min-w-0 max-w-full text-zinc-100">
         <Suspense
@@ -116,7 +141,12 @@ export default function Page() {
             </div>
           }
         >
-          <ListingsView />
+          <ListingsView
+            initialListings={browseSeed.listings}
+            initialTotal={browseSeed.total}
+            initialPage={browseSeed.page}
+            ssrFiltersSignature={ssrSignature}
+          />
         </Suspense>
       </div>
     </div>

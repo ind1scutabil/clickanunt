@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateSitemapIndexXml } from "@/lib/seo";
 import { LISTING_SITEMAP_CHUNK_SIZE } from "@/lib/seo/sitemap-constants";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET() {
   }
 
   const count = await prisma.listing.count({
-    where: { status: "active", deletedAt: null },
+    where: seoIndexableListingWhere(),
   });
 
   const chunks = Math.ceil(count / LISTING_SITEMAP_CHUNK_SIZE);

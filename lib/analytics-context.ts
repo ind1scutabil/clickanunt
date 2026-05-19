@@ -16,13 +16,41 @@ export function hashIpForAnalytics(ip: string | null | undefined): string | null
   return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 64);
 }
 
+function trimHeader(value: string | null, maxLen: number): string | null {
+  if (!value) return null;
+  const t = value.trim();
+  if (!t) return null;
+  return t.length > maxLen ? t.slice(0, maxLen) : t;
+}
+
 export function buildAnalyticsContext(request: NextRequest | null | undefined): {
   sessionId: string | null;
   ipHash: string | null;
+  referrer: string | null;
+  userAgent: string | null;
 } {
-  if (!request) return { sessionId: null, ipHash: null };
+  if (!request) {
+    return { sessionId: null, ipHash: null, referrer: null, userAgent: null };
+  }
   return {
     sessionId: getAnalyticsSessionIdFromRequest(request),
     ipHash: hashIpForAnalytics(getClientIp(request)),
+    referrer: trimHeader(request.headers.get("referer"), 512),
+    userAgent: trimHeader(request.headers.get("user-agent"), 256),
   };
+}
+
+/** Merge request context into event metadata (non-destructive). */
+export function analyticsContextMetadata(
+  request: NextRequest | null | undefined,
+  metadata?: Record<string, unknown> | null
+): Record<string, unknown> | null {
+  const ctx = buildAnalyticsContext(request);
+  const base =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...metadata }
+      : {};
+  if (ctx.referrer) base.referrer = ctx.referrer;
+  if (ctx.userAgent) base.userAgent = ctx.userAgent;
+  return Object.keys(base).length > 0 ? base : null;
 }
