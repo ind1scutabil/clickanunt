@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isListingPrimaryPhotoReachable } from "@/lib/listing-photo-reachable";
 import { readRecentListingSnapshots, type RecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingCard, type ListingCardListing } from "@/app/components/ListingCard";
 
@@ -24,7 +25,23 @@ export function HomeRecentlyViewed({ variant = "light" }: { variant?: "light" | 
   const [items, setItems] = useState<RecentListingSnapshot[]>([]);
 
   useEffect(() => {
-    setItems(readRecentListingSnapshots().slice(0, 8));
+    let cancelled = false;
+    (async () => {
+      const snapshots = readRecentListingSnapshots();
+      const reachable: RecentListingSnapshot[] = [];
+      for (const row of snapshots) {
+        if (reachable.length >= 8) break;
+        const photos = row.photo ? [row.photo] : [];
+        if (photos.length === 0) continue;
+        if (await isListingPrimaryPhotoReachable(photos)) {
+          reachable.push(row);
+        }
+      }
+      if (!cancelled) setItems(reachable);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (items.length === 0) return null;

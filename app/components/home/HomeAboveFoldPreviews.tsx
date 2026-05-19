@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ListingCard, type ListingCardListing } from "@/app/components/ListingCard";
+import { filterListingsWithReachablePrimaryPhoto } from "@/lib/listing-photo-reachable";
 import { listingExcludedFromHomeHeroPreview } from "@/lib/public-listing-feed";
 
 type Row = {
@@ -44,14 +45,15 @@ export function HomeAboveFoldPreviews({ variant = "light" }: { variant?: "light"
       try {
         const params = new URLSearchParams({
           status: "active",
-          limit: "20",
+          limit: "24",
           sort: "newest",
         });
         const res = await fetch(`/api/listings?${params}`, { cache: "no-store" });
         if (!res.ok) throw new Error("fetch");
         const json = (await res.json()) as { data?: Row[] };
         const rows = Array.isArray(json.data) ? json.data : [];
-        const clean = rows.filter((r) => !listingExcludedFromHomeHeroPreview(r)).slice(0, 4);
+        const candidates = rows.filter((r) => !listingExcludedFromHomeHeroPreview(r));
+        const clean = await filterListingsWithReachablePrimaryPhoto(candidates, 4);
         if (!cancelled) setItems(clean);
       } catch {
         if (!cancelled) setItems([]);

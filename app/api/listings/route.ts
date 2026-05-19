@@ -675,7 +675,24 @@ export async function POST(request: Request) {
       Object.assign(data, listingPublishExpiryFields());
     }
 
-    const listing = await prisma.listing.create({ data });
+    let presetListingId: string | undefined;
+    const uploadSessionId = cleanBody.uploadSessionId as string | undefined;
+    if (uploadSessionId) {
+      const sessionParse = uuidSchema.safeParse(uploadSessionId);
+      if (sessionParse.success) {
+        const taken = await prisma.listing.findUnique({
+          where: { id: sessionParse.data },
+          select: { id: true },
+        });
+        if (!taken) {
+          presetListingId = sessionParse.data;
+        }
+      }
+    }
+
+    const listing = await prisma.listing.create({
+      data: presetListingId ? { id: presetListingId, ...data } : data,
+    });
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.listing_created,

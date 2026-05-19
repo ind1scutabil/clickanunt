@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ListingCard, type ListingCardListing } from "@/app/components/ListingCard";
+import { filterListingsWithReachablePrimaryPhoto } from "@/lib/listing-photo-reachable";
 
 type Row = {
   id: string;
@@ -70,7 +71,7 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
       try {
         const params = new URLSearchParams({
           status: "active",
-          limit: "8",
+          limit: "20",
           sort: config.sort,
         });
         if (config.category) params.set("category", config.category);
@@ -79,8 +80,9 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
         if (!res.ok) throw new Error("fetch");
         const json = (await res.json()) as { data?: Row[] };
         const rows = Array.isArray(json.data) ? json.data : [];
+        const reachable = await filterListingsWithReachablePrimaryPhoto(rows, 8);
         if (!cancelled) {
-          setItems(rows.slice(0, 8));
+          setItems(reachable);
           setErr(false);
         }
       } catch {

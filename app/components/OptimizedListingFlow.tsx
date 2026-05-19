@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  clearDraftUploadSessionId,
+  getOrCreateDraftUploadSessionId,
+} from "@/lib/draft-upload-session";
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/listing-photo-url";
 import { appendAutoFieldsToListingPayload } from "@/lib/listing-auto-create-payload";
 import CountryOfOriginSelect from "@/app/components/listing/CountryOfOriginSelect";
@@ -112,6 +116,12 @@ export default function OptimizedListingFlow() {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [forceNewDraft, setForceNewDraft] = useState(false);
+  const [uploadSessionId, setUploadSessionId] = useState(() => getOrCreateDraftUploadSessionId());
+
+  const resetUploadSessionId = useCallback(() => {
+    clearDraftUploadSessionId();
+    setUploadSessionId(getOrCreateDraftUploadSessionId());
+  }, []);
   
   // Form data with draft support
   const [draft, setDraft] = useState<DraftListing>(INITIAL_DRAFT);
@@ -135,6 +145,7 @@ export default function OptimizedListingFlow() {
       console.log("✅ Starting fresh listing (no ?continue parameter)");
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
+      resetUploadSessionId();
       setForceNewDraft(true);
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
@@ -178,7 +189,7 @@ export default function OptimizedListingFlow() {
         setCurrentStep(0);
       }
     }
-  }, []);
+  }, [resetUploadSessionId]);
 
   // Autosave draft every 3 seconds (but not when starting fresh)
   useEffect(() => {
@@ -345,6 +356,7 @@ export default function OptimizedListingFlow() {
           const res = await postJsonWithAuthRefresh("/api/uploads", {
             data: b64,
             type: "image",
+            listingId: uploadSessionId,
           });
 
           console.log(`📥 Răspuns API status: ${res.status}`);
@@ -426,6 +438,7 @@ export default function OptimizedListingFlow() {
       const res = await postJsonWithAuthRefresh("/api/uploads", {
         data: b64,
         type: "video",
+        listingId: uploadSessionId,
       });
       
       const data = await res.json();
@@ -487,7 +500,8 @@ export default function OptimizedListingFlow() {
         city: draft.city,
         photos: draft.photos,
         contactPhone: draft.phone,
-        allowMessages: draft.allowMessages
+        allowMessages: draft.allowMessages,
+        uploadSessionId,
       };
 
       // Client-side sanity validation to avoid server schema errors
@@ -578,7 +592,8 @@ export default function OptimizedListingFlow() {
       // Clear draft - ALWAYS on success
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
-      
+      resetUploadSessionId();
+
       // Reset form state completely
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
@@ -597,6 +612,7 @@ export default function OptimizedListingFlow() {
       // Clear draft even on error - user can try again fresh
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
+      resetUploadSessionId();
       setErrors({ general: errorMessage });
       setShowGeneralError(true);
     } finally {
@@ -609,6 +625,7 @@ export default function OptimizedListingFlow() {
     if (confirm("Ești sigur că vrei să resetezi formularul? Toate datele vor fi șterse.")) {
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
+      resetUploadSessionId();
       setDraft(INITIAL_DRAFT);
       setCurrentStep(0);
       setErrors({});

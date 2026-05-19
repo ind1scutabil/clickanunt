@@ -296,6 +296,8 @@ export const listingCreateSchema = z.object({
   features: z.array(z.string()).default([]).optional(),
   tags: z.array(z.string().max(50)).max(10).default([]).optional(),
   attributes: z.record(z.string(), z.unknown()).optional(),
+  /** Client upload session folder id — must match photo serve keys when publishing. */
+  uploadSessionId: uuidSchema.optional(),
 }).strict();
 
 const listingEditYearSchema = z.preprocess(
