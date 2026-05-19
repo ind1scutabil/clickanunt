@@ -81,6 +81,7 @@ export const CATEGORY_LABEL_BY_CANONICAL_SLUG: Record<string, string> = {
 export const CATEGORY_SLUG_ALIASES: Record<string, string> = {
   telefoane: 'electronice',
   electrocasnice: 'electronice',
+  'electronice-si-electrocasnice': 'electronice',
   casa: 'casa-si-gradina',
   gradina: 'casa-si-gradina',
   joburi: 'locuri-de-munca',

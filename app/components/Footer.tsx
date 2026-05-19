@@ -9,7 +9,20 @@ import {
 } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 
-const FOOTER_SEO_CATEGORY_SLUGS = ["auto", "imobiliare", "electronice", "locuri-de-munca", "servicii", "agricultura"] as const;
+/** Pillar + secondary categories — only slugs with public hub routes. */
+const FOOTER_SEO_CATEGORY_SLUGS = [
+  "auto",
+  "imobiliare",
+  "electronice",
+  "moda",
+  "casa-si-gradina",
+  "sport",
+  "copii",
+  "animale",
+  "locuri-de-munca",
+  "servicii",
+  "agricultura",
+] as const;
 
 function shortCatFromSlug(canonicalSlug: string): string {
   const lab = CATEGORY_LABEL_BY_CANONICAL_SLUG[canonicalSlug];

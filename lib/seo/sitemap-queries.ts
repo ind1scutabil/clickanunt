@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { slugifyRo } from '@/lib/seo/slug';
 import type { SitemapEntry } from '@/lib/seo';
+import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 import { primarySlugForCategoryLabel } from '@/lib/seo/market-paths';
 import { siteOriginForSeoFeeds } from '@/lib/seo/site-url-guard';
 
@@ -14,9 +15,11 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
   const base = siteOriginForSeoFeeds();
   const out: SitemapEntry[] = [];
 
+  const indexableWhere = seoIndexableListingWhere(now);
+
   const byCategory = await prisma.listing.groupBy({
     by: ['category'],
-    where: { status: 'active', deletedAt: null },
+    where: indexableWhere,
     _count: { _all: true },
   });
 
@@ -34,8 +37,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
   const byPair = await prisma.listing.groupBy({
     by: ['category', 'city'],
     where: {
-      status: 'active',
-      deletedAt: null,
+      ...indexableWhere,
       city: { not: null },
     },
     _count: { _all: true },
@@ -76,8 +78,7 @@ export async function buildAutoCitySitemapEntries(): Promise<SitemapEntry[]> {
   const byPair = await prisma.listing.groupBy({
     by: ['category', 'city'],
     where: {
-      status: 'active',
-      deletedAt: null,
+      ...seoIndexableListingWhere(now),
       category: AUTO_LABEL,
       city: { not: null },
     },

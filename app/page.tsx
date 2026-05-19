@@ -7,10 +7,9 @@ import { getHomePageInitialStats } from "@/lib/home-page-stats";
 
 export async function generateMetadata(): Promise<Metadata> {
   return createPageMetadata({
-    title:
-      "ClickAnunt.ro - Anunțuri Auto, Imobiliare, Locuri de Muncă și Marketplace România",
+    title: "ClickAnunț.ro — Anunțuri gratuite în România",
     description:
-      "Publică rapid anunțuri gratuite în România pe ClickAnunt.ro. Auto, imobiliare, locuri de muncă, servicii și marketplace național.",
+      "Publică și găsește anunțuri gratuite în România: auto, imobiliare, electronice, locuri de muncă și servicii. Marketplace național ClickAnunț.",
     canonicalPath: "/",
     keywords: [
       "ClickAnunt",

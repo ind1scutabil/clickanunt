@@ -2,8 +2,8 @@ import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import Navbar from "@/app/components/Navbar";
 import ListingsView from "@/app/components/ListingsView";
-import { createPageMetadata } from "@/lib/seo";
-import { siteOrigin } from "@/lib/site-url";
+import { createPageMetadata, generateItemListStructuredData } from "@/lib/seo";
+import { absoluteUrl, siteOrigin } from "@/lib/site-url";
 import {
   getPublicBrowseListingsPage,
   parsePublicBrowseFiltersFromSearchParams,
@@ -115,8 +115,25 @@ export default async function Page({
 
   const ssrSignature = publicBrowseFiltersSignature(filters, page);
 
+  const itemListLd =
+    browseSeed.listings.length > 0 && !filters.q && !filters.category && !filters.city
+      ? generateItemListStructuredData({
+          name: "Toate anunțurile pe ClickAnunț",
+          description:
+            "Catalog public de anunțuri active în România — auto, imobiliare, electronice și alte categorii.",
+          canonicalUrlAbs: absoluteUrl("/listings"),
+          items: browseSeed.listings.map((l) => ({
+            title: l.title,
+            path: `/listings/${l.id}`,
+          })),
+        })
+      : null;
+
   return (
     <div className="relative min-h-screen max-w-[100vw] overflow-x-hidden bg-[#030304] text-zinc-100 antialiased selection:bg-orange-500/25">
+      {itemListLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListLd) }} />
+      ) : null}
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_88%_52%_at_50%_-16%,rgba(251,146,60,0.07),transparent_58%)]"
         aria-hidden

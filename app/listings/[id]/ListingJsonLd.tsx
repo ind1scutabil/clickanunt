@@ -5,6 +5,10 @@ import { absoluteUrl } from "@/lib/site-url";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { isListingSeoIndexable, listingSchemaAvailabilityUrl } from "@/lib/seo/listing-seo-eligibility";
+import {
+  buildClassifiedOfferPolicyFields,
+  buildListingProductIdentifierFields,
+} from "@/lib/seo/listing-product-jsonld";
 import type { Condition } from "@prisma/client";
 
 function schemaItemConditionUrl(condition: Condition | null | undefined): string | undefined {
@@ -40,6 +44,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       photos: true,
       make: true,
       model: true,
+      vin: true,
       condition: true,
       updatedAt: true,
       createdAt: true,
@@ -74,11 +79,6 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   const availability = listingSchemaAvailabilityUrl(listing);
   const itemCondition = schemaItemConditionUrl(listing.condition);
 
-  const brand =
-    listing.make && listing.make.trim().length > 0
-      ? { "@type": "Brand" as const, name: listing.make.trim() }
-      : undefined;
-
   let seller: { "@type": "Organization"; name: string; url: string } | { "@type": "Person"; name: string; url: string } | undefined;
   if (listing.owner) {
     if (listing.owner.accountType === "business" && listing.owner.businessName?.trim()) {
@@ -103,6 +103,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     availability,
     url: itemUrl,
     priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    ...buildClassifiedOfferPolicyFields(),
   };
   if (seller) offer.seller = seller;
 
@@ -111,19 +112,23 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     "@type": "Product",
     name: listing.title,
     sku: listing.id,
-    productID: listing.id,
     category: listing.category,
     url: itemUrl,
     offers: offer,
     datePublished: listing.createdAt.toISOString(),
     dateModified: listing.updatedAt.toISOString(),
+    ...buildListingProductIdentifierFields({
+      id: listing.id,
+      title: listing.title,
+      make: listing.make,
+      model: listing.model,
+      vin: listing.vin,
+    }),
   };
 
   const desc = listing.description?.trim();
   if (desc) productLd.description = desc;
   if (images.length > 0) productLd.image = images;
-  if (brand) productLd.brand = brand;
-  if (listing.model?.trim()) productLd.model = listing.model.trim();
   if (itemCondition) productLd.itemCondition = itemCondition;
 
   const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
