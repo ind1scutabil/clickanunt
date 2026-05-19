@@ -110,10 +110,17 @@ export default function ListingsView({
       searchParams.get('county') ||
       searchParams.get('city')
   );
+  const initialPageResolved = (() => {
+    const fromUrl = parseInt(searchParams.get("page") || "", 10);
+    if (!Number.isNaN(fromUrl) && fromUrl > 0) return fromUrl;
+    const fromProp = initialPage ?? 1;
+    return fromProp > 0 ? fromProp : 1;
+  })();
+
   const [listings, setListings] = useState<Listing[]>(initialListings ?? []);
   const [loading, setLoading] = useState(initialListings === undefined);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(initialPageResolved);
   const [total, setTotal] = useState(initialTotal ?? 0);
   const [isFilterSticky, setIsFilterSticky] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
@@ -205,13 +212,17 @@ export default function ListingsView({
   }, [searchParams, routeBase, initialCategory, initialCity, initialCounty, initialMake, initialModel]);
 
   useEffect(() => {
-    if (initialListings !== undefined && !ssrSeedConsumedRef.current && page === (initialPage ?? 1)) {
+    if (
+      initialListings !== undefined &&
+      !ssrSeedConsumedRef.current &&
+      page === initialPageResolved
+    ) {
       ssrSeedConsumedRef.current = true;
       setLoading(false);
       return;
     }
     loadListings();
-  }, [page, filters]);
+  }, [page, filters, initialListings, initialPageResolved]);
 
   // Scroll detection for sticky filters on mobile
   useEffect(() => {
@@ -259,7 +270,7 @@ export default function ListingsView({
       const data = (await res.json().catch(() => ({}))) as {
         data?: Listing[];
         listings?: Listing[];
-        pagination?: { total?: number; count?: number };
+        pagination?: { total?: number; totalPages?: number; count?: number };
         error?: string;
       };
 
@@ -276,7 +287,9 @@ export default function ListingsView({
       }
       // API returns { data: [...], pagination: {...} }
       setListings(data.data || data.listings || []);
-      setTotal(data.pagination?.total || data.pagination?.count || data.data?.length || 0);
+      if (typeof data.pagination?.total === "number") {
+        setTotal(data.pagination.total);
+      }
     } catch (err: any) {
       if (requestId !== activeRequestRef.current) return;
       setError(err.message || 'Eroare la încărcarea anunțurilor');

@@ -107,6 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusParam === "active" && !userIdParam) {
+      where.deletedAt = null;
       const expiryFilter = activePublicListingExpiryWhere();
       where.AND = Array.isArray(where.AND)
         ? [...where.AND, expiryFilter]
@@ -274,24 +275,27 @@ export async function GET(request: NextRequest) {
     const useOffsetPaging = !cursorPayload && rawPage > 1;
     const skip = useOffsetPaging ? (rawPage - 1) * limitNum : undefined;
 
-    const listings = await prisma.listing.findMany({
-      where: finalWhere,
-      skip,
-      take: limitNum + 1,
-      include: {
-        owner: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            createdAt: true,
-            subscriptionTier: true,
-            trustScore: true,
+    const [listings, total] = await Promise.all([
+      prisma.listing.findMany({
+        where: finalWhere,
+        skip,
+        take: limitNum + 1,
+        include: {
+          owner: {
+            select: {
+              id: true,
+              email: true,
+              role: true,
+              createdAt: true,
+              subscriptionTier: true,
+              trustScore: true,
+            },
           },
         },
-      },
-      orderBy: prismaOrderByForListingSort(sortMode),
-    });
+        orderBy: prismaOrderByForListingSort(sortMode),
+      }),
+      prisma.listing.count({ where }),
+    ]);
 
     const listingsWithPhotos = listings.map((l) => ({
       ...l,
@@ -308,6 +312,7 @@ export async function GET(request: NextRequest) {
       : () => null;
 
     const result = buildPagination(listingsWithPhotos, limitNum, encodeCursorFn);
+    const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
 
     return NextResponse.json({
       ...result,
@@ -315,6 +320,10 @@ export async function GET(request: NextRequest) {
         ...result.pagination,
         page: rawPage,
         usedOffset: useOffsetPaging,
+        total,
+        totalPages,
+        pages: totalPages,
+        limit: limitNum,
       },
     });
   } catch (error: any) {
