@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const security = await validateSecureRequest(req, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_draft',
       schema: draftCreateSchema,
     });
 
@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest) {
   try {
     const security = await validateSecureRequest(req, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_draft',
       schema: draftCreateSchema,
     });
 

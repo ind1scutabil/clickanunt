@@ -10,6 +10,15 @@ import {
   UPLOAD_RATE_LIMIT_IP_PER_HOUR,
 } from '@/lib/infra/production-limits';
 import {
+  LISTING_DRAFT_MAX_PER_USER,
+  LISTING_DRAFT_WINDOW_MS,
+  LISTING_PUBLISH_MAX_ANONYMOUS_PER_HOUR,
+  LISTING_PUBLISH_WINDOW_MS,
+  LISTING_UPDATE_MAX_PER_USER,
+  LISTING_UPDATE_WINDOW_MS,
+  listingPublishMaxForRole,
+} from '@/lib/listing-publish-rate-limit';
+import {
   rateLimit,
   rateLimitPresets,
   type RateLimitConfig,
@@ -113,6 +122,9 @@ export type SecureRateLimitPreset =
   | 'login'
   | 'register'
   | 'listings'
+  | 'listing_publish'
+  | 'listing_draft'
+  | 'listing_update'
   | 'messages'
   | 'reports'
   | 'upload'
@@ -127,7 +139,8 @@ export async function resolveSecureRateLimit(
   preset: SecureRateLimitPreset,
   clientIp: string,
   userId: string | null,
-  loginHint = ''
+  loginHint = '',
+  role: string | null = null
 ): Promise<RateLimitResult> {
   switch (preset) {
     case 'login':
@@ -137,16 +150,40 @@ export async function resolveSecureRateLimit(
         windowMs: 60 * 60 * 1000,
         maxRequests: 3,
       });
+    case 'listing_publish':
     case 'listings':
-      return userId
-        ? resolveRateLimit(`listing:create:${userId}`, {
-            windowMs: 60 * 60 * 1000,
-            maxRequests: 10,
-          })
-        : resolveRateLimit(`api:${clientIp}`, {
-            windowMs: 60 * 1000,
-            maxRequests: 100,
-          });
+      if (!userId) {
+        return resolveRateLimit(`listing:publish:ip:${clientIp}`, {
+          windowMs: 60 * 60 * 1000,
+          maxRequests: LISTING_PUBLISH_MAX_ANONYMOUS_PER_HOUR,
+        });
+      }
+      return resolveRateLimit(`listing:publish:${userId}`, {
+        windowMs: LISTING_PUBLISH_WINDOW_MS,
+        maxRequests: listingPublishMaxForRole(role),
+      });
+    case 'listing_draft':
+      if (!userId) {
+        return resolveRateLimit(`listing:draft:ip:${clientIp}`, {
+          windowMs: 60 * 60 * 1000,
+          maxRequests: LISTING_PUBLISH_MAX_ANONYMOUS_PER_HOUR,
+        });
+      }
+      return resolveRateLimit(`listing:draft:${userId}`, {
+        windowMs: LISTING_DRAFT_WINDOW_MS,
+        maxRequests: LISTING_DRAFT_MAX_PER_USER,
+      });
+    case 'listing_update':
+      if (!userId) {
+        return resolveRateLimit(`api:${clientIp}`, {
+          windowMs: 60 * 1000,
+          maxRequests: 30,
+        });
+      }
+      return resolveRateLimit(`listing:update:${userId}`, {
+        windowMs: LISTING_UPDATE_WINDOW_MS,
+        maxRequests: LISTING_UPDATE_MAX_PER_USER,
+      });
     case 'messages':
       return userId
         ? resolveRateLimit(`messages:user:${userId}`, {

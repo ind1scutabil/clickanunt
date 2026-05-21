@@ -134,11 +134,11 @@ export const rateLimitPresets = {
           maxRequests: 3,
         }),
 
-  // Create listing: 10 per oră per user
+  // Create listing (legacy key): aligned with listing_publish 50 / 24h
   createListing: (userId: string) =>
-    rateLimit(`listing:create:${userId}`, {
-      windowMs: 60 * 60 * 1000,
-      maxRequests: 10,
+    rateLimit(`listing:publish:${userId}`, {
+      windowMs: 24 * 60 * 60 * 1000,
+      maxRequests: 50,
     }),
 
   // Report: 5 per oră per user

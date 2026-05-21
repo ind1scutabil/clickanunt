@@ -341,7 +341,7 @@ export async function POST(request: Request) {
   try {
     const security = await validateSecureRequest(request as NextRequest, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_publish',
       schema: listingCreateSchema,
     });
 

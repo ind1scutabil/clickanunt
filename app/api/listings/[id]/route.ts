@@ -108,7 +108,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_update',
       schema: listingEditSchema,
     });
 
@@ -270,7 +270,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id } = await params;
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_update',
     });
 
     if (!security.success) {

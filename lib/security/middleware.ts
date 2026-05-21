@@ -22,6 +22,7 @@ import { logger } from '@/lib/observability';
 import { verifyAccessToken } from '@/lib/security/tokens';
 import crypto from 'crypto';
 import { rateLimitPaymentRedis } from '@/lib/rateLimit-redis';
+import { formatSecureRateLimitErrorRo } from '@/lib/listing-publish-rate-limit';
 
 export interface SecurityValidationResult {
   success: boolean;
@@ -34,7 +35,21 @@ export interface SecurityValidationResult {
 
 export interface ValidationOptions {
   requireCSRF?: boolean;
-  rateLimit?: 'login' | 'register' | 'listings' | 'messages' | 'reports' | 'upload' | 'contact' | 'api' | 'payment' | 'moderation' | null;
+  rateLimit?:
+    | 'login'
+    | 'register'
+    | 'listings'
+    | 'listing_publish'
+    | 'listing_draft'
+    | 'listing_update'
+    | 'messages'
+    | 'reports'
+    | 'upload'
+    | 'contact'
+    | 'api'
+    | 'payment'
+    | 'moderation'
+    | null;
   schema?: z.ZodSchema;
 }
 
@@ -66,6 +81,7 @@ export async function validateSecureRequest(
     const accessToken = bearer || cookieToken;
     const tokenPayload = accessToken ? verifyAccessToken(accessToken) : null;
     const userId = tokenPayload?.userId || null;
+    const userRole = tokenPayload?.role ?? null;
     
     // ===== 1. CSRF VALIDATION (for state-changing operations) =====
     if (requireCSRF && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
@@ -147,6 +163,9 @@ export async function validateSecureRequest(
         }
         case 'register':
         case 'listings':
+        case 'listing_publish':
+        case 'listing_draft':
+        case 'listing_update':
         case 'messages':
         case 'reports':
         case 'upload':
@@ -156,7 +175,9 @@ export async function validateSecureRequest(
           rateLimitResult = await resolveSecureRateLimit(
             rateLimit as SecureRateLimitPreset,
             clientIp,
-            userId
+            userId,
+            '',
+            userRole
           );
           break;
         case 'payment':
@@ -194,7 +215,10 @@ export async function validateSecureRequest(
 
         return {
           success: false,
-          error: `Too many requests. Please try again in ${rateLimitResult.retryAfter} seconds.`,
+          error: formatSecureRateLimitErrorRo(
+            rateLimit,
+            rateLimitResult.retryAfter ?? 60
+          ),
           rateLimitError: true,
         };
       }
@@ -263,7 +287,7 @@ export const validators = {
   createListing: async (request: NextRequest, schema: z.ZodSchema) =>
     validateSecureRequest(request, {
       requireCSRF: true,
-      rateLimit: 'listings',
+      rateLimit: 'listing_publish',
       schema,
     }),
 
