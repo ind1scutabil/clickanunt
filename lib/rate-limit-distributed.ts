@@ -19,6 +19,7 @@ import {
   listingPublishMaxForRole,
 } from '@/lib/listing-publish-rate-limit';
 import {
+  peekRateLimit,
   rateLimit,
   rateLimitPresets,
   type RateLimitConfig,
@@ -56,6 +57,63 @@ async function redisFixedWindowRateLimit(
     : Math.max(1, Math.ceil((ttlMs > 0 ? ttlMs : config.windowMs) / 1000));
 
   return { allowed, remaining, resetTime, retryAfter };
+}
+
+async function redisPeekFixedWindow(
+  key: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  const redis = getRedisClient();
+  const raw = await redis.get(key);
+  const count = raw ? Number(raw) : 0;
+  const ttlMs = raw ? Number(await redis.pttl(key)) : -1;
+  const now = Date.now();
+  const allowed = count < config.maxRequests;
+  const remaining = Math.max(0, config.maxRequests - count);
+  const resetTime =
+    ttlMs > 0 ? now + ttlMs : count > 0 ? now + config.windowMs : now + config.windowMs;
+  const retryAfter = allowed
+    ? undefined
+    : Math.max(1, Math.ceil((ttlMs > 0 ? ttlMs : config.windowMs) / 1000));
+
+  return { allowed, remaining, resetTime, retryAfter };
+}
+
+/**
+ * Peek without incrementing (publish middleware — quota consumed only after success).
+ */
+export async function peekRateLimitDistributed(
+  key: string,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+    return { allowed: true, remaining: 999, resetTime: Date.now() + 60_000 };
+  }
+
+  if (!isRedisRateLimitEnabled() || !isRedisUrlConfigured()) {
+    return peekRateLimit(key, config);
+  }
+
+  try {
+    return await redisPeekFixedWindow(key, config);
+  } catch (error) {
+    logger.warn('Redis peek rate limit unavailable; using in-memory fallback', {
+      keyPrefix: key.split(':')[0],
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return peekRateLimit(key, config);
+  }
+}
+
+/** Consume one publish slot after a successful POST /api/listings. */
+export async function commitListingPublishRateLimit(
+  userId: string,
+  role: string | null
+): Promise<void> {
+  await resolveRateLimit(`listing:publish:${userId}`, {
+    windowMs: LISTING_PUBLISH_WINDOW_MS,
+    maxRequests: listingPublishMaxForRole(role),
+  });
 }
 
 /**
@@ -131,6 +189,33 @@ export type SecureRateLimitPreset =
   | 'contact'
   | 'api'
   | 'moderation';
+
+/**
+ * Peek-only secure rate limits (no increment). Used for listing_publish in middleware.
+ */
+export async function peekSecureRateLimit(
+  preset: SecureRateLimitPreset,
+  clientIp: string,
+  userId: string | null,
+  loginHint = '',
+  role: string | null = null
+): Promise<RateLimitResult> {
+  if (preset !== 'listing_publish' && preset !== 'listings') {
+    return resolveSecureRateLimit(preset, clientIp, userId, loginHint, role);
+  }
+
+  if (!userId) {
+    return peekRateLimitDistributed(`listing:publish:ip:${clientIp}`, {
+      windowMs: 60 * 60 * 1000,
+      maxRequests: LISTING_PUBLISH_MAX_ANONYMOUS_PER_HOUR,
+    });
+  }
+
+  return peekRateLimitDistributed(`listing:publish:${userId}`, {
+    windowMs: LISTING_PUBLISH_WINDOW_MS,
+    maxRequests: listingPublishMaxForRole(role),
+  });
+}
 
 /**
  * Maps validateSecureRequest rate-limit presets to distributed or in-memory limits.

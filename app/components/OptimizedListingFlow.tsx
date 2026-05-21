@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
 import { getCsrfToken } from "@/lib/security/csrf-client";
@@ -114,6 +114,7 @@ export default function OptimizedListingFlow() {
   // Core state
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const publishInFlightRef = useRef(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [forceNewDraft, setForceNewDraft] = useState(false);
   const [uploadSessionId, setUploadSessionId] = useState(() => getOrCreateDraftUploadSessionId());
@@ -484,7 +485,9 @@ export default function OptimizedListingFlow() {
   // Submit listing
   const handleSubmit = async () => {
     if (!validateStep(3)) return;
-    
+    if (publishInFlightRef.current || loading) return;
+
+    publishInFlightRef.current = true;
     setLoading(true);
     const startTime = Date.now();
     
@@ -616,6 +619,7 @@ export default function OptimizedListingFlow() {
       setErrors({ general: errorMessage });
       setShowGeneralError(true);
     } finally {
+      publishInFlightRef.current = false;
       setLoading(false);
     }
   };

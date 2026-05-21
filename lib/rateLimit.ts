@@ -44,6 +44,38 @@ export interface RateLimitResult {
 }
 
 /**
+ * Peek current usage without consuming a slot (for publish: check before success).
+ */
+export function peekRateLimit(
+  identifier: string,
+  config: RateLimitConfig
+): RateLimitResult {
+  const now = Date.now();
+  const key = identifier;
+
+  if (!store[key] || store[key].resetTime < now) {
+    return {
+      allowed: true,
+      remaining: config.maxRequests,
+      resetTime: now + config.windowMs,
+    };
+  }
+
+  const count = store[key].count;
+  const allowed = count < config.maxRequests;
+  const remaining = Math.max(0, config.maxRequests - count);
+
+  return {
+    allowed,
+    remaining,
+    resetTime: store[key].resetTime,
+    retryAfter: allowed
+      ? undefined
+      : Math.max(1, Math.ceil((store[key].resetTime - now) / 1000)),
+  };
+}
+
+/**
  * Rate limiter simplu bazat pe memorie
  * Pentru production, folosește Redis sau similar
  */
@@ -134,11 +166,11 @@ export const rateLimitPresets = {
           maxRequests: 3,
         }),
 
-  // Create listing (legacy key): aligned with listing_publish 50 / 24h
+  // Create listing (legacy key): aligned with listing_publish 100 / 24h
   createListing: (userId: string) =>
     rateLimit(`listing:publish:${userId}`, {
       windowMs: 24 * 60 * 60 * 1000,
-      maxRequests: 50,
+      maxRequests: 100,
     }),
 
   // Report: 5 per oră per user

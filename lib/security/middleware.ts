@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateCSRFToken } from '@/lib/security/csrf';
 import { rateLimitPresets, getClientIp, RateLimitResult } from '@/lib/rateLimit';
+import { peekSecureRateLimit } from '@/lib/rate-limit-distributed';
 import {
   resolveSecureRateLimit,
   type SecureRateLimitPreset,
@@ -161,9 +162,17 @@ export async function validateSecureRequest(
           );
           break;
         }
-        case 'register':
-        case 'listings':
         case 'listing_publish':
+        case 'listings':
+          rateLimitResult = await peekSecureRateLimit(
+            rateLimit as SecureRateLimitPreset,
+            clientIp,
+            userId,
+            '',
+            userRole
+          );
+          break;
+        case 'register':
         case 'listing_draft':
         case 'listing_update':
         case 'messages':

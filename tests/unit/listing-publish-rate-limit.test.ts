@@ -10,7 +10,7 @@ import {
   isPrivilegedListingRole,
   listingPublishMaxForRole,
 } from '@/lib/listing-publish-rate-limit';
-import { resolveSecureRateLimit } from '@/lib/rate-limit-distributed';
+import { peekSecureRateLimit, resolveSecureRateLimit } from '@/lib/rate-limit-distributed';
 import { rateLimitPresets, resetRateLimit } from '@/lib/rateLimit';
 
 describe('listing-publish-rate-limit', () => {
@@ -22,14 +22,22 @@ describe('listing-publish-rate-limit', () => {
     resetRateLimit('image:upload:upload-test-user');
   });
 
-  it('authenticated user can exceed legacy 10/hour cap (15 publishes in test window)', async () => {
+  it('authenticated peek does not consume slots (15 checks stay allowed)', async () => {
     let lastAllowed = true;
     for (let i = 0; i < 15; i++) {
-      const r = await resolveSecureRateLimit('listing_publish', '203.0.113.1', userId, '', 'user');
+      const r = await peekSecureRateLimit('listing_publish', '203.0.113.1', userId, '', 'user');
       lastAllowed = r.allowed;
       if (!r.allowed) break;
     }
     expect(lastAllowed).toBe(true);
+  });
+
+  it('failed publish attempts do not increment listing_publish key via peek', async () => {
+    for (let i = 0; i < 20; i++) {
+      await peekSecureRateLimit('listing_publish', '203.0.113.1', userId, '', 'user');
+    }
+    const afterPeek = await peekSecureRateLimit('listing_publish', '203.0.113.1', userId, '', 'user');
+    expect(afterPeek.allowed).toBe(true);
   });
 
   it('anonymous IP publish attempts are blocked after low threshold', async () => {
@@ -59,7 +67,7 @@ describe('listing-publish-rate-limit', () => {
     resetRateLimit(`image:upload:${uploadUser}`);
     const first = rateLimitPresets.uploadImage(uploadUser);
     expect(first.allowed).toBe(true);
-    expect(LISTING_PUBLISH_MAX_AUTHENTICATED).toBeGreaterThanOrEqual(50);
+    expect(LISTING_PUBLISH_MAX_AUTHENTICATED).toBe(100);
     expect(LISTING_PUBLISH_WINDOW_MS).toBe(24 * 60 * 60 * 1000);
   });
 

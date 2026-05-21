@@ -13,7 +13,13 @@ import {
 } from "@/lib/pagination";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { fullModeration, logModeration } from "@/lib/moderation";
-import { updateUserTrustScore, getRateLimit, canPerformAction, TRUST_LEVELS } from "@/lib/trustScore";
+import { updateUserTrustScore, canPerformAction, TRUST_LEVELS } from "@/lib/trustScore";
+import {
+  assertDailyPublishQuotaAllowed,
+  countSuccessfulPublishesLast24h,
+  logListingPublishQuotaDebug,
+} from "@/lib/listing-publish-quota";
+import { commitListingPublishRateLimit } from "@/lib/rate-limit-distributed";
 import { detectScam } from "@/lib/scamDetection";
 import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
@@ -473,31 +479,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check rate limits
-    const rateLimit = getRateLimit(trustScore);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const listingsToday = await prisma.listing.count({
-      where: {
-        ownerUserId: userId,
-        createdAt: { gte: today }
-      }
-    });
-
-    if (listingsToday >= rateLimit.listingsPerDay) {
-      logger.warn('Rate limit exceeded', { userId, trustScore, listingsToday, limit: rateLimit.listingsPerDay });
-      return NextResponse.json(
-        { 
-          error: 'Limită zilnică atinsă',
-          message: `Poți publica maxim ${rateLimit.listingsPerDay} anunțuri pe zi. Crește-ți scorul de încredere pentru mai multe!`,
-          currentTrust: trustScore,
-          nextLevel: trustScore < TRUST_LEVELS.VERIFIED ? TRUST_LEVELS.VERIFIED : 100
-        },
-        { status: 429 }
-      );
-    }
-
     // ✅ SCAM DETECTION - Run BEFORE moderation
     logger.info('Running scam detection');
     const scamResult = detectScam({
@@ -619,6 +600,57 @@ export async function POST(request: Request) {
 
     console.log(`✅ Anunț moderat: status=${moderationStatus}, score=${moderationScore}`);
 
+    const uploadSessionIdEarly = cleanBody.uploadSessionId as string | undefined;
+    if (uploadSessionIdEarly) {
+      const sessionParseEarly = uuidSchema.safeParse(uploadSessionIdEarly);
+      if (sessionParseEarly.success) {
+        const existingBySession = await prisma.listing.findUnique({
+          where: { id: sessionParseEarly.data },
+          select: { id: true, ownerUserId: true, status: true },
+        });
+        if (existingBySession?.ownerUserId === userId) {
+          const replayCount = await countSuccessfulPublishesLast24h(userId);
+          logListingPublishQuotaDebug({
+            userId,
+            limiterKey: `listing:publish:${userId}`,
+            currentCount: replayCount,
+            limit: 0,
+            route: '/api/listings',
+            source: 'idempotent_replay',
+          });
+          logger.info('Idempotent publish replay', { listingId: existingBySession.id, userId });
+          const existingFull = await prisma.listing.findUnique({
+            where: { id: existingBySession.id },
+          });
+          return NextResponse.json(existingFull ?? existingBySession, { status: 200 });
+        }
+      }
+    }
+
+    const quota = await assertDailyPublishQuotaAllowed(
+      userId,
+      user.role,
+      '/api/listings',
+      'pre_create'
+    );
+    if (!quota.allowed) {
+      logger.warn('Daily publish quota exceeded', {
+        userId,
+        count: quota.count,
+        limit: quota.limit,
+        role: user.role,
+      });
+      return NextResponse.json(
+        {
+          error: 'Limită zilnică atinsă',
+          message: `Poți publica maxim ${quota.limit} anunțuri în 24 de ore. Încearcă din nou mai târziu.`,
+          publishedLast24h: quota.count,
+          limit: quota.limit,
+        },
+        { status: 429 }
+      );
+    }
+
     const data: any = {
       owner: {
         connect: { id: userId }
@@ -701,6 +733,17 @@ export async function POST(request: Request) {
 
     const listing = await prisma.listing.create({
       data: presetListingId ? { id: presetListingId, ...data } : data,
+    });
+
+    await commitListingPublishRateLimit(userId, user.role);
+
+    logListingPublishQuotaDebug({
+      userId,
+      limiterKey: `listing:publish:${userId}`,
+      currentCount: quota.count + 1,
+      limit: quota.limit,
+      route: '/api/listings',
+      source: 'post_create_success',
     });
 
     void recordAnalyticsEvent({

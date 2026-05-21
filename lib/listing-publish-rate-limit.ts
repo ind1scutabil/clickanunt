@@ -5,11 +5,11 @@
 
 export const LISTING_PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Final publish POST /api/listings — logged-in verified users. */
-export const LISTING_PUBLISH_MAX_AUTHENTICATED = 50;
+/** Final publish POST /api/listings — authenticated users (successful publishes / 24h). */
+export const LISTING_PUBLISH_MAX_AUTHENTICATED = 100;
 
 /** Admin / moderator bulk operations. */
-export const LISTING_PUBLISH_MAX_PRIVILEGED = 200;
+export const LISTING_PUBLISH_MAX_PRIVILEGED = 500;
 
 /** Unauthenticated attempts on publish routes (IP only). */
 export const LISTING_PUBLISH_MAX_ANONYMOUS_PER_HOUR = 8;
@@ -49,7 +49,7 @@ export function formatSecureRateLimitErrorRo(
   switch (preset) {
     case 'listing_publish':
     case 'listings':
-      return `Ai atins limita de publicare anunțuri (maxim ${LISTING_PUBLISH_MAX_AUTHENTICATED} în 24 de ore pentru contul tău). Încearcă din nou peste ${sec} secunde${min >= 2 ? ` (aprox. ${min} minute)` : ''}.`;
+      return `Ai atins limita de publicare anunțuri (maxim ${LISTING_PUBLISH_MAX_AUTHENTICATED} publicări reușite în 24 de ore). Încearcă din nou peste ${sec} secunde${min >= 2 ? ` (aprox. ${min} minute)` : ''}.`;
     case 'listing_draft':
       return `Prea multe salvări de ciornă. Încearcă din nou peste ${sec} secunde.`;
     case 'listing_update':
