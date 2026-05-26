@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Rambursări promovări — ClickAnunt",
   description: "Politica de rambursare pentru serviciile digitale de promovare pe ClickAnunt.",
+  alternates: { canonical: "/rambursari" },
 };
 
 export default function RefundPolicyPage() {

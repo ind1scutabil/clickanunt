@@ -4,6 +4,7 @@ import { LegalPageLayout } from "@/app/components/legal/LegalPageLayout";
 export const metadata: Metadata = {
   title: "Soluționarea litigiilor (ODR) — ClickAnunt",
   description: "Platforma UE pentru soluționarea online a litigiilor de consum.",
+  alternates: { canonical: "/litigii-ue" },
 };
 
 export default function EuOdrPage() {

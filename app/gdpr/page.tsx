@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Drepturile GDPR — ClickAnunt",
   description: "Cum îți exerciți drepturile privind datele personale pe ClickAnunt.",
+  alternates: { canonical: "/gdpr" },
 };
 
 export default function GdprRightsPage() {

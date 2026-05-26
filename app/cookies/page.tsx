@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Politica cookie — ClickAnunt",
   description: "Informații despre cookie-uri și preferințe pe ClickAnunt.",
+  alternates: { canonical: "/cookies" },
 };
 
 export default function CookiesPolicyPage() {

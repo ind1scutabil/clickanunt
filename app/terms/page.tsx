@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import {
   COMPANY_CONFIG,
   isCompanyLegalDetailsPublic,
 } from "@/lib/company-config";
+
+export const metadata: Metadata = {
+  title: "Termeni și Condiții — ClickAnunț",
+  description: "Termenii și condițiile de utilizare a platformei ClickAnunț.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsPage() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();

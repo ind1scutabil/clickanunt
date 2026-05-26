@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Politica anti-fraudă — ClickAnunt",
   description: "Măsuri împotriva fraudei și a conținutului înșelător pe ClickAnunt.",
+  alternates: { canonical: "/anti-frauda" },
 };
 
 export default function AntiFraudPolicyPage() {

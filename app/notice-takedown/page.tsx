@@ -5,6 +5,7 @@ import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
 export const metadata: Metadata = {
   title: "Notice și retragere conținut — ClickAnunt",
   description: "Procedură pentru reclamații privind drepturi de autor și mărci pe ClickAnunt.",
+  alternates: { canonical: "/notice-takedown" },
 };
 
 export default function NoticeTakedownPage() {

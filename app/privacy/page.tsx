@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { isCompanyLegalDetailsPublic } from "@/lib/company-config";
+
+export const metadata: Metadata = {
+  title: "Politica de Confidențialitate — ClickAnunț",
+  description: "Politica de confidențialitate și protecția datelor personale pe ClickAnunț.",
+  alternates: { canonical: "/privacy" },
+};
 
 export default function PrivacyPage() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();

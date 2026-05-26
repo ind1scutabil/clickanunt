@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Despre ClickAnunț — platformă de anunțuri gratuite",
+  description: "Despre ClickAnunț: platformă gratuită de anunțuri pentru România — conectăm cumpărători și vânzători într-un mediu sigur.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (

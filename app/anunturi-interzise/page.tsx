@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Anunțuri interzise — ClickAnunt",
   description: "Conținut și produse care nu pot fi publicate pe ClickAnunt.",
+  alternates: { canonical: "/anunturi-interzise" },
 };
 
 const PROHIBITED = [
