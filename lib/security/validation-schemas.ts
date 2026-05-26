@@ -16,6 +16,7 @@ import {
   PASSWORD_SPECIAL_RE,
   PASSWORD_UPPERCASE_RE,
 } from './password-rules';
+import { VALID_CATEGORY_LABELS, isValidSubcategory } from '@/lib/taxonomy';
 
 /**
  * URL pentru foto la create/edit/listing draft: permite https/http (CDN/stocare) și căi interne de upload
@@ -242,7 +243,7 @@ export const refreshTokenSchema = z.object({
  * === LISTINGS ENDPOINTS ===
  */
 
-export const listingCreateSchema = z.object({
+const listingCreateBaseSchema = z.object({
   ownerUserId: uuidSchema.optional(),
   title: z.string().min(5, 'Titlu minim 5 caractere').max(200, 'Titlu maxim 200 caractere'),
   description: z.preprocess(
@@ -300,6 +301,26 @@ export const listingCreateSchema = z.object({
   uploadSessionId: uuidSchema.optional(),
 }).strict();
 
+export const listingCreateSchema = listingCreateBaseSchema.superRefine((data, ctx) => {
+  if (!VALID_CATEGORY_LABELS.has(data.category)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Categorie invalidă',
+      path: ['category'],
+    });
+    return;
+  }
+  if (data.subcategory) {
+    if (!isValidSubcategory(data.category, data.subcategory)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Subcategoria "${data.subcategory}" nu este validă pentru categoria "${data.category}"`,
+        path: ['subcategory'],
+      });
+    }
+  }
+});
+
 const listingEditYearSchema = z.preprocess(
   (v) => {
     if (v === '' || v === '0' || v === 0 || v === null || v === undefined) return null;
@@ -339,13 +360,31 @@ const listingEditTransmissionSchema = z.preprocess(
   z.enum(['manual', 'automatic']).optional().nullable()
 );
 
-export const listingEditSchema = listingCreateSchema.partial().extend({
+export const listingEditSchema = listingCreateBaseSchema.partial().extend({
   id: uuidSchema.optional(),
   status: z.enum(['draft', 'pending', 'active', 'paused', 'expired', 'sold', 'deleted', 'rejected', 'hidden']).optional(),
   year: listingEditYearSchema,
   fuel: listingEditFuelSchema,
   transmission: listingEditTransmissionSchema,
-}).strict();
+}).strict().superRefine((data, ctx) => {
+  if (data.category && !VALID_CATEGORY_LABELS.has(data.category)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Categorie invalidă',
+      path: ['category'],
+    });
+    return;
+  }
+  if (data.subcategory && data.category) {
+    if (!isValidSubcategory(data.category, data.subcategory)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Subcategoria "${data.subcategory}" nu este validă pentru categoria "${data.category}"`,
+        path: ['subcategory'],
+      });
+    }
+  }
+});
 
 export const listingDeleteSchema = z.object({
   id: uuidSchema,
@@ -548,7 +587,7 @@ export const searchListingsSchema = z.object({
   transmission: z.string().max(50).optional(),
   sort: z.enum(['newest', 'priceAsc', 'priceDesc', 'featured']).default('newest'),
   ...paginationSchema.shape,
-}).strict();
+}).catchall(z.string().max(200));
 
 /**
  * === MODERATION ENDPOINTS ===

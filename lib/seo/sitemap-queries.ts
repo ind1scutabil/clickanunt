@@ -4,6 +4,7 @@ import type { SitemapEntry } from '@/lib/seo';
 import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 import { primarySlugForCategoryLabel } from '@/lib/seo/market-paths';
 import { siteOriginForSeoFeeds } from '@/lib/seo/site-url-guard';
+import { iterateAllSubcategorySlugs } from '@/lib/taxonomy';
 
 const AUTO_LABEL = 'Auto, moto și ambarcațiuni';
 
@@ -62,6 +63,32 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
       lastModified: now,
       changeFrequency: 'daily',
       priority: 0.65,
+    });
+  }
+
+  // Subcategory pages — only for subcategories that have at least 1 listing
+  const bySubcategory = await prisma.listing.groupBy({
+    by: ['category', 'subcategory'],
+    where: {
+      ...indexableWhere,
+      subcategory: { not: null },
+    },
+    _count: { _all: true },
+  });
+
+  const allSubSlugs = iterateAllSubcategorySlugs();
+  const subLabelToSlug = new Map(allSubSlugs.map((s) => [`${s.categoryLabel}::${s.subcategoryLabel}`, s]));
+
+  for (const row of bySubcategory) {
+    if (!row.subcategory) continue;
+    const key = `${row.category}::${row.subcategory}`;
+    const mapped = subLabelToSlug.get(key);
+    if (!mapped) continue;
+    out.push({
+      url: `${base}/${mapped.categorySlug}/${mapped.subcategorySlug}`,
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.7,
     });
   }
 

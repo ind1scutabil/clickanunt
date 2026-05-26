@@ -9,6 +9,7 @@ import {
   ROMANIAN_COUNTIES, 
   CITIES_BY_COUNTY 
 } from "@/lib/carData";
+import { getAttributeDefsFor, type AttributeFieldDef } from "@/lib/taxonomy";
 import { ListingCard } from "@/app/components/ListingCard";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
@@ -84,6 +85,7 @@ interface Filters {
   priceMax?: number;
   sortBy?: string;
   sortOrder?: string;
+  [key: `attr_${string}`]: string | undefined;
 }
 
 export default function ListingsView({
@@ -155,6 +157,13 @@ export default function ListingsView({
   const availableSubcategories = useMemo(() => {
     return filters.category ? CATEGORIES[filters.category] || [] : [];
   }, [filters.category]);
+
+  // Dynamic attribute filter definitions from taxonomy
+  const categoryFilterDefs = useMemo<AttributeFieldDef[]>(() => {
+    if (!filters.category) return [];
+    return getAttributeDefsFor(filters.category, filters.subcategory || null)
+      .filter((d) => d.type === 'select' || d.type === 'boolean');
+  }, [filters.category, filters.subcategory]);
 
   // Get available models for selected make
   const availableModels = useMemo(() => {
@@ -675,6 +684,52 @@ export default function ListingsView({
                   placeholder="2024"
                   className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic category attribute filters */}
+          {categoryFilterDefs.length > 0 && !isAutoCategory && (
+            <div className="relative mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#161922] p-4 shadow-sm ring-1 ring-white/[0.04] sm:mb-8 sm:p-6">
+              <div className="relative">
+                <h3 className="mb-3 flex items-center gap-2 text-base font-semibold tracking-tight text-zinc-100 sm:mb-5 sm:text-lg">
+                  <svg className="h-5 w-5 shrink-0 text-sky-500/80 sm:h-6 sm:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  Filtre specifice
+                </h3>
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {categoryFilterDefs.map((attrDef) => (
+                    <div key={attrDef.key} className="group">
+                      <label className="mb-1 block text-xs font-medium text-slate-400 transition-colors group-hover:text-slate-300 sm:mb-2 sm:text-sm">
+                        {attrDef.label}
+                      </label>
+                      {attrDef.type === 'select' && (
+                        <select
+                          value={filters[`attr_${attrDef.key}`] || ''}
+                          onChange={(e) => handleFilterChange(`attr_${attrDef.key}` as keyof Filters, e.target.value)}
+                          className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
+                        >
+                          <option value="">Toate</option>
+                          {attrDef.options?.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
+                      {attrDef.type === 'boolean' && (
+                        <select
+                          value={filters[`attr_${attrDef.key}`] || ''}
+                          onChange={(e) => handleFilterChange(`attr_${attrDef.key}` as keyof Filters, e.target.value)}
+                          className="w-full rounded-xl border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:rounded-lg sm:px-4 sm:py-3"
+                        >
+                          <option value="">Orice</option>
+                          <option value="true">Da</option>
+                          <option value="false">Nu</option>
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

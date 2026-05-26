@@ -42,13 +42,14 @@ export const getHubListingStats = cache(async (category: string, city?: string):
   };
 });
 
-export const getActiveListingCountForHub = cache(async (category: string, city?: string): Promise<number> => {
+export const getActiveListingCountForHub = cache(async (category: string, city?: string, subcategory?: string): Promise<number> => {
   if (process.env.USE_IN_MEMORY_DB === 'true') return 0;
   return prisma.listing.count({
     where: {
       ...hubWhereBase,
       category,
       ...(city ? { city } : {}),
+      ...(subcategory ? { subcategory } : {}),
     },
   });
 });
@@ -56,13 +57,14 @@ export const getActiveListingCountForHub = cache(async (category: string, city?:
 export type ListingPreviewMini = { id: string; title: string };
 
 export const getListingPreviewsForHub = cache(
-  async (category: string, city: string | undefined, take: number): Promise<ListingPreviewMini[]> => {
+  async (category: string, city: string | undefined, take: number, subcategory?: string): Promise<ListingPreviewMini[]> => {
     if (process.env.USE_IN_MEMORY_DB === 'true') return [];
     const rows = await prisma.listing.findMany({
       where: {
         ...hubWhereBase,
         category,
         ...(city ? { city } : {}),
+        ...(subcategory ? { subcategory } : {}),
       },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       take,

@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from "@/lib/carData";
+import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY, CATEGORIES } from "@/lib/carData";
+import { getAttributeDefsFor, type AttributeFieldDef } from "@/lib/taxonomy";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
 import {
@@ -11,12 +12,14 @@ import {
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/listing-photo-url";
 import { appendAutoFieldsToListingPayload } from "@/lib/listing-auto-create-payload";
 import CountryOfOriginSelect from "@/app/components/listing/CountryOfOriginSelect";
+import CategoryPicker from "@/app/components/listing/CategoryPicker";
 
 // Types
 interface DraftListing {
   step: number;
   title: string;
   category: string;
+  subcategory: string;
   priceAmount: number | "";
   priceCurrency: "RON" | "EUR";
   county: string;
@@ -35,6 +38,7 @@ interface DraftListing {
   phone: string;
   allowMessages: boolean;
   lastSaved?: number;
+  attributes: Record<string, unknown>;
   // Additional car details
   horsepower?: number | "";
   cylinderCapacity?: number | "";
@@ -74,6 +78,7 @@ const INITIAL_DRAFT: DraftListing = {
   step: 0,
   title: "",
   category: "",
+  subcategory: "",
   priceAmount: "",
   priceCurrency: "RON",
   county: "",
@@ -84,6 +89,7 @@ const INITIAL_DRAFT: DraftListing = {
   condition: "used",
   phone: "",
   allowMessages: true,
+  attributes: {},
   // Additional car details
   horsepower: "",
   cylinderCapacity: "",
@@ -106,7 +112,7 @@ const INITIAL_DRAFT: DraftListing = {
   vin: "",
 };
 
-const DRAFT_VERSION = "3"; // Increment when schema changes
+const DRAFT_VERSION = "4"; // Increment when schema changes
 
 export default function OptimizedListingFlow() {
   const router = useRouter();
@@ -240,6 +246,12 @@ export default function OptimizedListingFlow() {
 
   // Dynamic fields based on category
   const isAutoCategory = draft.category === "Auto, moto și ambarcațiuni";
+  const availableSubcategories = useMemo(() => {
+    return draft.category ? CATEGORIES[draft.category] || [] : [];
+  }, [draft.category]);
+  const categoryAttributeDefs = useMemo<AttributeFieldDef[]>(() => {
+    return getAttributeDefsFor(draft.category, draft.subcategory || null);
+  }, [draft.category, draft.subcategory]);
   const availableModels = useMemo(() => {
     return draft.make ? CAR_MAKES_AND_MODELS[draft.make as keyof typeof CAR_MAKES_AND_MODELS] || [] : [];
   }, [draft.make]);
@@ -495,6 +507,7 @@ export default function OptimizedListingFlow() {
       const payload: any = {
         title: draft.title?.trim(),
         category: draft.category,
+        subcategory: draft.subcategory || null,
         priceAmount: Number(draft.priceAmount),
         priceCurrency: draft.priceCurrency,
         condition: draft.condition,
@@ -505,6 +518,7 @@ export default function OptimizedListingFlow() {
         contactPhone: draft.phone,
         allowMessages: draft.allowMessages,
         uploadSessionId,
+        ...(Object.keys(draft.attributes).length > 0 ? { attributes: draft.attributes } : {}),
       };
 
       // Client-side sanity validation to avoid server schema errors
@@ -856,18 +870,15 @@ export default function OptimizedListingFlow() {
               <label className="block text-white font-semibold mb-2">
                 Categorie <span className="text-red-500">*</span>
               </label>
-              <select
-                value={draft.category}
-                onChange={(e) => updateField("category", e.target.value)}
-                className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
-                  errors.category ? "border-red-500" : "border-gray-800"
-                } focus:border-[var(--accent-primary)] text-white outline-none transition`}
-              >
-                <option value="">Selectează categoria</option>
-                {ALL_CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              <CategoryPicker
+                selectedCategory={draft.category}
+                selectedSubcategory={draft.subcategory}
+                onSelect={(cat, sub) => {
+                  setDraft(prev => ({ ...prev, category: cat, subcategory: sub, attributes: {} }));
+                  if (errors.category) setErrors(prev => ({ ...prev, category: "" }));
+                }}
+                className={errors.category ? "ring-2 ring-red-500/50" : ""}
+              />
               {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
             </div>
 
@@ -903,6 +914,90 @@ export default function OptimizedListingFlow() {
                       <option key={model} value={model}>{model}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic category/subcategory attributes */}
+            {categoryAttributeDefs.length > 0 && (
+              <div className="rounded-xl border border-gray-800 bg-[var(--bg-secondary)]/50 p-4">
+                <h4 className="text-sm font-semibold text-gray-300 mb-3">Detalii specifice categoriei</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {categoryAttributeDefs.map((attrDef) => (
+                    <div key={attrDef.key}>
+                      <label className="block text-gray-400 text-xs font-medium mb-1">
+                        {attrDef.label}
+                        {attrDef.required && <span className="text-red-500 ml-0.5">*</span>}
+                        {attrDef.unit && <span className="text-gray-500 ml-1">({attrDef.unit})</span>}
+                      </label>
+                      {attrDef.type === 'select' && (
+                        <select
+                          value={(draft.attributes[attrDef.key] as string) || ''}
+                          onChange={(e) => setDraft(prev => ({
+                            ...prev,
+                            attributes: { ...prev.attributes, [attrDef.key]: e.target.value || undefined }
+                          }))}
+                          className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-gray-700 text-white text-sm outline-none focus:border-[var(--accent-primary)] transition"
+                        >
+                          <option value="">Selectează...</option>
+                          {attrDef.options?.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
+                      {attrDef.type === 'multiselect' && (
+                        <select
+                          multiple
+                          value={((draft.attributes[attrDef.key] as string[]) || [])}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, o => o.value);
+                            setDraft(prev => ({
+                              ...prev,
+                              attributes: { ...prev.attributes, [attrDef.key]: selected.length ? selected : undefined }
+                            }));
+                          }}
+                          className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-gray-700 text-white text-sm outline-none focus:border-[var(--accent-primary)] transition min-h-[72px]"
+                        >
+                          {attrDef.options?.map(opt => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
+                      {(attrDef.type === 'text' || attrDef.type === 'number' || attrDef.type === 'year') && (
+                        <input
+                          type={attrDef.type === 'text' ? 'text' : 'number'}
+                          value={(draft.attributes[attrDef.key] as string | number) ?? ''}
+                          onChange={(e) => {
+                            const val = attrDef.type === 'text'
+                              ? e.target.value
+                              : e.target.value ? Number(e.target.value) : undefined;
+                            setDraft(prev => ({
+                              ...prev,
+                              attributes: { ...prev.attributes, [attrDef.key]: val || undefined }
+                            }));
+                          }}
+                          placeholder={attrDef.placeholder || ''}
+                          min={attrDef.min}
+                          max={attrDef.max}
+                          className="w-full px-3 py-2 rounded-lg bg-[var(--bg-secondary)] border border-gray-700 text-white text-sm outline-none focus:border-[var(--accent-primary)] transition"
+                        />
+                      )}
+                      {attrDef.type === 'boolean' && (
+                        <label className="flex items-center gap-2 cursor-pointer mt-1">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(draft.attributes[attrDef.key])}
+                            onChange={(e) => setDraft(prev => ({
+                              ...prev,
+                              attributes: { ...prev.attributes, [attrDef.key]: e.target.checked || undefined }
+                            }))}
+                            className="w-4 h-4 rounded border-gray-600 bg-[var(--bg-secondary)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
+                          />
+                          <span className="text-sm text-gray-300">Da</span>
+                        </label>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1589,7 +1684,7 @@ export default function OptimizedListingFlow() {
                 {/* Details */}
                 <div className="space-y-2 text-gray-400">
                   <p>📍 {draft.city}, {draft.county}</p>
-                  <p>📁 {draft.category}</p>
+                  <p>📁 {draft.category}{draft.subcategory ? ` / ${draft.subcategory}` : ''}</p>
                   {isAutoCategory && draft.make && draft.model && (
                     <p>🚗 {draft.make} {draft.model}</p>
                   )}

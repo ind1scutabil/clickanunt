@@ -21,6 +21,7 @@ import {
 } from "@/lib/listing-publish-quota";
 import { commitListingPublishRateLimit } from "@/lib/rate-limit-distributed";
 import { detectScam } from "@/lib/scamDetection";
+import { checkProhibitedContent, getCategoryDef, isValidSubcategory, resolveSubcategoryBySlug, getCategoryDefBySlug } from "@/lib/taxonomy";
 import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidSchema } from "@/lib/security/validation-schemas";
@@ -168,6 +169,26 @@ export async function GET(request: NextRequest) {
     }
 
     if (query.condition) where.condition = { equals: query.condition };
+
+    // Attribute-based JSON filtering (attr_brand=Samsung, attr_rooms=3, etc.)
+    const attrFilters: { path: string[]; equals: string | number }[] = [];
+    for (const [key, val] of q.entries()) {
+      if (key.startsWith('attr_') && val) {
+        const attrKey = key.slice(5);
+        const numVal = Number(val);
+        attrFilters.push({ path: [attrKey], equals: Number.isFinite(numVal) && String(numVal) === val ? numVal : val });
+      }
+    }
+    if (attrFilters.length > 0) {
+      const attrConditions = attrFilters.map((f) => ({
+        attributes: { path: f.path, equals: f.equals },
+      }));
+      where.AND = Array.isArray(where.AND)
+        ? [...where.AND, ...attrConditions]
+        : where.AND
+          ? [where.AND, ...attrConditions]
+          : attrConditions;
+    }
 
     const rawQ = (query.q ?? q.get("q") ?? "").trim();
     const useFts = rawQ.length >= 2;
@@ -479,6 +500,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ PROHIBITED CONTENT CHECK — hard block before anything else
+    const prohibitedCheck = checkProhibitedContent(body.title, body.description || '', body.category);
+    if (prohibitedCheck.blocked) {
+      logger.warn('Listing blocked - prohibited content', {
+        userId,
+        reasons: prohibitedCheck.flags.map((f) => f.reason),
+      });
+      return NextResponse.json(
+        {
+          error: 'Conținut interzis',
+          reason: 'Anunțul conține conținut care nu poate fi publicat pe platformă',
+          flags: prohibitedCheck.flags
+            .filter((f) => f.severity === 'block')
+            .map((f) => f.reason),
+        },
+        { status: 400 }
+      );
+    }
+
     // ✅ SCAM DETECTION - Run BEFORE moderation
     logger.info('Running scam detection');
     const scamResult = detectScam({
@@ -538,7 +578,19 @@ export async function POST(request: Request) {
         score: scamResult.score,
         flags: scamResult.flags 
       });
-      moderationScore -= scamResult.confidence * 0.5; // Reduce score based on scam confidence
+      moderationScore -= scamResult.confidence * 0.5;
+    }
+
+    // Add prohibited content flags (non-blocking ones go to moderation)
+    if (prohibitedCheck.flags.length > 0) {
+      const flagReasons = prohibitedCheck.flags.filter((f) => f.severity === 'flag');
+      if (flagReasons.length > 0) {
+        flags.push({
+          type: 'prohibited_content',
+          reasons: flagReasons.map((f) => f.reason),
+        });
+        moderationScore -= 0.3;
+      }
     }
 
     if (moderationResult.textModeration.flagged) {
@@ -569,6 +621,23 @@ export async function POST(request: Request) {
       logger.info('Manual review required', { 
         reason: trustScore < TRUST_LEVELS.NEUTRAL ? 'low_trust' : scamResult.isScam ? 'scam_detected' : 'low_mod_score' 
       });
+    }
+
+    // Category-aware moderation: force manual review for sensitive categories/subcategories
+    if (moderationStatus === 'approved') {
+      const catDef = getCategoryDef(body.category);
+      if (catDef?.requiresModeration) {
+        moderationStatus = 'pending';
+        flags.push({ type: 'category_moderation', reason: `Categoria "${body.category}" necesită verificare manuală` });
+        logger.info('Forced to pending: category requires moderation', { category: body.category });
+      } else if (body.subcategory && catDef) {
+        const subDef = catDef.subcategories.find((s) => s.label === body.subcategory);
+        if (subDef?.requiresModeration) {
+          moderationStatus = 'pending';
+          flags.push({ type: 'subcategory_moderation', reason: `Subcategoria "${body.subcategory}" necesită verificare manuală` });
+          logger.info('Forced to pending: subcategory requires moderation', { subcategory: body.subcategory });
+        }
+      }
     }
 
     // Dacă anunțul este respins complet (score 0), returnează eroare
