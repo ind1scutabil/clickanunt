@@ -93,22 +93,32 @@ export type ValidatedSessionUser = {
   name?: string | null;
 };
 
+export type ValidateServerAuthSessionResult = {
+  ok: boolean;
+  user?: ValidatedSessionUser;
+  /** Rețea / timeout — nu șterge sesiunea locală */
+  transient?: boolean;
+};
+
 /**
  * Sincronizează cookie httpOnly + validează sesiunea la server (`GET /api/users/me`).
- * Returnează false și curăță localStorage dacă serverul respinge sesiunea.
+ * Trimite și Bearer din localStorage ca fallback când cookie-ul httpOnly e expirat.
  */
 export async function validateServerAuthSession(
   signal?: AbortSignal
-): Promise<{ ok: boolean; user?: ValidatedSessionUser }> {
+): Promise<ValidateServerAuthSessionResult> {
   await refreshAccessToken(signal);
+  const bearer = accessTokenFromBrowserStorage();
+
   try {
     const res = await fetch(resolveClientApiUrl('/api/users/me'), {
       credentials: 'include',
       cache: 'no-store',
       signal,
+      headers: bearer ? { Authorization: `Bearer ${bearer}` } : {},
     });
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         clearStaleBrowserAuth();
       }
       return { ok: false };
@@ -123,6 +133,9 @@ export async function validateServerAuthSession(
           name: data.name ?? null,
         })
       );
+      if (bearer) {
+        localStorage.setItem('accessToken', bearer);
+      }
       broadcastAuthSessionChanged();
     }
     return {
@@ -130,7 +143,7 @@ export async function validateServerAuthSession(
       user: { email: data.email, role: data.role, name: data.name ?? null },
     };
   } catch {
-    return { ok: false };
+    return { ok: false, transient: true };
   }
 }
 

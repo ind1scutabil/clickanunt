@@ -55,23 +55,42 @@ export default function NavbarContent() {
       setIsAdmin(isAdminStaffRole(user.role));
     };
 
-    const reconcileSession = async () => {
+    const applyUserFromLocalStorage = () => {
       const userStr = localStorage.getItem("user");
-      const token = localStorage.getItem("accessToken");
-      if (!userStr || !token) {
-        clearStaleBrowserAuth();
-        if (!cancelled) applyLoggedOut();
-        return;
+      if (!userStr) return false;
+      try {
+        applyUser(JSON.parse(userStr) as {
+          email?: string;
+          role?: string;
+          name?: string | null;
+        });
+        return true;
+      } catch {
+        return false;
       }
+    };
 
+    const reconcileSession = async () => {
       const session = await validateServerAuthSession();
       if (cancelled) return;
       if (session.ok && session.user) {
         applyUser(session.user);
         return;
       }
-      clearStaleBrowserAuth();
-      applyLoggedOut();
+
+      if (session.transient) {
+        if (applyUserFromLocalStorage()) return;
+        if (!cancelled) applyLoggedOut();
+        return;
+      }
+
+      const hasLocal =
+        Boolean(localStorage.getItem("user")) &&
+        Boolean(localStorage.getItem("accessToken"));
+      if (hasLocal) {
+        clearStaleBrowserAuth();
+      }
+      if (!cancelled) applyLoggedOut();
     };
 
     const onSessionEvent = () => {
@@ -92,8 +111,7 @@ export default function NavbarContent() {
 
   // Badge mesaje: endpoint ușor + interval rezonabil; pauză când tab-ul e ascuns
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!isLoggedIn || !token) return;
+    if (!isLoggedIn) return;
 
     const POLL_MS = 3000;
 

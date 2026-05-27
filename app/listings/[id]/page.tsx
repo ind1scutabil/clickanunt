@@ -1,4 +1,5 @@
 import ListingDetailPageClient from '@/app/listings/[id]/ListingDetailPageClient';
+import ApexToWwwRedirect from '@/app/components/ApexToWwwRedirect';
 import { ListingTechnicalDetailsServer } from '@/app/components/listing/ListingTechnicalDetailsServer';
 
 type PageProps = {
@@ -18,10 +19,13 @@ export default async function ListingDetailPage({ params, searchParams }: PagePr
       : await ListingTechnicalDetailsServer({ listingId: id, specDebug });
 
   return (
-    <ListingDetailPageClient
-      id={id}
-      mobileTechnicalDetails={mobileTechnicalDetails}
-      layoutDebug={layoutDebug}
-    />
+    <>
+      <ApexToWwwRedirect />
+      <ListingDetailPageClient
+        id={id}
+        mobileTechnicalDetails={mobileTechnicalDetails}
+        layoutDebug={layoutDebug}
+      />
+    </>
   );
 }

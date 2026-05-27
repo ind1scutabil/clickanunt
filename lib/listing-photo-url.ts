@@ -128,6 +128,8 @@ function siteOriginForNormalization(originOverride?: string): string {
 
 function isBlockedStockOrPlaceholderUrl(t: string): boolean {
   const lower = t.toLowerCase();
+  /** Homepage marketing hero — must never appear as listing gallery imagery */
+  if (/\/images\/hero\//i.test(lower) || /hero-bmw-i7/i.test(lower)) return true;
   if (/images\.unsplash\.com/i.test(lower)) return true;
   if (/picsum\.photo/i.test(lower)) return true;
   if (/via\.placeholder\.com/i.test(lower)) return true;

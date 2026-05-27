@@ -20,6 +20,8 @@ import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
+import { resolveClientApiUrl } from "@/lib/client-canonical-www";
+import type { ListingImageVariant } from "@/lib/listing-image-variants";
 
 async function trackListingEngagement(
   listingId: string,
@@ -42,6 +44,16 @@ async function trackListingEngagement(
   } catch {
     /* non-blocking */
   }
+}
+
+/** Display URL for gallery img — apex-safe serve paths + never homepage hero assets. */
+function listingGalleryDisplaySrc(
+  photo: string | undefined,
+  variant: ListingImageVariant
+): string {
+  const url = getListingImageUrl(photo, variant) || DEFAULT_LISTING_IMAGE_URL;
+  if (url.startsWith("/api/")) return resolveClientApiUrl(url);
+  return url;
 }
 
 function maskEmail(email: string): string {
@@ -185,6 +197,15 @@ export default function ListingDetailPageClient({
     setThumbLoadAllowed(new Set([0]));
   }, [id]);
 
+  /** Client navigations can leave homepage hero in DOM; remove orphans and reset scroll. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.scrollTo(0, 0);
+    document.querySelectorAll(".hero-premium-root").forEach((node) => {
+      node.remove();
+    });
+  }, [id]);
+
   useEffect(() => {
     setThumbLoadAllowed((prev) => {
       const next = new Set(prev);
@@ -198,8 +219,7 @@ export default function ListingDetailPageClient({
   useEffect(() => {
     const first = photos[0];
     if (!first) return;
-    const href =
-      getListingImageUrl(first, "medium") || DEFAULT_LISTING_IMAGE_URL;
+    const href = listingGalleryDisplaySrc(first, "medium");
     const link = document.createElement("link");
     link.rel = "preload";
     link.as = "image";
@@ -675,10 +695,7 @@ export default function ListingDetailPageClient({
           >
             <img
               key={`modal-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-              src={
-                getListingImageUrl(photos[selectedImageIndex], "original") ||
-                DEFAULT_LISTING_IMAGE_URL
-              }
+              src={listingGalleryDisplaySrc(photos[selectedImageIndex], "original")}
               alt={listing.title}
               className="h-auto max-h-[min(88vh,88dvh)] w-full max-w-full object-contain [max-width:100vw] rounded-lg shadow-lg sm:max-h-[90vh]"
               sizes="100vw"
@@ -720,8 +737,8 @@ export default function ListingDetailPageClient({
               {/* Image Gallery */}
               <div className="relative min-w-0 max-w-full overflow-hidden rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl">
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent blur-lg" />
-                <div 
-                  className="group relative aspect-video max-h-[min(48vh,48dvh)] w-full min-w-0 cursor-pointer overflow-hidden bg-gray-900/50 touch-manipulation shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:max-h-[min(52vh,52dvh)] md:max-h-none"
+                <div
+                  className="listing-gallery-hero group relative aspect-video w-full min-w-0 cursor-pointer touch-manipulation shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                   onClick={openHeroImageModal}
                   onTouchStart={onGallerySwipeTouchStart}
                   onTouchEnd={(e) => onGallerySwipeTouchEnd(e, "hero")}
@@ -729,12 +746,9 @@ export default function ListingDetailPageClient({
                 >
                   <img
                     key={`hero-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-                    src={
-                      getListingImageUrl(photos[selectedImageIndex], "medium") ||
-                      DEFAULT_LISTING_IMAGE_URL
-                    }
+                    src={listingGalleryDisplaySrc(photos[selectedImageIndex], "medium")}
                     alt={listing.title}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out sm:group-hover:scale-[1.02]"
+                    className="absolute inset-0 z-[1] h-full w-full max-h-full max-w-full object-contain transition-transform duration-300 ease-out sm:group-hover:scale-[1.01]"
                     loading="eager"
                     decoding="async"
                     fetchPriority="high"
@@ -747,7 +761,7 @@ export default function ListingDetailPageClient({
                       );
                     }}
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                  <div className="absolute inset-0 z-[2] flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/20">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-sm rounded-full p-4">
                       <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
@@ -775,10 +789,7 @@ export default function ListingDetailPageClient({
                         {thumbLoadAllowed.has(i) ? (
                           <img
                             key={`thumb-img-${i}-${photo}`}
-                            src={
-                              getListingImageUrl(photo, "thumb") ||
-                              DEFAULT_LISTING_IMAGE_URL
-                            }
+                            src={listingGalleryDisplaySrc(photo, "thumb")}
                             alt={`${listing.title} ${i + 1}`}
                             className={`absolute inset-0 h-full w-full object-cover transition ${
                               selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'

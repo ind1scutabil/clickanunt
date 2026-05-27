@@ -22,6 +22,13 @@ describe('listing photo policy', () => {
     expect(src).toMatch(/\/api\/uploads\/serve\?key=/);
   });
 
+  it('rejects homepage hero marketing assets', () => {
+    expect(isValidListingPhotoUrl('/images/hero/hero-bmw-i7-desktop.webp')).toBe(false);
+    expect(
+      normalizeListingPhotosArray(['https://www.clickanunt.ro/images/hero/hero-bmw-i7-mobile.webp'])
+    ).toHaveLength(0);
+  });
+
   it('rejects blocked external hosts', () => {
     expect(isValidListingPhotoUrl('https://images.unsplash.com/photo-1?w=400')).toBe(false);
     expect(isValidListingPhotoUrl('https://loremflickr.com/320/240/car')).toBe(false);
