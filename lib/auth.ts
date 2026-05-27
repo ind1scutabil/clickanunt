@@ -182,8 +182,8 @@ export async function getUserFromRequest(request: NextRequest) {
     headerToken = normalizeJwtInput(authHeader);
   }
 
-  /** Încearcă fiecare token distinct (Bearer / header brut apoi cookie); primul access valid + user în DB */
-  const raw = [headerToken, cookieToken].filter(
+  /** Cookie httpOnly înainte de Bearer — aliniat cu publish/mesaje (SPA poate trimite JWT expirat din localStorage). */
+  const raw = [cookieToken, headerToken].filter(
     (t): t is string => typeof t === 'string' && t.length > 0
   );
   const seen = new Set<string>();

@@ -3,8 +3,10 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY, CATEGORIES } from "@/lib/carData";
 import { getAttributeDefsFor, type AttributeFieldDef } from "@/lib/taxonomy";
-import { getCsrfToken } from "@/lib/security/csrf-client";
-import { postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  postJsonWithAuthRefresh,
+  validateServerAuthSession,
+} from "@/lib/admin-fetch";
 import {
   clearDraftUploadSessionId,
   getOrCreateDraftUploadSessionId,
@@ -137,9 +139,22 @@ export default function OptimizedListingFlow() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showGeneralError, setShowGeneralError] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  /** null = verifying cookie session with server */
+  const [serverSessionOk, setServerSessionOk] = useState<boolean | null>(null);
 
   // Pas 0: "Ce vinzi?" quick input
   const [quickInput, setQuickInput] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const session = await validateServerAuthSession();
+      if (!cancelled) setServerSessionOk(session.ok);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load draft from localStorage or check for ?new parameter on mount
   useEffect(() => {
@@ -567,25 +582,33 @@ export default function OptimizedListingFlow() {
         appendAutoFieldsToListingPayload(payload, draft);
       }
     
-      console.log('📤 Trimis payload la API:', payload);
-      let res = await postJsonWithAuthRefresh("/api/listings", payload as Record<string, unknown>);
-
-      // Fallback for stale localStorage token:
-      // retry once with cookie-based auth only (no Authorization header).
-      if (res.status === 401) {
-        const retryCsrf = await getCsrfToken();
-        res = await fetch("/api/listings", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "x-csrf-token": retryCsrf,
-          },
-          body: JSON.stringify(payload),
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        setErrors({
+          general:
+            "Sesiunea a expirat. Te rugăm să te autentifici din nou pentru a publica anunțuri.",
         });
+        setShowGeneralError(true);
+        router.push("/auth/login?next=/listings/new");
+        return;
       }
+      setServerSessionOk(true);
+
+      console.log('📤 Trimis payload la API:', payload);
+      const res = await postJsonWithAuthRefresh("/api/listings", payload as Record<string, unknown>);
 
       console.log('📥 Status răspuns API:', res.status);
+
+      if (res.status === 401) {
+        setServerSessionOk(false);
+        setErrors({
+          general:
+            "Sesiunea a expirat. Te rugăm să te autentifici din nou pentru a publica anunțuri.",
+        });
+        setShowGeneralError(true);
+        router.push("/auth/login?next=/listings/new");
+        return;
+      }
 
       const data = await res.json();
       
@@ -1701,12 +1724,24 @@ export default function OptimizedListingFlow() {
 
             {/* Publish Button */}
             <div className="card p-8">
+              {serverSessionOk === false && (
+                <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  Trebuie să fii autentificat pentru a publica.{" "}
+                  <a href="/auth/login?next=/listings/new" className="font-semibold underline">
+                    Conectează-te
+                  </a>
+                </p>
+              )}
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || serverSessionOk === false || serverSessionOk === null}
                 className="btn btn-primary w-full text-xl py-4 disabled:opacity-50"
               >
-                {loading ? "Se publică..." : "🚀 Publică anunțul GRATUIT"}
+                {serverSessionOk === null
+                  ? "Se verifică sesiunea..."
+                  : loading
+                    ? "Se publică..."
+                    : "🚀 Publică anunțul GRATUIT"}
               </button>
               
               <p className="text-center text-gray-400 text-sm mt-4">

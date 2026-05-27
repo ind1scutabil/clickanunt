@@ -1,3 +1,5 @@
+import { resolveClientApiUrl } from '@/lib/client-canonical-www';
+
 let cachedToken: string | null = null;
 let inflight: Promise<string> | null = null;
 
@@ -10,7 +12,7 @@ export async function getCsrfToken(): Promise<string> {
   if (cachedToken) return cachedToken;
   if (inflight) return inflight;
 
-  inflight = fetch('/api/csrf', { credentials: 'include' })
+  inflight = fetch(resolveClientApiUrl('/api/csrf'), { credentials: 'include' })
     .then(async (res) => {
       if (!res.ok) {
         throw new Error('Failed to fetch CSRF token');

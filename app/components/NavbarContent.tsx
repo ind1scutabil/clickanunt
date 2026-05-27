@@ -3,7 +3,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useState, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ALL_CATEGORIES } from "@/lib/carData";
-import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 import AdminNavNotificationBell from "@/app/components/admin/AdminNavNotificationBell";
 import { subscribeMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
@@ -29,47 +33,60 @@ export default function NavbarContent() {
   const unreadTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useLayoutEffect(() => {
-    const syncSessionFromStorage = () => {
-      const userStr = localStorage.getItem("user");
-      const token = localStorage.getItem("accessToken");
-      if (userStr && token) {
-        try {
-          const user = JSON.parse(userStr) as {
-            email?: string;
-            role?: string;
-            name?: string | null;
-          };
-          setIsLoggedIn(true);
-          setUserEmail(user.email || null);
-          setUserRole(user.role || "user");
-          setUserName(user.name || null);
-          setIsAdmin(isAdminStaffRole(user.role));
-        } catch {
-          localStorage.removeItem("user");
-          setIsLoggedIn(false);
-          setUserEmail(null);
-          setUserRole(null);
-          setUserName(null);
-          setIsAdmin(false);
-        }
-      } else {
-        localStorage.removeItem("user");
-        setIsLoggedIn(false);
-        setUserEmail(null);
-        setUserRole(null);
-        setUserName(null);
-        setIsAdmin(false);
-      }
+    let cancelled = false;
+
+    const applyLoggedOut = () => {
+      setIsLoggedIn(false);
+      setUserEmail(null);
+      setUserRole(null);
+      setUserName(null);
+      setIsAdmin(false);
     };
 
-    syncSessionFromStorage();
-    window.addEventListener("storage", syncSessionFromStorage);
-    window.addEventListener("focus", syncSessionFromStorage);
-    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncSessionFromStorage);
+    const applyUser = (user: {
+      email?: string;
+      role?: string;
+      name?: string | null;
+    }) => {
+      setIsLoggedIn(true);
+      setUserEmail(user.email || null);
+      setUserRole(user.role || "user");
+      setUserName(user.name || null);
+      setIsAdmin(isAdminStaffRole(user.role));
+    };
+
+    const reconcileSession = async () => {
+      const userStr = localStorage.getItem("user");
+      const token = localStorage.getItem("accessToken");
+      if (!userStr || !token) {
+        clearStaleBrowserAuth();
+        if (!cancelled) applyLoggedOut();
+        return;
+      }
+
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (session.ok && session.user) {
+        applyUser(session.user);
+        return;
+      }
+      clearStaleBrowserAuth();
+      applyLoggedOut();
+    };
+
+    const onSessionEvent = () => {
+      void reconcileSession();
+    };
+
+    void reconcileSession();
+    window.addEventListener("storage", onSessionEvent);
+    window.addEventListener("focus", onSessionEvent);
+    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, onSessionEvent);
     return () => {
-      window.removeEventListener("storage", syncSessionFromStorage);
-      window.removeEventListener("focus", syncSessionFromStorage);
-      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncSessionFromStorage);
+      cancelled = true;
+      window.removeEventListener("storage", onSessionEvent);
+      window.removeEventListener("focus", onSessionEvent);
+      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, onSessionEvent);
     };
   }, []);
 

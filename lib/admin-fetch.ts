@@ -1,9 +1,11 @@
 /**
- * GET/POST admin: Bearer din localStorage + credentials; retry după refresh la 401/403 (token expirat).
+ * GET/POST admin: cookie httpOnly first, then Bearer din localStorage; retry după refresh la 401/403.
  * cache: no-store — evită răspunsuri goale din cache (CDN/browser).
  */
 import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
 import { normalizeJwtInput } from '@/lib/jwt-normalize';
+import { broadcastAuthSessionChanged } from '@/lib/auth-session-events';
+import { resolveClientApiUrl } from '@/lib/client-canonical-www';
 
 function accessTokenFromBrowserStorage(): string | null {
   if (typeof window === 'undefined') return null;
@@ -47,7 +49,7 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
       : null;
   try {
     const csrfForRefresh = await fetchCsrfTokenFresh();
-    const refreshResp = await fetch('/api/auth/refresh', {
+    const refreshResp = await fetch(resolveClientApiUrl('/api/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
       signal,
@@ -76,22 +78,82 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
   return null;
 }
 
+/** Elimină sesiunea SPA invalidă (localStorage) după 401 confirmat de server. */
+export function clearStaleBrowserAuth(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  broadcastAuthSessionChanged();
+}
+
+export type ValidatedSessionUser = {
+  email?: string;
+  role?: string;
+  name?: string | null;
+};
+
+/**
+ * Sincronizează cookie httpOnly + validează sesiunea la server (`GET /api/users/me`).
+ * Returnează false și curăță localStorage dacă serverul respinge sesiunea.
+ */
+export async function validateServerAuthSession(
+  signal?: AbortSignal
+): Promise<{ ok: boolean; user?: ValidatedSessionUser }> {
+  await refreshAccessToken(signal);
+  try {
+    const res = await fetch(resolveClientApiUrl('/api/users/me'), {
+      credentials: 'include',
+      cache: 'no-store',
+      signal,
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        clearStaleBrowserAuth();
+      }
+      return { ok: false };
+    }
+    const data = (await res.json()) as ValidatedSessionUser & { id?: string };
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        'user',
+        JSON.stringify({
+          email: data.email,
+          role: data.role,
+          name: data.name ?? null,
+        })
+      );
+      broadcastAuthSessionChanged();
+    }
+    return {
+      ok: true,
+      user: { email: data.email, role: data.role, name: data.name ?? null },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
 /**
  * Reîncearcă accessToken din cookie httpOnly (`/api/auth/refresh` cu body gol).
- * Apel recomandat înainte de rute sensibile (ex. listă utilizatori admin).
+ * Apel recomandat înainte de rute sensibile (ex. publicare anunț, mesaje).
  */
-export async function syncSessionFromCookies(signal?: AbortSignal): Promise<void> {
-  await refreshAccessToken(signal);
+export async function syncSessionFromCookies(signal?: AbortSignal): Promise<boolean> {
+  const result = await validateServerAuthSession(signal);
+  return result.ok;
 }
 
 export async function fetchWithAuthRefresh(
   url: string,
   options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<Response> {
+  await refreshAccessToken(options.signal);
   let bearerToken = accessTokenFromBrowserStorage();
 
+  const apiUrl = resolveClientApiUrl(url);
+
   const doFetch = (token: string | null) =>
-    fetch(url, {
+    fetch(apiUrl, {
       ...options,
       credentials: 'include',
       cache: options.cache ?? 'no-store',
@@ -101,10 +163,15 @@ export async function fetchWithAuthRefresh(
       },
     });
 
-  const response = await doFetch(bearerToken);
+  let response = await doFetch(null);
   if (response.ok) return response;
 
   if (response.status !== 401 && response.status !== 403) {
+    if (bearerToken) {
+      const withBearer = await doFetch(bearerToken);
+      if (withBearer.ok) return withBearer;
+      return withBearer;
+    }
     return response;
   }
 
@@ -125,25 +192,29 @@ export async function fetchWithAuthRefresh(
   }
 
   const newAccess = await refreshAccessToken(options.signal);
-  bearerToken =
-    newAccess ?? accessTokenFromBrowserStorage();
+  bearerToken = newAccess ?? accessTokenFromBrowserStorage();
 
-  const retry = await doFetch(bearerToken);
+  let retry = await doFetch(bearerToken);
   if (retry.ok) return retry;
-  /** Fără header Authorization — unele instalări trimit cookie valid dar Bearer invalid în SPA */
-  return doFetch(null);
+  retry = await doFetch(null);
+  if (retry.ok) return retry;
+  if (retry.status === 401) clearStaleBrowserAuth();
+  return retry;
 }
 
-/** POST JSON + CSRF + Bearer; retry după refresh la 401/403 */
+/** POST JSON + CSRF; cookie session first, refresh + retry, clear stale auth on final 401 */
 export async function postJsonWithAuthRefresh(
   url: string,
   body: Record<string, unknown>,
   options: RequestInit & { signal?: AbortSignal } = {}
 ): Promise<Response> {
+  await refreshAccessToken(options.signal);
   let bearerToken = accessTokenFromBrowserStorage();
 
+  const apiUrl = resolveClientApiUrl(url);
+
   const doPost = async (csrf: string, token: string | null) =>
-    fetch(url, {
+    fetch(apiUrl, {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
@@ -159,8 +230,14 @@ export async function postJsonWithAuthRefresh(
     });
 
   let csrf = await fetchCsrfTokenFresh();
-  let postResponse = await doPost(csrf, bearerToken);
+  let postResponse = await doPost(csrf, null);
   if (postResponse.ok) return postResponse;
+
+  if (bearerToken) {
+    const withBearer = await doPost(csrf, bearerToken);
+    if (withBearer.ok) return withBearer;
+    postResponse = withBearer;
+  }
 
   /** Unele sesiuni: hash CSRF și header se desincronizează (tab-uri / cache) — încă o rundă doar cu CSRF proaspăt înainte de refresh JWT. */
   if (postResponse.status === 403) {
@@ -170,8 +247,12 @@ export async function postJsonWithAuthRefresh(
       (/missing|invalid/i.test(probe) && /token/i.test(probe));
     if (csrfSuspect) {
       csrf = await fetchCsrfTokenFresh();
-      const second = await doPost(csrf, bearerToken);
+      let second = await doPost(csrf, null);
       if (second.ok) return second;
+      if (bearerToken) {
+        second = await doPost(csrf, bearerToken);
+        if (second.ok) return second;
+      }
       postResponse = second;
     }
   }
@@ -201,12 +282,14 @@ export async function postJsonWithAuthRefresh(
   else bearerToken = accessTokenFromBrowserStorage();
 
   csrf = await fetchCsrfTokenFresh();
-  let retry = await doPost(csrf, bearerToken);
+  let retry = await doPost(csrf, null);
   if (retry.ok) return retry;
-  /** Fără Authorization — cookie httpOnly cu access token valid dar Bearer lipsă/invalid în SPA */
   if (bearerToken) {
+    retry = await doPost(csrf, bearerToken);
+    if (retry.ok) return retry;
     retry = await doPost(csrf, null);
   }
+  if (retry.status === 401) clearStaleBrowserAuth();
   return retry;
 }
 

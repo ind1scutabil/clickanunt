@@ -7,6 +7,23 @@ import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
 import { buildWwwRedirectUrl, shouldRedirectApexToWww } from "@/lib/seo/apex-canonical-host";
 
+const SITE_ORIGINS = new Set(["https://clickanunt.ro", "https://www.clickanunt.ro"]);
+
+function applySiteCors(request: NextRequest, response: NextResponse): NextResponse {
+  const origin = request.headers.get("origin")?.trim();
+  if (origin && SITE_ORIGINS.has(origin)) {
+    response.headers.set("Access-Control-Allow-Origin", origin);
+    response.headers.set("Access-Control-Allow-Credentials", "true");
+    response.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, x-csrf-token, X-CSRF-Token, X-Requested-With"
+    );
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    response.headers.append("Vary", "Origin");
+  }
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const hostname =
     request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ??
@@ -15,7 +32,17 @@ export function proxy(request: NextRequest) {
 
   if (shouldRedirectApexToWww(hostname)) {
     const target = buildWwwRedirectUrl(request.nextUrl, true);
-    return NextResponse.redirect(target.href, 301);
+    /** 308 for API — preserve POST method + body; 301 for pages (SEO). */
+    const redirectStatus = request.nextUrl.pathname.startsWith("/api/") ? 308 : 301;
+    return NextResponse.redirect(target.href, redirectStatus);
+  }
+
+  const path = request.nextUrl.pathname;
+
+  if (request.method === "OPTIONS" && path.startsWith("/api/")) {
+    const preflight = new NextResponse(null, { status: 204 });
+    preflight.headers.set("x-request-id", request.headers.get("x-request-id") || crypto.randomUUID());
+    return applySecurityHeaders(applySiteCors(request, preflight), hostname ?? null);
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -29,7 +56,6 @@ export function proxy(request: NextRequest) {
   });
 
   response.headers.set("x-request-id", traceId);
-  const path = request.nextUrl.pathname;
 
   const isMessagesRoute = path === "/messages" || path === "/dashboard/messages";
 
@@ -49,7 +75,8 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return applySecurityHeaders(response, hostname ?? null);
+  const withCors = path.startsWith("/api/") ? applySiteCors(request, response) : response;
+  return applySecurityHeaders(withCors, hostname ?? null);
 }
 
 export const config = {
