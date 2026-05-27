@@ -13,6 +13,7 @@ import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promotions";
 import { isListingExplicitlyExpired } from "@/lib/listing-expiry";
+import { resolveListingGetRequestLimits } from "@/lib/listing-view-count";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -80,24 +81,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Increment views count
-    await prisma.listing.update({
-      where: { id },
-      data: { views: { increment: 1 } },
-    });
+    const viewLimits = await resolveListingGetRequestLimits(request, id);
+    if (viewLimits.shouldCountView) {
+      await prisma.listing.update({
+        where: { id },
+        data: { views: { increment: 1 } },
+      });
 
-    void recordAnalyticsEvent({
-      eventType: ANALYTICS_EVENT.listing_view,
-      userId: viewer?.id ?? null,
-      listingId: id,
-      metadata: { source: "listing_get" },
-      request,
-    });
+      void recordAnalyticsEvent({
+        eventType: ANALYTICS_EVENT.listing_view,
+        userId: viewer?.id ?? null,
+        listingId: id,
+        metadata: { source: "listing_get" },
+        request,
+      });
+    }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       ...listingFresh,
       photos: normalizeListingPhotosArray(listingFresh.photos, origin),
     });
+
+    if (!viewLimits.allowed && viewLimits.retryAfter) {
+      response.headers.set("X-RateLimit-Remaining", "0");
+      response.headers.set("Retry-After", String(viewLimits.retryAfter));
+    }
+
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       FROM "analytics_events" e
       INNER JOIN "listings" l ON l.id = e."listingId"
       WHERE e."eventType" = ${ANALYTICS_EVENT.listing_view}
+        AND e."sessionId" IS NOT NULL
         AND l."ownerUserId" = ${user.id}
         AND e."createdAt" >= ${start7d}
       GROUP BY 1
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
         activeListings: activeListingsCount,
         totalViews,
         totalViewsSource: "listing_views_counter",
-        viewsLast7DaysSource: "analytics_events_listing_view",
+        viewsLast7DaysSource: "analytics_events_listing_view_attributed",
         messages: unreadMessagesCount,
         favorites: favoritesCount,
         viewsLast7Days,

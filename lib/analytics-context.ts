@@ -52,5 +52,6 @@ export function analyticsContextMetadata(
       : {};
   if (ctx.referrer) base.referrer = ctx.referrer;
   if (ctx.userAgent) base.userAgent = ctx.userAgent;
+  if (ctx.ipHash) base.ipHash = ctx.ipHash;
   return Object.keys(base).length > 0 ? base : null;
 }
