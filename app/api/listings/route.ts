@@ -26,6 +26,7 @@ import { logger, PerformanceTracker } from "@/lib/observability";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidSchema } from "@/lib/security/validation-schemas";
 import { verifyToken } from "@/lib/auth";
+import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
@@ -385,18 +386,10 @@ export async function POST(request: Request) {
 
     const body = security.data as any;
     
-    // ✅ Extract userId from JWT token for security (never trust client-provided userId)
-    const authHeader = (request as NextRequest).headers.get('authorization');
-    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-    const cookieToken = (request as NextRequest).cookies.get('accessToken')?.value || null;
-    const accessToken = bearer || cookieToken;
-    const tokenPayload = accessToken ? await verifyToken(accessToken) : null;
-    const userId =
-      (tokenPayload as { userId?: string; sub?: string } | null)?.userId ||
-      (tokenPayload as { userId?: string; sub?: string } | null)?.sub ||
-      null;
-    
-    // If no valid JWT token, reject the request
+    // ✅ Auth: cookie httpOnly înainte de Bearer (SPA poate trimite JWT expirat din localStorage)
+    const tokenPayload = await getMessagingApiAuthPayload(request as NextRequest);
+    const userId = tokenPayload?.userId ?? null;
+
     if (!userId) {
       return NextResponse.json(
         { error: 'Autentificare necesară pentru a publica anunțuri' },
@@ -404,8 +397,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ Validate userId is a proper UUID (reject malformed IDs)
-    const uuidValidation = listingCreateSchema.shape.ownerUserId.safeParse(userId);
+    const uuidValidation = uuidSchema.safeParse(userId);
     if (!uuidValidation.success) {
       logger.warn('Invalid userId format in JWT', { userId, error: uuidValidation.error });
       return NextResponse.json(

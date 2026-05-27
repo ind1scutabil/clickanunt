@@ -20,7 +20,7 @@ import { logApiRouteError } from '@/lib/observability/api-route-error';
 import { recordRequestDurationMs } from '@/lib/infra/request-metrics';
 import { parseAndValidate } from '@/lib/security/validation-schemas';
 import { logger } from '@/lib/observability';
-import { verifyAccessToken } from '@/lib/security/tokens';
+import { getMessagingApiAuthPayload } from '@/lib/messages-request-auth';
 import crypto from 'crypto';
 import { rateLimitPaymentRedis } from '@/lib/rateLimit-redis';
 import { formatSecureRateLimitErrorRo } from '@/lib/listing-publish-rate-limit';
@@ -75,13 +75,9 @@ export async function validateSecureRequest(
     const clientIp = getClientIp(request);
     const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
 
-    // Attempt to identify user from access token
-    const authHeader = request.headers.get('authorization');
-    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-    const cookieToken = request.cookies.get('accessToken')?.value || null;
-    const accessToken = bearer || cookieToken;
-    const tokenPayload = accessToken ? verifyAccessToken(accessToken) : null;
-    const userId = tokenPayload?.userId || null;
+    // Cookie httpOnly înainte de Bearer — localStorage poate rămâne cu JWT expirat (publish 401 + IP rate-limit).
+    const tokenPayload = await getMessagingApiAuthPayload(request);
+    const userId = tokenPayload?.userId ?? null;
     const userRole = tokenPayload?.role ?? null;
     
     // ===== 1. CSRF VALIDATION (for state-changing operations) =====
