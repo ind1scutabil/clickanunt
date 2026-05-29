@@ -7,8 +7,8 @@ import {
   createPageMetadata,
   generateBreadcrumbStructuredData,
   generateFaqPageStructuredData,
-  generateItemListStructuredData,
 } from "@/lib/seo";
+import { buildCategoryPageJsonLd } from "@/lib/seo/collection-jsonld";
 import { buildMarketHubFaqItems } from "@/lib/seo/market-hub-faq";
 import {
   buildMarketIntro,
@@ -205,10 +205,11 @@ async function renderSubcategoryPage(
   const canonicalAbs = absoluteUrl(routeBase);
   const itemLd =
     previews.length > 0
-      ? generateItemListStructuredData({
+      ? buildCategoryPageJsonLd({
           name: `Anunțuri ${subcategoryLabel}`,
           description: `Anunțuri ${subcategoryLabel.toLowerCase()} din ${categoryLabel.toLowerCase()} pe ClickAnunț`,
           canonicalUrlAbs: canonicalAbs,
+          about: [subcategoryLabel, shortCat],
           items: previews.map((p) => ({ title: p.title, path: `/listings/${p.id}` })),
         })
       : null;
@@ -325,10 +326,11 @@ async function renderCityPage(
 
   const itemLd =
     previews.length > 0
-      ? generateItemListStructuredData({
+      ? buildCategoryPageJsonLd({
           name: intro.h1,
           description: intro.paragraphs[0],
           canonicalUrlAbs: canonicalAbs,
+          about: [label.split(",")[0]?.trim() ?? label, city],
           items: previews.map((p) => ({ title: p.title, path: `/listings/${p.id}` })),
         })
       : null;

@@ -16,8 +16,8 @@ import {
   createPageMetadata,
   generateBreadcrumbStructuredData,
   generateFaqPageStructuredData,
-  generateItemListStructuredData,
 } from "@/lib/seo";
+import { buildCategoryPageJsonLd } from "@/lib/seo/collection-jsonld";
 import { absoluteUrl } from "@/lib/site-url";
 import {
   getActiveListingCountForHub,
@@ -127,10 +127,11 @@ export default async function MarketCategoryOnlyPage({ params }: Omit<Props, "se
 
   const itemLd =
     previews.length > 0
-      ? generateItemListStructuredData({
+      ? buildCategoryPageJsonLd({
           name: intro.h1,
           description: intro.paragraphs[0],
           canonicalUrlAbs: canonicalAbs,
+          about: [shortLab],
           items: previews.map((p) => ({ title: p.title, path: `/listings/${p.id}` })),
         })
       : null;

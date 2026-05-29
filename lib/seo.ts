@@ -5,6 +5,13 @@
 import type { Metadata } from 'next';
 import { isCompanyLegalDetailsPublic } from '@/lib/company-config';
 import { absoluteUrl, siteOrigin } from '@/lib/site-url';
+import {
+  buildOrganizationJsonLd,
+  buildWebSiteJsonLd,
+} from '@/lib/seo/site-jsonld';
+import { buildBreadcrumbJsonLd } from '@/lib/seo/breadcrumb-jsonld';
+import { buildItemListJsonLd } from '@/lib/seo/collection-jsonld';
+import { buildFaqPageJsonLd } from '@/lib/seo/faq-jsonld';
 
 export interface PageSEOConfig {
   title: string;
@@ -100,18 +107,7 @@ export function generateMetadataLegacy(config: PageSEOConfig): Metadata {
 
 /** WebSite graph with SiteSearch → `/listings` (`q` matches `searchListingsSchema`). */
 export function generateWebSiteSearchStructuredData() {
-  const origin = siteOrigin();
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: 'ClickAnunț',
-    url: origin,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${origin}/listings?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
-    },
-  };
+  return buildWebSiteJsonLd();
 }
 
 /** JSON-LD for marketplace listing (classified-style Product + Offer). */
@@ -177,54 +173,11 @@ function publicCompanyPhoneForSchema(): string | undefined {
 }
 
 export function generateOrganizationStructuredData() {
-  const siteUrl = siteOrigin();
-  const showLegal = isCompanyLegalDetailsPublic();
-  const companyPhone = publicCompanyPhoneForSchema();
-
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'ClickAnunț',
-    url: siteUrl,
-    logo: `${siteUrl}/images/logo.png`,
-    description: 'Platforma de anunțuri gratuite din România',
-    contactPoint: {
-      '@type': 'ContactPoint',
-      ...(showLegal && companyPhone ? { telephone: companyPhone } : {}),
-      contactType: 'customer service',
-      email: 'contact@clickanunt.ro',
-      availableLanguage: ['Romanian'],
-    },
-    sameAs: [
-      'https://www.facebook.com/clickanunt',
-      'https://twitter.com/clickanunt',
-      'https://www.instagram.com/clickanunt',
-    ],
-    ...(showLegal
-      ? {
-          address: {
-            '@type': 'PostalAddress',
-            addressCountry: 'RO',
-            addressLocality: 'București',
-          },
-        }
-      : {}),
-  };
+  return buildOrganizationJsonLd();
 }
 
 export function generateBreadcrumbStructuredData(items: Array<{ name: string; url: string }>) {
-  const siteUrl = siteOrigin();
-
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: items.map((item, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: item.name,
-      item: item.url.startsWith('http') ? item.url : `${siteUrl}${item.url}`,
-    })),
-  };
+  return buildBreadcrumbJsonLd(items);
 }
 
 /** ItemList grid / hub preview for JSON-LD (safe when items.length ≥ 1). */
@@ -234,36 +187,12 @@ export function generateItemListStructuredData(opts: {
   canonicalUrlAbs: string;
   items: Array<{ title: string; path: string }>;
 }) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: opts.name,
-    ...(opts.description ? { description: opts.description } : {}),
-    url: opts.canonicalUrlAbs,
-    numberOfItems: opts.items.length,
-    itemListElement: opts.items.map((it, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      name: it.title,
-      item: absoluteUrl(it.path.startsWith('/') ? it.path : `/${it.path}`),
-    })),
-  };
+  return buildItemListJsonLd(opts);
 }
 
 /** FAQPage JSON-LD for hub pages (one script block; do not duplicate per question). */
 export function generateFaqPageStructuredData(items: Array<{ question: string; answer: string }>) {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: items.map((q) => ({
-      '@type': 'Question',
-      name: q.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: q.answer,
-      },
-    })),
-  };
+  return buildFaqPageJsonLd(items);
 }
 
 export function generateLocalBusinessStructuredData() {

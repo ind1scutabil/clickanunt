@@ -1,11 +1,8 @@
-import {
-  generateOrganizationStructuredData,
-  generateWebSiteSearchStructuredData,
-} from "@/lib/seo";
+import { buildOrganizationJsonLd, buildWebSiteJsonLd } from "@/lib/seo/site-jsonld";
 
 /** Global JSON-LD: Organization + WebSite (+ SearchAction) — avoids duplicating PostalAddress/geo with Organization. */
 export function GlobalJsonLd() {
-  const entries = [generateOrganizationStructuredData(), generateWebSiteSearchStructuredData()];
+  const entries = [buildOrganizationJsonLd(), buildWebSiteJsonLd()];
 
   return (
     <>

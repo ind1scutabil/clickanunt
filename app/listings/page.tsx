@@ -2,7 +2,8 @@ import React, { Suspense } from "react";
 import type { Metadata } from "next";
 import Navbar from "@/app/components/Navbar";
 import ListingsView from "@/app/components/ListingsView";
-import { createPageMetadata, generateItemListStructuredData } from "@/lib/seo";
+import { createPageMetadata } from "@/lib/seo";
+import { buildCollectionPageJsonLd } from "@/lib/seo/collection-jsonld";
 import { absoluteUrl, siteOrigin } from "@/lib/site-url";
 import {
   getPublicBrowseListingsPage,
@@ -117,7 +118,7 @@ export default async function Page({
 
   const itemListLd =
     browseSeed.listings.length > 0 && !filters.q && !filters.category && !filters.city
-      ? generateItemListStructuredData({
+      ? buildCollectionPageJsonLd({
           name: "Toate anunțurile pe ClickAnunț",
           description:
             "Catalog public de anunțuri active în România — auto, imobiliare, electronice și alte categorii.",
