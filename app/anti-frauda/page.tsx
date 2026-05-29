@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { LegalPageLayout } from "@/app/components/legal/LegalPageLayout";
 import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
+import { LegalFaqSection } from "@/app/components/legal/LegalFaqSection";
+import { ANTIFRAUD_FAQ } from "@/lib/seo/legal-faq";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function AntiFraudPolicyPage() {
   return (
-    <LegalPageLayout title="Politica anti-fraudă" accentClassName="text-[#FF7900]">
+    <LegalPageLayout title="Politica anti-fraudă" accentClassName="text-[#FF7900]" canonicalPath="/anti-frauda">
       <CompanyDetailsBox />
       <p>
         Protejăm utilizatorii prin verificări automate, moderare umană acolo unde e cazul, limite de rată și
@@ -42,6 +44,7 @@ export default function AntiFraudPolicyPage() {
           .
         </p>
       </section>
+      <LegalFaqSection items={ANTIFRAUD_FAQ} />
     </LegalPageLayout>
   );
 }

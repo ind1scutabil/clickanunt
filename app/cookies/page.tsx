@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function CookiesPolicyPage() {
   return (
-    <LegalPageLayout title="Politica cookie" accentClassName="text-[#1E90FF]">
+    <LegalPageLayout title="Politica cookie" accentClassName="text-[#1E90FF]" canonicalPath="/cookies">
       <CompanyDetailsBox />
       <section>
         <h2 className="mb-3 text-2xl font-semibold text-white">1. Ce sunt cookie-urile</h2>

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function NoticeTakedownPage() {
   return (
-    <LegalPageLayout title="Copyright, mărci și retragere conținut" accentClassName="text-[#FF7900]">
+    <LegalPageLayout title="Copyright, mărci și retragere conținut" accentClassName="text-[#FF7900]" canonicalPath="/notice-takedown">
       <CompanyDetailsBox />
       <p>
         Respectăm drepturile de proprietate intelectuală. Dacă consideri că un anunț folosește abuziv imaginea ta,

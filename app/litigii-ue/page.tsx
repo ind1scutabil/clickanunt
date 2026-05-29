@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function EuOdrPage() {
   return (
-    <LegalPageLayout title="Soluționarea litigiilor în UE (ODR)" accentClassName="text-[#1E90FF]">
+    <LegalPageLayout title="Soluționarea litigiilor în UE (ODR)" accentClassName="text-[#1E90FF]" canonicalPath="/litigii-ue">
       <p>
         Comisia Europeană pune la dispoziție o platformă dedică soluționării online a litigiilor de consum (ODR).
         ClickAnunt poate fi utilizat de consumatori din UE; pentru litigii de consum legate de serviciile noastre

@@ -29,7 +29,7 @@ const PROHIBITED = [
 
 export default function ProhibitedListingsPage() {
   return (
-    <LegalPageLayout title="Politica anunțuri interzise" accentClassName="text-[#FF7900]">
+    <LegalPageLayout title="Politica anunțuri interzise" accentClassName="text-[#FF7900]" canonicalPath="/anunturi-interzise">
       <CompanyDetailsBox />
       <p>
         ClickAnunt este o platformă de publicare anunțuri. Utilizatorii răspund pentru legalitatea conținutului.

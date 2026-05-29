@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { LegalPageLayout } from "@/app/components/legal/LegalPageLayout";
 import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
+import { LegalFaqSection } from "@/app/components/legal/LegalFaqSection";
+import { REFUND_FAQ } from "@/lib/seo/legal-faq";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RefundPolicyPage() {
   return (
-    <LegalPageLayout title="Politica de rambursare (promovări plătite)" accentClassName="text-[#FF7900]">
+    <LegalPageLayout title="Politica de rambursare (promovări plătite)" accentClassName="text-[#FF7900]" canonicalPath="/rambursari">
       <CompanyDetailsBox />
       <section>
         <h2 className="mb-3 text-2xl font-semibold text-white">1. Ce cumperi</h2>
@@ -48,6 +50,7 @@ export default function RefundPolicyPage() {
           </a>
         </p>
       </section>
+      <LegalFaqSection items={REFUND_FAQ} />
     </LegalPageLayout>
   );
 }

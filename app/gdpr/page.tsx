@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { LegalPageLayout } from "@/app/components/legal/LegalPageLayout";
 import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
+import { LegalFaqSection } from "@/app/components/legal/LegalFaqSection";
+import { GDPR_FAQ } from "@/lib/seo/legal-faq";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function GdprRightsPage() {
   return (
-    <LegalPageLayout title="Drepturile tale GDPR" accentClassName="text-[#1E90FF]">
+    <LegalPageLayout title="Drepturile tale GDPR" accentClassName="text-[#1E90FF]" canonicalPath="/gdpr">
       <CompanyDetailsBox />
       <p>
         ClickAnunt prelucrează date personale în calitate de operator, conform Regulamentului (UE) 2016/679 (GDPR) și
@@ -48,6 +50,7 @@ export default function GdprRightsPage() {
           </a>
         </p>
       </section>
+      <LegalFaqSection items={GDPR_FAQ} />
     </LegalPageLayout>
   );
 }
