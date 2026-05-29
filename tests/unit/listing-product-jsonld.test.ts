@@ -1,7 +1,9 @@
 import {
   buildClassifiedMerchantReturnPolicy,
   buildClassifiedOfferPolicyFields,
+  buildListingLocationPlace,
   buildListingProductIdentifierFields,
+  buildVehicleProductFields,
   isValidListingVin,
 } from "@/lib/seo/listing-product-jsonld";
 
@@ -41,5 +43,67 @@ describe("listing-product-jsonld", () => {
     expect(policy.returnPolicyCategory).toContain("MerchantReturnNotPermitted");
     expect(policy.merchantReturnLink).toContain("/terms");
     expect(buildClassifiedOfferPolicyFields().availableDeliveryMethod).toContain("OnSitePickup");
+  });
+
+  describe("buildListingLocationPlace", () => {
+    it("returns undefined when neither city nor county present", () => {
+      expect(buildListingLocationPlace({})).toBeUndefined();
+      expect(buildListingLocationPlace({ city: "  ", county: null })).toBeUndefined();
+    });
+
+    it("emits RO PostalAddress with locality and region when present", () => {
+      const place = buildListingLocationPlace({ city: "Cluj-Napoca", county: "Cluj" });
+      expect(place).toEqual({
+        "@type": "Place",
+        address: {
+          "@type": "PostalAddress",
+          addressCountry: "RO",
+          addressLocality: "Cluj-Napoca",
+          addressRegion: "Cluj",
+        },
+      });
+    });
+
+    it("includes only the fields that exist (no fabrication)", () => {
+      const place = buildListingLocationPlace({ city: "Iași" });
+      expect(place?.address).toEqual({
+        "@type": "PostalAddress",
+        addressCountry: "RO",
+        addressLocality: "Iași",
+      });
+    });
+  });
+
+  describe("buildVehicleProductFields", () => {
+    it("maps factual year/mileage/fuel/transmission to schema.org fields", () => {
+      const fields = buildVehicleProductFields({
+        year: 2018,
+        mileage: 120000,
+        fuel: "diesel",
+        transmission: "automatic",
+      });
+      expect(fields.vehicleModelDate).toBe("2018");
+      expect(fields.mileageFromOdometer).toEqual({
+        "@type": "QuantitativeValue",
+        value: 120000,
+        unitCode: "KMT",
+      });
+      expect(fields.fuelType).toBe("Motorină");
+      expect(fields.vehicleTransmission).toBe("Automată");
+    });
+
+    it("skips out-of-range or unknown values rather than guessing", () => {
+      const fields = buildVehicleProductFields({
+        year: 1850,
+        mileage: -5,
+        fuel: "other",
+        transmission: "other",
+      });
+      expect(fields).toEqual({});
+    });
+
+    it("returns empty object for fully missing vehicle data", () => {
+      expect(buildVehicleProductFields({})).toEqual({});
+    });
   });
 });

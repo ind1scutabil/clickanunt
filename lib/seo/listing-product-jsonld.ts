@@ -71,3 +71,97 @@ export function buildClassifiedOfferPolicyFields(): Record<string, unknown> {
     hasMerchantReturnPolicy: buildClassifiedMerchantReturnPolicy(),
   };
 }
+
+export type ListingLocationInput = {
+  city?: string | null;
+  county?: string | null;
+};
+
+/**
+ * Factual `Place` (city/county in Romania) for `Offer.availableAtOrFrom`.
+ * Returns undefined when neither field is present — never fabricates a location.
+ */
+export function buildListingLocationPlace(
+  loc: ListingLocationInput
+): { "@type": "Place"; address: Record<string, unknown> } | undefined {
+  const city = loc.city?.trim() || undefined;
+  const county = loc.county?.trim() || undefined;
+  if (!city && !county) return undefined;
+
+  const address: Record<string, unknown> = {
+    "@type": "PostalAddress",
+    addressCountry: "RO",
+  };
+  if (city) address.addressLocality = city;
+  if (county) address.addressRegion = county;
+
+  return { "@type": "Place", address };
+}
+
+/** Prisma FuelType enum → human-readable schema.org `fuelType` text (site language: RO). */
+const FUEL_TYPE_LABEL: Record<string, string> = {
+  petrol: "Benzină",
+  diesel: "Motorină",
+  electric: "Electric",
+  hybrid: "Hibrid",
+};
+
+/** Prisma Transmission enum → schema.org `vehicleTransmission` text (RO). */
+const TRANSMISSION_LABEL: Record<string, string> = {
+  manual: "Manuală",
+  automatic: "Automată",
+  semiautomatic: "Semiautomată",
+};
+
+export type ListingVehicleInput = {
+  year?: number | null;
+  mileage?: number | null;
+  fuel?: string | null;
+  transmission?: string | null;
+};
+
+/**
+ * schema.org Vehicle/Car fields, emitted only for auto-category listings and only
+ * when the underlying DB value is factual. `other`/unknown enum values are skipped
+ * rather than guessed. Use together with `@type: ["Product", "Car"]`.
+ */
+export function buildVehicleProductFields(
+  vehicle: ListingVehicleInput
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  const currentYear = new Date().getFullYear();
+  if (
+    typeof vehicle.year === "number" &&
+    Number.isInteger(vehicle.year) &&
+    vehicle.year >= 1900 &&
+    vehicle.year <= currentYear + 1
+  ) {
+    out.vehicleModelDate = String(vehicle.year);
+  }
+
+  if (
+    typeof vehicle.mileage === "number" &&
+    Number.isFinite(vehicle.mileage) &&
+    vehicle.mileage >= 0 &&
+    vehicle.mileage < 10_000_000
+  ) {
+    out.mileageFromOdometer = {
+      "@type": "QuantitativeValue",
+      value: vehicle.mileage,
+      unitCode: "KMT",
+    };
+  }
+
+  if (vehicle.fuel) {
+    const fuelLabel = FUEL_TYPE_LABEL[vehicle.fuel];
+    if (fuelLabel) out.fuelType = fuelLabel;
+  }
+
+  if (vehicle.transmission) {
+    const transLabel = TRANSMISSION_LABEL[vehicle.transmission];
+    if (transLabel) out.vehicleTransmission = transLabel;
+  }
+
+  return out;
+}

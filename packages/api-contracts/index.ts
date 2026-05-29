@@ -6,6 +6,7 @@
  */
 
 export * from './src/common';
+export * from './src/taxonomy';
 export * from './src/listing';
 export * from './src/auth';
 export * from './src/search';

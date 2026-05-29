@@ -1,131 +1,20 @@
 /**
- * Category / subcategory labels aligned with web listing forms (static catalog).
- * Mobile-only — does not import web lib/carData.
+ * Category / subcategory labels for the mobile publish/edit form.
+ *
+ * 1:1 PARITY: derived from the shared canonical taxonomy contract
+ * (`@clickanunt/api-contracts` → MARKETPLACE_TAXONOMY), the same tree the web
+ * `lib/taxonomy.ts` is verified against. Do NOT hand-edit category data here —
+ * change `packages/api-contracts/src/taxonomy.ts` so web + mobile stay in sync.
  */
-export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = {
-  'Auto, moto și ambarcațiuni': [
-    'Autoturisme',
-    'Autoutilitare',
-    'SUV/Off-road',
-    'Camioane',
-    'Rulote și remorci',
-    'Motociclete/Scutere',
-    'ATV',
-    'Piese auto',
-    'Accesorii auto',
-    'Service auto',
-    'Ambarcațiuni',
-  ],
-  Imobiliare: [
-    'Apartamente de vânzare',
-    'Case de vânzare',
-    'Terenuri',
-    'Spații comerciale',
-    'Apartamente de închiriat',
-    'Case de închiriat',
-    'Camere de închiriat',
-    'Spații comerciale de închiriat',
-    'Garaje',
-  ],
-  'Electronice și electrocasnice': [
-    'Telefoane mobile',
-    'Tablete',
-    'Laptopuri',
-    'Computere desktop',
-    'TV',
-    'Audio/Video',
-    'Console jocuri',
-    'Camere foto/video',
-    'Frigidere',
-    'Mașini de spălat',
-    'Aspiratoare',
-    'Aparate de aer condiționat',
-    'Echipamente IT',
-  ],
-  'Modă și frumusețe': [
-    'Îmbrăcăminte femei',
-    'Îmbrăcăminte bărbați',
-    'Îmbrăcăminte copii',
-    'Încălțăminte',
-    'Accesorii',
-    'Bijuterii și ceasuri',
-    'Genți',
-    'Produse cosmetice',
-  ],
-  'Casă și grădină': [
-    'Mobilă',
-    'Decorațiuni',
-    'Iluminat',
-    'Textile casă',
-    'Ustensile bucătărie',
-    'Unelte și scule',
-    'Echipamente grădină',
-    'Plante și flori',
-    'Materiale construcție',
-  ],
-  'Sport, timp liber și artă': [
-    'Biciclete',
-    'Echipament sport',
-    'Fitness',
-    'Camping',
-    'Pescuit/Vânătoare',
-    'Cărți',
-    'Muzică/Film',
-    'Instrumente muzicale',
-    'Colecții',
-    'Artă',
-  ],
-  'Copii și bebeluși': [
-    'Haine copii/bebeluși',
-    'Încălțăminte copii',
-    'Cărucioare',
-    'Scaune auto',
-    'Jucării',
-    'Cărți copii',
-    'Articole școlari',
-    'Mobilier copii',
-  ],
-  'Animale de companie': [
-    'Câini',
-    'Pisici',
-    'Păsări',
-    'Pești acvariu',
-    'Rozătoare',
-    'Accesorii animale',
-    'Hrană animale',
-  ],
-  'Locuri de muncă': [
-    'IT/Software',
-    'Vânzări/Marketing',
-    'Construcții',
-    'Educație',
-    'Turism/Horeca',
-    'Transport/Logistică',
-    'Medical',
-    'Alte domenii',
-  ],
-  'Servicii și afaceri': [
-    'Servicii IT',
-    'Construcții/Renovări',
-    'Reparații',
-    'Transport/Mutări',
-    'Curățenie',
-    'Evenimente',
-    'Educație/Cursuri',
-    'Servicii juridice',
-    'Afaceri de vânzare',
-  ],
-  Agricultură: [
-    'Tractoare',
-    'Utilaje agricole',
-    'Animale de fermă',
-    'Produse agricole',
-    'Terenuri agricole',
-  ],
-  Altele: ['Diverse', 'Pierdut/Găsit', 'Schimb', 'Donații'],
-};
+import { MARKETPLACE_TAXONOMY } from '@clickanunt/api-contracts';
 
-export const ALL_CATEGORY_LABELS = Object.keys(CATEGORY_SUBCATEGORIES).sort();
+export const CATEGORY_SUBCATEGORIES: Record<string, string[]> = Object.fromEntries(
+  MARKETPLACE_TAXONOMY.map((cat) => [cat.label, cat.subcategories.map((sub) => sub.label)]),
+);
+
+export const ALL_CATEGORY_LABELS = MARKETPLACE_TAXONOMY.map((cat) => cat.label)
+  .slice()
+  .sort();
 
 export function subcategoriesForCategory(category: string): string[] {
   return CATEGORY_SUBCATEGORIES[category] ?? [];

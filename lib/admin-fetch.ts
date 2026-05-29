@@ -176,7 +176,7 @@ export async function fetchWithAuthRefresh(
       },
     });
 
-  let response = await doFetch(null);
+  const response = await doFetch(null);
   if (response.ok) return response;
 
   if (response.status !== 401 && response.status !== 403) {

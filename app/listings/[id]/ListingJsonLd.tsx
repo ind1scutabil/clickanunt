@@ -7,8 +7,11 @@ import { slugifyRo } from "@/lib/seo/slug";
 import { isListingSeoIndexable, listingSchemaAvailabilityUrl } from "@/lib/seo/listing-seo-eligibility";
 import {
   buildClassifiedOfferPolicyFields,
+  buildListingLocationPlace,
   buildListingProductIdentifierFields,
+  buildVehicleProductFields,
 } from "@/lib/seo/listing-product-jsonld";
+import { getCategoryDef } from "@/lib/taxonomy";
 import type { Condition } from "@prisma/client";
 
 function schemaItemConditionUrl(condition: Condition | null | undefined): string | undefined {
@@ -38,6 +41,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       title: true,
       category: true,
       city: true,
+      county: true,
       description: true,
       priceAmount: true,
       priceCurrency: true,
@@ -45,6 +49,10 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       make: true,
       model: true,
       vin: true,
+      year: true,
+      mileage: true,
+      fuel: true,
+      transmission: true,
       condition: true,
       updatedAt: true,
       createdAt: true,
@@ -107,6 +115,12 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   };
   if (seller) offer.seller = seller;
 
+  const locationPlace = buildListingLocationPlace({
+    city: listing.city,
+    county: listing.county,
+  });
+  if (locationPlace) offer.availableAtOrFrom = locationPlace;
+
   const productLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -130,6 +144,20 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   if (desc) productLd.description = desc;
   if (images.length > 0) productLd.image = images;
   if (itemCondition) productLd.itemCondition = itemCondition;
+
+  // Auto-category listings: enrich with factual schema.org Vehicle/Car fields.
+  if (getCategoryDef(listing.category)?.slug === "auto") {
+    const vehicleFields = buildVehicleProductFields({
+      year: listing.year,
+      mileage: listing.mileage,
+      fuel: listing.fuel,
+      transmission: listing.transmission,
+    });
+    if (Object.keys(vehicleFields).length > 0) {
+      productLd["@type"] = ["Product", "Car"];
+      Object.assign(productLd, vehicleFields);
+    }
+  }
 
   const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
   const crumbItems: Array<{ name: string; url: string }> = [{ name: "Acasă", url: "/" }];
