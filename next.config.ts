@@ -65,6 +65,21 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
 
+  /** Legacy numeric-suffixed URLs (pre-restructure) → clean canonical hubs (permanent: true ⇒ 308). */
+  async redirects() {
+    return [
+      { source: "/sport-1", destination: "/sport", permanent: true },
+      { source: "/locuri-de-munca/arad-2", destination: "/locuri-de-munca/arad", permanent: true },
+      { source: "/servicii/arad-3", destination: "/servicii/arad", permanent: true },
+      {
+        source:
+          "/:categorySlug(auto|imobiliare|electronice|moda|casa-si-gradina|sport|copii|animale|locuri-de-munca|servicii|agricultura|altele)-:legacyId(\\d+)",
+        destination: "/:categorySlug",
+        permanent: true,
+      },
+    ];
+  },
+
   /** Pretty sitemap filenames → internal route handlers (see `SEO_IMPLEMENTATION_REPORT.md`). */
   async rewrites() {
     return [

@@ -23,9 +23,6 @@ export const metadata: Metadata = {
   publisher: "ClickAnunț",
   robots: stagingRobotsMetadata(),
   metadataBase: new URL(siteOrigin()),
-  alternates: {
-    canonical: '/',
-  },
   openGraph: {
     type: 'website',
     locale: 'ro_RO',
