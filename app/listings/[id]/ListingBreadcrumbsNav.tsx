@@ -24,6 +24,10 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
     return null;
   }
 
+  // Moderation visibility gate: don't render the real title in the breadcrumb for non-public listings.
+  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
+  const isNonPublic = NON_PUBLIC_STATUSES.includes(listing.status);
+
   const crumbs: Array<{ label: string; href?: string }> = [{ label: "Acasă", href: "/" }];
   const catSlug = primarySlugForCategoryLabel(listing.category);
   const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
@@ -36,7 +40,9 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
   }
 
   crumbs.push({
-    label: listing.title.slice(0, 72) + (listing.title.length > 72 ? "…" : ""),
+    label: isNonPublic
+      ? "Anunț indisponibil"
+      : listing.title.slice(0, 72) + (listing.title.length > 72 ? "…" : ""),
   });
 
   return (

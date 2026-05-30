@@ -23,6 +23,7 @@ const LISTING_SPEC_SELECT = {
   transmission: true,
   vin: true,
   attributes: true,
+  status: true,
 } as const;
 
 function resolveCityHref(listing: ListingSpecSource): string | null {
@@ -63,6 +64,12 @@ export async function ListingTechnicalDetailsServer({
   });
 
   if (!listing) {
+    return null;
+  }
+
+  // Moderation visibility gate: never render technical specs for non-public listings.
+  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
+  if (NON_PUBLIC_STATUSES.includes(listing.status as string)) {
     return null;
   }
 

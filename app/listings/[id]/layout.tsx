@@ -66,6 +66,19 @@ export async function generateMetadata({
     });
   }
 
+  // Moderation visibility gate (parity with API + body): non-active listings must not
+  // expose their real title/description via <title>, OG/Twitter tags or social previews.
+  // Owners/admins still read full content in the page body (API returns 200 for them).
+  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
+  if (NON_PUBLIC_STATUSES.includes(listing.status)) {
+    return createPageMetadata({
+      title: "Anunț indisponibil",
+      description: "Acest anunț nu este disponibil public.",
+      canonicalPath: `/listings/${id}`,
+      noindex: true,
+    });
+  }
+
   const indexOk = isListingSeoIndexable(listing);
   const loc = listing.city || listing.county || "";
   const priceLine = formatListingPriceLine(listing.priceAmount, listing.priceCurrency);
