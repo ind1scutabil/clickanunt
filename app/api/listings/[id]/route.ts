@@ -36,6 +36,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
+      // Moderation visibility gate (parity with DB branch): non-active listings are
+      // private to owner + admins; rejected/paused/hidden/pending/draft are not public by URL.
+      const memViewer = await getUserFromRequest(request as any);
+      const memIsOwnerOrAdmin =
+        !!memViewer &&
+        (memViewer.id === (listing as { ownerUserId?: string }).ownerUserId ||
+          hasPermission(memViewer.role as UserRole, Permission.LISTINGS_UPDATE_ANY) ||
+          hasPermission(memViewer.role as UserRole, Permission.MODERATION_APPROVE_REJECT));
+      const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
+      if (!memIsOwnerOrAdmin && NON_PUBLIC_STATUSES.includes(String((listing as { status?: string }).status))) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
       return NextResponse.json({
         ...listing,
         photos: normalizeListingPhotosArray((listing as { photos?: unknown }).photos, origin),
@@ -78,6 +91,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         hasPermission(viewer.role as UserRole, Permission.MODERATION_APPROVE_REJECT));
 
     if (isListingExplicitlyExpired(listingFresh) && !isOwnerOrAdmin) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Moderation visibility gate: non-active listings are private to owner + admins.
+    // rejected / paused / hidden / pending / draft must not be reachable by URL anonymously,
+    // but the owner must still see their own (to read the rejection reason and edit/resubmit).
+    // Reuses isOwnerOrAdmin computed above — no duplication.
+    const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
+    if (!isOwnerOrAdmin && NON_PUBLIC_STATUSES.includes(listingFresh.status)) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
