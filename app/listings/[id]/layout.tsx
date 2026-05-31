@@ -85,10 +85,11 @@ export async function generateMetadata({
   const ogImage = `/listings/${id}/opengraph-image`;
 
   const rawDesc = listing.description?.replace(/\s+/g, " ").trim() ?? "";
+  const listingDescFallback = `Găsești «${listing.title}» (${listing.category})${loc ? ` în ${loc}` : ", România"} — ${priceLine}. Contactează vânzătorul pe ClickAnunț.`;
   const description =
-    rawDesc.length > 0
+    rawDesc.length >= 60
       ? `${rawDesc.slice(0, 158)}${rawDesc.length > 158 ? "…" : ""}`
-      : `Găsești «${listing.title}» (${listing.category})${loc ? ` în ${loc}` : ", România"} — ${priceLine}. Contactează vânzătorul pe ClickAnunț.`;
+      : listingDescFallback;
 
   const titleLead = indexOk
     ? `${listing.title} · ${priceLine}${loc ? ` · ${loc}` : ""}`

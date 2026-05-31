@@ -64,7 +64,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   const primary = primarySlugForCategoryLabel(label) ?? canonicalSlug;
   const path = `/${primary}`;
-  const shortCat = label.split(",")[0]?.trim() ?? label;
+  const shortCat = label.split(" și ")[0]?.split(",")[0]?.trim() ?? label;
   const count = await getActiveListingCountForHub(label);
   const pageNum = parsePage(sp);
   const canonicalPath = pageNum <= 1 ? path : `${path}?page=${pageNum}`;
@@ -72,11 +72,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return createPageMetadata({
     title:
       count > 0
-        ? `Anunțuri ${shortCat} în România — căută pe oraș | ClickAnunț`
+        ? `${count} Anunțuri ${shortCat} în România — second hand și noi | ClickAnunț`
         : `Anunțuri ${shortCat} — rezultate limitate | ClickAnunț`,
     description:
       count > 0
-        ? `Listează anunțuri ${label.toLowerCase()} în toată România: căută pe oraș, filtrează după subcategorie și preț și publică gratuit pe www.clickanunt.ro.`
+        ? `${count} anunțuri ${label.toLowerCase()} active în România. Caută pe oraș, filtrează după preț și subcategorie. Publică gratuit pe ClickAnunț.`
         : `Momentan nu există suficient conținut public în ${shortCat}; explorează alte categorii sau publică gratuit pe ClickAnunț.`,
     canonicalPath,
     keywords: [shortCat, label, "anunțuri", "România", "ClickAnunț"],

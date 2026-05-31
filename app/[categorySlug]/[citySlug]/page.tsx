@@ -101,11 +101,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   return createPageMetadata({
     title:
       count > 0
-        ? `${shortCat} în ${city} — anunțuri noi zilnic | ClickAnunț`
+        ? `${count} Anunțuri ${shortCat} în ${city} — găsește rapid | ClickAnunț`
         : `${shortCat} în ${city} — fără rezultate încă | ClickAnunț`,
     description:
       count > 0
-        ? `Explorează ${label.toLowerCase()} în ${city}: anunțuri verificate, mesagerie gratuită și căutare rapidă între subcategorii pe www.clickanunt.ro.`
+        ? `${count} anunțuri ${label.toLowerCase()} în ${city}. Anunțuri verificate, contact direct cu vânzătorul. Publică gratuit pe ClickAnunț.`
         : `Nu există suficiente anunțuri publice ${label.toLowerCase()} în ${city} acum; încearcă orașe în apropiere sau publică gratuit pe ClickAnunț.`,
     canonicalPath,
     keywords: [shortCat, city, label, "anunțuri", "România", "ClickAnunț"],
