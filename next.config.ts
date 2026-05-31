@@ -156,10 +156,20 @@ const nextConfig: NextConfig = {
     // HSTS: applied per-request in proxy.ts (host-aware; skipped on localhost only).
     // next.config cannot vary headers by Host, so avoid blanket HSTS here.
 
+    const headersWithoutCacheControl = baseHeaders.filter(
+      (h: { key: string }) => h.key !== 'Cache-Control'
+    );
+
     return [
       {
-        source: '/:path*',
+        // Default page cache — exclude upload serve so route handler sets per-status Cache-Control.
+        source: '/:path((?!api/uploads/serve$).*)',
         headers: baseHeaders,
+      },
+      {
+        // Security/CSP only; Cache-Control owned by app/api/uploads/serve/route.ts (immutable 200, no-store 404).
+        source: '/api/uploads/serve',
+        headers: headersWithoutCacheControl,
       },
       {
         // Don't cache dynamic form pages
