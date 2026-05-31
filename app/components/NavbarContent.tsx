@@ -130,7 +130,10 @@ export default function NavbarContent() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    const POLL_MS = 3000;
+    // Fallback cadence only — real-time unread updates arrive over SSE
+    // (connectMessageEventsSse below) and the inbox broadcast channel. 30s is a
+    // safety net, not the primary signal. (Was 3s → drove the refresh storm.)
+    const POLL_MS = 30000;
 
     const checkUnread = async () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
