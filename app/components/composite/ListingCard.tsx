@@ -18,13 +18,14 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
+import React from 'react';
 import { Card, Badge, Avatar, Button, Dropdown } from '@/app/components/ui';
+import { DEFAULT_LISTING_IMAGE_URL } from '@/lib/listing-photo-url';
 import {
-  DEFAULT_LISTING_IMAGE_URL,
-  LISTING_PHOTO_ONERROR_FALLBACK,
-} from '@/lib/listing-photo-url';
+  applyListingImageFallback,
+  listingPrimaryPhotoSrcForVariant,
+} from '@/lib/listing-image-variants';
+import { resolveClientApiUrl } from '@/lib/client-canonical-www';
 
 export interface ListingCardProps {
   /**
@@ -123,11 +124,10 @@ export const ListingCard: React.FC<ListingCardProps> = ({
   onReport,
   className,
 }) => {
-  const resolvedSrc = (image?.trim() || DEFAULT_LISTING_IMAGE_URL) as string;
-  const [imgSrc, setImgSrc] = useState(resolvedSrc);
-  useEffect(() => {
-    setImgSrc(resolvedSrc);
-  }, [resolvedSrc]);
+  const raw = image?.trim() || '';
+  const resolvedSrc = raw
+    ? resolveClientApiUrl(listingPrimaryPhotoSrcForVariant([raw], 'medium'))
+    : DEFAULT_LISTING_IMAGE_URL;
 
   return (
     <Card
@@ -140,17 +140,14 @@ export const ListingCard: React.FC<ListingCardProps> = ({
         <div className="flex flex-col md:flex-row gap-4">
           {/* Image — always show area; empty prop uses default asset */}
           <div className="relative w-full md:w-48 h-48 flex-shrink-0 bg-[#111827]">
-            <Image
-              src={imgSrc}
+            <img
+              src={resolvedSrc}
               alt={title}
-              fill
-              sizes="(max-width: 768px) 100vw, 192px"
-              className="object-cover md:rounded-l-lg"
-              unoptimized
-              onError={() => {
-                setImgSrc((cur) =>
-                  cur === LISTING_PHOTO_ONERROR_FALLBACK ? cur : LISTING_PHOTO_ONERROR_FALLBACK
-                );
+              className="absolute inset-0 h-full w-full object-cover md:rounded-l-lg"
+              onError={(e) => {
+                if (!raw) return;
+                // FIX: medium → original → placeholder fallback (matches catalog ListingCard)
+                applyListingImageFallback(e.currentTarget, raw, 'medium');
               }}
             />
               {urgent && (

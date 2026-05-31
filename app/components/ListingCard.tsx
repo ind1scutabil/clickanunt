@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, type MouseEvent } from 'react';
+import React, { useState, useEffect, useRef, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 import {
   applyListingImageFallback,
   listingPrimaryPhotoSrcForVariant,
 } from '@/lib/listing-image-variants';
+import { resolveClientApiUrl } from '@/lib/client-canonical-www';
 import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
@@ -81,6 +82,7 @@ export function ListingCard({
   const [isNew, setIsNew] = useState(false);
   const [saved, setSaved] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     const date = new Date(listing.createdAt);
@@ -108,6 +110,11 @@ export function ListingCard({
 
   useEffect(() => {
     setImgLoaded(false);
+    const el = imgRef.current;
+    // FIX: cached images may not fire onLoad — bypass opacity-0 fade for already-complete imgs
+    if (el?.complete && el.naturalWidth > 0) {
+      setImgLoaded(true);
+    }
   }, [listing.id, listing.photos]);
 
   const handleFav = (e: MouseEvent) => {
@@ -132,6 +139,8 @@ export function ListingCard({
     ? listingPrimaryPhotoSrcForVariant(listing.photos, 'medium')
     : '';
   const mainPhotoRaw = photos[0] ?? '';
+  const displayPhoto =
+    mainPhoto && mainPhoto.startsWith('/api/') ? resolveClientApiUrl(mainPhoto) : mainPhoto;
   const locationLabel = [listing.city, listing.county].filter(Boolean).join(' · ');
   const verifiedSeller =
     typeof listing.owner?.trustScore === 'number' && listing.owner.trustScore >= 70;
@@ -175,7 +184,8 @@ export function ListingCard({
         >
           {hasRealPhoto ? (
             <img
-              src={mainPhoto}
+              ref={imgRef}
+              src={displayPhoto}
               alt={listing.title}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className={`h-full w-full object-cover transition-[transform,opacity] duration-500 motion-reduce:transition-none ${
@@ -185,6 +195,8 @@ export function ListingCard({
               onError={(e) => {
                 if (!mainPhotoRaw) return;
                 applyListingImageFallback(e.currentTarget, mainPhotoRaw, 'medium');
+                // FIX: show fallback immediately if load fails — do not stay on opacity-0
+                setImgLoaded(true);
               }}
               onLoad={() => setImgLoaded(true)}
               loading={imagePriority ? 'eager' : 'lazy'}
