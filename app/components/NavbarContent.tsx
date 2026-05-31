@@ -31,6 +31,7 @@ export default function NavbarContent() {
   const [userName, setUserName] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const unreadTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconcileInFlightRef = useRef(false);
 
   useLayoutEffect(() => {
     let cancelled = false;
@@ -70,27 +71,43 @@ export default function NavbarContent() {
       }
     };
 
+    let rerunQueued = false;
     const reconcileSession = async () => {
-      const session = await validateServerAuthSession();
-      if (cancelled) return;
-      if (session.ok && session.user) {
-        applyUser(session.user);
+      // If a reconcile is already running, don't start a second one — just queue
+      // a single re-run so we never miss a real login/logout that arrived mid-flight.
+      if (reconcileInFlightRef.current) {
+        rerunQueued = true;
         return;
       }
+      reconcileInFlightRef.current = true;
+      try {
+        const session = await validateServerAuthSession();
+        if (cancelled) return;
+        if (session.ok && session.user) {
+          applyUser(session.user);
+          return;
+        }
 
-      if (session.transient) {
-        if (applyUserFromLocalStorage()) return;
+        if (session.transient) {
+          if (applyUserFromLocalStorage()) return;
+          if (!cancelled) applyLoggedOut();
+          return;
+        }
+
+        const hasLocal =
+          Boolean(localStorage.getItem("user")) &&
+          Boolean(localStorage.getItem("accessToken"));
+        if (hasLocal) {
+          clearStaleBrowserAuth();
+        }
         if (!cancelled) applyLoggedOut();
-        return;
+      } finally {
+        reconcileInFlightRef.current = false;
+        if (rerunQueued && !cancelled) {
+          rerunQueued = false;
+          void reconcileSession();
+        }
       }
-
-      const hasLocal =
-        Boolean(localStorage.getItem("user")) &&
-        Boolean(localStorage.getItem("accessToken"));
-      if (hasLocal) {
-        clearStaleBrowserAuth();
-      }
-      if (!cancelled) applyLoggedOut();
     };
 
     const onSessionEvent = () => {

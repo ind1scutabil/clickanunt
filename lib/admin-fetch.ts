@@ -81,10 +81,17 @@ async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> 
 /** Elimină sesiunea SPA invalidă (localStorage) după 401 confirmat de server. */
 export function clearStaleBrowserAuth(): void {
   if (typeof window === 'undefined') return;
+  const hadAuth =
+    localStorage.getItem('accessToken') !== null ||
+    localStorage.getItem('refreshToken') !== null ||
+    localStorage.getItem('user') !== null;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
-  broadcastAuthSessionChanged();
+  // Only notify listeners when we actually cleared something. For an anonymous
+  // visitor (empty storage) a 401 on /api/users/me would otherwise broadcast →
+  // the reconcile listener re-fires → infinite loop.
+  if (hadAuth) broadcastAuthSessionChanged();
 }
 
 export type ValidatedSessionUser = {
@@ -125,18 +132,21 @@ export async function validateServerAuthSession(
     }
     const data = (await res.json()) as ValidatedSessionUser & { id?: string };
     if (typeof window !== 'undefined') {
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          email: data.email,
-          role: data.role,
-          name: data.name ?? null,
-        })
-      );
+      const nextUser = JSON.stringify({
+        email: data.email,
+        role: data.role,
+        name: data.name ?? null,
+      });
+      const prevUser = localStorage.getItem('user');
+      localStorage.setItem('user', nextUser);
       if (bearer) {
         localStorage.setItem('accessToken', bearer);
       }
-      broadcastAuthSessionChanged();
+      // Only broadcast when the session actually changed. Broadcasting on every
+      // successful validate re-triggers the reconcile listener → infinite loop.
+      if (prevUser !== nextUser) {
+        broadcastAuthSessionChanged();
+      }
     }
     return {
       ok: true,
