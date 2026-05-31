@@ -181,7 +181,10 @@ const nextConfig: NextConfig = {
       },
       {
         // API routes with CORS for Safari (OPTIONS preflight handled in app/api/cors)
-        source: '/api/:path*',
+        // Public listing images are served at /api/uploads/serve — excluded here so
+        // app/api/uploads/serve/route.ts owns Cache-Control (immutable 200, no-store 404).
+        // Blanket no-store on /api/* was overriding that handler on every image request.
+        source: '/api/:path((?!uploads/serve$).*)',
         headers: [
           /**
            * Rewrite Cache-Control vs catch-all `/:path*` above: public CDN/browser cache pe răspunsuri
