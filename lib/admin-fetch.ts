@@ -13,6 +13,29 @@ function accessTokenFromBrowserStorage(): string | null {
   return t || null;
 }
 
+/** Decode JWT `exp` client-side (no signature check) → ms epoch, or null if unreadable. */
+function jwtExpiryMs(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const json = JSON.parse(atob(padded)) as { exp?: number };
+    return typeof json.exp === 'number' ? json.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the access token is missing or within `skewMs` of expiry. */
+function accessTokenNeedsRefresh(token: string | null, skewMs = 60_000): boolean {
+  if (!token) return true;
+  const expMs = jwtExpiryMs(token);
+  // Readable token without exp → trust it and let the reactive 401 path refresh.
+  if (expMs == null) return false;
+  return Date.now() >= expMs - skewMs;
+}
+
 /** Răspunsuri API / proxy care merită încercat refresh token */
 export function shouldAttemptTokenRefresh(
   status: number,
@@ -41,7 +64,18 @@ async function fetchCsrfTokenFresh(): Promise<string> {
   ]);
 }
 
-async function refreshAccessToken(signal?: AbortSignal): Promise<string | null> {
+async function refreshAccessToken(
+  signal?: AbortSignal,
+  opts: { force?: boolean } = {}
+): Promise<string | null> {
+  // Proactive callers skip the network refresh when a still-valid token exists.
+  // Reactive callers (after a confirmed 401) pass { force: true } to always refresh.
+  if (!opts.force) {
+    const current = accessTokenFromBrowserStorage();
+    if (current && !accessTokenNeedsRefresh(current)) {
+      return current;
+    }
+  }
   /** API-ul /api/auth/refresh acceptă refresh din body SAU din cookie httpOnly */
   const rt =
     typeof window !== 'undefined'
@@ -214,7 +248,7 @@ export async function fetchWithAuthRefresh(
     });
   }
 
-  const newAccess = await refreshAccessToken(options.signal);
+  const newAccess = await refreshAccessToken(options.signal, { force: true });
   bearerToken = newAccess ?? accessTokenFromBrowserStorage();
 
   let retry = await doFetch(bearerToken);
@@ -300,7 +334,7 @@ export async function postJsonWithAuthRefresh(
     });
   }
 
-  const newAccess = await refreshAccessToken(options.signal);
+  const newAccess = await refreshAccessToken(options.signal, { force: true });
   if (newAccess) bearerToken = newAccess;
   else bearerToken = accessTokenFromBrowserStorage();
 
@@ -364,7 +398,7 @@ export async function putJsonWithAuthRefresh(
     });
   }
 
-  const newAccess = await refreshAccessToken(options.signal);
+  const newAccess = await refreshAccessToken(options.signal, { force: true });
   if (newAccess) bearerToken = newAccess;
   else bearerToken = accessTokenFromBrowserStorage();
 
@@ -435,7 +469,7 @@ export async function jsonMutationWithAuthRefresh(
     });
   }
 
-  const newAccess = await refreshAccessToken(controller.signal);
+  const newAccess = await refreshAccessToken(controller.signal, { force: true });
   if (newAccess) bearerToken = newAccess;
   else bearerToken = accessTokenFromBrowserStorage();
 
