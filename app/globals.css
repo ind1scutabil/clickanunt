@@ -1413,6 +1413,28 @@ input:-webkit-autofill:focus {
     filter: none;
     transform: none;
   }
+
+  .listing-gallery-frame-stack {
+    transition: none !important;
+  }
+
+  .listing-gallery-loading-dot {
+    animation: none !important;
+  }
+}
+
+.listing-gallery-frame-stack {
+  pointer-events: none;
+}
+
+.listing-gallery-loading-dot {
+  animation: listing-gallery-spin 0.7s linear infinite;
+}
+
+@keyframes listing-gallery-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .listing-detail-page .listing-gallery-thumbs {
