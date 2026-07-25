@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,9 +19,8 @@ import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
+import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
-import { resolveClientApiUrl } from "@/lib/client-canonical-www";
-import type { ListingImageVariant } from "@/lib/listing-image-variants";
 
 async function trackListingEngagement(
   listingId: string,
@@ -44,16 +43,6 @@ async function trackListingEngagement(
   } catch {
     /* non-blocking */
   }
-}
-
-/** Display URL for gallery img — apex-safe serve paths + never homepage hero assets. */
-function listingGalleryDisplaySrc(
-  photo: string | undefined,
-  variant: ListingImageVariant
-): string {
-  const url = getListingImageUrl(photo, variant) || DEFAULT_LISTING_IMAGE_URL;
-  if (url.startsWith("/api/")) return resolveClientApiUrl(url);
-  return url;
 }
 
 function maskEmail(email: string): string {
@@ -154,8 +143,6 @@ export default function ListingDetailPageClient({
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [showImageModal, setShowImageModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState<string>("inappropriate");
   const [reportDescription, setReportDescription] = useState("");
@@ -187,14 +174,8 @@ export default function ListingDetailPageClient({
     [listing]
   );
 
-  /** Defer thumbnail full-size downloads until near viewport (originals are 200–400KB each on prod). */
-  const thumbStripRef = useRef<HTMLDivElement>(null);
-  const [thumbLoadAllowed, setThumbLoadAllowed] = useState<Set<number>>(() => new Set([0]));
-
   useEffect(() => {
-    setSelectedImageIndex(0);
     setShowPhone(false);
-    setThumbLoadAllowed(new Set([0]));
   }, [id]);
 
   /** Client navigations can leave homepage hero in DOM; remove orphans and reset scroll. */
@@ -205,125 +186,6 @@ export default function ListingDetailPageClient({
       node.remove();
     });
   }, [id]);
-
-  useEffect(() => {
-    setThumbLoadAllowed((prev) => {
-      const next = new Set(prev);
-      next.add(selectedImageIndex);
-      if (selectedImageIndex > 0) next.add(selectedImageIndex - 1);
-      if (selectedImageIndex < photos.length - 1) next.add(selectedImageIndex + 1);
-      return next;
-    });
-  }, [selectedImageIndex, photos.length]);
-
-  useEffect(() => {
-    const first = photos[0];
-    if (!first) return;
-    const href = listingGalleryDisplaySrc(first, "medium");
-    const link = document.createElement("link");
-    link.rel = "preload";
-    link.as = "image";
-    link.href = href;
-    document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
-    };
-  }, [photos[0]]);
-
-  useEffect(() => {
-    const root = thumbStripRef.current;
-    if (!root || photos.length < 2) return;
-
-    const observeTargets = () => {
-      root.querySelectorAll<HTMLElement>("[data-thumb-index]").forEach((el) => io.observe(el));
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        setThumbLoadAllowed((prev) => {
-          let changed = false;
-          const next = new Set(prev);
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            const idx = Number(entry.target.getAttribute("data-thumb-index"));
-            if (Number.isFinite(idx) && !next.has(idx)) {
-              next.add(idx);
-              changed = true;
-            }
-          }
-          return changed ? next : prev;
-        });
-      },
-      { root, rootMargin: "64px", threshold: 0.01 }
-    );
-
-    observeTargets();
-    return () => io.disconnect();
-  }, [photos.length, listing?.id]);
-
-  useEffect(() => {
-    setSelectedImageIndex((i) => {
-      if (photos.length === 0) return 0;
-      return Math.min(i, photos.length - 1);
-    });
-  }, [photos.length]);
-
-  /** Mobile gallery: horizontal swipe (modal + hero). Avoids fighting vertical scroll unless gesture is clearly horizontal. */
-  const gallerySwipeStartRef = useRef<{ x: number; y: number } | null>(null);
-  const suppressHeroOpenModalRef = useRef(false);
-
-  const onGallerySwipeTouchStart = useCallback((e: React.TouchEvent) => {
-    if (photos.length < 2) return;
-    const t = e.touches[0];
-    if (!t) return;
-    gallerySwipeStartRef.current = { x: t.clientX, y: t.clientY };
-  }, [photos.length]);
-
-  const onGallerySwipeTouchEnd = useCallback(
-    (e: React.TouchEvent, source: "hero" | "modal") => {
-      const start = gallerySwipeStartRef.current;
-      gallerySwipeStartRef.current = null;
-      if (photos.length < 2 || !start) return;
-      const t = e.changedTouches[0];
-      if (!t) return;
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-      const threshold = 48;
-      if (Math.abs(dx) < threshold || Math.abs(dx) <= Math.abs(dy) * 1.15) return;
-      if (source === "hero") suppressHeroOpenModalRef.current = true;
-      if (dx < 0) {
-        setSelectedImageIndex((i) => Math.min(photos.length - 1, i + 1));
-      } else {
-        setSelectedImageIndex((i) => Math.max(0, i - 1));
-      }
-    },
-    [photos.length]
-  );
-
-  const openHeroImageModal = useCallback(() => {
-    if (suppressHeroOpenModalRef.current) {
-      suppressHeroOpenModalRef.current = false;
-      return;
-    }
-    setShowImageModal(true);
-  }, []);
-
-  const clearGallerySwipe = useCallback(() => {
-    gallerySwipeStartRef.current = null;
-  }, []);
-
-  /** Închide galeria la Escape; z-index modale > .site-header-shell (100) ca butonul X să nu fie sub navbar. */
-  useEffect(() => {
-    if (!showImageModal) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setShowImageModal(false);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [showImageModal]);
 
   // Check if listing is in favorites
   useEffect(() => {
@@ -631,186 +493,13 @@ export default function ListingDetailPageClient({
     <>
       <Navbar />
       
-      {/* Image Modal */}
-      {showImageModal && (
-        <div 
-          className="fixed inset-0 z-[110] flex max-h-[100dvh] w-full max-w-[100vw] flex-col items-center justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm touch-pan-y"
-          onClick={() => setShowImageModal(false)}
-          role="presentation"
-        >
-          <button 
-            type="button"
-            aria-label="Închide galeria foto"
-            className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,env(safe-area-inset-top))] z-[120] flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-zinc-900/90 text-white shadow-lg ring-1 ring-white/10 transition-all hover:bg-white/15"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowImageModal(false);
-            }}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          
-          {photos.length > 1 && (
-            <>
-              <button 
-                type="button"
-                aria-label="Poză anterioară"
-                className="absolute left-[max(1rem,env(safe-area-inset-left))] top-1/2 z-[120] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 text-white transition-all hover:bg-white/15 disabled:opacity-30"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedImageIndex(prev => Math.max(0, prev - 1));
-                }}
-                disabled={selectedImageIndex === 0}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              
-              <button 
-                type="button"
-                aria-label="Poză următoare"
-                className="absolute right-[max(4.5rem,calc(env(safe-area-inset-right)+3.5rem))] top-1/2 z-[120] flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-zinc-900/80 text-white transition-all hover:bg-white/15 disabled:opacity-30"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedImageIndex(prev => Math.min(photos.length - 1, prev + 1));
-                }}
-                disabled={selectedImageIndex === photos.length - 1}
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </>
-          )}
-          
-          <div
-            className="relative flex min-h-0 w-full min-w-0 max-w-full flex-1 touch-manipulation items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-            onTouchStart={onGallerySwipeTouchStart}
-            onTouchEnd={(e) => onGallerySwipeTouchEnd(e, "modal")}
-            onTouchCancel={clearGallerySwipe}
-          >
-            <img
-              key={`modal-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-              src={listingGalleryDisplaySrc(photos[selectedImageIndex], "original")}
-              alt={listing.title}
-              className="h-auto max-h-[min(88vh,88dvh)] w-full max-w-full object-contain [max-width:100vw] rounded-lg shadow-lg sm:max-h-[90vh]"
-              sizes="100vw"
-              decoding="async"
-              fetchPriority="high"
-              onError={(e) => {
-                applyListingImageFallback(
-                  e.currentTarget,
-                  photos[selectedImageIndex] ?? "",
-                  "original"
-                );
-              }}
-            />
-            <div className="pointer-events-auto absolute bottom-4 left-1/2 z-[120] flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 sm:bottom-6">
-              {photos.length > 1 && (
-                <div className="rounded-full border border-white/10 bg-black/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
-                  {selectedImageIndex + 1} / {photos.length}
-                </div>
-              )}
-              <button
-                type="button"
-                className="rounded-full border border-white/15 bg-zinc-900/90 px-5 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 backdrop-blur-sm transition hover:bg-white/15"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowImageModal(false);
-                }}
-              >
-                Închide
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <main className="listing-detail-page min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-0">
         <div className="listing-detail-layout mx-auto max-w-7xl min-w-0 max-w-full px-4 py-6 max-md:overflow-x-hidden max-md:px-3 max-md:py-4">
           <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
             {/* Main Content - Left/Center Column */}
             <div className="min-w-0 max-w-full space-y-4 max-md:space-y-3 lg:col-span-2">
               {/* Image Gallery */}
-              <div className="relative min-w-0 max-w-full overflow-hidden rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl">
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent blur-lg" />
-                <div
-                  className="listing-gallery-hero group relative aspect-video w-full min-w-0 cursor-pointer touch-manipulation shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  onClick={openHeroImageModal}
-                  onTouchStart={onGallerySwipeTouchStart}
-                  onTouchEnd={(e) => onGallerySwipeTouchEnd(e, "hero")}
-                  onTouchCancel={clearGallerySwipe}
-                >
-                  <img
-                    key={`hero-${selectedImageIndex}-${photos[selectedImageIndex] ?? ''}`}
-                    src={listingGalleryDisplaySrc(photos[selectedImageIndex], "medium")}
-                    alt={listing.title}
-                    className="absolute inset-0 z-[1] h-full w-full max-h-full max-w-full object-contain transition-transform duration-300 ease-out sm:group-hover:scale-[1.01]"
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority="high"
-                    sizes="(max-width: 1024px) 100vw, 66vw"
-                    onError={(e) => {
-                      applyListingImageFallback(
-                        e.currentTarget,
-                        photos[selectedImageIndex] ?? "",
-                        "medium"
-                      );
-                    }}
-                  />
-                  <div className="absolute inset-0 z-[2] flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/20">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 backdrop-blur-sm rounded-full p-4">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                {photos.length > 1 && (
-                  <div
-                    ref={thumbStripRef}
-                    className="listing-gallery-thumbs relative flex min-w-0 max-w-full snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain scroll-smooth bg-gray-900/30 p-2 touch-pan-x [-webkit-overflow-scrolling:touch] sm:gap-2.5 sm:p-3 md:p-4"
-                    onTouchStart={clearGallerySwipe}
-                  >
-                    {photos.map((photo: string, i: number) => (
-                      <div
-                        key={`${i}-${photo}`}
-                        data-thumb-index={i}
-                        onClick={() => setSelectedImageIndex(i)}
-                        className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-lg border bg-gray-800 shadow-sm transition-all duration-200 ease-out cursor-pointer sm:h-16 sm:w-16 md:h-20 md:w-20 md:rounded-xl ${
-                          selectedImageIndex === i 
-                            ? 'border-[#6366F1]/90 ring-1 ring-[#6366F1]/25 shadow-sm shadow-[#6366F1]/10'
-                            : 'border-gray-700/50 hover:border-[#6366F1]/50 hover:shadow-sm'
-                        }`}
-                      >
-                        {thumbLoadAllowed.has(i) ? (
-                          <img
-                            key={`thumb-img-${i}-${photo}`}
-                            src={listingGalleryDisplaySrc(photo, "thumb")}
-                            alt={`${listing.title} ${i + 1}`}
-                            className={`absolute inset-0 h-full w-full object-cover transition ${
-                              selectedImageIndex === i ? 'opacity-100' : 'opacity-70 hover:opacity-100'
-                            }`}
-                            loading="lazy"
-                            decoding="async"
-                            fetchPriority="low"
-                            onError={(e) => {
-                              applyListingImageFallback(
-                                e.currentTarget,
-                                photo,
-                                "thumb"
-                              );
-                            }}
-                          />
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ListingPhotoGallery photos={photos} title={listing.title || "Anunț"} />
 
               {/* Title and Price */}
               <div className="relative rounded-xl border border-zinc-700/40 bg-gradient-to-br from-zinc-900/95 to-zinc-950/95 p-3.5 shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm md:rounded-2xl md:p-5">

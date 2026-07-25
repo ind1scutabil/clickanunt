@@ -1282,25 +1282,11 @@ input:-webkit-autofill:focus {
     max-width: 100%;
   }
 
-  /**
-   * Listing hero slot — fixed aspect + max height on all breakpoints.
-   * Prevents desktop `max-h-none` blow-up and contains paint (no homepage hero bleed-through).
-   */
-  .listing-detail-page .listing-gallery-hero {
-    aspect-ratio: 16 / 9;
-    width: 100%;
-    max-height: min(52vh, 52dvh, 560px);
-    contain: layout paint;
-    isolation: isolate;
-    position: relative;
-    overflow: hidden;
-    background-color: #09090b;
-  }
-
-  @media (min-width: 768px) {
-    .listing-detail-page .listing-gallery-hero {
-      max-height: min(56vh, 640px);
-    }
+  .listing-detail-page .listing-gallery-root {
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    width: calc(100% + 1.5rem);
+    max-width: none;
   }
 
   .listing-detail-sidebar .listing-sidebar-card {
@@ -1387,6 +1373,51 @@ input:-webkit-autofill:focus {
   .listing-detail-sidebar .listing-sidebar-link-btn .listing-sidebar-link-chevron {
     align-self: center;
   }
+}
+
+/**
+ * Listing photo gallery — global (desktop + mobile).
+ * Blurred cover backdrop fills letterboxing; foreground uses object-contain.
+ */
+.listing-detail-page .listing-gallery-stage {
+  width: 100%;
+  height: clamp(260px, 48dvh, 420px);
+  contain: layout;
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  background-color: #09090b;
+}
+
+@media (min-width: 768px) {
+  .listing-detail-page .listing-gallery-stage {
+    /* Prefer large stage; 62vh keeps thumbs in-fold on 1440×900 (68vh pushes them out) */
+    height: clamp(520px, 62vh, 760px);
+  }
+}
+
+.listing-detail-page .listing-gallery-blur,
+.listing-gallery-lightbox .listing-gallery-blur {
+  filter: blur(24px);
+  transform: scale(1.08);
+}
+
+.listing-gallery-lightbox .listing-gallery-blur {
+  filter: blur(28px);
+  transform: scale(1.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listing-detail-page .listing-gallery-blur,
+  .listing-gallery-lightbox .listing-gallery-blur {
+    filter: none;
+    transform: none;
+  }
+}
+
+.listing-detail-page .listing-gallery-thumbs {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Homepage “Categorii populare”: lățimi fixe în CSS (clase stabile SSR/CSR). */
