@@ -10,6 +10,8 @@ import {
   parsePublicBrowseFiltersFromSearchParams,
   publicBrowseFiltersSignature,
 } from "@/lib/listings/public-browse-server";
+import { prisma } from "@/lib/prisma";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 
 function listingsCanonical(sp: Record<string, string | string[] | undefined>): string {
   const get = (k: string) => (typeof sp[k] === "string" ? sp[k] : undefined);
@@ -91,8 +93,20 @@ export async function generateMetadata({
 
   return createPageMetadata({
     title: "Toate anunțurile — Auto, Case, Electronice și Joburi în România | ClickAnunț",
-    description:
-      "Răsfoiește mii de anunțuri verificate în toată România: automobile, proprietăți, telefoane, electrocasnice și locuri de muncă. Publică gratuit pe ClickAnunț.",
+    description: await (async () => {
+      if (process.env.USE_IN_MEMORY_DB === "true") {
+        return "Explorează anunțurile publicate pe ClickAnunț — auto, imobiliare, electronice și servicii în România.";
+      }
+      try {
+        const count = await prisma.listing.count({ where: seoIndexableListingWhere() });
+        if (count > 0) {
+          return `${count} anunțuri publice active în România: automobile, proprietăți, telefoane, electrocasnice și locuri de muncă. Publică gratuit pe ClickAnunț.`;
+        }
+      } catch {
+        /* fall through */
+      }
+      return "Explorează anunțurile publicate pe ClickAnunț — auto, imobiliare, electronice și servicii în România.";
+    })(),
     canonicalUrl,
     keywords: ["anunțuri România", "marketplace", "ClickAnunț"],
   });

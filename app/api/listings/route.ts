@@ -44,6 +44,7 @@ import {
   applyListingPublishExpiryIfMissing,
   listingPublishExpiryFields,
 } from "@/lib/listing-expiry";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 
 export async function GET(request: NextRequest) {
   try {
@@ -115,13 +116,20 @@ export async function GET(request: NextRequest) {
     }
 
     if (statusParam === "active" && !userIdParam) {
-      where.deletedAt = null;
-      const expiryFilter = activePublicListingExpiryWhere();
+      const indexable = seoIndexableListingWhere();
+      where.status = indexable.status;
+      where.deletedAt = indexable.deletedAt;
+      where.moderationStatus = indexable.moderationStatus;
+      const indexableAnd = indexable.AND
+        ? Array.isArray(indexable.AND)
+          ? indexable.AND
+          : [indexable.AND]
+        : [];
       where.AND = Array.isArray(where.AND)
-        ? [...where.AND, expiryFilter]
+        ? [...where.AND, ...indexableAnd]
         : where.AND
-          ? [where.AND, expiryFilter]
-          : [expiryFilter];
+          ? [where.AND, ...indexableAnd]
+          : indexableAnd;
     }
 
     if (userIdParam) {
@@ -225,6 +233,7 @@ export async function GET(request: NextRequest) {
         tsq,
         {
           activeOnly: statusParam !== "all",
+          publicCatalogOnly: !resolvedOwnerForFts && statusParam !== "all",
           category: query.category ?? null,
           subcategory: query.subcategory ?? null,
           county: query.county ?? null,

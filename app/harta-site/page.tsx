@@ -4,9 +4,8 @@ import Navbar from "@/app/components/Navbar";
 import { createPageMetadata } from "@/lib/seo";
 import {
   CATEGORY_LABEL_BY_CANONICAL_SLUG,
-  SEO_HIGHLIGHT_CITY_LABELS,
 } from "@/lib/seo/market-paths";
-import { slugifyRo } from "@/lib/seo/slug";
+import { getCategoryCityHubIndex } from "@/lib/seo/hub-queries";
 
 export async function generateMetadata(): Promise<Metadata> {
   return createPageMetadata({
@@ -19,9 +18,20 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default function HtmlSitemapPage() {
+export default async function HtmlSitemapPage() {
   const slugs = Object.keys(CATEGORY_LABEL_BY_CANONICAL_SLUG).filter((s) => s !== "altele");
-  const cities = [...SEO_HIGHLIGHT_CITY_LABELS];
+  const hubIndex = await getCategoryCityHubIndex();
+
+  const hubsBySlug = new Map<string, Array<{ city: string; citySlug: string; href: string }>>();
+  for (const row of hubIndex) {
+    const list = hubsBySlug.get(row.categorySlug) ?? [];
+    list.push({
+      city: row.city,
+      citySlug: row.citySlug,
+      href: `/${row.categorySlug}/${row.citySlug}`,
+    });
+    hubsBySlug.set(row.categorySlug, list);
+  }
 
   return (
     <div className="min-h-screen bg-[#0F1117]">
@@ -41,6 +51,7 @@ export default function HtmlSitemapPage() {
             {slugs.map((slug) => {
               const label = CATEGORY_LABEL_BY_CANONICAL_SLUG[slug];
               const short = label.split(",")[0]?.trim() ?? label;
+              const cityLinks = hubsBySlug.get(slug) ?? [];
               return (
                 <li key={slug} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <h2 className="mb-3 text-lg font-bold text-white">
@@ -48,19 +59,25 @@ export default function HtmlSitemapPage() {
                       {short}
                     </Link>
                   </h2>
-                  <p className="mb-3 text-xs text-neutral-500">Hub orașe pentru «{short}»</p>
-                  <ul className="flex flex-wrap gap-2">
-                    {cities.map((city) => (
-                      <li key={`${slug}-${city}`}>
-                        <Link
-                          href={`/${slug}/${slugifyRo(city)}`}
-                          className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-neutral-200 hover:border-primary-400/40 hover:text-white"
-                        >
-                          {city}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
+                  {cityLinks.length > 0 ? (
+                    <>
+                      <p className="mb-3 text-xs text-neutral-500">Hub-uri oraș cu anunțuri publice</p>
+                      <ul className="flex flex-wrap gap-2">
+                        {cityLinks.map((link) => (
+                          <li key={`${slug}-${link.citySlug}`}>
+                            <Link
+                              href={link.href}
+                              className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-neutral-200 hover:border-primary-400/40 hover:text-white"
+                            >
+                              {link.city}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="text-xs text-neutral-500">Nu există hub-uri oraș cu anunțuri publice momentan.</p>
+                  )}
                 </li>
               );
             })}

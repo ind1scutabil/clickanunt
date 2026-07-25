@@ -57,8 +57,10 @@ test.describe('Production Smoke Tests', () => {
     // Check page loads
     await expect(page).toHaveURL(/listings/);
     
-    // Check search elements
-    await expect(page.locator('input[type="text"], input[type="search"]').first()).toBeVisible();
+    // Prefer a visible search control (mobile+desktop inputs coexist in DOM).
+    await expect(
+      page.getByPlaceholder(/caută în anunțuri/i).filter({ visible: true }).first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('Login page renders', async ({ page }) => {

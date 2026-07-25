@@ -3,6 +3,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 
 export type HomePageInitialStats = {
   activeListings: number;
@@ -10,13 +11,12 @@ export type HomePageInitialStats = {
 };
 
 export async function getHomePageInitialStats(): Promise<HomePageInitialStats> {
+  const indexableWhere = seoIndexableListingWhere();
   const [activeListings, rows] = await Promise.all([
-    prisma.listing.count({
-      where: { status: 'active', deletedAt: null },
-    }),
+    prisma.listing.count({ where: indexableWhere }),
     prisma.listing.groupBy({
       by: ['category'],
-      where: { status: 'active', deletedAt: null },
+      where: indexableWhere,
       _count: { _all: true },
     }),
   ]);

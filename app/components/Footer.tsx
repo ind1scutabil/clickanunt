@@ -9,6 +9,8 @@ import {
 } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 
+const publicCompanyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
+
 /** Pillar + secondary categories — only slugs with public hub routes. */
 const FOOTER_SEO_CATEGORY_SLUGS = [
   "auto",
@@ -160,11 +162,16 @@ export default function Footer() {
                   🔐 dpo@clickanunt.ro (GDPR)
                 </a>
               </li>
-              <li>
-                <a href="tel:+40XXXXXXXXX" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  📱 +40 XXX XXX XXX
-                </a>
-              </li>
+              {publicCompanyPhone ? (
+                <li>
+                  <a
+                    href={`tel:${publicCompanyPhone.replace(/\s/g, "")}`}
+                    className="transition-colors duration-normal ease-premium hover:text-primary-400"
+                  >
+                    📱 {publicCompanyPhone}
+                  </a>
+                </li>
+              ) : null}
               <li className="text-xs text-neutral-600">
                 Luni - Vineri: 09:00 - 18:00
               </li>

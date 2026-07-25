@@ -12,6 +12,7 @@ import {
   listingViewUnattributedWhere,
 } from "@/lib/analytics-listing-view-stats";
 import { logger } from "@/lib/observability";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 
 export async function GET() {
   try {
@@ -26,9 +27,7 @@ export async function GET() {
       listingViewsLast30dUnattributed,
     ] = await Promise.all([
       prisma.listing.count({
-        where: {
-          status: "active",
-        },
+        where: seoIndexableListingWhere(),
       }),
       prisma.user.count(),
       prisma.user.aggregate({

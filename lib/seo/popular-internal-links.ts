@@ -9,16 +9,16 @@ export type InternalNavLink = { label: string; href: string };
 export function popularInternalLinksForCategoryHub(
   primarySlug: string,
   categoryLabel: string,
+  cityLabels: readonly string[] = SEO_HIGHLIGHT_CITY_LABELS.slice(0, 4),
 ): InternalNavLink[] {
   const short = categoryLabel.split(',')[0]?.trim() ?? categoryLabel;
   const enc = encodeURIComponent(categoryLabel);
-  const cities = [...SEO_HIGHLIGHT_CITY_LABELS].slice(0, 4);
   const links: InternalNavLink[] = [
     { label: `${short} — cele mai noi`, href: `/listings?category=${enc}&sort=newest` },
     { label: `${short} — preț crescător`, href: `/listings?category=${enc}&sort=priceAsc` },
     { label: `Toate categoriile`, href: `/listings` },
   ];
-  for (const c of cities) {
+  for (const c of cityLabels) {
     links.push({
       label: `${short} în ${c}`,
       href: `/${primarySlug}/${slugifyRo(c)}`,

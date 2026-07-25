@@ -6,15 +6,13 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/observability";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 
 export async function GET() {
   try {
     const rows = await prisma.listing.groupBy({
       by: ["category"],
-      where: {
-        status: "active",
-        deletedAt: null,
-      },
+      where: seoIndexableListingWhere(),
       _count: { _all: true },
     });
 

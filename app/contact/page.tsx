@@ -8,6 +8,7 @@ import {
 } from "@/lib/company-config";
 
 const showCompanyLegal = isCompanyLegalDetailsPublic();
+const companyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -208,8 +209,22 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="mb-1 text-sm font-semibold text-[var(--text-tertiary)]">Telefon</h3>
-                    <p className="text-[var(--text-secondary)]">+40 XXX XXX XXX</p>
-                    <p className="text-xs text-[var(--text-muted)]">Luni–Vineri · 09:00–18:00</p>
+                    {companyPhone ? (
+                      <>
+                        <a href={`tel:${companyPhone.replace(/\s/g, "")}`} className="text-[var(--text-secondary)] transition hover:text-white">
+                          {companyPhone}
+                        </a>
+                        <p className="text-xs text-[var(--text-muted)]">Luni–Vineri · 09:00–18:00</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-[var(--text-muted)]">
+                        Nu publicăm un număr de telefon general. Folosiți{" "}
+                        <a href="mailto:contact@clickanunt.ro" className="text-[var(--accent-secondary)] hover:underline">
+                          contact@clickanunt.ro
+                        </a>
+                        .
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

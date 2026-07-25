@@ -7,12 +7,8 @@ export function CompanyDetailsBox() {
       <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100/90">
         <p className="font-medium text-amber-50">Date operator</p>
         <p className="mt-2 text-amber-100/80">
-          Denumirea legală, CUI, număr registrul comerțului și adresa pot fi publicate setând în mediu variabilele{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_COMPANY_NAME</code>,{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_COMPANY_CUI</code>,{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_COMPANY_REG</code>,{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_COMPANY_ADDRESS</code>,{" "}
-          <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_COMPANY_COUNTRY</code> sau contactați{" "}
+          Datele legale ale operatorului (denumire, CUI, registrul comerțului, adresă) nu sunt publicate pe site
+          momentan. Pentru solicitări oficiale, scrieți la{" "}
           <a href="mailto:contact@clickanunt.ro" className="underline">
             contact@clickanunt.ro
           </a>

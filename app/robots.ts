@@ -19,35 +19,24 @@ export default function robots(): MetadataRoute.Robots {
     `${base}/sitemap-auto-hubs.xml`,
   ];
 
-  const privatePaths = [
-    "/api/",
-    "/admin/",
-    "/dashboard/",
-    "/account/",
-    "/auth/",
-    "/login/",
-    "/register/",
-    "/messages/",
-    "/test-login/",
-    "/ui-demo/",
-    "/car-catalog-demo/",
-    "/listings/*/edit",
-    "/listings/*/promote/",
-    "/listings/*/messages",
-    "/_next/",
-  ];
+  /**
+   * Block non-HTML API routes only. HTML private pages use server-side `noindex` —
+   * crawlers must be allowed to fetch them so Google sees the robots meta tag.
+   * Do not block `/_next/` (JS/CSS/assets required for rendering).
+   */
+  const technicalDisallow = ["/api/", "/api"];
 
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/listings/", "/about", "/contact", "/business", "/security"],
-        disallow: privatePaths,
+        allow: ["/"],
+        disallow: technicalDisallow,
       },
       {
         userAgent: "Googlebot",
         allow: ["/"],
-        disallow: privatePaths,
+        disallow: technicalDisallow,
       },
     ],
     sitemap: sitemaps,

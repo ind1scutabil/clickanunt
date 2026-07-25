@@ -27,23 +27,6 @@ export default function AboutPage() {
           </p>
         </header>
 
-        <section className="mb-16 grid grid-cols-2 gap-4 md:mb-20 md:grid-cols-4 md:gap-5" aria-label="Indicatori">
-          {[
-            { value: "50K+", label: "Anunțuri active" },
-            { value: "100K+", label: "Utilizatori" },
-            { value: "1M+", label: "Vizitatori / lună" },
-            { value: "4.8★", label: "Rating mediu" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="enterprise-card enterprise-card-hover rounded-2xl p-6 text-center md:p-8"
-            >
-              <div className="mb-2 text-3xl font-semibold tabular-nums text-white md:text-4xl">{s.value}</div>
-              <div className="text-sm font-medium text-[var(--text-tertiary)]">{s.label}</div>
-            </div>
-          ))}
-        </section>
-
         <section className="enterprise-card enterprise-card-hover mb-16 rounded-3xl p-8 md:p-12">
           <h2 className="mb-6 text-2xl font-bold tracking-tight text-white md:text-3xl">Misiunea noastră</h2>
           <div className="max-w-3xl space-y-5 text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">

@@ -9,7 +9,6 @@ import {
   primarySlugForCategoryLabel,
   buildNationwideMarketIntro,
   relatedCanonicalCategorySlugs,
-  SEO_HIGHLIGHT_CITY_LABELS,
 } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import {
@@ -22,6 +21,7 @@ import { absoluteUrl } from "@/lib/site-url";
 import {
   getActiveListingCountForHub,
   getHubListingStats,
+  getHubCitiesForCategory,
   getListingPreviewsForHub,
 } from "@/lib/seo/hub-queries";
 import { buildMarketHubFaqItems } from "@/lib/seo/market-hub-faq";
@@ -102,14 +102,15 @@ export default async function MarketCategoryOnlyPage({ params }: Omit<Props, "se
   const routeBase = `/${primary}`;
   const intro = buildNationwideMarketIntro(label);
 
-  const [count, previews, stats] = await Promise.all([
+  const [count, previews, stats, hubCities] = await Promise.all([
     getActiveListingCountForHub(label),
     getListingPreviewsForHub(label, undefined, 24),
     getHubListingStats(label),
+    getHubCitiesForCategory(label, 12),
   ]);
 
   const programmatic = buildProgrammaticHubParagraphs({ categoryLabel: label, stats });
-  const popularLinks = popularInternalLinksForCategoryHub(primary, label);
+  const popularLinks = popularInternalLinksForCategoryHub(primary, label, hubCities.slice(0, 4));
   const latestLinks = previews.slice(0, 10).map((p) => ({
     label: p.title,
     href: `/listings/${p.id}`,
@@ -137,7 +138,7 @@ export default async function MarketCategoryOnlyPage({ params }: Omit<Props, "se
       : null;
 
   const relatedCats = relatedCanonicalCategorySlugs(primary, 8);
-  const pillarCityLinks = [...SEO_HIGHLIGHT_CITY_LABELS].slice(0, 12);
+  const pillarCityLinks = hubCities;
   const faqItems = buildMarketHubFaqItems(label);
   const faqJsonLd = count > 0 ? generateFaqPageStructuredData([...faqItems]) : null;
 

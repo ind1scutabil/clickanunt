@@ -17,6 +17,8 @@ export function buildRomanianTsQuery(q: string): string | null {
 export type ListingFtsFilterParams = {
   /** When false, include non-active rows (e.g. dashboard `status=all`). */
   activeOnly?: boolean;
+  /** When true and no ownerUserId, restrict to moderationStatus=approved (public search). */
+  publicCatalogOnly?: boolean;
   category?: string | null;
   subcategory?: string | null;
   county?: string | null;
@@ -64,6 +66,8 @@ export async function ftsSearchListingIds(
   const transmissionParam = filters.transmission ?? null;
   const ownerUserIdParam = filters.ownerUserId ?? null;
   const activeOnly = filters.activeOnly !== false;
+  /** Public catalog/search — approved only; owner/admin scoped queries skip this. */
+  const publicCatalogOnly = filters.publicCatalogOnly === true;
 
   const rows = await prisma.$queryRaw<FtsRow[]>`
     SELECT 
@@ -79,6 +83,11 @@ export async function ftsSearchListingIds(
         OR "expiresAt" > NOW()
       )
       AND "deletedAt" IS NULL
+      AND (
+        ${publicCatalogOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "moderationStatus"::text = 'approved'
+      )
       AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
       AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
       AND (${categoryParam}::text IS NULL OR category = ${categoryParam})
@@ -92,8 +101,8 @@ export async function ftsSearchListingIds(
       AND (${maxPriceParam}::int IS NULL OR "priceAmount" <= ${maxPriceParam})
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
-    AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
-    AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
+      AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
+      AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
     ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
@@ -110,6 +119,11 @@ export async function ftsSearchListingIds(
         OR "expiresAt" > NOW()
       )
       AND "deletedAt" IS NULL
+      AND (
+        ${publicCatalogOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "moderationStatus"::text = 'approved'
+      )
       AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
       AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
       AND (${categoryParam}::text IS NULL OR category = ${categoryParam})

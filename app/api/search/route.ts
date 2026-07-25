@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
       tsq,
       {
         activeOnly: true,
+        publicCatalogOnly: true,
         category: category ?? null,
         city: city ?? null,
         year: typeof year === "number" ? year : null,

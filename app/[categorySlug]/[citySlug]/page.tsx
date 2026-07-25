@@ -28,6 +28,7 @@ import {
   getHubListingStats,
   getListingPreviewsForHub,
 } from "@/lib/seo/hub-queries";
+import { categoryCityHubShouldNoindex } from "@/lib/seo/hub-index-policy";
 import { buildProgrammaticHubParagraphs } from "@/lib/seo/programmatic-hub-copy";
 import {
   popularInternalLinksForCategoryHub,
@@ -109,7 +110,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
         : `Nu există suficiente anunțuri publice ${label.toLowerCase()} în ${city} acum; încearcă orașe în apropiere sau publică gratuit pe ClickAnunț.`,
     canonicalPath,
     keywords: [shortCat, city, label, "anunțuri", "România", "ClickAnunț"],
-    noindex: count === 0,
+    noindex: categoryCityHubShouldNoindex(count),
     ogImage: `${path}/opengraph-image`,
   });
 }

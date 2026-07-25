@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
+  const companyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white p-8">
@@ -230,7 +231,9 @@ export default function TermsPage() {
             </p>
             <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
               <p className="mb-2"><strong>Email:</strong> {COMPANY_CONFIG.emails.admin}</p>
-              <p className="mb-2"><strong>Telefon:</strong> +40 XXX XXX XXX</p>
+              {companyPhone ? (
+                <p className="mb-2"><strong>Telefon:</strong> {companyPhone}</p>
+              ) : null}
               {showCompanyLegal && (
                 <p className="mb-2">
                   <strong>Adresă:</strong> Jud. Gorj, Municipiul Targu Jiu, Aleea Macului, Nr 4, Bl 4, Scara 2, Et 3, Ap 34

@@ -13,11 +13,11 @@ const ICON = "h-6 w-6";
 
 const SEGMENTS = ["Dealeri auto", "Agenții imobiliare", "Companii"] as const;
 
-const STATS = [
-  { value: "1000+", label: "Dealeri activi" },
-  { value: "50K+", label: "Anunțuri business" },
-  { value: "95%", label: "Rată de conversie" },
-  { value: "24/7", label: "Suport dedicat" },
+const VALUE_PROPS = [
+  { title: "Vizibilitate în catalog", detail: "Anunțurile business apar în căutare și hub-urile categorie relevante." },
+  { title: "Cont verificat", detail: "Badge de încredere pentru clienți atunci când profilul este validat." },
+  { title: "Instrumente pentru echipe", detail: "Dashboard, mesaje și rapoarte într-un singur loc." },
+  { title: "Suport dedicat", detail: "Asistență pentru integrare, facturare și promovare — în programul afișat pe contact." },
 ] as const;
 
 const BENEFITS = [
@@ -210,7 +210,7 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        {/* Stats — integrated band overlapping the hero (homepage verification-card pattern) */}
+        {/* Value props — factual, no invented KPIs */}
         <div className="relative z-[5] -mt-12 md:-mt-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0e1116]/80 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl">
@@ -223,11 +223,11 @@ export default function BusinessPage() {
                   Ecosistem unificat
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-px bg-white/[0.07] md:grid-cols-4">
-                {STATS.map((stat, i) => (
-                  <div key={i} className="bg-[#0d0f13] px-6 py-5 md:py-6">
-                    <div className="text-[1.75rem] font-semibold leading-none tracking-tight text-white md:text-[2rem]">{stat.value}</div>
-                    <div className="mt-2 text-[10.5px] font-medium uppercase tracking-[0.16em] text-zinc-500">{stat.label}</div>
+              <div className="grid grid-cols-1 gap-px bg-white/[0.07] sm:grid-cols-2 md:grid-cols-4">
+                {VALUE_PROPS.map((item) => (
+                  <div key={item.title} className="bg-[#0d0f13] px-6 py-5 md:py-6">
+                    <div className="text-sm font-semibold leading-snug text-white">{item.title}</div>
+                    <div className="mt-2 text-xs leading-relaxed text-zinc-500">{item.detail}</div>
                   </div>
                 ))}
               </div>
@@ -386,9 +386,7 @@ export default function BusinessPage() {
                     </svg>
                     {showCompanyLegal && companyPhone
                       ? companyPhone
-                      : showCompanyLegal
-                        ? "Suport email"
-                        : "+40 XXX XXX XXX"}
+                      : "Contact prin email"}
                   </button>
                 </div>
                 <p className="mt-6 text-sm text-zinc-500">Program: Luni - Vineri, 09:00 - 18:00</p>

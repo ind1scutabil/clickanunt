@@ -1,8 +1,8 @@
 import type { FuelType, Prisma, Transmission } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { activePublicListingExpiryWhere } from "@/lib/listing-expiry";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { prismaOrderByForListingSort, parseListingFeedSort } from "@/lib/listing-feed-sort";
+import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOrigin } from "@/lib/site-url";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
@@ -21,11 +21,7 @@ export type PublicBrowseFilters = {
 };
 
 export function publicBrowseListingWhere(): Prisma.ListingWhereInput {
-  return {
-    status: "active",
-    deletedAt: null,
-    AND: [activePublicListingExpiryWhere()],
-  };
+  return seoIndexableListingWhere();
 }
 
 function filtersToSortKey(filters: PublicBrowseFilters): string {

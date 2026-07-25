@@ -4,6 +4,7 @@ import type { SitemapEntry } from '@/lib/seo';
 import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 import { primarySlugForCategoryLabel } from '@/lib/seo/market-paths';
 import { siteOriginForSeoFeeds } from '@/lib/seo/site-url-guard';
+import { MIN_INDEXABLE_HUB_LISTINGS } from '@/lib/seo/hub-index-policy';
 import { iterateAllSubcategorySlugs } from '@/lib/taxonomy';
 
 const AUTO_LABEL = 'Auto, moto și ambarcațiuni';
@@ -22,6 +23,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
     by: ['category'],
     where: indexableWhere,
     _count: { _all: true },
+    _max: { updatedAt: true },
   });
 
   for (const row of byCategory) {
@@ -29,7 +31,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
     if (!slug) continue;
     out.push({
       url: `${base}/${slug}`,
-      lastModified: now,
+      lastModified: row._max.updatedAt ?? now,
       changeFrequency: 'daily',
       priority: 0.75,
     });
@@ -42,11 +44,13 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
       city: { not: null },
     },
     _count: { _all: true },
+    _max: { updatedAt: true },
   });
 
   const seenPairs = new Set<string>();
   for (const row of byPair) {
     if (!row.city) continue;
+    if (row._count._all < MIN_INDEXABLE_HUB_LISTINGS) continue;
     const slug = primarySlugForCategoryLabel(row.category);
     if (!slug) continue;
 
@@ -60,7 +64,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
 
     out.push({
       url: `${base}/${slug}/${cs}`,
-      lastModified: now,
+      lastModified: row._max.updatedAt ?? now,
       changeFrequency: 'daily',
       priority: 0.65,
     });
@@ -74,6 +78,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
       subcategory: { not: null },
     },
     _count: { _all: true },
+    _max: { updatedAt: true },
   });
 
   const allSubSlugs = iterateAllSubcategorySlugs();
@@ -86,7 +91,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
     if (!mapped) continue;
     out.push({
       url: `${base}/${mapped.categorySlug}/${mapped.subcategorySlug}`,
-      lastModified: now,
+      lastModified: row._max.updatedAt ?? now,
       changeFrequency: 'daily',
       priority: 0.7,
     });
@@ -110,6 +115,7 @@ export async function buildAutoCitySitemapEntries(): Promise<SitemapEntry[]> {
       city: { not: null },
     },
     _count: { _all: true },
+    _max: { updatedAt: true },
   });
 
   const seen = new Set<string>();
@@ -117,12 +123,13 @@ export async function buildAutoCitySitemapEntries(): Promise<SitemapEntry[]> {
 
   for (const row of byPair) {
     if (!row.city) continue;
+    if (row._count._all < MIN_INDEXABLE_HUB_LISTINGS) continue;
     const cs = slugifyRo(row.city);
     if (seen.has(cs)) continue;
     seen.add(cs);
     out.push({
       url: `${base}/auto/${cs}`,
-      lastModified: now,
+      lastModified: row._max.updatedAt ?? now,
       changeFrequency: 'daily',
       priority: 0.72,
     });

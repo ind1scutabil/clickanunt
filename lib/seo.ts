@@ -67,8 +67,8 @@ export function createPageMetadata(config: PageSEOConfig): Metadata {
     authors: author ? [{ name: author }] : [{ name: 'ClickAnunț' }],
     robots: {
       index: !noindex,
-      follow: !(noindex || nofollow),
-      googleBot: { index: !noindex, follow: !(noindex || nofollow) },
+      follow: nofollow ? false : true,
+      googleBot: { index: !noindex, follow: nofollow ? false : true },
     },
     alternates: { canonical },
     openGraph: {
