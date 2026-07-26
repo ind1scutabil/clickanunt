@@ -15,11 +15,17 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { categoriesApi, listingsApi, uploadsApi } from '../api/client';
 import { CategoryFields } from '../components/CategoryFields';
-import { ALL_CATEGORY_LABELS } from '../constants/categoryOptions';
+import { ALL_CATEGORY_LABELS, subcategoriesForCategory } from '../constants/categoryOptions';
 import { addBreadcrumb, trackError, trackEvent } from '../telemetry';
 import { THEME } from '../theme';
 import { listingPhotoUri, normalizeListingPhotosArray } from '../utils/listingPhotos';
 import type { Listing, ListingPayload } from '../types';
+import {
+  contractCategoryRequiresSubcategory,
+  getContractAttributeDefsFor,
+  getMarketplacePriceFieldCopy,
+} from '@clickanunt/api-contracts';
+import { AttributeFields } from '../components/AttributeFields';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -50,6 +56,7 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [apiCategories, setApiCategories] = useState<string[]>([]);
@@ -67,6 +74,11 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     setModel(data.model || '');
     setYear(data.year != null ? String(data.year) : '');
     setPhotoUrls(normalizeListingPhotosArray(data.photos));
+    const attrs =
+      data.attributes && typeof data.attributes === 'object' && !Array.isArray(data.attributes)
+        ? (data.attributes as Record<string, unknown>)
+        : {};
+    setAttributes(attrs);
   }, []);
 
   useEffect(() => {
@@ -131,17 +143,39 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     return [...merged].sort((a, b) => a.localeCompare(b, 'ro'));
   }, [apiCategories, category]);
 
+  const isAutoCategory = category === 'Auto, moto și ambarcațiuni';
+  const priceSemantics = getMarketplacePriceFieldCopy(category || null);
+  const attributeDefs = useMemo(
+    () => getContractAttributeDefsFor(category, subcategory || null),
+    [category, subcategory],
+  );
+
   const canSubmit = useMemo(() => {
-    return title.trim().length >= 5 && Number(priceAmount) >= 0 && photoUrls.length >= 1 && category.trim().length > 0;
-  }, [photoUrls, priceAmount, title, category]);
+    const subOk =
+      !category.trim() ||
+      !contractCategoryRequiresSubcategory(category) ||
+      subcategory.trim().length > 0;
+    return (
+      title.trim().length >= 5 &&
+      Number(priceAmount) > 0 &&
+      photoUrls.length >= 1 &&
+      category.trim().length > 0 &&
+      subOk &&
+      county.trim().length > 0 &&
+      city.trim().length > 0
+    );
+  }, [photoUrls, priceAmount, title, category, subcategory, county, city]);
 
   const uploadAsset = async (uri: string, type: 'image' | 'video') => {
+    if (type === 'video') {
+      throw new Error('VIDEO_NOT_SUPPORTED');
+    }
     const base64 = await FileSystem.readAsStringAsync(uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     const uploadedUrl = await uploadsApi.uploadBase64({
       data: base64,
-      type,
+      type: 'image',
       listingId: mode === 'edit' ? listing?.id : undefined,
     });
     setPhotoUrls((prev) => [...prev, uploadedUrl]);
@@ -155,7 +189,7 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: ['images'],
       quality: 0.8,
       allowsMultipleSelection: true,
       selectionLimit: 5,
@@ -168,8 +202,25 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     setIsUploading(true);
     try {
       for (const asset of result.assets) {
-        const type = asset.type === 'video' ? 'video' : 'image';
-        await uploadAsset(asset.uri, type);
+        if (asset.type === 'video') {
+          Alert.alert('Video indisponibil', 'Video nu este încă suportat. Adaugă doar fotografii.');
+          continue;
+        }
+        const mime = (asset.mimeType || '').toLowerCase();
+        const uriLower = (asset.uri || '').toLowerCase();
+        if (
+          mime === 'image/heic' ||
+          mime === 'image/heif' ||
+          uriLower.endsWith('.heic') ||
+          uriLower.endsWith('.heif')
+        ) {
+          Alert.alert(
+            'Format nesuportat',
+            'Formatul HEIC nu este acceptat momentan. Alege o fotografie JPEG, PNG sau WebP.'
+          );
+          continue;
+        }
+        await uploadAsset(asset.uri, 'image');
       }
     } catch {
       Alert.alert('Upload eșuat', 'Nu am putut urca toate fișierele selectate.');
@@ -209,6 +260,19 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       return;
     }
 
+    if (Number(priceAmount) <= 0) {
+      Alert.alert('Preț invalid', `${priceSemantics.label} trebuie să fie mai mare de 0.`);
+      return;
+    }
+    if (!county.trim() || !city.trim()) {
+      Alert.alert('Locație incompletă', 'Completează județul și orașul.');
+      return;
+    }
+    if (contractCategoryRequiresSubcategory(category) && !subcategory.trim()) {
+      Alert.alert('Subcategorie', 'Selectează o subcategorie.');
+      return;
+    }
+
     addBreadcrumb('submit_listing_form', 'listing');
 
     const payload: ListingPayload = {
@@ -218,12 +282,17 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       subcategory: subcategory.trim() || null,
       priceAmount: Number(priceAmount),
       priceCurrency: 'RON',
-      city: city.trim() || undefined,
-      county: county.trim() || undefined,
-      make: make.trim() || undefined,
-      model: model.trim() || undefined,
-      year: year ? Number(year) : undefined,
+      city: city.trim(),
+      county: county.trim(),
       photos: photoUrls,
+      ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
+      ...(isAutoCategory
+        ? {
+            make: make.trim() || undefined,
+            model: model.trim() || undefined,
+            year: year ? Number(year) : undefined,
+          }
+        : {}),
     };
 
     setIsSaving(true);
@@ -238,11 +307,20 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
         throw new Error('Anunț indisponibil');
       }
 
-      Alert.alert('Succes', mode === 'create' ? 'Anunț publicat.' : 'Anunț actualizat.');
+      Alert.alert(
+        'Succes',
+        mode === 'create'
+          ? 'Anunțul a fost trimis. Poate necesita moderare înainte de a apărea public.'
+          : 'Anunț actualizat.'
+      );
       onSuccess();
     } catch (error) {
       await trackError('publish_listing_failed', error, { mode, listingId: listing?.id || null });
-      Alert.alert('Eroare', 'Nu s-a putut salva anunțul. Verifică datele și încearcă din nou.');
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Nu s-a putut salva anunțul. Verifică județul, orașul, prețul și fotografiile.';
+      Alert.alert('Eroare', message);
     } finally {
       setIsSaving(false);
     }
@@ -287,27 +365,73 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
         category={category}
         subcategory={subcategory}
         categoryLabels={categoryLabels}
-        onCategoryChange={setCategory}
-        onSubcategoryChange={setSubcategory}
+        requireSubcategory={mode === 'create' || subcategoriesForCategory(category).length > 0}
+        onCategoryChange={(next) => {
+          const apply = () => {
+            setCategory(next);
+            setSubcategory('');
+            setAttributes({});
+            if (next !== 'Auto, moto și ambarcațiuni') {
+              setMake('');
+              setModel('');
+              setYear('');
+            }
+          };
+          const hasAttr = Object.keys(attributes).length > 0;
+          if (category && category !== next && (make || model || year || hasAttr)) {
+            Alert.alert(
+              'Schimbă categoria?',
+              'Câmpurile specifice categoriei vor fi resetate.',
+              [
+                { text: 'Anulează', style: 'cancel' },
+                { text: 'Continuă', style: 'destructive', onPress: apply },
+              ]
+            );
+            return;
+          }
+          apply();
+        }}
+        onSubcategoryChange={(sub) => {
+          setSubcategory(sub);
+          setAttributes({});
+        }}
+      />
+
+      <AttributeFields
+        defs={attributeDefs}
+        values={attributes}
+        onChange={(key, value) =>
+          setAttributes((prev) => {
+            const next = { ...prev };
+            if (value === undefined) delete next[key];
+            else next[key] = value;
+            return next;
+          })
+        }
       />
 
       <TextInput
         style={styles.input}
-        placeholder="Preț (RON)"
+        placeholder={`${priceSemantics.label} (obligatoriu > 0)`}
         placeholderTextColor={THEME.colors.textMuted}
         keyboardType="numeric"
         value={priceAmount}
         onChangeText={setPriceAmount}
       />
-      <TextInput style={styles.input} placeholder="Oraș" placeholderTextColor={THEME.colors.textMuted} value={city} onChangeText={setCity} />
-      <TextInput style={styles.input} placeholder="Județ" placeholderTextColor={THEME.colors.textMuted} value={county} onChangeText={setCounty} />
-      <TextInput style={styles.input} placeholder="Marcă" placeholderTextColor={THEME.colors.textMuted} value={make} onChangeText={setMake} />
-      <TextInput style={styles.input} placeholder="Model" placeholderTextColor={THEME.colors.textMuted} value={model} onChangeText={setModel} />
-      <TextInput style={styles.input} placeholder="An" placeholderTextColor={THEME.colors.textMuted} keyboardType="numeric" value={year} onChangeText={setYear} />
+      {priceSemantics.hint ? <Text style={styles.metaHint}>{priceSemantics.hint}</Text> : null}
+      <TextInput style={styles.input} placeholder="Județ *" placeholderTextColor={THEME.colors.textMuted} value={county} onChangeText={setCounty} />
+      <TextInput style={styles.input} placeholder="Oraș *" placeholderTextColor={THEME.colors.textMuted} value={city} onChangeText={setCity} />
+      {isAutoCategory ? (
+        <>
+          <TextInput style={styles.input} placeholder="Marcă" placeholderTextColor={THEME.colors.textMuted} value={make} onChangeText={setMake} />
+          <TextInput style={styles.input} placeholder="Model" placeholderTextColor={THEME.colors.textMuted} value={model} onChangeText={setModel} />
+          <TextInput style={styles.input} placeholder="An" placeholderTextColor={THEME.colors.textMuted} keyboardType="numeric" value={year} onChangeText={setYear} />
+        </>
+      ) : null}
 
       <View style={styles.uploadActions}>
         <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
-          <Text style={styles.secondaryButtonText}>Alege media</Text>
+          <Text style={styles.secondaryButtonText}>Alege fotografii (JPEG/PNG/WebP)</Text>
         </Pressable>
         <Pressable style={styles.secondaryButton} onPress={capturePhoto}>
           <Text style={styles.secondaryButtonText}>Fă o poză</Text>

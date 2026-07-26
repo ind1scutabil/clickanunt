@@ -242,7 +242,7 @@ const request = async <T>(path: string, options?: RequestOptions): Promise<T> =>
         data = null;
       }
 
-      const payload = data as { error?: string } | null;
+      const payload = data as { error?: string; message?: string } | null;
 
       if (!response.ok) {
         if (
@@ -258,7 +258,9 @@ const request = async <T>(path: string, options?: RequestOptions): Promise<T> =>
           await clearStoredAuthTokens();
         }
 
-        const error = new Error(payload?.error || `HTTP ${response.status}`);
+        const error = new Error(
+          payload?.message || payload?.error || `HTTP ${response.status}`
+        );
         const canRetry = attempt < maxRetries && shouldRetry(response.status, method);
         if (!canRetry) {
           throw error;

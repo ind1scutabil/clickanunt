@@ -15,6 +15,7 @@ import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promot
 import { resolveListingGetRequestLimits, finalizeShouldCountListingView } from "@/lib/listing-view-count";
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
+import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -180,7 +181,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const existingListing = await prisma.listing.findUnique({
       where: { id },
-      select: { ownerUserId: true, status: true, isPromoted: true, isFeatured: true },
+      select: {
+        ownerUserId: true,
+        status: true,
+        isPromoted: true,
+        isFeatured: true,
+        category: true,
+        subcategory: true,
+        attributes: true,
+        make: true,
+        model: true,
+        vin: true,
+        year: true,
+        mileage: true,
+        fuel: true,
+        transmission: true,
+      },
     });
 
     if (!existingListing) {
@@ -197,6 +213,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const body = { ...(security.data as any), id };
+
+    const taxonomyCheck = validateListingPatchTaxonomy({
+      existing: {
+        category: existingListing.category,
+        subcategory: existingListing.subcategory,
+        attributes: existingListing.attributes,
+        make: existingListing.make,
+        model: existingListing.model,
+        vin: existingListing.vin,
+        year: existingListing.year,
+        mileage: existingListing.mileage,
+        fuel: existingListing.fuel,
+        transmission: existingListing.transmission,
+      },
+      patch: body,
+    });
+    if (!taxonomyCheck.ok) {
+      return NextResponse.json(
+        { error: taxonomyCheck.message, path: taxonomyCheck.path },
+        { status: 400 }
+      );
+    }
 
     const allowed: Record<string, unknown> = {};
     const fields = [
@@ -225,6 +263,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     ];
 
     for (const f of fields) if (f in body) allowed[f] = (body as Record<string, unknown>)[f];
+
+    if (taxonomyCheck.attributesToPersist !== undefined) {
+      allowed.attributes = taxonomyCheck.attributesToPersist;
+    }
+    if (taxonomyCheck.clearAutoFields) {
+      allowed.make = null;
+      allowed.model = null;
+      allowed.vin = null;
+      allowed.year = null;
+      allowed.mileage = null;
+      allowed.fuel = null;
+      allowed.transmission = null;
+    }
 
     if (allowed.isFeatured !== undefined && existingListing) {
       (allowed as Record<string, unknown>).feedBoost = computeFeedBoost(

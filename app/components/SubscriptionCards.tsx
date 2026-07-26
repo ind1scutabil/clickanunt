@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * ORPHAN — not mounted in any production route (docs-only references).
+ *
+ * Defined: app/components/SubscriptionCards.tsx
+ * Plans: free / business / premium from lib/monetization SUBSCRIPTION_PLANS
+ * Prices: monetization placeholders (49.99 / 99.99 RON) — NOT approved live commercial products
+ * Importers: none in app/ (only docs/features/MONETIZATION.md)
+ * Manual model: account Business is offer → /contact; do NOT wire this into UI until products are approved
+ *
+ * Do not import into public pages. Prefer deletion in a separate cleanup PR after product sign-off.
+ */
 import { SUBSCRIPTION_PLANS } from "@/lib/monetization";
 
 interface SubscriptionCardsProps {

@@ -29,6 +29,12 @@ import { verifyToken } from "@/lib/auth";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import {
+  buildPersistedAttributes,
+  isAutoCategoryLabel,
+} from "@/lib/listing-attributes-sanitize";
+import { formatModerationFlagsForNotes } from "@/lib/moderation-flags-format";
+import { listingCreatePayloadMatchesExisting } from "@/lib/listing-create-idempotency";
+import {
   resolveListingFeedStatusFromSearchParams,
 } from "@/lib/listings/public-listing-status";
 import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
@@ -711,9 +717,54 @@ export async function POST(request: Request) {
       if (sessionParseEarly.success) {
         const existingBySession = await prisma.listing.findUnique({
           where: { id: sessionParseEarly.data },
-          select: { id: true, ownerUserId: true, status: true },
+          select: {
+            id: true,
+            ownerUserId: true,
+            status: true,
+            title: true,
+            category: true,
+            priceAmount: true,
+            priceCurrency: true,
+            county: true,
+            city: true,
+            photos: true,
+            make: true,
+            model: true,
+          },
         });
-        if (existingBySession?.ownerUserId === userId) {
+        if (existingBySession) {
+          if (existingBySession.ownerUserId !== userId) {
+            return NextResponse.json(
+              {
+                error: "Conflict",
+                message:
+                  "uploadSessionId este deja folosit de un alt anunț. Reîncepe încărcarea fotografiilor.",
+              },
+              { status: 409 }
+            );
+          }
+          if (
+            !listingCreatePayloadMatchesExisting(existingBySession, {
+              title: cleanBody.title as string,
+              category: cleanBody.category as string,
+              priceAmount: cleanBody.priceAmount as number,
+              priceCurrency: cleanBody.priceCurrency as string | undefined,
+              county: cleanBody.county as string | undefined,
+              city: cleanBody.city as string | undefined,
+              photos: cleanBody.photos,
+              make: cleanBody.make as string | undefined,
+              model: cleanBody.model as string | undefined,
+            })
+          ) {
+            return NextResponse.json(
+              {
+                error: "Conflict",
+                message:
+                  "Aceeași sesiune de upload a fost folosită cu date diferite. Reîncepe formularul sau șterge draftul.",
+              },
+              { status: 409 }
+            );
+          }
           const replayCount = await countSuccessfulPublishesLast24h(userId);
           logListingPublishQuotaDebug({
             userId,
@@ -766,50 +817,54 @@ export async function POST(request: Request) {
       priceAmount: cleanBody.priceAmount,
       priceCurrency: cleanBody.priceCurrency ?? "RON",
       condition: cleanBody.condition ?? "used",
-      status: moderationStatus === 'approved' ? (cleanBody.status ?? "active") : 'pending',
+      status: moderationStatus === "approved" ? "active" : "pending",
       description: cleanBody.description,
       county: cleanBody.county,
       city: cleanBody.city,
       region: cleanBody.region,
       photos: cleanBody.photos ?? [],
       contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
-      isFeatured: cleanBody.isFeatured ?? false,
-      feedBoost: computeFeedBoost(false, Boolean(cleanBody.isFeatured)),
+      // Client cannot grant featured via create payload (field not in schema; force false).
+      isFeatured: false,
+      feedBoost: computeFeedBoost(false, false),
       
-      // Auto-specific fields (nullable)
-      make: cleanBody.make,
-      model: cleanBody.model,
-      year: cleanBody.year,
-      mileage: cleanBody.mileage,
-      fuel: cleanBody.fuel,
-      transmission: cleanBody.transmission,
-      vin: cleanBody.vin,
-      
-      // Generic attributes - include all optional car details
-      attributes: {
-        ...cleanBody.attributes,
-        accidents: cleanBody.accidents || null,
-        rare: cleanBody.rare || false,
-        horsepower: cleanBody.horsepower || null,
-        cylinderCapacity: cleanBody.cylinderCapacity || null,
-        bodyType: cleanBody.bodyType || null,
-        color: cleanBody.color || null,
-        seatCount: cleanBody.seatCount || null,
-        doorCount: cleanBody.doorCount || null,
-        owners: cleanBody.owners || null,
-        keys: cleanBody.keys || null,
-        registrationDate: cleanBody.registrationDate || null,
-        inspectionExpires: cleanBody.inspectionExpires || null,
-        countryOfOrigin: cleanBody.countryOfOrigin || null,
-        environmentalClass: cleanBody.environmentalClass || null,
-        co2Emissions: cleanBody.co2Emissions || null,
-        upholstery: cleanBody.upholstery || null,
-        cocPapers: cleanBody.cocPapers || false,
-      },
+      // Auto-specific fields — only persist for Auto category
+      make: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.make : null,
+      model: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.model : null,
+      year: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.year : null,
+      mileage: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.mileage : null,
+      fuel: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.fuel : null,
+      transmission: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.transmission : null,
+      vin: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.vin : null,
+
+      attributes: buildPersistedAttributes({
+        categoryLabel: String(cleanBody.category),
+        subcategoryLabel: (cleanBody.subcategory as string | null | undefined) ?? null,
+        attributes: cleanBody.attributes,
+        autoBagFields: {
+          accidents: cleanBody.accidents || null,
+          rare: cleanBody.rare || false,
+          horsepower: cleanBody.horsepower || null,
+          cylinderCapacity: cleanBody.cylinderCapacity || null,
+          bodyType: cleanBody.bodyType || null,
+          color: cleanBody.color || null,
+          seatCount: cleanBody.seatCount || null,
+          doorCount: cleanBody.doorCount || null,
+          owners: cleanBody.owners || null,
+          keys: cleanBody.keys || null,
+          registrationDate: cleanBody.registrationDate || null,
+          inspectionExpires: cleanBody.inspectionExpires || null,
+          countryOfOrigin: cleanBody.countryOfOrigin || null,
+          environmentalClass: cleanBody.environmentalClass || null,
+          co2Emissions: cleanBody.co2Emissions || null,
+          upholstery: cleanBody.upholstery || null,
+          cocPapers: cleanBody.cocPapers || false,
+        },
+      }).attributes,
 
       // Moderation fields
       moderationStatus,
-      moderationNotes: flags.length > 0 ? `Flags: ${flags.join(', ')}` : null,
+      moderationNotes: formatModerationFlagsForNotes(flags),
       
       // Scam detection results (store for admin review)
       // Prisma schema expects `scamFlags` as `String[]`, not full objects.
@@ -866,7 +921,7 @@ export async function POST(request: Request) {
           listingId: listing.id,
           priority: moderationScore < 0.3 ? 1 : 0, // Higher priority for very low scores
           status: 'pending',
-          notes: flags.length > 0 ? `Flags: ${flags.join(', ')}` : undefined,
+          notes: formatModerationFlagsForNotes(flags) ?? undefined,
         },
       });
       logger.info('Added to moderation queue', { listingId: listing.id, priority: moderationScore < 0.3 ? 1 : 0 });

@@ -1,11 +1,11 @@
 /**
- * Drift guard: the web server taxonomy (lib/taxonomy.ts) and the shared client
- * contract (packages/api-contracts) MUST describe the identical category +
- * subcategory label/slug tree. Mobile derives its picker from the contract, so
- * this test is what keeps web ⇄ Android category parity 1:1.
+ * Drift guard: web TAXONOMY vs shared MARKETPLACE_TAXONOMY (labels/slugs + UI attributes).
  */
-import { TAXONOMY } from "@/lib/taxonomy";
-import { MARKETPLACE_TAXONOMY } from "@/packages/api-contracts/src/taxonomy";
+import { TAXONOMY, getAttributeDefsFor } from "@/lib/taxonomy";
+import {
+  MARKETPLACE_TAXONOMY,
+  getContractAttributeDefsFor,
+} from "@/packages/api-contracts/src/taxonomy";
 
 type Flat = { label: string; slug: string; subcategories: { label: string; slug: string }[] };
 
@@ -22,6 +22,24 @@ const flatten = (
     subcategories: c.subcategories.map((s) => ({ label: s.label, slug: s.slug })),
   }));
 
+function slimDefs(
+  defs: Array<{
+    key: string;
+    label: string;
+    type: string;
+    options?: string[] | readonly string[];
+    required?: boolean;
+  }>
+) {
+  return defs.map((d) => ({
+    key: d.key,
+    label: d.label,
+    type: d.type,
+    options: d.options ? [...d.options] : undefined,
+    required: d.required || false,
+  }));
+}
+
 describe("taxonomy contract parity (web ⇄ shared/mobile)", () => {
   it("has the same number of top-level categories", () => {
     expect(MARKETPLACE_TAXONOMY.length).toBe(TAXONOMY.length);
@@ -29,6 +47,19 @@ describe("taxonomy contract parity (web ⇄ shared/mobile)", () => {
 
   it("category + subcategory label/slug trees are identical", () => {
     expect(flatten(MARKETPLACE_TAXONOMY)).toEqual(flatten(TAXONOMY));
+  });
+
+  it("attribute defs match for every category/subcategory pair", () => {
+    for (const cat of TAXONOMY) {
+      expect(slimDefs(getAttributeDefsFor(cat.label, null))).toEqual(
+        slimDefs(getContractAttributeDefsFor(cat.label, null))
+      );
+      for (const sub of cat.subcategories) {
+        expect(slimDefs(getAttributeDefsFor(cat.label, sub.label))).toEqual(
+          slimDefs(getContractAttributeDefsFor(cat.label, sub.label))
+        );
+      }
+    }
   });
 
   it("category slugs are unique in the contract", () => {

@@ -177,10 +177,12 @@ export type ListingCreateBodyDto = {
   condition?: 'new' | 'used' | 'refurbished' | 'for_parts' | null;
   year?: number | null;
   mileage?: number | null;
-  city?: string | null;
-  county?: string | null;
+  /** Required on create (server listingCreateSchema). */
+  city: string;
+  /** Required on create (server listingCreateSchema). */
+  county: string;
   photos: string[];
-  video?: string | null;
+  /** Not supported — send → 400 from strict create schema. */
   contactPhone?: string | null;
   allowMessages?: boolean;
   make?: string | null;
@@ -201,6 +203,9 @@ export type ListingCreateBodyDto = {
   registrationDate?: string | null;
   inspectionExpires?: string | null;
   countryOfOrigin?: string | null;
+  /** Category-specific JSON attributes (taxonomy AttributeFieldDef keys). */
+  attributes?: Record<string, unknown>;
+  uploadSessionId?: string;
 };
 
 export type ListingPatchBodyDto = Partial<ListingCreateBodyDto> & {

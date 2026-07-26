@@ -52,7 +52,7 @@ test.describe("Real flow verification", () => {
         priceCurrency: "RON",
         condition: "used",
         county: "București",
-        city: "București",
+        city: "Sectorul 1",
         photos: [
           "https://www.clickanunt.ro/uploads/listings/e2e-verification-sample/original/placeholder.jpg",
         ],

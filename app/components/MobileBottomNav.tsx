@@ -108,9 +108,30 @@ export default function MobileBottomNav() {
   }, [syncStaffFromStorage]);
 
   const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
+  const isPublishFlow =
+    pathname === "/listings/new" || pathname.startsWith("/listings/new/");
+  const isListingEdit = /^\/listings\/[^/]+\/edit\/?$/.test(pathname);
+
+  useEffect(() => {
+    const hide = isPublishFlow || isListingEdit;
+    document.documentElement.dataset.hideMobileBottomNav = hide ? "1" : "0";
+    return () => {
+      delete document.documentElement.dataset.hideMobileBottomNav;
+    };
+  }, [isPublishFlow, isListingEdit]);
+
+  if (isPublishFlow || isListingEdit) {
+    return null;
+  }
+
   const catalogActive =
-    pathname.startsWith("/listings") ||
-    (Boolean(firstSegment) && Object.prototype.hasOwnProperty.call(CATEGORY_LABEL_BY_CANONICAL_SLUG, firstSegment));
+    pathname === "/listings" ||
+    pathname.startsWith("/listings/") ||
+    (Boolean(firstSegment) &&
+      Object.prototype.hasOwnProperty.call(
+        CATEGORY_LABEL_BY_CANONICAL_SLUG,
+        firstSegment
+      ));
 
   const adminAreaActive = pathname.startsWith("/admin");
 

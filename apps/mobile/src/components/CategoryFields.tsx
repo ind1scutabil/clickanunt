@@ -8,6 +8,8 @@ type Props = {
   category: string;
   subcategory: string;
   categoryLabels?: string[];
+  /** When true, empty subcategory ("Toate") is not offered — required for create. */
+  requireSubcategory?: boolean;
   onCategoryChange: (category: string) => void;
   onSubcategoryChange: (subcategory: string) => void;
 };
@@ -16,6 +18,7 @@ export function CategoryFields({
   category,
   subcategory,
   categoryLabels,
+  requireSubcategory = true,
   onCategoryChange,
   onSubcategoryChange,
 }: Props): React.JSX.Element {
@@ -47,14 +50,18 @@ export function CategoryFields({
 
       {subs.length > 0 ? (
         <>
-          <Text style={[styles.label, styles.labelSpaced]}>Subcategorie</Text>
+          <Text style={[styles.label, styles.labelSpaced]}>
+            Subcategorie{requireSubcategory ? ' *' : ''}
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <Pressable
-              onPress={() => onSubcategoryChange('')}
-              style={[styles.chip, !subcategory && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, !subcategory && styles.chipTextActive]}>Toate</Text>
-            </Pressable>
+            {!requireSubcategory ? (
+              <Pressable
+                onPress={() => onSubcategoryChange('')}
+                style={[styles.chip, !subcategory && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, !subcategory && styles.chipTextActive]}>Toate</Text>
+              </Pressable>
+            ) : null}
             {subs.map((sub) => {
               const active = subcategory === sub;
               return (
@@ -80,24 +87,24 @@ export function CategoryFields({
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '700', color: THEME.colors.textPrimary },
+  wrap: { gap: 8 },
+  label: { color: THEME.colors.textMuted, fontSize: 13, fontWeight: '600' },
   labelSpaced: { marginTop: 4 },
   chipRow: { gap: 8, paddingVertical: 4 },
   chip: {
-    maxWidth: 220,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: THEME.radius.pill,
+    maxWidth: 160,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: THEME.colors.border,
     backgroundColor: THEME.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   chipActive: {
     borderColor: THEME.colors.primary,
-    backgroundColor: 'rgba(255, 90, 0, 0.12)',
+    backgroundColor: 'rgba(249, 115, 22, 0.12)',
   },
-  chipText: { fontSize: 12, fontWeight: '600', color: THEME.colors.textMuted },
-  chipTextActive: { color: THEME.colors.primary },
-  hint: { fontSize: 11, color: THEME.colors.textMuted },
+  chipText: { color: THEME.colors.text, fontSize: 12 },
+  chipTextActive: { color: THEME.colors.primary, fontWeight: '700' },
+  hint: { color: THEME.colors.textMuted, fontSize: 11, marginTop: 4 },
 });

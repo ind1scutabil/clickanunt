@@ -21,6 +21,7 @@ import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
+import { formatCategoryAwarePriceLine } from "@/lib/listing-price-semantics";
 
 async function trackListingEngagement(
   listingId: string,
@@ -129,6 +130,8 @@ export default function ListingDetailPageClient({
   layoutDebug = false,
 }: ListingDetailPageClientProps) {
   const router = useRouter();
+  const [justCreated, setJustCreated] = useState(false);
+  const [publishStateParam, setPublishStateParam] = useState<string | null>(null);
   
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -149,6 +152,9 @@ export default function ListingDetailPageClient({
     if (!listing) return [] as { key: string; label: string }[];
     const pills: { key: string; label: string }[] = [];
     if (listing.status === "active") pills.push({ key: "active", label: "Anunț activ" });
+    if (listing.status === "pending") {
+      pills.push({ key: "pending", label: "În așteptare la moderare" });
+    }
     // Public catalog is always moderation-approved; owner payloads may still
     // carry moderationStatus but we do not require it for this chip.
     if (
@@ -175,6 +181,13 @@ export default function ListingDetailPageClient({
 
   useEffect(() => {
     setShowPhone(false);
+  }, [id]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const qs = new URLSearchParams(window.location.search);
+    setJustCreated(qs.get("justCreated") === "1");
+    setPublishStateParam(qs.get("publishState"));
   }, [id]);
 
   /** Client navigations can leave homepage hero in DOM; remove orphans and reset scroll. */
@@ -507,6 +520,19 @@ export default function ListingDetailPageClient({
           <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
             {/* Main Content - Left/Center Column */}
             <div className="min-w-0 max-w-full space-y-4 max-md:space-y-3 lg:col-span-2">
+              {justCreated && (
+                <div
+                  className="rounded-xl border border-orange-500/25 bg-orange-500/10 px-4 py-3 text-sm text-orange-50"
+                  role="status"
+                  data-testid="publish-result-banner"
+                >
+                  {(publishStateParam === "pending" ||
+                    listing?.status === "pending") &&
+                  listing?.status !== "active"
+                    ? "Anunțul a fost trimis spre moderare."
+                    : "Anunțul a fost publicat."}
+                </div>
+              )}
               {/* Image Gallery */}
               <ListingPhotoGallery photos={photos} title={listing.title || "Anunț"} />
 
@@ -556,9 +582,29 @@ export default function ListingDetailPageClient({
                   )}
                   <div className="flex items-center justify-between border-t border-zinc-700/45 pt-3 md:pt-4">
                     <div className="min-w-0">
-                      <p className="text-xl font-semibold tabular-nums tracking-tight text-zinc-50 sm:text-2xl md:text-[1.75rem]">
-                        {listing.priceAmount?.toLocaleString()} {listing.priceCurrency}
-                      </p>
+                      {(() => {
+                        const line = formatCategoryAwarePriceLine({
+                          categoryLabel: listing.category,
+                          priceAmount: listing.priceAmount,
+                          priceCurrency: listing.priceCurrency,
+                          attributes:
+                            listing.attributes &&
+                            typeof listing.attributes === "object" &&
+                            !Array.isArray(listing.attributes)
+                              ? (listing.attributes as Record<string, unknown>)
+                              : null,
+                        });
+                        return (
+                          <>
+                            <p className="text-xl font-semibold tabular-nums tracking-tight text-zinc-50 sm:text-2xl md:text-[1.75rem]">
+                              {line.primary}
+                            </p>
+                            {line.suffix ? (
+                              <p className="text-xs text-zinc-400 mt-0.5">{line.suffix}</p>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="flex shrink-0 gap-2 md:gap-3">
                     <button 

@@ -41,7 +41,7 @@ test.describe('Listings - Create, Edit, Delete', () => {
   });
 
   test('should reject listing without title', async ({ page }) => {
-    await page.goto('/dashboard/listings/create');
+    await page.goto('/listings/new');
     
     await page.fill('textarea[name="description"]', 'Description without title');
     await page.fill('input[name="price"]', '1000');
@@ -53,7 +53,7 @@ test.describe('Listings - Create, Edit, Delete', () => {
   });
 
   test('should reject listing with invalid price', async ({ page }) => {
-    await page.goto('/dashboard/listings/create');
+    await page.goto('/listings/new');
     
     await page.fill('input[name="title"]', 'Test Title');
     await page.fill('input[name="price"]', '-100');

@@ -11,8 +11,9 @@ import {
   buildListingProductIdentifierFields,
   buildVehicleProductFields,
 } from "@/lib/seo/listing-product-jsonld";
-import { getCategoryDef } from "@/lib/taxonomy";
+import { listingJsonLdKindForCategory } from "@/lib/seo/listing-jsonld-policy";
 import type { Condition } from "@prisma/client";
+import type { ReactNode } from "react";
 
 function schemaItemConditionUrl(condition: Condition | null | undefined): string | undefined {
   if (!condition) return undefined;
@@ -40,6 +41,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       id: true,
       title: true,
       category: true,
+      subcategory: true,
       city: true,
       county: true,
       description: true,
@@ -54,6 +56,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       fuel: true,
       transmission: true,
       condition: true,
+      attributes: true,
       updatedAt: true,
       createdAt: true,
       deletedAt: true,
@@ -86,6 +89,7 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   const currency = (listing.priceCurrency?.trim() || "RON").toUpperCase();
   const availability = listingSchemaAvailabilityUrl(listing);
   const itemCondition = schemaItemConditionUrl(listing.condition);
+  const kind = listingJsonLdKindForCategory(listing.category);
 
   let seller: { "@type": "Organization"; name: string; url: string } | { "@type": "Person"; name: string; url: string } | undefined;
   if (listing.owner) {
@@ -104,61 +108,10 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     }
   }
 
-  const offer: Record<string, unknown> = {
-    "@type": "Offer",
-    priceCurrency: currency,
-    // priceAmount is already major units (not minor/cents)
-    price: Number(listing.priceAmount),
-    availability,
-    url: itemUrl,
-    priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    ...buildClassifiedOfferPolicyFields(),
-  };
-  if (seller) offer.seller = seller;
-
   const locationPlace = buildListingLocationPlace({
     city: listing.city,
     county: listing.county,
   });
-  if (locationPlace) offer.availableAtOrFrom = locationPlace;
-
-  const productLd: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: listing.title,
-    sku: listing.id,
-    category: listing.category,
-    url: itemUrl,
-    offers: offer,
-    datePublished: listing.createdAt.toISOString(),
-    dateModified: listing.updatedAt.toISOString(),
-    ...buildListingProductIdentifierFields({
-      id: listing.id,
-      title: listing.title,
-      make: listing.make,
-      model: listing.model,
-      vin: listing.vin,
-    }),
-  };
-
-  const desc = listing.description?.trim();
-  if (desc) productLd.description = desc;
-  if (images.length > 0) productLd.image = images;
-  if (itemCondition) productLd.itemCondition = itemCondition;
-
-  // Auto-category listings: enrich with factual schema.org Vehicle/Car fields.
-  if (getCategoryDef(listing.category)?.slug === "auto") {
-    const vehicleFields = buildVehicleProductFields({
-      year: listing.year,
-      mileage: listing.mileage,
-      fuel: listing.fuel,
-      transmission: listing.transmission,
-    });
-    if (Object.keys(vehicleFields).length > 0) {
-      productLd["@type"] = ["Product", "Car"];
-      Object.assign(productLd, vehicleFields);
-    }
-  }
 
   const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
   const crumbItems: Array<{ name: string; url: string }> = [{ name: "Acasă", url: "/" }];
@@ -178,11 +131,107 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   });
 
   const crumbs = generateBreadcrumbStructuredData(crumbItems);
+  const desc = listing.description?.trim();
 
-  return (
-    <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
-    </>
-  );
+  const scripts: ReactNode[] = [
+    <script key="crumbs" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />,
+  ];
+
+  if (kind === "job_posting") {
+    const hiringOrg =
+      seller?.["@type"] === "Organization"
+        ? seller
+        : {
+            "@type": "Organization" as const,
+            name: listing.owner?.businessName?.trim() || listing.owner?.name?.trim() || "Angajator",
+            url: listing.owner
+              ? absoluteUrl(`/users/${listing.owner.id}/profile`)
+              : absoluteUrl("/"),
+          };
+
+    const jobLd: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "JobPosting",
+      title: listing.title,
+      datePosted: listing.createdAt.toISOString(),
+      hiringOrganization: hiringOrg,
+      url: itemUrl,
+    };
+    if (desc) jobLd.description = desc;
+    if (images.length > 0) jobLd.image = images;
+    if (listing.subcategory) jobLd.occupationalCategory = listing.subcategory;
+    if (locationPlace) {
+      jobLd.jobLocation = {
+        "@type": "Place",
+        address: locationPlace.address,
+      };
+    }
+    const attrs =
+      listing.attributes && typeof listing.attributes === "object" && !Array.isArray(listing.attributes)
+        ? (listing.attributes as Record<string, unknown>)
+        : {};
+    if (typeof attrs.work_mode === "string") {
+      const mode = attrs.work_mode.toLowerCase();
+      if (mode.includes("remote")) jobLd.jobLocationType = "TELECOMMUTE";
+    }
+    // Never map priceAmount → baseSalary (placeholder / no salaryMin schema).
+    scripts.unshift(
+      <script key="job" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jobLd) }} />
+    );
+  } else if (kind === "product_offer" || kind === "product_car") {
+    const offer: Record<string, unknown> = {
+      "@type": "Offer",
+      priceCurrency: currency,
+      price: Number(listing.priceAmount),
+      availability,
+      url: itemUrl,
+      priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      ...buildClassifiedOfferPolicyFields(),
+    };
+    if (seller) offer.seller = seller;
+    if (locationPlace) offer.availableAtOrFrom = locationPlace;
+
+    const productLd: Record<string, unknown> = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: listing.title,
+      sku: listing.id,
+      category: listing.category,
+      url: itemUrl,
+      offers: offer,
+      datePublished: listing.createdAt.toISOString(),
+      dateModified: listing.updatedAt.toISOString(),
+      ...buildListingProductIdentifierFields({
+        id: listing.id,
+        title: listing.title,
+        make: listing.make,
+        model: listing.model,
+        vin: listing.vin,
+      }),
+    };
+
+    if (desc) productLd.description = desc;
+    if (images.length > 0) productLd.image = images;
+    if (itemCondition) productLd.itemCondition = itemCondition;
+
+    if (kind === "product_car") {
+      const vehicleFields = buildVehicleProductFields({
+        year: listing.year,
+        mileage: listing.mileage,
+        fuel: listing.fuel,
+        transmission: listing.transmission,
+      });
+      if (Object.keys(vehicleFields).length > 0) {
+        productLd["@type"] = ["Product", "Car"];
+        Object.assign(productLd, vehicleFields);
+      }
+    }
+
+    scripts.unshift(
+      <script key="product" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
+    );
+  }
+  // omit_commercial → breadcrumbs only
+
+  return <>{scripts}</>;
 }

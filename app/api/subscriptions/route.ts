@@ -1,36 +1,81 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
-import { getUserFromRequest } from '@/lib/auth';
-import { validateSecureRequest } from '@/lib/security/middleware';
-import { SUBSCRIPTION_PLANS } from '@/lib/verification';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { getUserFromRequest } from "@/lib/auth";
+import { isAdminOrOwner } from "@/lib/rbac";
+import { validateSecureRequest } from "@/lib/security/middleware";
+import { createAuditLog } from "@/lib/audit";
+import {
+  normalizeSubscriptionTier,
+  subscriptionTierLabel,
+  type KnownSubscriptionTier,
+} from "@/lib/subscription-tier";
 
-const subscriptionTierSchema = z
+/**
+ * Internal admin workflow only — account subscriptions are manual (Business via /business → /contact).
+ * Standard authenticated users must not self-grant or cancel tiers.
+ * No UI consumer for POST/DELETE as of marketplace audit; kept for authorized ops + tests.
+ */
+
+const adminSetTierSchema = z
   .object({
-    tier: z.enum(['business', 'premium']),
+    tier: z.enum(["free", "business", "premium"]),
+    userId: z.string().uuid(),
   })
   .strict();
+
+const adminCancelSchema = z
+  .object({
+    userId: z.string().uuid(),
+  })
+  .strict();
+
+function clientMeta(req: NextRequest) {
+  return {
+    ipAddress:
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "",
+    userAgent: req.headers.get("user-agent") || "",
+  };
+}
+
+function freeBoostsForTier(tier: KnownSubscriptionTier): number {
+  if (tier === "business") return 3;
+  if (tier === "premium") return 5;
+  return 0;
+}
 
 async function requireAuthenticatedUser(request: NextRequest) {
   const user = await getUserFromRequest(request);
   if (!user) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
   return { user };
 }
 
+function forbidUnlessAdmin(user: { role?: string | null }) {
+  if (!isAdminOrOwner(user as Parameters<typeof isAdminOrOwner>[0])) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
 /**
- * Upgrade subscription
+ * Admin-only: set a user's subscription tier (manual commercial model).
  */
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireAuthenticatedUser(req);
-    if ('error' in auth) return auth.error;
+    if ("error" in auth) return auth.error;
+
+    const denied = forbidUnlessAdmin(auth.user);
+    if (denied) return denied;
 
     const security = await validateSecureRequest(req, {
       requireCSRF: true,
-      rateLimit: 'api',
-      schema: subscriptionTierSchema,
+      rateLimit: "api",
+      schema: adminSetTierSchema,
     });
 
     if (!security.success) {
@@ -42,86 +87,94 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { tier } = security.data as z.infer<typeof subscriptionTierSchema>;
-    const session = { user: { id: auth.user.id } };
+    const { tier, userId } = security.data as z.infer<typeof adminSetTierSchema>;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        subscriptionTier: true,
+        subscriptionExpiresAt: true,
+        subscriptionRenewsAt: true,
+        freeBoostsRemaining: true,
+      },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (
-      (tier === 'business' && user.subscriptionTier !== 'free') ||
-      (tier === 'premium' && user.subscriptionTier === 'premium')
-    ) {
-      return NextResponse.json(
-        { error: 'Already subscribed to this or higher tier' },
-        { status: 400 }
-      );
-    }
+    const fromTier = normalizeSubscriptionTier(target.subscriptionTier);
+    const expiresAt =
+      tier === "free"
+        ? null
+        : (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() + 1);
+            return d;
+          })();
 
-    const plan = SUBSCRIPTION_PLANS[tier as keyof typeof SUBSCRIPTION_PLANS];
-
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-    const freeBoosts = tier === 'business' ? 3 : tier === 'premium' ? 5 : 0;
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: target.id },
       data: {
-        subscriptionTier: tier as 'business' | 'premium',
+        subscriptionTier: tier,
         subscriptionExpiresAt: expiresAt,
-        subscriptionRenewsAt: expiresAt,
-        freeBoostsRemaining: freeBoosts,
+        subscriptionRenewsAt: tier === "free" ? null : expiresAt,
+        freeBoostsRemaining: freeBoostsForTier(tier),
+      },
+      select: {
+        subscriptionTier: true,
+        subscriptionExpiresAt: true,
+        freeBoostsRemaining: true,
       },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'upgrade_subscription',
-        resource: 'subscription',
-        resourceId: user.id,
-        details: {
-          fromTier: user.subscriptionTier,
-          toTier: tier,
-          price: plan.price,
-        },
-        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '',
-        userAgent: req.headers.get('user-agent') || '',
+    const meta = clientMeta(req);
+    await createAuditLog({
+      userId: auth.user.id,
+      action: "subscription.admin_set_tier",
+      resource: "subscription",
+      resourceId: target.id,
+      details: {
+        actorRole: auth.user.role,
+        targetUserId: target.id,
+        fromTier,
+        toTier: tier,
       },
+      ...meta,
     });
 
     return NextResponse.json({
-      message: 'Subscription upgraded successfully',
+      message: "Subscription updated",
       subscription: {
-        tier: updatedUser.subscriptionTier,
+        tier: normalizeSubscriptionTier(updatedUser.subscriptionTier),
         expiresAt: updatedUser.subscriptionExpiresAt,
         freeBoostsRemaining: updatedUser.freeBoostsRemaining,
       },
     });
   } catch {
     return NextResponse.json(
-      { error: 'Failed to upgrade subscription' },
+      { error: "Failed to update subscription" },
       { status: 500 }
     );
   }
 }
 
 /**
- * Cancel subscription
+ * Admin-only: cancel renewal for a target user (tier remains until expiry).
  */
 export async function DELETE(req: NextRequest) {
   try {
     const auth = await requireAuthenticatedUser(req);
-    if ('error' in auth) return auth.error;
+    if ("error" in auth) return auth.error;
+
+    const denied = forbidUnlessAdmin(auth.user);
+    if (denied) return denied;
 
     const security = await validateSecureRequest(req, {
       requireCSRF: true,
-      rateLimit: 'api',
+      rateLimit: "api",
+      schema: adminCancelSchema,
     });
 
     if (!security.success) {
@@ -133,68 +186,86 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const session = { user: { id: auth.user.id } };
+    const { userId } = security.data as z.infer<typeof adminCancelSchema>;
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        subscriptionTier: true,
+        subscriptionExpiresAt: true,
+        subscriptionRenewsAt: true,
+      },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!target) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (user.subscriptionTier === 'free') {
+    const tier = normalizeSubscriptionTier(target.subscriptionTier);
+    if (tier === "free") {
       return NextResponse.json(
-        { error: 'No active subscription to cancel' },
+        { error: "No active subscription to cancel" },
         { status: 400 }
       );
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },
+      where: { id: target.id },
       data: {
         subscriptionRenewsAt: null,
       },
-    });
-
-    await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'cancel_subscription',
-        resource: 'subscription',
-        resourceId: user.id,
-        details: {
-          tier: user.subscriptionTier,
-          expiresAt: user.subscriptionExpiresAt,
-        },
-        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '',
-        userAgent: req.headers.get('user-agent') || '',
+      select: {
+        subscriptionTier: true,
+        subscriptionExpiresAt: true,
+        subscriptionRenewsAt: true,
       },
     });
 
+    const meta = clientMeta(req);
+    await createAuditLog({
+      userId: auth.user.id,
+      action: "subscription.admin_cancel_renewal",
+      resource: "subscription",
+      resourceId: target.id,
+      details: {
+        actorRole: auth.user.role,
+        targetUserId: target.id,
+        tier,
+        expiresAt: target.subscriptionExpiresAt,
+      },
+      ...meta,
+    });
+
     return NextResponse.json({
-      message: 'Subscription will be canceled at end of period',
+      message: "Subscription will be canceled at end of period",
       subscription: {
-        tier: updatedUser.subscriptionTier,
+        tier: normalizeSubscriptionTier(updatedUser.subscriptionTier),
         expiresAt: updatedUser.subscriptionExpiresAt,
         willRenew: false,
       },
     });
   } catch {
     return NextResponse.json(
-      { error: 'Failed to cancel subscription' },
+      { error: "Failed to cancel subscription" },
       { status: 500 }
     );
   }
 }
 
 /**
- * Get subscription status
+ * Authenticated user: read own subscription status only.
+ * Query userId for another account is ignored / forbidden.
  */
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireAuthenticatedUser(req);
-    if ('error' in auth) return auth.error;
+    if ("error" in auth) return auth.error;
+
+    const requestedUserId = req.nextUrl.searchParams.get("userId");
+    if (requestedUserId && requestedUserId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: auth.user.id },
@@ -207,27 +278,23 @@ export async function GET(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const plan = SUBSCRIPTION_PLANS[user.subscriptionTier as keyof typeof SUBSCRIPTION_PLANS];
+    const tier = normalizeSubscriptionTier(user.subscriptionTier);
 
+    // Do not expose placeholder/unverified commercial prices from legacy plan tables.
     return NextResponse.json({
-      tier: user.subscriptionTier,
+      tier,
+      label: subscriptionTierLabel(tier),
       expiresAt: user.subscriptionExpiresAt,
       willRenew: !!user.subscriptionRenewsAt,
       renewsAt: user.subscriptionRenewsAt,
       freeBoostsRemaining: user.freeBoostsRemaining,
-      plan: {
-        name: plan.name,
-        price: plan.price,
-        features: plan.features,
-        limits: plan.limits,
-      },
     });
   } catch {
     return NextResponse.json(
-      { error: 'Failed to get subscription' },
+      { error: "Failed to get subscription" },
       { status: 500 }
     );
   }

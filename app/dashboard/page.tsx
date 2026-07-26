@@ -30,6 +30,12 @@ const ViewsLast7DaysChart = dynamic(
 );
 import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
 import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
+import {
+  isPaidSubscriptionTier,
+  normalizeSubscriptionTier,
+  shouldOfferBusinessDiscovery,
+  subscriptionTierLabel,
+} from "@/lib/subscription-tier";
 
 /**
  * Design tokens — exclusiv /dashboard (nu afectează alte rute sau componente globale).
@@ -341,9 +347,9 @@ export default function DashboardPage() {
                       Activ
                     </span>
                   )}
-                  {user.role === "premium" && (
+                  {isPaidSubscriptionTier(user.subscriptionTier) && (
                     <Badge variant="primary" outlined className="text-xs">
-                      Premium
+                      {subscriptionTierLabel(user.subscriptionTier)}
                     </Badge>
                   )}
                 </div>
@@ -598,21 +604,39 @@ export default function DashboardPage() {
                   <div className="mb-5 flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-base font-semibold tracking-tight text-white">Plan actual</h3>
-                      <p className="mt-0.5 text-sm text-zinc-500">Statusul contului si optiuni de upgrade.</p>
+                      <p className="mt-0.5 text-sm text-zinc-500">Statusul contului și opțiuni pentru companii.</p>
                     </div>
-                    <Badge variant={user.role === 'premium' ? 'warning' : 'primary'} className="w-fit">
-                      {user.role === 'premium' ? 'Premium' : 'Gratuit'}
+                    <Badge
+                      variant={
+                        normalizeSubscriptionTier(user.subscriptionTier) === "free"
+                          ? "primary"
+                          : "warning"
+                      }
+                      className="w-fit"
+                    >
+                      {subscriptionTierLabel(user.subscriptionTier)}
                     </Badge>
                   </div>
                   <p className="mb-4 text-sm leading-relaxed text-zinc-400">
-                    {user.role === 'premium'
-                      ? 'Ai acces la promovari prioritare si suport dedicat.'
-                      : 'Treci la Premium pentru mai multa vizibilitate si beneficii.'}
+                    {normalizeSubscriptionTier(user.subscriptionTier) === "free"
+                      ? "Contul tău este pe nivelul gratuit."
+                      : normalizeSubscriptionTier(user.subscriptionTier) === "business"
+                        ? "Cont Business activ. Detaliile comerciale se stabilesc pe baza necesarului."
+                        : "Cont Premium activ. Detaliile comerciale se stabilesc pe baza necesarului."}
                   </p>
-                  {user.role !== 'premium' && (
-                    <Link href="/dashboard/billing">
-                      <Button variant="primary" size="sm">Upgrade la Premium</Button>
-                    </Link>
+                  {shouldOfferBusinessDiscovery(user.subscriptionTier) && (
+                    <div className="space-y-2">
+                      <Link
+                        href="/business"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary-500/30 bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white shadow-md shadow-black/25 transition hover:bg-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35"
+                        data-testid="dashboard-business-cta"
+                      >
+                        Descoperă ClickAnunț Business
+                      </Link>
+                      <p className="text-xs leading-relaxed text-zinc-500">
+                        Soluții pentru dealeri și companii, stabilite în funcție de necesar.
+                      </p>
+                    </div>
                   )}
                 </Card.Body>
               </Card>

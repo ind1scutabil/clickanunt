@@ -35,6 +35,10 @@ export async function GET(request: NextRequest) {
         promotionDiscountPercent: true,
         promotionBenefits: true,
         twoFactorEnabled: true,
+        subscriptionTier: true,
+        subscriptionExpiresAt: true,
+        subscriptionRenewsAt: true,
+        freeBoostsRemaining: true,
       },
     });
 

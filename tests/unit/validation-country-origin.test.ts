@@ -1,11 +1,14 @@
 import { listingCreateSchema } from "@/lib/security/validation-schemas";
 
 describe("listingCreateSchema countryOfOrigin", () => {
-  const base = {
+    const base = {
     title: "BMW Seria 3 320d test",
     description: "Descriere suficient de lunga pentru validare.",
     category: "Auto, moto și ambarcațiuni",
+    subcategory: "Autoturisme",
     priceAmount: 10000,
+    county: "București",
+    city: "Sectorul 1",
     photos: ["/uploads/listings/x/original/a.jpg"],
   };
 

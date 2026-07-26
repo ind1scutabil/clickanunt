@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import { ALL_CATEGORIES, CAR_MAKES_AND_MODELS, ROMANIAN_COUNTIES, CITIES_BY_COUNTY, CATEGORIES } from "@/lib/carData";
 import { getAttributeDefsFor, type AttributeFieldDef } from "@/lib/taxonomy";
 import {
+  emptyFieldsAfterCategoryChange,
+  isSubcategoryRequired,
+} from "@/lib/listing-attributes-sanitize";
+import { getPriceFieldSemantics } from "@/lib/listing-price-semantics";
+import {
   postJsonWithAuthRefresh,
   validateServerAuthSession,
 } from "@/lib/admin-fetch";
@@ -15,6 +20,7 @@ import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/li
 import { appendAutoFieldsToListingPayload } from "@/lib/listing-auto-create-payload";
 import CountryOfOriginSelect from "@/app/components/listing/CountryOfOriginSelect";
 import CategoryPicker from "@/app/components/listing/CategoryPicker";
+import { getListingTitleFeedback } from "@/lib/listing-title-feedback";
 
 // Types
 interface DraftListing {
@@ -118,7 +124,7 @@ const DRAFT_VERSION = "4"; // Increment when schema changes
 
 export default function OptimizedListingFlow() {
   const router = useRouter();
-  
+
   // Core state
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -131,7 +137,7 @@ export default function OptimizedListingFlow() {
     clearDraftUploadSessionId();
     setUploadSessionId(getOrCreateDraftUploadSessionId());
   }, []);
-  
+
   // Form data with draft support
   const [draft, setDraft] = useState<DraftListing>(INITIAL_DRAFT);
 
@@ -161,7 +167,7 @@ export default function OptimizedListingFlow() {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
-    
+
     // If ?new parameter exists OR no explicit ?continue parameter, clear everything and start fresh
     if (params.has("new") || !params.has("continue")) {
       console.log("✅ Starting fresh listing (no ?continue parameter)");
@@ -277,31 +283,41 @@ export default function OptimizedListingFlow() {
   // Validation rules
   const validateStep = useCallback((step: number): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (step === 1) {
       if (!draft.title.trim()) newErrors.title = "Titlul este obligatoriu";
       if (draft.title.trim().length > 0 && draft.title.trim().length < 5) {
         newErrors.title = "Titlul trebuie să aibă minim 5 caractere";
       }
       if (!draft.category) newErrors.category = "Selectează categoria";
-      if (!draft.priceAmount || draft.priceAmount <= 0) newErrors.priceAmount = "Prețul trebuie să fie mai mare de 0";
+      if (
+        draft.category &&
+        isSubcategoryRequired(draft.category) &&
+        !draft.subcategory.trim()
+      ) {
+        newErrors.subcategory = "Selectează subcategoria";
+      }
+      if (!draft.priceAmount || draft.priceAmount <= 0) {
+        const priceLabel = getPriceFieldSemantics(draft.category).label;
+        newErrors.priceAmount = `${priceLabel} trebuie să fie mai mare de 0`;
+      }
       if (!draft.county) newErrors.county = "Selectează județul";
       if (!draft.city) newErrors.city = "Selectează orașul";
       if (draft.photos.length === 0) newErrors.photos = "Adaugă minim o poză";
     }
-    
+
     if (step === 2) {
       if (!draft.description.trim() || draft.description.length < 10) {
         newErrors.description = "Descrierea trebuie să aibă minim 10 caractere";
       }
     }
-    
+
     if (step === 3) {
       if (!draft.phone.trim() || draft.phone.length < 10) {
         newErrors.phone = "Numărul de telefon este invalid";
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [draft]);
@@ -309,7 +325,7 @@ export default function OptimizedListingFlow() {
   // Handle quick input (Step 0)
   const handleQuickSubmit = () => {
     if (!quickInput.trim()) return;
-    
+
     const detectedCategory = detectCategory(quickInput);
     setDraft(prev => ({
       ...prev,
@@ -317,7 +333,7 @@ export default function OptimizedListingFlow() {
       category: detectedCategory
     }));
     setCurrentStep(1);
-    
+
     // Track metric
     trackMetric("quick_input_used", { input: quickInput, detected: detectedCategory });
   };
@@ -325,29 +341,48 @@ export default function OptimizedListingFlow() {
   // Upload image
   const handleImageUpload = async (files: FileList) => {
     if (!files || files.length === 0) return;
-    
+
     const remainingSlots = 20 - draft.photos.length;
     if (remainingSlots <= 0) {
       setErrors(prev => ({ ...prev, photos: "Ai atins limita de 20 poze" }));
       return;
     }
-    
+
     setUploadingImage(true);
     const newPhotos: string[] = [];
     const uploadErrors: string[] = [];
-    
+
     try {
       const filesToUpload = Math.min(files.length, remainingSlots);
       console.log(`📸 Încep upload pentru ${filesToUpload} poze...`);
-      
+
       for (let i = 0; i < filesToUpload; i++) {
         const file = files[i];
         console.log(`📸 Procesez fișier ${i+1}: ${file.name} (${file.type}, ${file.size} bytes)`);
-        
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
+
+        // Validate file type (HEIC/HEIF explicitly unsupported — no safe conversion in allowlist)
+        const mime = (file.type || "").toLowerCase();
+        const nameLower = file.name.toLowerCase();
+        const isHeic =
+          mime === "image/heic" ||
+          mime === "image/heif" ||
+          nameLower.endsWith(".heic") ||
+          nameLower.endsWith(".heif");
+        if (isHeic) {
+          uploadErrors.push(
+            `${file.name}: Formatul HEIC nu este acceptat momentan. Alege o fotografie JPEG, PNG sau WebP.`
+          );
+          continue;
+        }
+        if (!mime.startsWith("image/")) {
           console.error(`❌ Fișierul ${file.name} nu este imagine: ${file.type}`);
           uploadErrors.push(`${file.name}: nu este imagine`);
+          continue;
+        }
+        if (!["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(mime)) {
+          uploadErrors.push(
+            `${file.name}: tip nesuportat. Folosește JPEG, PNG sau WebP.`
+          );
           continue;
         }
 
@@ -357,18 +392,18 @@ export default function OptimizedListingFlow() {
           uploadErrors.push(`${file.name}: prea mare (max 10MB)`);
           continue;
         }
-        
+
         try {
           console.log(`🔄 Convertesc în base64: ${file.name}`);
           const b64 = await fileToBase64(file);
-          
+
           // Validate base64 conversion
           if (!b64 || b64.length === 0) {
             console.error(`❌ Conversie base64 eșuată: ${file.name}`);
             uploadErrors.push(`${file.name}: eroare conversie`);
             continue;
           }
-          
+
           console.log(`✅ Base64 convertit, lungime: ${b64.length} chars`);
 
           // Extract safe filename extension - detect from MIME type for reliability
@@ -377,7 +412,7 @@ export default function OptimizedListingFlow() {
           else if (file.type === 'image/webp') safeExt = 'webp';
           else if (file.type === 'image/gif') safeExt = 'gif';
           else if (file.type === 'image/svg+xml') safeExt = 'svg';
-          
+
           const safeFilename = `photo_${Date.now()}_${i}.${safeExt}`;
 
           console.log(`📤 Trimit la API (fără filename)`);
@@ -390,7 +425,7 @@ export default function OptimizedListingFlow() {
           console.log(`📥 Răspuns API status: ${res.status}`);
           const data = await res.json();
           console.log(`📥 Răspuns API data:`, data);
-          
+
           if (res.ok && data.url) {
             console.log(`✅ Upload reușit: ${data.url}`);
             newPhotos.push(data.url);
@@ -404,14 +439,14 @@ export default function OptimizedListingFlow() {
           uploadErrors.push(`${file.name}: ${fileError.message || 'Eroare upload'}`);
         }
       }
-      
+
       if (newPhotos.length > 0) {
         console.log(`✅ Adaug ${newPhotos.length} poze în draft`);
         setDraft(prev => ({
           ...prev,
           photos: [...prev.photos, ...newPhotos]
         }));
-        
+
         // Clear error if at least some uploaded successfully
         setErrors(prev => ({ ...prev, photos: "" }));
       }
@@ -432,24 +467,24 @@ export default function OptimizedListingFlow() {
   // Handle video upload
   const handleVideoUpload = async (file: File) => {
     if (!file) return;
-    
+
     // Validate file type
     if (!file.type.startsWith('video/')) {
       setErrors(prev => ({ ...prev, video: "Fișierul trebuie să fie un video (MP4, WebM, etc.)" }));
       return;
     }
-    
+
     // Validate file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
       setErrors(prev => ({ ...prev, video: "Videoclipul nu poate depăși 50MB" }));
       return;
     }
-    
+
     setUploadingImage(true);
-    
+
     try {
       const b64 = await fileToBase64(file);
-      
+
       // Validate base64 conversion
       if (!b64 || b64.length === 0) {
         setErrors(prev => ({ ...prev, video: "Eroare la conversie video" }));
@@ -462,13 +497,13 @@ export default function OptimizedListingFlow() {
       if (file.type === 'video/webm') safeExt = 'webm';
       else if (file.type === 'video/quicktime') safeExt = 'mov';
       else if (file.type === 'video/x-msvideo') safeExt = 'avi';
-      
+
       const res = await postJsonWithAuthRefresh("/api/uploads", {
         data: b64,
         type: "video",
         listingId: uploadSessionId,
       });
-      
+
       const data = await res.json();
       if (res.ok && data.url) {
         setDraft(prev => ({ ...prev, video: data.url }));
@@ -491,7 +526,7 @@ export default function OptimizedListingFlow() {
       photos: prev.photos.filter((_, i) => i !== index)
     }));
   };
-  
+
   // Remove video
   const removeVideo = () => {
     setDraft(prev => ({ ...prev, video: undefined }));
@@ -517,7 +552,7 @@ export default function OptimizedListingFlow() {
     publishInFlightRef.current = true;
     setLoading(true);
     const startTime = Date.now();
-    
+
     try {
       const payload: any = {
         title: draft.title?.trim(),
@@ -531,7 +566,6 @@ export default function OptimizedListingFlow() {
         city: draft.city,
         photos: draft.photos,
         contactPhone: draft.phone,
-        allowMessages: draft.allowMessages,
         uploadSessionId,
         ...(Object.keys(draft.attributes).length > 0 ? { attributes: draft.attributes } : {}),
       };
@@ -560,6 +594,12 @@ export default function OptimizedListingFlow() {
 
       // Add auto-specific fields
       if (isAutoCategory) {
+        if (draft.make?.trim() && !draft.model?.trim()) {
+          setErrors({ model: "Adaugă modelul pentru categoria Auto" });
+          setShowGeneralError(true);
+          setLoading(false);
+          return;
+        }
         payload.make = draft.make || null;
         payload.model = draft.model || null;
 
@@ -581,7 +621,7 @@ export default function OptimizedListingFlow() {
 
         appendAutoFieldsToListingPayload(payload, draft);
       }
-    
+
       const session = await validateServerAuthSession();
       if (!session.ok) {
         setErrors({
@@ -611,9 +651,9 @@ export default function OptimizedListingFlow() {
       }
 
       const data = await res.json();
-      
+
       console.log('📥 Răspuns API:', data);
-      
+
       if (!res.ok) {
         const errorMsg = data?.error || data?.reason || data?.message || "Eroare necunoscută la publicare";
         console.error('❌ Eroare API:', errorMsg, data);
@@ -629,7 +669,7 @@ export default function OptimizedListingFlow() {
         photoCount: draft.photos.length
       });
 
-      // Clear draft - ALWAYS on success
+      // Clear draft only after confirmed server-side create (idempotent session may return 200).
       localStorage.removeItem("listingDraft");
       localStorage.removeItem("listingDraftVersion");
       resetUploadSessionId();
@@ -641,18 +681,29 @@ export default function OptimizedListingFlow() {
       setTouched({});
       setQuickInput("");
       setForceNewDraft(false);
-      
-      // Redirect to listing
-      router.push(`/listings/${data.listing?.id || data.id}`);
-      
+
+      const listingId = data.listing?.id || data.id;
+      if (!listingId) {
+        setErrors({
+          general:
+            "Anunțul a fost creat, dar răspunsul nu conține ID. Verifică dashboardul „Anunțurile mele”.",
+        });
+        setShowGeneralError(true);
+        return;
+      }
+
+      const createdStatus = String(data.listing?.status ?? data.status ?? "").toLowerCase();
+      const qs =
+        createdStatus === "pending"
+          ? "justCreated=1&publishState=pending"
+          : "justCreated=1&publishState=active";
+      router.push(`/listings/${listingId}?${qs}`);
+
     } catch (error: any) {
       console.error('❌ EROARE FINALĂ:', error);
       const errorMessage = error?.message || "Eroare la publicare. Te rugăm să încerci din nou.";
-      
-      // Clear draft even on error - user can try again fresh
-      localStorage.removeItem("listingDraft");
-      localStorage.removeItem("listingDraftVersion");
-      resetUploadSessionId();
+
+      // Keep draft + uploadSessionId so retry / idempotent replay can succeed.
       setErrors({ general: errorMessage });
       setShowGeneralError(true);
     } finally {
@@ -680,7 +731,7 @@ export default function OptimizedListingFlow() {
   const trackMetric = (event: string, data: any) => {
     // Send to analytics
     console.log("[METRIC]", event, data);
-    
+
     // You can integrate with Google Analytics, Mixpanel, etc.
     if (typeof window !== "undefined" && (window as any).gtag) {
       (window as any).gtag("event", event, data);
@@ -691,7 +742,7 @@ export default function OptimizedListingFlow() {
   const updateField = (field: keyof DraftListing, value: any) => {
     setDraft(prev => ({ ...prev, [field]: value }));
     setTouched(prev => ({ ...prev, [field]: true }));
-    
+
     // Clear error on change
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }));
@@ -882,10 +933,28 @@ export default function OptimizedListingFlow() {
                   errors.title ? "border-red-500" : "border-gray-800"
                 } focus:border-[var(--accent-primary)] text-white outline-none transition`}
               />
-              {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
-              {draft.title.length > 0 && !errors.title && (
-                <p className="text-green-500 text-sm mt-1">✓ Titlu perfect!</p>
-              )}
+              {errors.title && <p className="text-red-500 text-sm mt-1" role="alert">{errors.title}</p>}
+              {(() => {
+                if (errors.title) return null;
+                const feedback = getListingTitleFeedback({
+                  title: draft.title,
+                  isAutoCategory,
+                  make: draft.make,
+                  model: draft.model,
+                });
+                if (!feedback) return null;
+                const color =
+                  feedback.tone === "error"
+                    ? "text-red-400"
+                    : feedback.tone === "hint"
+                      ? "text-amber-400"
+                      : "text-zinc-400";
+                return (
+                  <p className={`text-sm mt-1 ${color}`} data-testid="title-feedback">
+                    {feedback.message}
+                  </p>
+                );
+              })()}
             </div>
 
             {/* Category */}
@@ -897,12 +966,48 @@ export default function OptimizedListingFlow() {
                 selectedCategory={draft.category}
                 selectedSubcategory={draft.subcategory}
                 onSelect={(cat, sub) => {
-                  setDraft(prev => ({ ...prev, category: cat, subcategory: sub, attributes: {} }));
-                  if (errors.category) setErrors(prev => ({ ...prev, category: "" }));
+                  setDraft((prev) => {
+                    const categoryChanged = prev.category && prev.category !== cat;
+                    if (categoryChanged) {
+                      const hasData =
+                        Object.keys(prev.attributes).length > 0 ||
+                        Boolean(prev.make) ||
+                        Boolean(prev.model) ||
+                        Boolean(prev.year) ||
+                        Boolean(prev.mileage);
+                      if (
+                        hasData &&
+                        typeof window !== "undefined" &&
+                        !window.confirm(
+                          "Schimbarea categoriei resetează câmpurile specifice (marcă, atribute etc.). Continui?"
+                        )
+                      ) {
+                        return prev;
+                      }
+                      return {
+                        ...prev,
+                        category: cat,
+                        ...emptyFieldsAfterCategoryChange(),
+                        subcategory: sub || "",
+                      };
+                    }
+                    return {
+                      ...prev,
+                      category: cat,
+                      subcategory: sub || "",
+                      attributes: sub !== prev.subcategory ? {} : prev.attributes,
+                    };
+                  });
+                  if (errors.category || errors.subcategory) {
+                    setErrors((prev) => ({ ...prev, category: "", subcategory: "" }));
+                  }
                 }}
-                className={errors.category ? "ring-2 ring-red-500/50" : ""}
+                className={errors.category || errors.subcategory ? "ring-2 ring-red-500/50" : ""}
               />
               {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
+              {errors.subcategory && (
+                <p className="text-red-500 text-sm mt-1">{errors.subcategory}</p>
+              )}
             </div>
 
             {/* Auto-specific: Make & Model */}
@@ -1028,15 +1133,24 @@ export default function OptimizedListingFlow() {
             {/* Price */}
             <div>
               <label className="block text-white font-semibold mb-2">
-                Preț <span className="text-red-500">*</span>
+                {getPriceFieldSemantics(draft.category).label}{" "}
+                <span className="text-red-500">*</span>
               </label>
+              {getPriceFieldSemantics(draft.category).hint ? (
+                <p className="text-xs text-amber-400/90 mb-2">
+                  {getPriceFieldSemantics(draft.category).hint}
+                </p>
+              ) : null}
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <input
                     type="number"
                     value={draft.priceAmount}
                     onChange={(e) => updateField("priceAmount", e.target.value ? Number(e.target.value) : "")}
-                    placeholder="0"
+                    placeholder="Introdu valoarea"
+                    min={0}
+                    step={1}
+                    inputMode="decimal"
                     className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
                       errors.priceAmount ? "border-red-500" : "border-gray-800"
                     } focus:border-[var(--accent-primary)] text-white outline-none transition`}
@@ -1045,10 +1159,11 @@ export default function OptimizedListingFlow() {
                 <select
                   value={draft.priceCurrency}
                   onChange={(e) => updateField("priceCurrency", e.target.value as "RON" | "EUR")}
+                  aria-label="Monedă"
                   className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition cursor-pointer font-semibold"
                 >
-                  <option value="RON">💵 RON</option>
-                  <option value="EUR">💶 EUR</option>
+                  <option value="RON">RON</option>
+                  <option value="EUR">EUR</option>
                 </select>
               </div>
               {errors.priceAmount && <p className="text-red-500 text-sm mt-1">{errors.priceAmount}</p>}
@@ -1103,7 +1218,7 @@ export default function OptimizedListingFlow() {
               <label className="block text-white font-semibold mb-2">
                 Poze <span className="text-red-500">*</span> (minim 1, maxim 20)
               </label>
-              
+
               <div className="grid grid-cols-4 gap-4 mb-4">
                 {draft.photos.map((url, idx) => (
                   <div key={idx} className="relative group aspect-square">
@@ -1128,13 +1243,13 @@ export default function OptimizedListingFlow() {
                     </button>
                   </div>
                 ))}
-                
+
                 {draft.photos.length < 20 && (
                   <label className="aspect-square border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[var(--accent-primary)] transition">
                     <input
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
                       className="hidden"
                     />
@@ -1149,51 +1264,14 @@ export default function OptimizedListingFlow() {
                   </label>
                 )}
               </div>
-              
+
               {errors.photos && <p className="text-red-500 text-sm">{errors.photos}</p>}
               {draft.photos.length > 0 && !errors.photos && (
                 <p className="text-green-500 text-sm">✓ {draft.photos.length}/20 {draft.photos.length === 1 ? 'poză adăugată' : 'poze adăugate'}</p>
               )}
             </div>
-            
-            {/* Video */}
-            <div>
-              <label className="block text-white font-semibold mb-2">
-                Videoclip (opțional, max 50MB)
-              </label>
-              
-              {draft.video ? (
-                <div className="relative group">
-                  <video src={draft.video} className="w-full rounded-xl" controls />
-                  <button
-                    onClick={removeVideo}
-                    className="absolute top-4 right-4 px-4 py-2 bg-red-500 rounded-lg text-white font-bold hover:bg-red-600 transition"
-                  >
-                    Șterge video
-                  </button>
-                </div>
-              ) : (
-                <label className="block border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-[var(--accent-primary)] transition">
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => e.target.files?.[0] && handleVideoUpload(e.target.files[0])}
-                    className="hidden"
-                  />
-                  {uploadingImage ? (
-                    <div className="text-gray-400">⏳ Încărcare video...</div>
-                  ) : (
-                    <>
-                      <div className="text-4xl mb-2">🎥</div>
-                      <p className="text-white font-semibold">Adaugă un videoclip</p>
-                      <p className="text-gray-400 text-sm mt-1">Maximum 50MB</p>
-                    </>
-                  )}
-                </label>
-              )}
-              
-              {errors.video && <p className="text-red-500 text-sm mt-2">{errors.video}</p>}
-            </div>
+
+            {/* Video: hidden — Listing has no video column; upload UI would discard files. */}
 
             {/* Navigation */}
             <div className="flex gap-4 pt-4">
@@ -1341,7 +1419,7 @@ export default function OptimizedListingFlow() {
                 {/* Extended car details - matching auto1.com */}
                 <div className="border-t border-gray-700 pt-6">
                   <h4 className="text-lg font-bold text-white mb-4">Detalii suplimentare</h4>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-white font-semibold mb-2">Putere (CP)</label>
@@ -1601,13 +1679,13 @@ export default function OptimizedListingFlow() {
                     </button>
                   </div>
                 ))}
-                
+
                 {draft.photos.length < 20 && (
                   <label className="aspect-square border-2 border-dashed border-gray-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[var(--accent-primary)] transition">
                     <input
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => e.target.files && handleImageUpload(e.target.files)}
                       className="hidden"
                     />
@@ -1651,7 +1729,7 @@ export default function OptimizedListingFlow() {
             {/* Contact Info */}
             <div className="card p-8 space-y-6">
               <h3 className="text-xl font-bold text-white">Date de contact</h3>
-              
+
               <div>
                 <label className="block text-white font-semibold mb-2">
                   Telefon <span className="text-red-500">*</span>
@@ -1685,7 +1763,7 @@ export default function OptimizedListingFlow() {
             {/* Preview */}
             <div className="card p-8">
               <h3 className="text-xl font-bold text-white mb-4">Preview anunț</h3>
-              
+
               <div className="bg-[var(--bg-secondary)] rounded-xl p-6">
                 {/* Image preview */}
                 {draft.photos.length > 0 && (
@@ -1697,13 +1775,15 @@ export default function OptimizedListingFlow() {
                     />
                   </div>
                 )}
-                
+
                 {/* Title & Price */}
                 <h4 className="text-2xl font-bold text-white mb-2">{draft.title || "Titlu anunț"}</h4>
                 <div className="text-3xl font-black text-[var(--accent-primary)] mb-4">
-                  {draft.priceAmount ? `${draft.priceAmount} RON` : "0 RON"}
+                  {draft.priceAmount !== "" && draft.priceAmount != null
+                    ? `${draft.priceAmount} ${draft.priceCurrency}`
+                    : "—"}
                 </div>
-                
+
                 {/* Details */}
                 <div className="space-y-2 text-gray-400">
                   <p>📍 {draft.city}, {draft.county}</p>
@@ -1712,7 +1792,7 @@ export default function OptimizedListingFlow() {
                     <p>🚗 {draft.make} {draft.model}</p>
                   )}
                 </div>
-                
+
                 {/* Description preview */}
                 {draft.description && (
                   <div className="mt-4 pt-4 border-t border-gray-800">
@@ -1740,15 +1820,15 @@ export default function OptimizedListingFlow() {
                 {serverSessionOk === null
                   ? "Se verifică sesiunea..."
                   : loading
-                    ? "Se publică..."
-                    : "🚀 Publică anunțul GRATUIT"}
+                    ? "Se publică…"
+                    : "Publică anunțul"}
               </button>
-              
+
               <p className="text-center text-gray-400 text-sm mt-4">
-                ✓ Anunțul va fi verificat automat și publicat instant<br/>
-                ✓ Complet gratuit, fără costuri ascunse
+                Anunțul poate necesita moderare înainte de a apărea public.<br/>
+                Publicarea de bază este gratuită.
               </p>
-              
+
               <div className="flex gap-4 mt-6">
                 <button
                   onClick={prevStep}

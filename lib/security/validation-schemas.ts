@@ -17,6 +17,16 @@ import {
   PASSWORD_UPPERCASE_RE,
 } from './password-rules';
 import { VALID_CATEGORY_LABELS, isValidSubcategory } from '@/lib/taxonomy';
+import {
+  assertAutoMakeModelPair,
+  isCityInCounty,
+  isKnownCounty,
+} from '@/lib/listing-location-make-validation';
+import {
+  findIncompatibleAutoTopLevelFields,
+  isSubcategoryRequired,
+  sanitizeListingAttributes,
+} from '@/lib/listing-attributes-sanitize';
 
 /**
  * URL pentru foto la create/edit/listing draft: permite https/http (CDN/stocare) și căi interne de upload
@@ -252,19 +262,21 @@ const listingCreateBaseSchema = z.object({
   ),
   category: z.string().min(1, 'Categorie necesară'),
   subcategory: z.string().optional().nullable(),
-  priceAmount: z.coerce.number().min(0, 'Preț minim 0').max(99999999, 'Preț prea mare'),
+  /** Align with publish wizard: price must be > 0 (free listings not supported in create flow). */
+  priceAmount: z.coerce.number().gt(0, 'Prețul trebuie să fie mai mare de 0').max(99999999, 'Preț prea mare'),
   priceCurrency: z.enum(['RON', 'EUR', 'USD']).default('RON'),
   condition: z.enum(['new', 'used', 'refurbished', 'for_parts']).optional().nullable(),
   year: z.coerce.number().int().min(1900).max(new Date().getFullYear() + 1).optional().nullable(),
   mileage: z.coerce.number().int().min(0).max(9999999).optional().nullable(),
-  city: z.string().max(100).optional().nullable(),
-  county: z.string().max(100).optional().nullable(),
+  city: z.string().min(1, 'Orașul este obligatoriu').max(100),
+  county: z.string().min(1, 'Județul este obligatoriu').max(100),
   photos: z.array(listingSubmittedPhotoUrlSchema).min(1, 'Minim o imagine').max(20, 'Maxim 20 imagini'),
-  video: z.string().url().optional().nullable(),
+  // video intentionally omitted — Listing has no video column; strict schema → 400 if sent
   contactPhone: z.preprocess(
     (v) => (v === '' || v === null || v === undefined ? undefined : typeof v === 'string' ? v.trim() : v),
     phoneOptionalSchema
   ),
+  /** Accepted for forward-compat; Listing has no allowMessages column — ignored on create. */
   allowMessages: z.boolean().optional(),
   make: z.string().max(100).optional().nullable(),
   model: z.string().max(100).optional().nullable(),
@@ -310,12 +322,85 @@ export const listingCreateSchema = listingCreateBaseSchema.superRefine((data, ct
     });
     return;
   }
-  if (data.subcategory) {
-    if (!isValidSubcategory(data.category, data.subcategory)) {
+
+  const sub = typeof data.subcategory === 'string' ? data.subcategory.trim() : '';
+  if (isSubcategoryRequired(data.category)) {
+    if (!sub) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Subcategoria "${data.subcategory}" nu este validă pentru categoria "${data.category}"`,
+        message: 'Subcategoria este obligatorie pentru această categorie',
         path: ['subcategory'],
+      });
+    } else if (!isValidSubcategory(data.category, sub)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Subcategoria "${sub}" nu este validă pentru categoria "${data.category}"`,
+        path: ['subcategory'],
+      });
+    }
+  } else if (sub && !isValidSubcategory(data.category, sub)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Subcategoria "${sub}" nu este validă pentru categoria "${data.category}"`,
+      path: ['subcategory'],
+    });
+  }
+
+  if (!isKnownCounty(data.county)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Județ invalid',
+      path: ['county'],
+    });
+  } else if (!isCityInCounty(data.county, data.city)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Orașul nu aparține județului selectat',
+      path: ['city'],
+    });
+  }
+
+  const makeModel = assertAutoMakeModelPair({
+    category: data.category,
+    make: data.make,
+    model: data.model,
+  });
+  if (!makeModel.ok) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: makeModel.message,
+      path: [makeModel.path],
+    });
+  }
+
+  const incompatible = findIncompatibleAutoTopLevelFields(data.category, {
+    make: data.make,
+    model: data.model,
+    vin: data.vin,
+    year: data.year,
+    mileage: data.mileage,
+    fuel: data.fuel,
+    transmission: data.transmission,
+  });
+  for (const field of incompatible) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Câmpul "${field}" nu este permis pentru categoria "${data.category}"`,
+      path: [field],
+    });
+  }
+
+  if (data.attributes !== undefined) {
+    const { strippedKeys } = sanitizeListingAttributes(
+      data.category,
+      sub || null,
+      data.attributes
+    );
+    if (strippedKeys.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Atribute incompatibile cu categoria: ${strippedKeys.join(', ')}`,
+        path: ['attributes'],
       });
     }
   }
@@ -366,6 +451,9 @@ export const listingEditSchema = listingCreateBaseSchema.partial().extend({
   year: listingEditYearSchema,
   fuel: listingEditFuelSchema,
   transmission: listingEditTransmissionSchema,
+  /** Optional on edit for legacy rows; if either is sent, both must form a valid pair. */
+  city: z.string().min(1, 'Orașul este obligatoriu').max(100).optional().nullable(),
+  county: z.string().min(1, 'Județul este obligatoriu').max(100).optional().nullable(),
 }).strict().superRefine((data, ctx) => {
   if (data.category && !VALID_CATEGORY_LABELS.has(data.category)) {
     ctx.addIssue({
@@ -375,12 +463,99 @@ export const listingEditSchema = listingCreateBaseSchema.partial().extend({
     });
     return;
   }
-  if (data.subcategory && data.category) {
-    if (!isValidSubcategory(data.category, data.subcategory)) {
+
+  const categoryForTaxonomy = data.category;
+  if (categoryForTaxonomy) {
+    const subRaw = data.subcategory;
+    const subProvided = subRaw !== undefined;
+    const sub = typeof subRaw === 'string' ? subRaw.trim() : '';
+    if (subProvided && isSubcategoryRequired(categoryForTaxonomy)) {
+      if (!sub) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Subcategoria este obligatorie pentru această categorie',
+          path: ['subcategory'],
+        });
+      } else if (!isValidSubcategory(categoryForTaxonomy, sub)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Subcategoria "${sub}" nu este validă pentru categoria "${categoryForTaxonomy}"`,
+          path: ['subcategory'],
+        });
+      }
+    } else if (sub && !isValidSubcategory(categoryForTaxonomy, sub)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Subcategoria "${data.subcategory}" nu este validă pentru categoria "${data.category}"`,
+        message: `Subcategoria "${sub}" nu este validă pentru categoria "${categoryForTaxonomy}"`,
         path: ['subcategory'],
+      });
+    }
+
+    const incompatible = findIncompatibleAutoTopLevelFields(categoryForTaxonomy, {
+      make: data.make,
+      model: data.model,
+      vin: data.vin,
+      year: data.year,
+      mileage: data.mileage,
+      fuel: data.fuel,
+      transmission: data.transmission,
+    });
+    for (const field of incompatible) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Câmpul "${field}" nu este permis pentru categoria "${categoryForTaxonomy}"`,
+        path: [field],
+      });
+    }
+
+    // Attributes allowlist for PATCH is enforced in the route with effective
+    // category/subcategory from the existing listing (see validateListingPatchTaxonomy).
+    // Schema-only checks would miss the bypass when subcategory is omitted.
+  }
+
+  const county = data.county ?? undefined;
+  const city = data.city ?? undefined;
+  const countySet = county != null && String(county).trim() !== '';
+  const citySet = city != null && String(city).trim() !== '';
+  if (countySet || citySet) {
+    if (!countySet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Completează județul împreună cu orașul',
+        path: ['county'],
+      });
+    } else if (!citySet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Completează orașul împreună cu județul',
+        path: ['city'],
+      });
+    } else if (!isKnownCounty(String(county))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Județ invalid',
+        path: ['county'],
+      });
+    } else if (!isCityInCounty(String(county), String(city))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Orașul nu aparține județului selectat',
+        path: ['city'],
+      });
+    }
+  }
+
+  if (data.category) {
+    const makeModel = assertAutoMakeModelPair({
+      category: data.category,
+      make: data.make,
+      model: data.model,
+    });
+    if (!makeModel.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: makeModel.message,
+        path: [makeModel.path],
       });
     }
   }

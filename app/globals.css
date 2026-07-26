@@ -78,6 +78,14 @@
   --text-heading-weight: 600;
 }
 
+/* When MobileBottomNav is hidden (publish/edit), drop reserved bottom padding. */
+html[data-hide-mobile-bottom-nav="1"] #main-content {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+html[data-hide-mobile-bottom-nav="1"] footer {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+
 /*
  * Hero background height is FIXED (not tied to section content) so object-cover crop never
  * “jumps” when previews / dynamic blocks mount below — eliminates post-load zoom/crop shift.

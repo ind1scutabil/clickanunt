@@ -12,7 +12,7 @@ import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
 import { isListingSaved, toggleSavedListingId } from '@/lib/recent-listings-storage';
-import { formatListingPrice } from '@/lib/format-listing-price';
+import { formatCategoryAwarePriceLine } from '@/lib/listing-price-semantics';
 
 const motionEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -44,6 +44,7 @@ export interface ListingCardListing {
   views: number;
   city?: string | null;
   county?: string | null;
+  attributes?: Record<string, unknown> | null;
   owner?: {
     id: string;
     businessName?: string;
@@ -315,9 +316,22 @@ export function ListingCard({
         {locationLabel ? <p className={locationClass}>{locationLabel}</p> : null}
 
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-          <span className={priceClass}>
-            {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
-          </span>
+          {(() => {
+            const line = formatCategoryAwarePriceLine({
+              categoryLabel: listing.category,
+              priceAmount: listing.priceAmount,
+              priceCurrency: listing.priceCurrency,
+              attributes: listing.attributes,
+            });
+            return (
+              <>
+                <span className={priceClass}>{line.primary}</span>
+                {line.suffix ? (
+                  <span className="text-[10px] font-medium opacity-70 sm:text-xs">{line.suffix}</span>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
 
         {showMetaRow ? (
