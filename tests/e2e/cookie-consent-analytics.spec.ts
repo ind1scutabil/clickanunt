@@ -360,4 +360,116 @@ test.describe("cookie consent gates analytics", () => {
       expect(sawCollect || (await countPageViews(page)) >= 1).toBe(true);
     }
   });
+
+  test("withdraw clears _ga/_ga_* host cookies; keeps consent + non-GA; re-accept works", async ({
+    page,
+    baseURL,
+  }) => {
+    const analyticsHits: string[] = [];
+    let trackAnalytics = false;
+    page.on("request", (req) => {
+      if (!trackAnalytics) return;
+      const u = req.url();
+      if (/googletagmanager\.com\/gtag\/js|\/g\/collect|clarity\.ms/i.test(u)) {
+        analyticsHits.push(redact(u));
+      }
+    });
+
+    await page.goto(baseURL! + "/", { waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("dialog", { name: "Consimțământ cookie" })
+      .getByRole("button", { name: "Acceptă" })
+      .click();
+    await page.waitForTimeout(3000);
+
+    // Seed host-only GA + non-GA cookies (parent Domain=clickanunt.ro cannot stick on localhost).
+    await page.evaluate(() => {
+      document.cookie = "_ga=GA1.1.test; Path=/";
+      document.cookie = "_ga_C0F3DZEDPG=GS1.1.test; Path=/";
+      document.cookie = "csrf-token=keep-csrf; Path=/";
+      document.cookie = "favorites=keep-fav; Path=/";
+      document.cookie = "my_ga=keep-lookalike; Path=/";
+    });
+
+    await page.locator("footer").getByRole("button", { name: "Setări cookie" }).click();
+    await page
+      .getByRole("dialog", { name: "Setări cookie" })
+      .getByRole("button", { name: "Refuză non-esențiale" })
+      .click();
+
+    await expect
+      .poll(async () =>
+        page.evaluate((key) => {
+          const raw = localStorage.getItem(key);
+          const names = document.cookie
+            .split(";")
+            .map((c) => c.trim().split("=")[0])
+            .filter(Boolean);
+          return {
+            analyticsFalse: typeof raw === "string" && raw.includes('"analytics":false'),
+            hasConsentKey: Boolean(raw),
+            ga: names.filter((n) => n === "_ga" || n.startsWith("_ga_")),
+            csrf: names.includes("csrf-token"),
+            favorites: names.includes("favorites"),
+            lookalike: names.includes("my_ga"),
+          };
+        }, COOKIE_CONSENT_STORAGE_KEY)
+      )
+      .toMatchObject({
+        analyticsFalse: true,
+        hasConsentKey: true,
+        ga: [],
+        csrf: true,
+        favorites: true,
+        lookalike: true,
+      });
+
+    trackAnalytics = true;
+    analyticsHits.length = 0;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(2000);
+    expect(analyticsHits).toEqual([]);
+    const afterReload = await page.evaluate(() => {
+      const names = document.cookie
+        .split(";")
+        .map((c) => c.trim().split("=")[0])
+        .filter(Boolean);
+      return names.filter((n) => n === "_ga" || n.startsWith("_ga_"));
+    });
+    expect(afterReload).toEqual([]);
+
+    // Accept again → GA may recreate cookies
+    await page.locator("footer").getByRole("button", { name: "Setări cookie" }).click();
+    const settings = page.getByRole("dialog", { name: "Setări cookie" });
+    const analyticsBox = settings
+      .locator("li")
+      .filter({ hasText: /^Analitice/ })
+      .locator('input[type="checkbox"]');
+    await expect(analyticsBox).not.toBeChecked();
+    await analyticsBox.check();
+    await settings.getByRole("button", { name: "Salvează" }).click();
+    await page.waitForTimeout(3500);
+    const gtagPresent = await page.evaluate(() =>
+      [...document.scripts].some((s) => /googletagmanager\.com\/gtag\/js/.test(s.src))
+    );
+    expect(gtagPresent).toBe(true);
+
+    // Withdraw again → GA cookies cleared
+    await page.locator("footer").getByRole("button", { name: "Setări cookie" }).click();
+    await page
+      .getByRole("dialog", { name: "Setări cookie" })
+      .getByRole("button", { name: "Refuză non-esențiale" })
+      .click();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const names = document.cookie
+            .split(";")
+            .map((c) => c.trim().split("=")[0])
+            .filter(Boolean);
+          return names.filter((n) => n === "_ga" || n.startsWith("_ga_"));
+        })
+      )
+      .toEqual([]);
+  });
 });
