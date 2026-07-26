@@ -4,37 +4,26 @@ import {
   isCompanyLegalDetailsPublic,
 } from "@/lib/company-config";
 import { getVerifiedBrandSocialLinks } from "@/lib/brand-social-urls";
-import {
-  CATEGORY_LABEL_BY_CANONICAL_SLUG,
-  SEO_HIGHLIGHT_CITY_LABELS,
-} from "@/lib/seo/market-paths";
-import { slugifyRo } from "@/lib/seo/slug";
+import type { FooterIndexableLink } from "@/lib/seo/footer-indexable-links";
 
 const publicCompanyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 
-/** Pillar + secondary categories — only slugs with public hub routes. */
-const FOOTER_SEO_CATEGORY_SLUGS = [
-  "auto",
-  "imobiliare",
-  "electronice",
-  "moda",
-  "casa-si-gradina",
-  "sport",
-  "copii",
-  "animale",
-  "locuri-de-munca",
-  "servicii",
-  "agricultura",
-] as const;
+type FooterProps = {
+  /** When provided (including empty), hub sections render only these links — empty hides the block. */
+  categoryLinks?: FooterIndexableLink[];
+  cityHubLinks?: FooterIndexableLink[];
+};
 
-function shortCatFromSlug(canonicalSlug: string): string {
-  const lab = CATEGORY_LABEL_BY_CANONICAL_SLUG[canonicalSlug];
-  return lab?.split(",")[0]?.trim() ?? canonicalSlug;
-}
-
-export default function Footer() {
+export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}) {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
   const social = getVerifiedBrandSocialLinks();
+  const hubsProvided = categoryLinks !== undefined || cityHubLinks !== undefined;
+  const categories = categoryLinks ?? [];
+  const cityHubs = cityHubLinks ?? [];
+  const showCategoryHubs = hubsProvided && categories.length > 0;
+  const showCityHubs = hubsProvided && cityHubs.length > 0;
+  const showHubStrip = showCategoryHubs || showCityHubs;
+
   return (
     <footer className="mt-auto max-md:pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] border-t border-white/10 bg-neutral-950 text-neutral-400">
       <div className="border-b border-white/[0.06] bg-[#12151c]">
@@ -146,8 +135,13 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🇪🇺 Soluționare Litigii UE
+                <a
+                  href="https://consumer-redress.ec.europa.eu/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors duration-normal ease-premium hover:text-primary-400"
+                >
+                  🇪🇺 Soluționarea alternativă a litigiilor în UE
                 </a>
               </li>
             </ul>
@@ -200,49 +194,55 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-white/10 bg-neutral-950/80">
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
-            Anunțuri populare după categorie și oraș
-          </p>
-          <div className="flex flex-wrap gap-x-10 gap-y-8">
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
-                Categorii
-              </h4>
-              <ul className="flex flex-wrap gap-2">
-                {FOOTER_SEO_CATEGORY_SLUGS.map((slug) => (
-                  <li key={slug}>
-                    <Link
-                      href={`/${slug}`}
-                      className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-primary-400/40 hover:text-primary-50"
-                    >
-                      {shortCatFromSlug(slug)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
-                Auto pe orașe
-              </h4>
-              <ul className="flex flex-wrap gap-2">
-                {SEO_HIGHLIGHT_CITY_LABELS.slice(0, 12).map((city) => (
-                  <li key={city}>
-                    <Link
-                      href={`/auto/${slugifyRo(city)}`}
-                      className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-secondary-400/40 hover:text-secondary-50"
-                    >
-                      {city}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+      {showHubStrip ? (
+        <div className="border-t border-white/10 bg-neutral-950/80">
+          <div className="mx-auto max-w-7xl px-4 py-8">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+              Anunțuri populare după categorie și oraș
+            </p>
+            <div className="flex flex-wrap gap-x-10 gap-y-8">
+              {showCategoryHubs ? (
+                <div>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
+                    Categorii
+                  </h4>
+                  <ul className="flex flex-wrap gap-2">
+                    {categories.map((link) => (
+                      <li key={link.href}>
+                        <Link
+                          href={link.href}
+                          className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-primary-400/40 hover:text-primary-50"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {showCityHubs ? (
+                <div>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-400">
+                    Orașe
+                  </h4>
+                  <ul className="flex flex-wrap gap-2">
+                    {cityHubs.map((link) => (
+                      <li key={link.href}>
+                        <Link
+                          href={link.href}
+                          className="inline-flex rounded-md border border-white/10 px-2.5 py-1 text-xs text-neutral-300 transition-colors hover:border-secondary-400/40 hover:text-secondary-50"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Bottom Bar */}
       <div className="border-t border-white/10">

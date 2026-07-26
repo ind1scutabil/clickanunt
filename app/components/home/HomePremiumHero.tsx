@@ -136,6 +136,7 @@ export function HomePremiumHero({
               {/* Mobile: elastic gap so BMW stays visible; CTAs sit just above tab bar zone */}
               <div className="hero-premium-mobile-gap max-md:flex-1 max-md:min-h-[0.75rem]" aria-hidden />
 
+              {trendingTerms.length > 0 ? (
               <div className="mt-3 hidden max-w-xl md:mt-4 md:block">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 max-md:mb-1.5 max-md:text-[9px] max-md:tracking-[0.14em]">
                   Popular acum
@@ -153,6 +154,7 @@ export function HomePremiumHero({
                   ))}
                 </div>
               </div>
+              ) : null}
 
               <div
                 className="mt-3 hidden max-w-xl flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/[0.08] pt-3 text-[11px] text-zinc-300 md:mt-4 md:flex md:pt-4"

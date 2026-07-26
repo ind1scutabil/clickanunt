@@ -3,17 +3,10 @@ import type { ReactNode } from "react";
 import { ListingJsonLd } from "./ListingJsonLd";
 import { ListingBreadcrumbsNav } from "./ListingBreadcrumbsNav";
 import { ListingRelatedCrawlLinks } from "@/app/components/seo/ListingRelatedCrawlLinks";
+import { formatListingPrice } from "@/lib/format-listing-price";
 import { prisma } from "@/lib/prisma";
 import { createPageMetadata } from "@/lib/seo";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
-
-function formatListingPriceLine(priceAmount: number, priceCurrency: string): string {
-  const major = Math.round(priceAmount / 100);
-  if (priceCurrency === "RON") {
-    return `${major.toLocaleString("ro-RO")} lei`;
-  }
-  return `${(priceAmount / 100).toFixed(2)} ${priceCurrency}`;
-}
 
 export async function generateMetadata({
   params,
@@ -66,11 +59,9 @@ export async function generateMetadata({
     });
   }
 
-  // Moderation visibility gate (parity with API + body): non-active listings must not
-  // expose their real title/description via <title>, OG/Twitter tags or social previews.
-  // Owners/admins still read full content in the page body (API returns 200 for them).
-  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
-  if (NON_PUBLIC_STATUSES.includes(listing.status)) {
+  // Public metadata must not leak title/description/price for non-indexable rows
+  // (deleted, paused, expired, pending, rejected, flagged). Owner still loads body via auth API.
+  if (!isListingSeoIndexable(listing)) {
     return createPageMetadata({
       title: "Anunț indisponibil",
       description: "Acest anunț nu este disponibil public.",
@@ -79,9 +70,8 @@ export async function generateMetadata({
     });
   }
 
-  const indexOk = isListingSeoIndexable(listing);
   const loc = listing.city || listing.county || "";
-  const priceLine = formatListingPriceLine(listing.priceAmount, listing.priceCurrency);
+  const priceLine = formatListingPrice(listing.priceAmount, listing.priceCurrency);
   const ogImage = `/listings/${id}/opengraph-image`;
 
   const rawDesc = listing.description?.replace(/\s+/g, " ").trim() ?? "";
@@ -91,9 +81,7 @@ export async function generateMetadata({
       ? `${rawDesc.slice(0, 158)}${rawDesc.length > 158 ? "…" : ""}`
       : listingDescFallback;
 
-  const titleLead = indexOk
-    ? `${listing.title} · ${priceLine}${loc ? ` · ${loc}` : ""}`
-    : `${listing.title} — anunț indisponibil public`;
+  const titleLead = `${listing.title} · ${priceLine}${loc ? ` · ${loc}` : ""}`;
 
   return createPageMetadata({
     title: titleLead,
@@ -104,7 +92,7 @@ export async function generateMetadata({
     ogImage,
     modifiedTime: listing.updatedAt.toISOString(),
     publishedTime: listing.createdAt.toISOString(),
-    noindex: !indexOk,
+    noindex: false,
   });
 }
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Register - ClickAnunț",
+  title: "Creează cont — ClickAnunț",
   robots: "noindex, nofollow",
 };
 
@@ -55,7 +55,7 @@ export default function SignupPage() {
           </div>
 
           <h2 className="relative mb-8 text-center text-2xl font-bold text-white">
-            Creeaza Cont
+            Creează cont
           </h2>
           
           <SignupFormExtended />

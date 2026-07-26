@@ -7,15 +7,24 @@
  * Owner/admin receive the authorized Prisma payload (pass-through) for edit /
  * promote / messages / moderation tools.
  *
- * PRODUCT NOTE: `contactPhone` is intentionally public (listing contact reveal).
- * It is NOT the same as `owner.phone` / `owner.businessPhone`, which are
- * account PII and stay owner/admin-only.
+ * PRODUCT NOTE: `contactPhone` is intentionally public and harvestable
+ * (listing contact reveal for buyers). It is NOT the same as `owner.phone` /
+ * `owner.businessPhone`, which are account PII and stay owner/admin-only.
+ *
+ * Intentionally omitted from public payloads (owner/admin only): ownerUserId,
+ * moderationStatus, feedBoost, isDealer, dealerBrands, dealerPriceMin,
+ * dealerPriceMax, region, promotionType, promotionExpiresAt, promotionStartedAt,
+ * updatedAt, publishedAt.
+ *
+ * Ownership for UI: use `owner.id` (public) vs session user — never leak
+ * `ownerUserId` solely for client-side comparison. Public rows are always
+ * moderation-approved via seoIndexableListingWhere, so `moderationStatus` is
+ * redundant publicly. Owner/admin pass-through retains both fields.
  */
 
 /** Top-level listing keys allowed for anonymous / non-owner JSON. */
 export const PUBLIC_LISTING_KEYS = [
   "id",
-  "ownerUserId",
   "title",
   "category",
   "subcategory",
@@ -24,8 +33,7 @@ export const PUBLIC_LISTING_KEYS = [
   "photos",
   "county",
   "city",
-  "region",
-  "contactPhone",
+  "contactPhone", // intentional public / harvestable listing contact
   "make",
   "model",
   "year",
@@ -33,23 +41,12 @@ export const PUBLIC_LISTING_KEYS = [
   "fuel",
   "transmission",
   "vin",
-  "isDealer",
-  "dealerBrands",
-  "dealerPriceMin",
-  "dealerPriceMax",
   "attributes",
   "status",
   "views",
   "isFeatured",
-  "feedBoost",
   "isPromoted",
-  "promotionType",
-  "promotionExpiresAt",
-  "promotionStartedAt",
-  "moderationStatus",
   "createdAt",
-  "updatedAt",
-  "publishedAt",
   "expiresAt",
   "priceAmount",
   "priceCurrency",

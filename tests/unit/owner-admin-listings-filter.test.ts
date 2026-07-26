@@ -23,7 +23,8 @@ describe("owner/admin vs public listings filter", () => {
 
   it("GET /api/listings applies indexable filter only for public active (no userId)", () => {
     const src = read("app/api/listings/route.ts");
-    expect(src).toMatch(/if \(statusParam === "active" && !userIdParam\)/);
+    expect(src).toMatch(/applyPublicIndexable/);
+    expect(src).toMatch(/resolveListingFeedStatusFromSearchParams/);
     expect(src).toMatch(/seoIndexableListingWhere\(\)/);
     expect(src).toMatch(/publicCatalogOnly: !resolvedOwnerForFts && statusParam !== "all"/);
   });

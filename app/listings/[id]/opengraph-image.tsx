@@ -1,3 +1,4 @@
+import { formatListingPrice } from "@/lib/format-listing-price";
 import { marketplaceOpenGraphImageResponse } from "@/lib/seo/marketplace-og";
 import { prisma } from "@/lib/prisma";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -5,14 +6,6 @@ import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 export const runtime = "nodejs";
 export const contentType = "image/png";
 export const size = { width: 1200, height: 630 };
-
-function formatPriceLine(priceAmount: number, priceCurrency: string): string {
-  const major = Math.round(priceAmount / 100);
-  if (priceCurrency === "RON") {
-    return `${major.toLocaleString("ro-RO")} lei`;
-  }
-  return `${(priceAmount / 100).toFixed(2)} ${priceCurrency}`;
-}
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -57,7 +50,7 @@ export default async function Image({ params }: Props) {
   return marketplaceOpenGraphImageResponse({
     title: listing.title.slice(0, 100),
     subtitle: `${listing.category.split(",")[0]?.trim() ?? listing.category}${loc ? ` · ${loc}` : ""}`,
-    priceLine: formatPriceLine(listing.priceAmount, currency),
+    priceLine: formatListingPrice(listing.priceAmount, currency),
     footer: `clickanunt.ro/listings/${id}`,
   });
 }

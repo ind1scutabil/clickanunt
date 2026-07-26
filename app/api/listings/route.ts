@@ -28,6 +28,9 @@ import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidS
 import { verifyToken } from "@/lib/auth";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
+import {
+  resolveListingFeedStatusFromSearchParams,
+} from "@/lib/listings/public-listing-status";
 import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
@@ -107,32 +110,10 @@ export async function GET(request: NextRequest) {
     const rawPage = Math.max(1, Math.min(parseInt(q.get("page") || "1", 10), 10_000));
     const limitNum = limitFromQuery || 20;
 
-    const statusParam = query.status || q.get("status") || "active";
-
     let resolvedOwnerForFts: string | null = null;
     const where: Prisma.ListingWhereInput = {};
 
-    if (statusParam !== "all") {
-      where.status = statusParam;
-    }
-
-    if (statusParam === "active" && !userIdParam) {
-      const indexable = seoIndexableListingWhere();
-      where.status = indexable.status;
-      where.deletedAt = indexable.deletedAt;
-      where.moderationStatus = indexable.moderationStatus;
-      const indexableAnd = indexable.AND
-        ? Array.isArray(indexable.AND)
-          ? indexable.AND
-          : [indexable.AND]
-        : [];
-      where.AND = Array.isArray(where.AND)
-        ? [...where.AND, ...indexableAnd]
-        : where.AND
-          ? [where.AND, ...indexableAnd]
-          : indexableAnd;
-    }
-
+    // Resolve owner scope before status rules (public vs owner/admin).
     if (userIdParam) {
       if (!tokenPayload) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -147,6 +128,37 @@ export async function GET(request: NextRequest) {
       }
       where.ownerUserId = resolvedUserId;
       resolvedOwnerForFts = resolvedUserId;
+    }
+
+    // Multi-value status= (any order / array pollution) → 400; never first/last-wins.
+    const statusResolved = resolveListingFeedStatusFromSearchParams(
+      q,
+      Boolean(resolvedOwnerForFts),
+    );
+    if (!statusResolved.ok) {
+      return NextResponse.json({ error: statusResolved.error }, { status: 400 });
+    }
+    const statusParam = statusResolved.statusParam;
+
+    if (statusParam !== "all") {
+      where.status = statusParam;
+    }
+
+    if (statusResolved.applyPublicIndexable) {
+      const indexable = seoIndexableListingWhere();
+      where.status = indexable.status;
+      where.deletedAt = indexable.deletedAt;
+      where.moderationStatus = indexable.moderationStatus;
+      const indexableAnd = indexable.AND
+        ? Array.isArray(indexable.AND)
+          ? indexable.AND
+          : [indexable.AND]
+        : [];
+      where.AND = Array.isArray(where.AND)
+        ? [...where.AND, ...indexableAnd]
+        : where.AND
+          ? [where.AND, ...indexableAnd]
+          : indexableAnd;
     }
 
     if (query.category) where.category = { equals: query.category };
@@ -344,13 +356,14 @@ export async function GET(request: NextRequest) {
       prisma.listing.count({ where }),
     ]);
 
-    const listingsWithPhotos = listings.map((l) => {
-      const row = {
-        ...l,
-        photos: normalizeListingPhotosArray(l.photos, origin),
-      };
+    const listingsRaw = listings.map((l) => ({
+      ...l,
+      photos: normalizeListingPhotosArray(l.photos, origin),
+    }));
+
+    const listingsWithPhotos = listingsRaw.map((row) => {
       const isOwnerOrAdmin =
-        (!!tokenUserId && l.ownerUserId === tokenUserId) ||
+        (!!tokenUserId && row.ownerUserId === tokenUserId) ||
         tokenPayload?.role === "admin" ||
         tokenPayload?.role === "owner";
       return sanitizeListingPayloadForViewer(row as Record<string, unknown>, {
@@ -358,16 +371,19 @@ export async function GET(request: NextRequest) {
       }) as typeof row;
     });
 
-    const encodeCursorFn = useKeyset
-      ? (last: (typeof listingsWithPhotos)[0]) =>
-          encodeListingFeedCursor({
-            feedBoost: last.feedBoost,
-            createdAt: last.createdAt,
-            id: last.id,
-          })
+    const encodeCursorCompat = useKeyset
+      ? (last: (typeof listingsWithPhotos)[0]) => {
+          const raw = listingsRaw.find((r) => r.id === last.id) ?? listingsRaw[listingsRaw.length - 1];
+          if (!raw) return null;
+          return encodeListingFeedCursor({
+            feedBoost: raw.feedBoost,
+            createdAt: raw.createdAt,
+            id: raw.id,
+          });
+        }
       : () => null;
 
-    const result = buildPagination(listingsWithPhotos, limitNum, encodeCursorFn);
+    const result = buildPagination(listingsWithPhotos, limitNum, encodeCursorCompat);
     const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
 
     return NextResponse.json({
@@ -382,10 +398,10 @@ export async function GET(request: NextRequest) {
         limit: limitNum,
       },
     });
-  } catch (error: any) {
-    console.error("Listings fetch error:", error);
+  } catch (error: unknown) {
+    console.error("Listings fetch error:", error instanceof Error ? error.name : "unknown");
     return NextResponse.json(
-      { error: "Failed to fetch listings", details: error.message },
+      { error: "Failed to fetch listings" },
       { status: 500 }
     );
   }

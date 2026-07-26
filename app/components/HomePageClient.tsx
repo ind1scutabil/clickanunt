@@ -18,14 +18,8 @@ import { HomeCategoryStockImage } from "@/app/components/home/HomeCategoryStockI
 import { HomePremiumHero } from "@/app/components/home/HomePremiumHero";
 import { HomeAutoVerificationPremium } from "@/app/components/home/HomeAutoVerificationPremium";
 
-const TRENDING_SEARCHES = [
-  "BMW X5",
-  "Apartament București",
-  "iPhone 15",
-  "Angajări IT",
-  "Tractor second hand",
-  "Canapea extensibilă",
-];
+/** Only promote searches that return ≥1 public listing. Empty = hide “Popular acum”. */
+const TRENDING_SEARCHES: string[] = [];
 
 /** Short labels for horizontal category chips — full category string for URLs/API. */
 const CATEGORY_CHIP_LABEL: Record<string, string> = {

@@ -20,8 +20,8 @@ export type PublicBrowseFilters = {
   sortOrder?: string;
 };
 
-export function publicBrowseListingWhere(): Prisma.ListingWhereInput {
-  return seoIndexableListingWhere();
+export function publicBrowseListingWhere(now?: Date): Prisma.ListingWhereInput {
+  return seoIndexableListingWhere(now);
 }
 
 function filtersToSortKey(filters: PublicBrowseFilters): string {

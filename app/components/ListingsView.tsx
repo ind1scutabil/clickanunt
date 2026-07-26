@@ -816,6 +816,7 @@ export default function ListingsView({
             if (!value || key === 'sortBy' || key === 'sortOrder') return null;
             
             const filterLabels: Record<string, string> = {
+              q: 'Căutare',
               category: 'Categorie',
               subcategory: 'Subcategorie',
               make: 'Marcă',
@@ -829,15 +830,16 @@ export default function ListingsView({
               priceMin: 'Preț min',
               priceMax: 'Preț max',
             };
+            const label = filterLabels[key] ?? key;
             
             return (
               <button
                 key={key}
                 onClick={() => handleFilterChange(key as keyof Filters, undefined)}
                 className="group inline-flex items-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-900/70 px-3 py-1.5 text-sm font-medium text-zinc-100 shadow-sm transition hover:border-orange-500/30 hover:bg-zinc-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30"
-                aria-label={`Remove ${filterLabels[key]} filter`}
+                aria-label={`Elimină filtrul ${label}: ${value}`}
               >
-                <span>{filterLabels[key]}: {value}</span>
+                <span>{label}: {value}</span>
                 <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -847,7 +849,7 @@ export default function ListingsView({
           <button
             onClick={clearFilters}
             className="text-sm font-medium text-zinc-500 underline transition-colors hover:text-zinc-300"
-            aria-label="Clear all filters"
+            aria-label="Șterge toate filtrele"
           >
             Șterge toate
           </button>

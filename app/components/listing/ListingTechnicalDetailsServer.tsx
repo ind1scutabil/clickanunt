@@ -8,6 +8,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { primarySlugForCategoryLabel } from '@/lib/seo/market-paths';
 import { slugifyRo } from '@/lib/seo/slug';
+import { isListingSeoIndexable } from '@/lib/seo/listing-seo-eligibility';
 
 const LISTING_SPEC_SELECT = {
   category: true,
@@ -24,6 +25,9 @@ const LISTING_SPEC_SELECT = {
   vin: true,
   attributes: true,
   status: true,
+  deletedAt: true,
+  moderationStatus: true,
+  expiresAt: true,
 } as const;
 
 function resolveCityHref(listing: ListingSpecSource): string | null {
@@ -63,13 +67,7 @@ export async function ListingTechnicalDetailsServer({
     select: LISTING_SPEC_SELECT,
   });
 
-  if (!listing) {
-    return null;
-  }
-
-  // Moderation visibility gate: never render technical specs for non-public listings.
-  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
-  if (NON_PUBLIC_STATUSES.includes(listing.status as string)) {
+  if (!listing || !isListingSeoIndexable(listing as Parameters<typeof isListingSeoIndexable>[0])) {
     return null;
   }
 

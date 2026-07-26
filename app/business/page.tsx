@@ -4,26 +4,23 @@ import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import Link from "next/link";
 import { HERO_DESKTOP_AVIF, HERO_DESKTOP_URL } from "@/lib/hero-asset-urls";
-import { COMPANY_CONFIG, isCompanyLegalDetailsPublic } from "@/lib/company-config";
-
-const showCompanyLegal = isCompanyLegalDetailsPublic();
-const companyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
+import { COMPANY_CONFIG } from "@/lib/company-config";
 
 const ICON = "h-6 w-6";
 
 const SEGMENTS = ["Dealeri auto", "Agenții imobiliare", "Companii"] as const;
 
 const VALUE_PROPS = [
-  { title: "Vizibilitate în catalog", detail: "Anunțurile business apar în căutare și hub-urile categorie relevante." },
+  { title: "Vizibilitate în catalog", detail: "Anunțurile business apar în căutare și hub-urile de categorie relevante." },
   { title: "Cont verificat", detail: "Badge de încredere pentru clienți atunci când profilul este validat." },
-  { title: "Instrumente pentru echipe", detail: "Dashboard, mesaje și rapoarte într-un singur loc." },
-  { title: "Suport dedicat", detail: "Asistență pentru integrare, facturare și promovare — în programul afișat pe contact." },
+  { title: "Dashboard & mesaje", detail: "Gestionează anunțuri și conversații din contul tău." },
+  { title: "Promovare anunțuri", detail: "Poți crește vizibilitatea anunțurilor prin opțiunile de promovare din platformă." },
 ] as const;
 
 const BENEFITS = [
   {
-    title: "Promovare Maximă",
-    description: "Anunțurile tale apar în top rezultate și pe homepage cu badge \"Top Dealer\".",
+    title: "Promovare anunțuri",
+    description: "Crește vizibilitatea anunțurilor active cu opțiunile de promovare disponibile în dashboard.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l3.75 3.75L21.75 6M21.75 6h-5.25M21.75 6v5.25" />
@@ -31,8 +28,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Cont Verificat",
-    description: "Badge \"Verificat\" pe toate anunțurile pentru încredere maximă de la clienți.",
+    title: "Cont verificat",
+    description: "Profilul business poate afișa status de verificare pentru mai multă încredere din partea cumpărătorilor.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="m9 12.75 2.25 2.25 4.5-4.5m3.342-2.69a3 3 0 0 0-1.902-1.902l-2.69-.84a3 3 0 0 0-2.1 0l-2.69.84A3 3 0 0 0 5.81 7.59l-.84 2.69a3 3 0 0 0 0 2.1l.84 2.69a3 3 0 0 0 1.902 1.902l2.69.84a3 3 0 0 0 2.1 0l2.69-.84a3 3 0 0 0 1.902-1.902l.84-2.69a3 3 0 0 0 0-2.1l-.84-2.69Z" />
@@ -40,8 +37,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Dashboard Avansat",
-    description: "Statistici detaliate: vizualizări, leads, conversii, rapoarte exportabile.",
+    title: "Dashboard",
+    description: "Vezi anunțurile tale, statusul moderării și activitatea de bază din contul business.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
@@ -49,8 +46,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Publicare Rapidă",
-    description: "Încarcă anunțuri în bulk via CSV sau API. Economisești ore de muncă.",
+    title: "Publicare anunțuri",
+    description: "Publică și editează anunțuri din platformă — fără upload în masă automat pe această pagină.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
@@ -58,8 +55,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Lead Management",
-    description: "Toate întrebările și apelurile într-un singur loc, cu notificări instant.",
+    title: "Mesagerie",
+    description: "Răspunde cumpărătorilor din inbox-ul platformei, cu notificări pentru mesaje noi.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 0 1 2.012 1.244l.256.512a2.25 2.25 0 0 0 2.013 1.244h3.218a2.25 2.25 0 0 0 2.013-1.244l.256-.512a2.25 2.25 0 0 1 2.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 0 0-2.15-1.588H6.911a2.25 2.25 0 0 0-2.15 1.588L2.35 13.177a2.25 2.25 0 0 0-.1.661Z" />
@@ -67,8 +64,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: "Facturare Simplificată",
-    description: "Factură lunară centralizată, export compatibil cu contabilitatea ta.",
+    title: "Suport",
+    description: "Contactează echipa pentru facturare, verificare cont și opțiuni de promovare.",
     icon: (
       <svg className={ICON} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.6} aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 3.75h3M9 17.25h6M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -77,55 +74,43 @@ const BENEFITS = [
   },
 ] as const;
 
-const PLANS = [
+/**
+ * Commercial tiers are not Stripe-backed on this page.
+ * Show only solicit-offer cards — no invented prices, quotas, or discounts.
+ */
+const OFFER_CARDS = [
   {
-    name: "Dealer Start",
-    price: "299",
-    period: "lună",
-    description: "Perfect pentru dealeri mici sau noi pe platformă",
-    features: [
-      "Până la 25 anunțuri active",
-      "Badge \"Dealer Verificat\"",
-      "Dashboard de bază",
-      "Suport email",
-      "Promovare în top 10",
+    name: "Dealer & showroom",
+    description: "Detaliile comerciale se stabilesc în funcție de necesarul companiei.",
+    points: [
+      "Publicare și editare anunțuri din platformă",
+      "Dashboard pentru anunțuri și status moderare",
+      "Mesagerie cu cumpărătorii",
+      "Opțiuni de promovare anunțuri din cont",
     ],
-    cta: "Începe Acum",
-    popular: false,
+    emphasize: false,
   },
   {
-    name: "Dealer Pro",
-    price: "799",
-    period: "lună",
-    description: "Cea mai populară alegere pentru dealeri activi",
-    features: [
-      "Până la 100 anunțuri active",
-      "Badge \"Top Dealer\"",
-      "Dashboard avansat + Analytics",
-      "Suport prioritar (telefon + email)",
-      "Promovare în top 3",
-      "API Access pentru bulk upload",
-      "Lead notifications instant",
+    name: "Companii & volume",
+    description: "Detaliile comerciale se stabilesc în funcție de necesarul companiei.",
+    points: [
+      "Profil business cu verificare după validare",
+      "Gestionare anunțuri și conversații",
+      "Promovare anunțuri disponibile în produs",
+      "Suport prin contact pentru facturare și cont",
     ],
-    cta: "Alege Pro",
-    popular: true,
+    emphasize: true,
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    period: "la cerere",
-    description: "Soluție personalizată pentru companii mari și rețele",
-    features: [
-      "Anunțuri nelimitate",
-      "Branding personalizat",
-      "Integrare API completă",
-      "Dedicated account manager",
-      "White-label opțional",
-      "SLA garantat 99.9%",
-      "Raportare customizată",
+    name: "Parteneriat pe măsură",
+    description: "Detaliile comerciale se stabilesc în funcție de necesarul companiei.",
+    points: [
+      "Discuție individuală pe volum și categorii",
+      "Funcționalități deja livrate în produs",
+      "Fără checkout sau abonament inventat pe această pagină",
+      "Ofertă transmisă prin contact",
     ],
-    cta: "Contactează-ne",
-    popular: false,
+    emphasize: false,
   },
 ] as const;
 
@@ -170,8 +155,9 @@ export default function BusinessPage() {
                   <span className="text-orange-500">ClickAnunt Business</span>
                 </h1>
                 <p className="mt-5 max-w-lg text-base leading-relaxed text-zinc-200 md:text-[1.0625rem]">
-                  Pachete dedicate pentru dealeri auto, agenții imobiliare și companii care vând în volum.
-                  Promovare maximă, conturi verificate și dashboard profesional.
+                  Pentru dealeri auto, agenții imobiliare și companii: publicare anunțuri, dashboard,
+                  mesagerie și promovare din produs. Detaliile comerciale se stabilesc în funcție de
+                  necesarul companiei.
                 </p>
 
                 <div className="mt-6 flex flex-wrap gap-2">
@@ -190,7 +176,7 @@ export default function BusinessPage() {
                     href="#plans"
                     className="inline-flex h-11 items-center justify-center rounded-full bg-[#ff5a00] px-7 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e65200]"
                   >
-                    Vezi Pachete
+                    Solicită ofertă
                   </Link>
                   <Link
                     href="#contact"
@@ -263,47 +249,43 @@ export default function BusinessPage() {
           </div>
         </section>
 
-        {/* Plans */}
+        {/* Offers — no invented prices */}
         <section
           id="plans"
           className="border-y border-white/[0.06] bg-gradient-to-b from-[#0e1015] via-[#0c0e13] to-[#0a0c10] py-20 md:py-28"
         >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-14 max-w-2xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Pachete</p>
-              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-4xl">Alege Pachetul Potrivit</h2>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-500">Ofertă</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white md:text-4xl">
+                Solicită ofertă
+              </h2>
               <p className="mt-3 text-base text-zinc-400 md:text-lg">
-                Flexibilitate și scalabilitate pentru orice dimensiune de business
+                Detaliile comerciale se stabilesc în funcție de necesarul companiei. Fără prețuri sau
+                pachete inventate pe această pagină.
               </p>
             </div>
 
             <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-3">
-              {PLANS.map((plan, i) => (
+              {OFFER_CARDS.map((card) => (
                 <div
-                  key={i}
+                  key={card.name}
                   className={`relative flex flex-col rounded-2xl border p-7 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition duration-300 ${
-                    plan.popular
+                    card.emphasize
                       ? "border-orange-500/40 bg-gradient-to-b from-[#1b1712] to-[rgb(16,18,24)] ring-1 ring-orange-500/30"
                       : "border-white/[0.055] bg-gradient-to-b from-white/[0.05] to-[rgb(16,18,24)] hover:border-white/[0.09]"
                   }`}
                 >
-                  {plan.popular && (
-                    <span className="absolute right-5 top-5 inline-flex items-center rounded-full border border-orange-500/30 bg-orange-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-300">
-                      Cel mai popular
-                    </span>
-                  )}
+                  <h3 className="text-xl font-semibold tracking-tight text-white">{card.name}</h3>
+                  <p className="mt-1.5 text-sm text-zinc-400">{card.description}</p>
 
-                  <h3 className="text-xl font-semibold tracking-tight text-white">{plan.name}</h3>
-                  <p className="mt-1.5 text-sm text-zinc-400">{plan.description}</p>
-
-                  <div className="mt-6 flex items-baseline gap-2">
-                    <span className="text-4xl font-semibold tracking-tight text-white">{plan.price}</span>
-                    {plan.price !== "Custom" && <span className="text-sm text-zinc-500">RON/{plan.period}</span>}
+                  <div className="mt-6">
+                    <span className="text-2xl font-semibold tracking-tight text-white">Solicită ofertă</span>
                   </div>
 
                   <ul className="mt-7 space-y-3">
-                    {plan.features.map((feature, j) => (
-                      <li key={j} className="flex items-start gap-2.5 text-sm text-zinc-300">
+                    {card.points.map((point) => (
+                      <li key={point} className="flex items-start gap-2.5 text-sm text-zinc-300">
                         <svg
                           className="mt-0.5 h-4 w-4 shrink-0 text-orange-500"
                           fill="none"
@@ -314,22 +296,22 @@ export default function BusinessPage() {
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
-                        <span>{feature}</span>
+                        <span>{point}</span>
                       </li>
                     ))}
                   </ul>
 
                   <div className="mt-8 pt-1">
-                    <button
-                      type="button"
+                    <Link
+                      href="/contact"
                       className={
-                        plan.popular
+                        card.emphasize
                           ? "inline-flex h-11 w-full items-center justify-center rounded-full bg-[#ff5a00] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#e65200]"
                           : "inline-flex h-11 w-full items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.04] px-6 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.22] hover:bg-white/[0.07]"
                       }
                     >
-                      {plan.cta}
-                    </button>
+                      Solicită ofertă
+                    </Link>
                   </div>
                 </div>
               ))}
@@ -337,7 +319,8 @@ export default function BusinessPage() {
 
             <div className="mt-12 text-center">
               <p className="text-sm text-zinc-500">
-                Toate prețurile sunt exprimate în RON fără TVA. Facturare lunară sau anuală (2 luni gratuit).
+                Oferta comercială se comunică prin contact. Nu există checkout sau abonament pe această
+                pagină.
               </p>
             </div>
           </div>
@@ -354,40 +337,28 @@ export default function BusinessPage() {
               <div className="relative">
                 <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">Hai să creștem împreună!</h2>
                 <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-zinc-400 md:text-lg">
-                  Echipa noastră te ajută să configurezi contul de business în mai puțin de 24h. Fără contracte pe termen lung.
+                  Detaliile comerciale se stabilesc în funcție de necesarul companiei. Scrie-ne — te
+                  ghidăm prin contact, fără checkout pe această pagină.
                 </p>
                 <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    type="button"
+                  <Link
+                    href="/contact"
                     className="inline-flex h-12 items-center justify-center rounded-full bg-[#ff5a00] px-7 text-sm font-semibold text-white transition-colors hover:bg-[#e65200]"
                   >
                     <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    business@clickanunt.ro
-                  </button>
-                  <button
-                    type="button"
+                    Mergi la contact
+                  </Link>
+                  <a
+                    href={`mailto:${COMPANY_CONFIG.emails.support}`}
                     className="inline-flex h-12 items-center justify-center rounded-full border border-white/[0.2] bg-zinc-900/60 px-7 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.28] hover:bg-zinc-800/70"
-                    onClick={
-                      showCompanyLegal && companyPhone
-                        ? () => {
-                            window.location.href = `tel:${companyPhone.replace(/\s/g, "")}`;
-                          }
-                        : showCompanyLegal
-                          ? () => {
-                              window.location.href = `mailto:${COMPANY_CONFIG.emails.support}`;
-                            }
-                          : undefined
-                    }
                   >
                     <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    {showCompanyLegal && companyPhone
-                      ? companyPhone
-                      : "Contact prin email"}
-                  </button>
+                    {COMPANY_CONFIG.emails.support}
+                  </a>
                 </div>
                 <p className="mt-6 text-sm text-zinc-500">Program: Luni - Vineri, 09:00 - 18:00</p>
               </div>

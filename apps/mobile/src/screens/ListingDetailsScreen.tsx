@@ -11,6 +11,7 @@ import { THEME } from '../theme';
 import { ListingPhotoImage } from '../components/ListingPhotoImage';
 import { normalizeListingPhotosArray } from '../utils/listingPhotos';
 import type { Listing } from '../types';
+import { listingOwnerId } from '../types';
 
 type Props = {
   listingId: string;
@@ -137,7 +138,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           </Text>
         ) : null}
         <Text style={styles.title}>{item.title}</Text>
-        {user && item.ownerUserId === user.id ? (
+        {user && listingOwnerId(item) === user.id ? (
           <Pressable
             style={({ pressed }) => [styles.editRow, pressed && styles.favRowPressed]}
             onPress={() => navigation.navigate('ListingEdit', { listingId: item.id })}

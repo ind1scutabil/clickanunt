@@ -149,7 +149,13 @@ export default function ListingDetailPageClient({
     if (!listing) return [] as { key: string; label: string }[];
     const pills: { key: string; label: string }[] = [];
     if (listing.status === "active") pills.push({ key: "active", label: "Anunț activ" });
-    if (listing.moderationStatus === "approved") {
+    // Public catalog is always moderation-approved; owner payloads may still
+    // carry moderationStatus but we do not require it for this chip.
+    if (
+      listing.status === "active" &&
+      (listing.moderationStatus === undefined ||
+        listing.moderationStatus === "approved")
+    ) {
       pills.push({ key: "moderation", label: "Verificat pentru publicare" });
     }
     if (listing.owner?.emailVerified) pills.push({ key: "email", label: "Email verificat" });
@@ -337,7 +343,10 @@ export default function ListingDetailPageClient({
     return (
       <>
         <Navbar />
-        <main className="listing-detail-page min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16">
+        <main
+          className="listing-detail-page min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-950 pt-20 pb-16"
+          aria-busy="true"
+        >
           <div className="listing-detail-layout mx-auto max-w-7xl min-w-0 max-w-full px-4 py-8 max-md:overflow-x-hidden max-md:px-3 max-md:py-4">
             {mobileTechnicalDetails ? (
               <div className="mb-4 md:hidden">{mobileTechnicalDetails}</div>
@@ -353,7 +362,6 @@ export default function ListingDetailPageClient({
                 <div className="skeleton h-32 w-full rounded-xl" />
               </div>
             </div>
-            <p className="mt-6 text-center text-sm text-white/45">Se încarcă anunțul…</p>
           </div>
         </main>
       </>
@@ -378,7 +386,10 @@ export default function ListingDetailPageClient({
     );
   }
 
-  const ownerId = listing.ownerUserId || listing.owner?.id;
+  // Prefer public owner.id; ownerUserId is owner/admin-only on the API payload.
+  const ownerId =
+    listing.owner?.id ||
+    (typeof listing.ownerUserId === "string" ? listing.ownerUserId : undefined);
   const isOwner = Boolean(currentUser?.id && ownerId && currentUser.id === ownerId);
   const isPrivileged = currentUser?.role === 'admin' || currentUser?.role === 'owner';
   const listingStatusLower = String(listing?.status ?? "").toLowerCase();

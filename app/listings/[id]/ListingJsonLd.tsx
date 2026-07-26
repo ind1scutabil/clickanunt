@@ -107,7 +107,8 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
   const offer: Record<string, unknown> = {
     "@type": "Offer",
     priceCurrency: currency,
-    price: (listing.priceAmount / 100).toFixed(2),
+    // priceAmount is already major units (not minor/cents)
+    price: Number(listing.priceAmount),
     availability,
     url: itemUrl,
     priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],

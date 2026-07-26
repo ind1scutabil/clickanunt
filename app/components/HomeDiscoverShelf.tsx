@@ -23,8 +23,9 @@ type Row = {
 
 const AUTO_CAT = "Auto, moto și ambarcațiuni";
 const ELEC_CAT = "Electronice și electrocasnice";
-const JOBS_CAT = "Locuri de muncă";
 const HOME_CAT = "Imobiliare";
+const MIN_SHELF_ITEMS = 3;
+const SHELF_TAKE = 8;
 
 function mapShelfRowToCard(l: Row): ListingCardListing {
   return {
@@ -56,52 +57,82 @@ type ShelfConfig = {
   subtitle: string;
   sort: "newest" | "featured";
   category?: string;
-  city?: string;
   viewAllHref: string;
 };
 
-function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boolean }) {
-  const [items, setItems] = useState<Row[]>([]);
-  const [err, setErr] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+type LoadedShelf = ShelfConfig & { items: Row[] };
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams({
-          status: "active",
-          limit: "20",
-          sort: config.sort,
-        });
-        if (config.category) params.set("category", config.category);
-        if (config.city) params.set("city", config.city);
-        const res = await fetch(`/api/listings?${params}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("fetch");
-        const json = (await res.json()) as { data?: Row[] };
-        const rows = Array.isArray(json.data) ? json.data : [];
-        const reachable = await filterListingsWithReachablePrimaryPhoto(rows, 8);
-        if (!cancelled) {
-          setItems(reachable);
-          setErr(false);
-        }
-      } catch {
-        if (!cancelled) {
-          setItems([]);
-          setErr(true);
-        }
-      } finally {
-        if (!cancelled) setLoaded(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [config.sort, config.category, config.city]);
+async function fetchShelfRows(config: Pick<ShelfConfig, "sort" | "category">): Promise<Row[]> {
+  const params = new URLSearchParams({
+    status: "active",
+    limit: "20",
+    sort: config.sort,
+  });
+  if (config.category) params.set("category", config.category);
+  const res = await fetch(`/api/listings?${params}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("fetch");
+  const json = (await res.json()) as { data?: Row[] };
+  const rows = Array.isArray(json.data) ? json.data : [];
+  return filterListingsWithReachablePrimaryPhoto(rows, SHELF_TAKE + 4);
+}
 
-  if (err && items.length === 0 && loaded) return null;
-  if (loaded && items.length === 0) return null;
+function takeUnique(rows: Row[], seen: Set<string>, limit: number): Row[] {
+  const out: Row[] = [];
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
 
+const BASE_SHELVES: ShelfConfig[] = [
+  {
+    title: "Anunțuri recente",
+    subtitle: "Ultimele publicări verificate, cu fotografie.",
+    sort: "newest",
+    viewAllHref: "/listings?sort=newest",
+  },
+  {
+    title: "Anunțuri promovate",
+    subtitle: "Anunțuri cu vizibilitate ridicată în catalog.",
+    sort: "featured",
+    viewAllHref: "/listings?sort=featured",
+  },
+];
+
+const CATEGORY_CANDIDATES: ShelfConfig[] = [
+  {
+    title: "Auto",
+    subtitle: "Vehicule recente din categoria auto.",
+    sort: "featured",
+    category: AUTO_CAT,
+    viewAllHref: `/listings?category=${encodeURIComponent(AUTO_CAT)}&sort=featured`,
+  },
+  {
+    title: "Imobiliare",
+    subtitle: "Locuințe și proprietăți cu inventar activ.",
+    sort: "newest",
+    category: HOME_CAT,
+    viewAllHref: `/listings?category=${encodeURIComponent(HOME_CAT)}&sort=newest`,
+  },
+  {
+    title: "Electronice",
+    subtitle: "Telefoane, laptopuri și electrocasnice.",
+    sort: "featured",
+    category: ELEC_CAT,
+    viewAllHref: `/listings?category=${encodeURIComponent(ELEC_CAT)}&sort=featured`,
+  },
+];
+
+function ShelfRail({
+  shelf,
+  premium = false,
+}: {
+  shelf: LoadedShelf;
+  premium?: boolean;
+}) {
   const appearance = premium ? "ink" : "paper";
 
   return (
@@ -117,12 +148,14 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
           <h2
             className={`text-lg font-semibold tracking-tight md:text-xl ${premium ? "text-white" : "text-slate-900"}`}
           >
-            {config.title}
+            {shelf.title}
           </h2>
-          <p className={`mt-0.5 max-w-3xl text-sm ${premium ? "text-zinc-400" : "text-slate-600"}`}>{config.subtitle}</p>
+          <p className={`mt-0.5 max-w-3xl text-sm ${premium ? "text-zinc-400" : "text-slate-600"}`}>
+            {shelf.subtitle}
+          </p>
         </div>
         <Link
-          href={config.viewAllHref}
+          href={shelf.viewAllHref}
           className={
             premium
               ? "text-sm font-semibold text-orange-400/95 transition hover:text-orange-300 hover:underline"
@@ -132,160 +165,68 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
           Vezi tot →
         </Link>
       </div>
-      {!loaded ? (
-        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-4 md:gap-5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className={`overflow-hidden rounded-2xl border animate-pulse ${
-                premium ? "border-white/[0.06] bg-[#12151c]" : "border-slate-200 bg-slate-50"
-              }`}
-            >
-              <div className={`aspect-[5/3] ${premium ? "bg-zinc-800/55" : "bg-slate-200/80"}`} />
-              <div className="space-y-2 p-3">
-                <div className={`h-3.5 w-[88%] rounded-full ${premium ? "bg-zinc-800/70" : "bg-slate-200"}`} />
-                <div className={`h-3 w-[45%] rounded-full ${premium ? "bg-zinc-800/50" : "bg-slate-200/90"}`} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : items.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-4 md:gap-5">
-          {items.map((l, i) => (
-            <li key={l.id} className="h-full min-w-0">
-              <ListingCard
-                listing={mapShelfRowToCard(l)}
-                showFavorite
-                appearance={appearance}
-                hotToday={i < 2 && !l.isPromoted}
-                imagePriority={i < 2}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div
-          className={
-            premium
-              ? "rounded-2xl border border-white/[0.08] bg-[#1a1d24]/80 p-4 md:p-5"
-              : "rounded-2xl border border-slate-200 bg-slate-50 p-4 md:p-5"
-          }
-        >
-          <div className="mb-3 flex items-center justify-between">
-            <p className={`text-sm font-semibold ${premium ? "text-white" : "text-slate-900"}`}>
-              Se actualizează această secțiune
-            </p>
-            <Link
-              href={config.viewAllHref}
-              className={
-                premium
-                  ? "text-xs font-semibold text-orange-400 hover:underline"
-                  : "text-xs font-semibold text-blue-600 hover:underline"
-              }
-            >
-              Vezi anunțuri live →
-            </Link>
-          </div>
-          <p className={`text-sm ${premium ? "text-zinc-400" : "text-slate-600"}`}>
-            Între timp poți explora categoriile principale sau feed-ul complet din catalog.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {[
-              { href: `/listings?category=${encodeURIComponent(AUTO_CAT)}`, label: "Auto" },
-              { href: `/listings?category=${encodeURIComponent(HOME_CAT)}`, label: "Imobiliare" },
-              { href: `/listings?category=${encodeURIComponent(ELEC_CAT)}`, label: "Electronice" },
-              { href: "/listings?sort=featured", label: "Promovate" },
-            ].map((x) => (
-              <Link
-                key={x.href}
-                href={x.href}
-                className={
-                  premium
-                    ? "rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-white/22"
-                    : "rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:border-slate-400"
-                }
-              >
-                {x.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      <ul className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 sm:gap-4 md:gap-5">
+        {shelf.items.map((l, i) => (
+          <li key={l.id} className="h-full min-w-0">
+            <ListingCard
+              listing={mapShelfRowToCard(l)}
+              showFavorite
+              appearance={appearance}
+              hotToday={i < 2 && !l.isPromoted}
+              imagePriority={i < 2}
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
-const SHELVES: ShelfConfig[] = [
-  {
-    title: "Trending now",
-    subtitle: "Anunțuri cu interes ridicat astăzi.",
-    sort: "featured",
-    viewAllHref: "/listings?sort=featured",
-  },
-  {
-    title: "Recent listings",
-    subtitle: "Ultimele publicări verificate, cu fotografie.",
-    sort: "newest",
-    viewAllHref: "/listings?sort=newest",
-  },
-  {
-    title: "Luxury vehicles",
-    subtitle: "Modele premium și oferte verificate.",
-    sort: "featured",
-    category: AUTO_CAT,
-    viewAllHref: `/listings?category=${encodeURIComponent(AUTO_CAT)}&sort=featured`,
-  },
-  {
-    title: "Recommended electronics",
-    subtitle: "Telefoane, laptopuri și setup-uri moderne.",
-    sort: "featured",
-    category: ELEC_CAT,
-    viewAllHref: `/listings?category=${encodeURIComponent(ELEC_CAT)}&sort=featured`,
-  },
-  {
-    title: "New apartments",
-    subtitle: "Locuințe recente, cu preț și localizare clare.",
-    sort: "newest",
-    category: HOME_CAT,
-    viewAllHref: `/listings?category=${encodeURIComponent(HOME_CAT)}&sort=newest`,
-  },
-  {
-    title: "Popular in Bucharest",
-    subtitle: "Selectionate din cea mai activă zonă comercială.",
-    sort: "featured",
-    city: "București",
-    viewAllHref: "/listings?city=Bucure%C8%99ti&sort=featured",
-  },
-  {
-    title: "Premium dealers",
-    subtitle: "Conturi dealer active, cu listing-uri promovate.",
-    sort: "featured",
-    viewAllHref: "/listings?sort=featured",
-  },
-  {
-    title: "Recently added jobs",
-    subtitle: "Oportunități noi de muncă în platformă.",
-    sort: "newest",
-    category: JOBS_CAT,
-    viewAllHref: `/listings?category=${encodeURIComponent(JOBS_CAT)}`,
-  },
-  {
-    title: "Featured listings",
-    subtitle: "Anunțuri cu vizibilitate mare și conversie bună.",
-    sort: "featured",
-    viewAllHref: "/listings?sort=featured",
-  },
-  {
-    title: "Promoted listings",
-    subtitle: "Promovări active din multiple verticale.",
-    sort: "newest",
-    viewAllHref: "/listings?sort=newest",
-  },
-];
-
-/** Homepage listing rails — client fetches `/api/listings` (same contract as production API). */
+/** Homepage listing rails — max 3 shelves with global listing dedupe. */
 export function HomeDiscoverShelf({ variant = "light" }: { variant?: "light" | "premium" }) {
   const premium = variant === "premium";
+  const [shelves, setShelves] = useState<LoadedShelf[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const seen = new Set<string>();
+        const next: LoadedShelf[] = [];
+
+        for (const config of BASE_SHELVES) {
+          const rows = await fetchShelfRows(config);
+          const items = takeUnique(rows, seen, SHELF_TAKE);
+          if (items.length >= MIN_SHELF_ITEMS) {
+            next.push({ ...config, items });
+          }
+        }
+
+        for (const config of CATEGORY_CANDIDATES) {
+          if (next.length >= 3) break;
+          const rows = await fetchShelfRows(config);
+          const items = takeUnique(rows, seen, SHELF_TAKE);
+          if (items.length >= MIN_SHELF_ITEMS) {
+            next.push({ ...config, items });
+            break;
+          }
+        }
+
+        if (!cancelled) setShelves(next.slice(0, 3));
+      } catch {
+        if (!cancelled) setShelves([]);
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loaded && shelves.length === 0) return null;
+
   return (
     <section
       className={premium ? "border-t border-white/[0.06] bg-[#0f1116] py-8 md:py-10" : "bg-slate-50 py-10 md:py-14"}
@@ -309,9 +250,38 @@ export function HomeDiscoverShelf({ variant = "light" }: { variant?: "light" | "
           </p>
         </div>
         <div className="space-y-8 md:space-y-10">
-          {SHELVES.map((s) => (
-            <Shelf key={`${s.title}-${s.category ?? ""}`} config={s} premium={premium} />
-          ))}
+          {!loaded
+            ? Array.from({ length: 2 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={
+                    premium
+                      ? "rounded-2xl border border-white/[0.06] bg-[#141820]/90 p-4 md:p-5"
+                      : "rounded-2xl border border-slate-200/90 bg-white p-4 md:p-5"
+                  }
+                >
+                  <div className="mb-4 h-6 w-48 animate-pulse rounded bg-zinc-700/40" />
+                  <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+                    {Array.from({ length: 4 }).map((__, j) => (
+                      <div
+                        key={j}
+                        className={`overflow-hidden rounded-2xl border animate-pulse ${
+                          premium ? "border-white/[0.06] bg-[#12151c]" : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <div className={`aspect-[5/3] ${premium ? "bg-zinc-800/55" : "bg-slate-200/80"}`} />
+                        <div className="space-y-2 p-3">
+                          <div className={`h-3.5 w-[88%] rounded-full ${premium ? "bg-zinc-800/70" : "bg-slate-200"}`} />
+                          <div className={`h-3 w-[45%] rounded-full ${premium ? "bg-zinc-800/50" : "bg-slate-200/90"}`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            : shelves.map((s) => (
+                <ShelfRail key={`${s.title}-${s.category ?? ""}`} shelf={s} premium={premium} />
+              ))}
         </div>
       </div>
     </section>

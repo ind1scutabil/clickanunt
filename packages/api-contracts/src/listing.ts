@@ -1,6 +1,55 @@
 import type { IsoDateTimeString, ListingsCursorPagination, PriceFields } from './common';
 
-/** Owner summary on listing feed rows (GET /api/listings include.owner select). */
+/** Public owner block — no account email / phones / role. */
+export type PublicListingOwnerDto = {
+  id: string;
+  name?: string | null;
+  businessName?: string | null;
+  avatar?: string | null;
+  phoneVerified?: boolean;
+  emailVerified?: boolean;
+  trustScore?: number;
+  totalSales?: number;
+  averageRating?: number;
+  totalListings?: number;
+  responseRate?: number;
+  createdAt?: IsoDateTimeString;
+};
+
+/**
+ * Anonymous / non-owner listing JSON (allowlist).
+ * Must stay aligned with `PUBLIC_LISTING_KEYS` in lib/listings/public-listing-dto.ts.
+ */
+export type PublicListingDto = PriceFields & {
+  id: string;
+  title: string;
+  category: string;
+  subcategory?: string | null;
+  description?: string | null;
+  condition?: string | null;
+  photos: string[];
+  county?: string | null;
+  city?: string | null;
+  /** Intentional public listing contact — harvestable by design. */
+  contactPhone?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+  mileage?: number | null;
+  fuel?: string | null;
+  transmission?: string | null;
+  vin?: string | null;
+  attributes?: Record<string, unknown> | null;
+  status: string;
+  views: number;
+  isFeatured: boolean;
+  isPromoted: boolean;
+  createdAt: IsoDateTimeString;
+  expiresAt?: IsoDateTimeString | null;
+  owner?: PublicListingOwnerDto | null;
+};
+
+/** Owner summary on authenticated owner/admin feed rows. */
 export type ListingOwnerFeedDto = {
   id: string;
   email: string;
@@ -10,7 +59,7 @@ export type ListingOwnerFeedDto = {
   trustScore?: number;
 };
 
-/** Owner block on GET /api/listings/:id */
+/** Owner block on authenticated GET /api/listings/:id for owner/admin. */
 export type ListingOwnerDetailDto = {
   id: string;
   email: string;
@@ -29,10 +78,10 @@ export type ListingOwnerDetailDto = {
 };
 
 /**
- * Listing as serialized JSON from the API (Prisma model + relations).
- * Dates are ISO strings over the wire.
+ * Owner/admin listing payload (pass-through / tools).
+ * Includes fields stripped from {@link PublicListingDto}.
  */
-export type ListingPublicDto = PriceFields & {
+export type OwnerAdminListingDto = PriceFields & {
   id: string;
   ownerUserId: string;
   title: string;
@@ -83,10 +132,25 @@ export type ListingPublicDto = PriceFields & {
 };
 
 /**
- * GET /api/listings — canonical feed envelope (`buildPagination` + extra pagination fields).
+ * @deprecated Use {@link PublicListingDto} for anonymous responses.
+ * Kept as alias so older imports compile; does NOT include ownerUserId.
+ */
+export type ListingPublicDto = PublicListingDto;
+
+/**
+ * GET /api/listings — public feed envelope.
  */
 export type ListingsFeedResponse = {
-  data: ListingPublicDto[];
+  data: PublicListingDto[];
+  pagination: ListingsCursorPagination & {
+    page?: number;
+    usedOffset?: boolean;
+  };
+};
+
+/** Authenticated owner/admin feed (`userId=me` / admin scope). */
+export type OwnerAdminListingsFeedResponse = {
+  data: OwnerAdminListingDto[];
   pagination: ListingsCursorPagination & {
     page?: number;
     usedOffset?: boolean;
@@ -95,9 +159,9 @@ export type ListingsFeedResponse = {
 
 /**
  * POST /api/listings — 201 body is the created listing record (see route).
- * PATCH /api/listings/:id — updated listing record.
+ * PATCH /api/listings/:id — updated listing record (owner/admin).
  */
-export type ListingMutationResponse = ListingPublicDto;
+export type ListingMutationResponse = OwnerAdminListingDto;
 
 /**
  * Client create/update body — mirrors `listingCreateSchema` / `listingEditSchema` (zod) in lib/security/validation-schemas.ts.

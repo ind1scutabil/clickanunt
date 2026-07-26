@@ -58,7 +58,8 @@ describe("createPageMetadata robots", () => {
 
 describe("public listing eligibility alignment", () => {
   it("public browse uses the same Prisma filter as sitemap indexability", () => {
-    expect(publicBrowseListingWhere()).toEqual(seoIndexableListingWhere());
+    const now = new Date("2026-07-26T12:00:00.000Z");
+    expect(publicBrowseListingWhere(now)).toEqual(seoIndexableListingWhere(now));
   });
 
   it("has a single return delegating to seoIndexableListingWhere", () => {
@@ -67,7 +68,7 @@ describe("public listing eligibility alignment", () => {
       "utf8",
     );
     const fnBody = src.slice(src.indexOf("export function publicBrowseListingWhere"));
-    expect(fnBody).toMatch(/return seoIndexableListingWhere\(\)/);
+    expect(fnBody).toMatch(/return seoIndexableListingWhere\(/);
     expect(fnBody).not.toMatch(/activePublicListingExpiryWhere/);
   });
 

@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Login - ClickAnunț",
+  title: "Autentificare — ClickAnunț",
   robots: "noindex, nofollow",
 };
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
               href="/auth/signup" 
             className="font-semibold text-orange-300/95 transition-smooth hover:text-amber-200"
             >
-              Creeaza cont nou
+              Creează cont nou
             </Link>
           </p>
         </div>

@@ -175,7 +175,7 @@ export default function SignupForm() {
         disabled={loading}
         className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
       >
-        {loading ? "Se creeaza cont..." : "Creeaza Cont"}
+        {loading ? "Se creeaza cont..." : "Creează cont"}
       </button>
     </form>
   );

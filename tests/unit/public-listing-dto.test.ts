@@ -93,10 +93,44 @@ const fullListing = {
   owner: fullOwner,
 };
 
+const PUBLICLY_TRIMMED_KEYS = [
+  "ownerUserId",
+  "moderationStatus",
+  "feedBoost",
+  "isDealer",
+  "dealerBrands",
+  "dealerPriceMin",
+  "dealerPriceMax",
+  "region",
+  "promotionType",
+  "promotionExpiresAt",
+  "promotionStartedAt",
+  "updatedAt",
+  "publishedAt",
+] as const;
+
 describe("public listing DTO — default-deny allowlist", () => {
   it("public payload keys are exactly the approved listing allowlist", () => {
     const out = toPublicListingPayload(fullListing);
     expect(Object.keys(out).sort()).toEqual([...PUBLIC_LISTING_KEYS].sort());
+  });
+
+  it("trims ownerUserId/moderationStatus/dealer/promotion/region/timestamps from public payloads", () => {
+    const out = toPublicListingPayload(fullListing);
+    for (const key of PUBLICLY_TRIMMED_KEYS) {
+      expect(out).not.toHaveProperty(key);
+      expect(PUBLIC_LISTING_KEYS).not.toContain(key);
+    }
+    expect(out.contactPhone).toBe("+40700000000");
+    expect(out.owner).toEqual(expect.objectContaining({ id: "owner-1" }));
+    expect(out.status).toBe("active");
+  });
+
+  it("owner/admin still receives ownerUserId and moderationStatus via pass-through", () => {
+    const out = sanitizeListingPayloadForViewer(fullListing, { isOwnerOrAdmin: true });
+    expect(out.ownerUserId).toBe("owner-1");
+    expect(out.moderationStatus).toBe("approved");
+    expect(out.feedBoost).toBe(1);
   });
 
   it("public owner keys are exactly the approved owner allowlist", () => {

@@ -12,24 +12,31 @@ import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
 import { displayNameForMessagingUser } from '@/lib/messaging-display';
 import { messagingUserIdsEqual } from '@/lib/messaging-user-id';
 import { notifyMessagingInboxSync } from '@/lib/messaging-broadcast-sync';
-import type { ListingPublicDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
+import type { OwnerAdminListingDto, PublicListingDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
 
 const LISTING_SLOW_RECONCILE_MS = 8_500;
 
 type Message = MessageThreadRowDto;
 
-type Listing = ListingPublicDto & {
+type Listing = (PublicListingDto | OwnerAdminListingDto) & {
   owner?: {
     id: string;
     name: string | null;
-    email: string;
+    email?: string;
     avatar: string | null;
     businessName: string | null;
     role?: string | null;
-    totalListings: number;
-    averageRating: number;
-    responseRate: number;
-  };
+    totalListings?: number;
+    averageRating?: number;
+    responseRate?: number;
+  } | null;
+};
+
+function listingOwnerPeerId(listing: Listing): string | null {
+  if ('ownerUserId' in listing && typeof listing.ownerUserId === 'string') {
+    return listing.ownerUserId;
+  }
+  return listing.owner?.id ?? null;
 }
 
 interface CurrentUser {
@@ -69,7 +76,7 @@ export default function ListingMessagesPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagingPeerId = useMemo(
-    () => (listing ? listing.owner?.id ?? listing.ownerUserId : null),
+    () => (listing ? listingOwnerPeerId(listing) : null),
     [listing]
   );
   const isOwnListing = Boolean(
@@ -118,7 +125,7 @@ export default function ListingMessagesPage() {
 
         const accessAfterSync = localStorage.getItem('accessToken') || token;
 
-        const ownerPeerId = data.owner?.id ?? data.ownerUserId;
+        const ownerPeerId = data.owner?.id ?? ('ownerUserId' in data ? data.ownerUserId : null);
         // Once we have the listing owner, fetch messages (folosește meId = id canonic ca în restul mesageriei)
         if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, meId)) {
           fetchMessages(ownerPeerId, accessAfterSync, data.id);
@@ -788,17 +795,17 @@ export default function ListingMessagesPage() {
                         </svg>
                         <span>Rating mediu</span>
                       </div>
-                      <span className="font-bold text-white">{listing.owner.averageRating.toFixed(1)} ★</span>
+                      <span className="font-bold text-white">{(listing.owner.averageRating ?? 0).toFixed(1)} ★</span>
                     </div>
 
                     <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-700/30">
                       <div className="flex items-center gap-2 text-sm text-gray-300">
                         <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1-1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                         </svg>
                         <span>Răspunsuri</span>
                       </div>
-                      <span className="font-bold text-white">{listing.owner.responseRate}%</span>
+                      <span className="font-bold text-white">{listing.owner.responseRate ?? 0}%</span>
                     </div>
                   </div>
                 </div>

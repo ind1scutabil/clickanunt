@@ -204,12 +204,40 @@ function humanizeAttributeKey(key: string): string {
 
 const SKIP_FALSE_FLAG_KEYS = new Set(['rare', 'cocPapers']);
 
+/** Alias groups → one Romanian label; normalized key dedupes Color/Culoare, Keys/Chei, etc. */
+const ATTRIBUTE_ALIAS_GROUPS: Array<{ label: string; keys: string[] }> = [
+  { label: 'Culoare', keys: ['color', 'culoare', 'colour'] },
+  { label: 'Chei', keys: ['keys', 'chei', 'key_count', 'keyCount', 'key'] },
+  { label: 'Uși', keys: ['doors', 'door_count', 'doorCount', 'usi'] },
+  { label: 'Locuri', keys: ['seats', 'seat_count', 'seatCount', 'locuri'] },
+];
+
+function normalizeAttrKey(key: string): string {
+  return key.trim().toLowerCase().replace(/[_-\s]/g, '');
+}
+
+const ATTR_LABEL_BY_NORMALIZED: Map<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const group of ATTRIBUTE_ALIAS_GROUPS) {
+    for (const k of group.keys) {
+      m.set(normalizeAttrKey(k), group.label);
+    }
+  }
+  return m;
+})();
+
+function markAttrKeysUsed(usedKeys: Set<string>, keys: string[]): void {
+  for (const k of keys) usedKeys.add(k);
+}
+
 function appendGenericAttributes(
   rows: ListingSpecRow[],
   attrs: Record<string, unknown>,
   usedKeys: Set<string>,
   excludeAutoKeys: boolean
 ): void {
+  const seenLabels = new Set(rows.map((r) => r.label.toLowerCase()));
+
   for (const [key, value] of Object.entries(attrs)) {
     if (usedKeys.has(key) || !hasValue(value)) {
       continue;
@@ -220,20 +248,43 @@ function appendGenericAttributes(
     if (SKIP_FALSE_FLAG_KEYS.has(key) && value === false) {
       continue;
     }
-    rows.push({ label: humanizeAttributeKey(key), value: formatScalar(value) });
+
+    const norm = normalizeAttrKey(key);
+    const label = ATTR_LABEL_BY_NORMALIZED.get(norm) ?? humanizeAttributeKey(key);
+    if (seenLabels.has(label.toLowerCase())) {
+      usedKeys.add(key);
+      continue;
+    }
+
+    // Skip if any alias of this group was already consumed.
+    const aliasGroup = ATTRIBUTE_ALIAS_GROUPS.find((g) =>
+      g.keys.some((k) => normalizeAttrKey(k) === norm),
+    );
+    if (aliasGroup && aliasGroup.keys.some((k) => usedKeys.has(k))) {
+      usedKeys.add(key);
+      continue;
+    }
+
+    rows.push({ label, value: formatScalar(value) });
+    seenLabels.add(label.toLowerCase());
     usedKeys.add(key);
+    if (aliasGroup) markAttrKeysUsed(usedKeys, aliasGroup.keys);
   }
 }
 
 function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, attrs: Record<string, unknown>): void {
+  const usedKeys = new Set<string>();
+
   pushRow(rows, 'Marcă', listing.make);
   pushRow(rows, 'Model', listing.model);
   pushAttrRow(rows, 'Caroserie', ['bodyType', 'body_type'], attrs);
+  markAttrKeysUsed(usedKeys, ['bodyType', 'body_type']);
   if (listing.condition) {
     rows.push({ label: 'Stare', value: formatConditionDisplay(String(listing.condition)) });
   }
   pushRow(rows, 'An fabricație', listing.year);
   pushAttrRow(rows, 'Prima înmatriculare', ['firstRegistration', 'first_registration'], attrs);
+  markAttrKeysUsed(usedKeys, ['firstRegistration', 'first_registration']);
   if (listing.mileage != null) {
     rows.push({ label: 'Kilometraj', value: `${formatScalar(listing.mileage)} km` });
   }
@@ -242,21 +293,34 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
     rows.push({ label: 'Combustibil', value: formatFuelDisplay(String(listing.fuel)) });
   }
   pushAttrRow(rows, 'Putere', ['horsePower', 'horse_power', 'hp'], attrs);
+  markAttrKeysUsed(usedKeys, ['horsePower', 'horse_power', 'hp']);
   pushAttrRow(rows, 'Capacitate cilindrică', ['engineCapacity', 'engine_capacity', 'capacity'], attrs);
+  markAttrKeysUsed(usedKeys, ['engineCapacity', 'engine_capacity', 'capacity']);
   if (listing.transmission) {
     rows.push({ label: 'Transmisie', value: formatTransmissionDisplay(String(listing.transmission)) });
   }
   pushAttrRow(rows, 'Tracțiune', ['drivetrain', 'drive_train'], attrs);
-  pushAttrRow(rows, 'Culoare', ['color'], attrs);
+  markAttrKeysUsed(usedKeys, ['drivetrain', 'drive_train']);
+  pushAttrRow(rows, 'Culoare', ['color', 'culoare', 'colour'], attrs);
+  markAttrKeysUsed(usedKeys, ['color', 'culoare', 'colour']);
   pushAttrRow(rows, 'Tapițerie', ['upholstery', 'interior'], attrs);
-  pushAttrRow(rows, 'Uși', ['doors', 'door_count'], attrs);
-  pushAttrRow(rows, 'Locuri', ['seats', 'seat_count'], attrs);
+  markAttrKeysUsed(usedKeys, ['upholstery', 'interior']);
+  pushAttrRow(rows, 'Uși', ['doors', 'door_count', 'doorCount'], attrs);
+  markAttrKeysUsed(usedKeys, ['doors', 'door_count', 'doorCount']);
+  pushAttrRow(rows, 'Locuri', ['seats', 'seat_count', 'seatCount'], attrs);
+  markAttrKeysUsed(usedKeys, ['seats', 'seat_count', 'seatCount']);
   pushAttrRow(rows, 'Număr proprietari', ['owners', 'owner_count', 'numberOfOwners'], attrs);
-  pushAttrRow(rows, 'Chei', ['keys', 'key_count'], attrs);
+  markAttrKeysUsed(usedKeys, ['owners', 'owner_count', 'numberOfOwners']);
+  pushAttrRow(rows, 'Chei', ['keys', 'chei', 'key_count', 'keyCount'], attrs);
+  markAttrKeysUsed(usedKeys, ['keys', 'chei', 'key_count', 'keyCount']);
   pushAttrRow(rows, 'Istoric service', ['serviceHistory', 'service_history'], attrs);
+  markAttrKeysUsed(usedKeys, ['serviceHistory', 'service_history']);
   pushAttrRow(rows, 'Normă poluare', ['environmentalClass', 'environmental_class', 'emission_standard'], attrs);
+  markAttrKeysUsed(usedKeys, ['environmentalClass', 'environmental_class', 'emission_standard']);
   pushAttrRow(rows, 'ITP valabil până', ['inspectionValid', 'inspection_valid', 'itp', 'inspectionExpires'], attrs);
+  markAttrKeysUsed(usedKeys, ['inspectionValid', 'inspection_valid', 'itp', 'inspectionExpires']);
   pushAttrRow(rows, 'Garanție', ['warranty', 'garantie'], attrs);
+  markAttrKeysUsed(usedKeys, ['warranty', 'garantie']);
   const countryRaw = attrFirst(attrs, ['countryOfOrigin', 'country_of_origin']);
   if (countryRaw) {
     rows.push({
@@ -264,6 +328,7 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
       value: formatCountryOfOriginDisplay(countryRaw),
     });
   }
+  markAttrKeysUsed(usedKeys, ['countryOfOrigin', 'country_of_origin']);
   const lastRegRaw = attrFirst(attrs, [
     'lastRegistrationCountry',
     'last_registration_country',
@@ -274,12 +339,10 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
       value: formatCountryOfOriginDisplay(lastRegRaw),
     });
   }
+  markAttrKeysUsed(usedKeys, ['lastRegistrationCountry', 'last_registration_country']);
 
-  const usedKeys = new Set<string>();
   for (const field of REAL_ESTATE_ATTRIBUTE_FIELDS) {
-    for (const k of field.keys) {
-      usedKeys.add(k);
-    }
+    markAttrKeysUsed(usedKeys, field.keys);
   }
   appendGenericAttributes(rows, attrs, usedKeys, false);
 }

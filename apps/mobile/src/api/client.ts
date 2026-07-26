@@ -1,6 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
-import type { ConversationListItemDto, FavoriteWithListingDto, MessageThreadRowDto } from '@clickanunt/api-contracts';
-import type { ListingPublicDto } from '@clickanunt/api-contracts';
+import type {
+  ConversationListItemDto,
+  FavoriteWithListingDto,
+  MessageThreadRowDto,
+  OwnerAdminListingDto,
+  PublicListingDto,
+} from '@clickanunt/api-contracts';
 import { MOBILE_CONFIG } from '../config';
 import { getFlag } from '../featureFlags';
 import { addBreadcrumb, getRequestId, trackError } from '../telemetry';
@@ -371,26 +376,26 @@ export const listingsApi = {
   },
 
   async getById(id: string): Promise<Listing> {
-    return fetchWithCache(`listing.${id}`, () => request<ListingPublicDto>(`/api/listings/${id}`));
+    return fetchWithCache(`listing.${id}`, () => request<PublicListingDto | OwnerAdminListingDto>(`/api/listings/${id}`));
   },
-  async my(): Promise<Listing[]> {
-    const data = await request<{ listings?: Listing[]; data?: Listing[] }>(
+  async my(): Promise<OwnerAdminListingDto[]> {
+    const data = await request<{ listings?: OwnerAdminListingDto[]; data?: OwnerAdminListingDto[] }>(
       '/api/listings?userId=me&status=all'
     );
     return data.listings ?? data.data ?? [];
   },
-  async create(payload: ListingPayload): Promise<Listing> {
+  async create(payload: ListingPayload): Promise<OwnerAdminListingDto> {
     const token = await ensureCsrfToken();
-    const data = await request<{ listing?: Listing } & Listing>(`/api/listings`, {
+    const data = await request<{ listing?: OwnerAdminListingDto } & OwnerAdminListingDto>(`/api/listings`, {
       method: 'POST',
       body: payload,
       headers: { 'x-csrf-token': token },
     });
-    return (data as { listing?: Listing }).listing ?? (data as Listing);
+    return (data as { listing?: OwnerAdminListingDto }).listing ?? (data as OwnerAdminListingDto);
   },
-  async update(id: string, payload: Partial<ListingPayload>): Promise<Listing> {
+  async update(id: string, payload: Partial<ListingPayload>): Promise<OwnerAdminListingDto> {
     const token = await ensureCsrfToken();
-    const data = await request<ListingPublicDto>(`/api/listings/${id}`, {
+    const data = await request<OwnerAdminListingDto>(`/api/listings/${id}`, {
       method: 'PATCH',
       body: payload,
       headers: { 'x-csrf-token': token },

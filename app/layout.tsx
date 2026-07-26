@@ -5,6 +5,7 @@ import MobileBottomNav from "./components/MobileBottomNav";
 import { GoogleAnalytics } from "./components/analytics/GoogleAnalytics";
 import { MicrosoftClarity } from "./components/analytics/MicrosoftClarity";
 import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
+import { getFooterIndexableLinks } from "@/lib/seo/footer-indexable-links";
 import { warnIfProductionSiteUrlMissing } from "@/lib/seo/site-url-guard";
 import { siteOrigin } from "@/lib/site-url";
 import { stagingRobotsMetadata } from "@/lib/staging/site-mode";
@@ -71,12 +72,22 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   warnIfProductionSiteUrlMissing();
+
+  let categoryLinks: Awaited<ReturnType<typeof getFooterIndexableLinks>>["categories"] = [];
+  let cityHubLinks: Awaited<ReturnType<typeof getFooterIndexableLinks>>["cityHubs"] = [];
+  try {
+    const footerLinks = await getFooterIndexableLinks();
+    categoryLinks = footerLinks.categories;
+    cityHubLinks = footerLinks.cityHubs;
+  } catch {
+    // Hide hub blocks on fetch failure rather than linking empty hubs.
+  }
 
   return (
     <html lang="ro">
@@ -96,7 +107,7 @@ export default function RootLayout({
           {children}
         </div>
         <MobileBottomNav />
-        <Footer />
+        <Footer categoryLinks={categoryLinks} cityHubLinks={cityHubLinks} />
       </body>
     </html>
   );

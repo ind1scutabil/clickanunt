@@ -17,12 +17,12 @@ export default function EuOdrPage() {
       </p>
       <p className="pt-2">
         <a
-          href="https://ec.europa.eu/consumers/odr"
+          href="https://consumer-redress.ec.europa.eu/"
           target="_blank"
           rel="noopener noreferrer"
           className="text-[#1E90FF] hover:underline"
         >
-          https://ec.europa.eu/consumers/odr
+          Soluționarea alternativă a litigiilor în UE
         </a>
       </p>
       <p className="text-sm text-gray-400">

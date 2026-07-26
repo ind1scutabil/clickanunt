@@ -282,7 +282,7 @@ export default function LoginForm() {
         disabled={loading}
         className="w-full h-11 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 font-bold text-white shadow-lg shadow-orange-950/30 transition-smooth hover:from-orange-400 hover:to-amber-500 hover:shadow-orange-900/35 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? (requiresTwoFA ? "Se verifică..." : "Se conecteaza...") : (requiresTwoFA ? "Verifică codul" : "Conecteaza-te")}
+        {loading ? (requiresTwoFA ? "Se verifică..." : "Se conectează...") : (requiresTwoFA ? "Verifică codul" : "Conectează-te")}
       </button>
 
       {requiresTwoFA && (

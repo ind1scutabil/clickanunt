@@ -3,7 +3,7 @@ import SignupPage from "../signup/page";
 
 /** Segment config must be declared in this file (Next.js 16 / Turbopack — no reexport from other routes). */
 export const metadata: Metadata = {
-  title: "Register - ClickAnunț",
+  title: "Creează cont — ClickAnunț",
   robots: "noindex, nofollow",
 };
 

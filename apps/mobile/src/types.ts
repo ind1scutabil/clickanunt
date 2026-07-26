@@ -7,7 +7,8 @@ import type {
   ConversationListItemDto,
   ListingCreateBodyDto,
   ListingPatchBodyDto,
-  ListingPublicDto,
+  OwnerAdminListingDto,
+  PublicListingDto,
   MessageThreadRowDto,
   UserMeResponseDto,
   UserNotificationDto,
@@ -18,12 +19,22 @@ export type AuthTokens = AuthTokensDto;
 /** GET /api/users/me */
 export type User = UserMeResponseDto;
 
-/** Listing JSON from GET/POST/PATCH /api/listings */
-export type Listing = ListingPublicDto;
+/**
+ * Catalog / anonymous detail → {@link PublicListingDto}.
+ * My listings / mutations → {@link OwnerAdminListingDto}.
+ */
+export type Listing = PublicListingDto | OwnerAdminListingDto;
 
 export type ListingPayload = ListingCreateBodyDto;
 
 export type ListingUpdatePayload = ListingPatchBodyDto;
+
+export function listingOwnerId(listing: Listing): string | undefined {
+  if ('ownerUserId' in listing && typeof listing.ownerUserId === 'string') {
+    return listing.ownerUserId;
+  }
+  return listing.owner?.id;
+}
 
 /**
  * Inbox row built in `api/client` from `ConversationListItemDto` (not raw API JSON).
@@ -47,4 +58,4 @@ export type MessageItem = Pick<
 
 export type NotificationItem = Pick<UserNotificationDto, 'id' | 'title' | 'message' | 'isRead' | 'createdAt'>;
 
-export type { ConversationListItemDto };
+export type { ConversationListItemDto, PublicListingDto, OwnerAdminListingDto };

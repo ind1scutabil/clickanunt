@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
+import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
+
 export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }) {
   if (process.env.USE_IN_MEMORY_DB === "true") {
     return null;
@@ -20,13 +22,9 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
     },
   });
 
-  if (!listing) {
+  if (!listing || !isListingSeoIndexable(listing)) {
     return null;
   }
-
-  // Moderation visibility gate: don't render the real title in the breadcrumb for non-public listings.
-  const NON_PUBLIC_STATUSES: readonly string[] = ["rejected", "paused", "hidden", "pending", "draft"];
-  const isNonPublic = NON_PUBLIC_STATUSES.includes(listing.status);
 
   const crumbs: Array<{ label: string; href?: string }> = [{ label: "Acasă", href: "/" }];
   const catSlug = primarySlugForCategoryLabel(listing.category);
@@ -40,9 +38,7 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
   }
 
   crumbs.push({
-    label: isNonPublic
-      ? "Anunț indisponibil"
-      : listing.title.slice(0, 72) + (listing.title.length > 72 ? "…" : ""),
+    label: listing.title.slice(0, 72) + (listing.title.length > 72 ? "…" : ""),
   });
 
   return (
