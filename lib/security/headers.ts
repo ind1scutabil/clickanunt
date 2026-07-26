@@ -30,6 +30,8 @@ export function getCSPHeader(hostname?: string | null): string {
       "'unsafe-eval'", // Required for Next.js in dev
       'https://www.googletagmanager.com',
       'https://www.google-analytics.com',
+      'https://www.clarity.ms',
+      'https://scripts.clarity.ms',
       'https://js.stripe.com', // Stripe.js
       'https://cdn.jsdelivr.net', // CDN for utilities
     ],
@@ -51,9 +53,16 @@ export function getCSPHeader(hostname?: string | null): string {
       'https://www.clickanunt.ro',
     ],
     'media-src': ["'self'"],
+    // GA4 collect uses regional hosts (e.g. region1.google-analytics.com).
+    // Official non-ads endpoints: https://developers.google.com/tag-platform/security/guides/csp#google_analytics_4_google_analytics
+    // Clarity: https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-csp
     'connect-src': [
       "'self'",
-      'https://www.google-analytics.com',
+      'https://*.google-analytics.com',
+      'https://*.analytics.google.com',
+      'https://www.googletagmanager.com',
+      'https://*.clarity.ms',
+      'https://c.bing.com',
       'https://vitals.vercel-insights.com',
       'https://api.stripe.com', // Stripe API
     ],

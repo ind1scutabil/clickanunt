@@ -1,7 +1,6 @@
 "use client";
 
 import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
 import Link from "next/link";
 import { Button, Card, Badge } from "@/app/components/ui";
 
@@ -216,8 +215,6 @@ export default function SecurityPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </>
   );
 }

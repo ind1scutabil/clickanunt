@@ -5,6 +5,7 @@ import {
 } from "@/lib/company-config";
 import { getVerifiedBrandSocialLinks } from "@/lib/brand-social-urls";
 import type { FooterIndexableLink } from "@/lib/seo/footer-indexable-links";
+import { FooterCookieSettingsLink } from "@/app/components/legal/FooterCookieSettingsLink";
 
 const publicCompanyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 
@@ -256,13 +257,17 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
               <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
                 Termeni
               </Link>
               <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
                 GDPR
               </Link>
+              <Link href="/cookies" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
+                Cookie-uri
+              </Link>
+              <FooterCookieSettingsLink className="transition-colors duration-normal ease-premium hover:text-neutral-100" />
               <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-neutral-100">
                 Contact
               </Link>

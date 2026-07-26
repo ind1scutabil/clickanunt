@@ -1,7 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useCookieConsent } from "./cookie-consent-context";
+import {
+  COOKIE_CONSENT_STORAGE_KEY,
+  parseStoredCookieConsent,
+} from "@/lib/cookie-consent";
+
+function readDraftFromStorage(consentAnalytics: boolean | undefined, consentMarketing: boolean | undefined) {
+  try {
+    const raw = localStorage.getItem(COOKIE_CONSENT_STORAGE_KEY);
+    const stored = parseStoredCookieConsent(raw);
+    if (stored) {
+      return { analytics: stored.analytics, marketing: stored.marketing };
+    }
+  } catch {
+    /* fall through */
+  }
+  return {
+    analytics: consentAnalytics === true,
+    marketing: consentMarketing === true,
+  };
+}
 
 /**
  * Banner fix + modal setări. Stil dark aliniat footer-ului (neutral-950), fără dependențe externe.
@@ -21,16 +41,22 @@ export function CookieBanner() {
   const [draftAnalytics, setDraftAnalytics] = useState(false);
   const [draftMarketing, setDraftMarketing] = useState(false);
 
+  // Sync before paint so a stale checked state from a previous open cannot be toggled/saved.
+  useLayoutEffect(() => {
+    if (!settingsOpen) return;
+    const draft = readDraftFromStorage(consent?.analytics, consent?.marketing);
+    setDraftAnalytics(draft.analytics);
+    setDraftMarketing(draft.marketing);
+  }, [settingsOpen, consent]);
+
   useEffect(() => {
     if (!settingsOpen) return;
-    if (consent) {
-      setDraftAnalytics(consent.analytics);
-      setDraftMarketing(consent.marketing);
-    } else {
-      setDraftAnalytics(false);
-      setDraftMarketing(false);
-    }
-  }, [settingsOpen, consent]);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSettings();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen, closeSettings]);
 
   const showBar = !decided && !settingsOpen;
 
@@ -56,7 +82,7 @@ export function CookieBanner() {
                 onClick={acceptAll}
                 className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-400"
               >
-                Acceptă toate
+                Acceptă
               </button>
               <button
                 type="button"
@@ -70,7 +96,7 @@ export function CookieBanner() {
                 onClick={() => openSettings()}
                 className="rounded-lg border border-white/15 px-3 py-2 text-sm font-medium text-neutral-200 hover:bg-white/5"
               >
-                Setări
+                Preferințe
               </button>
             </div>
           </div>
@@ -147,15 +173,13 @@ export function CookieBanner() {
               >
                 Închide
               </button>
-              {!decided ? (
-                <button
-                  type="button"
-                  onClick={refuseNonEssential}
-                  className="ml-auto rounded-lg px-2 py-2 text-sm text-neutral-400 hover:text-white"
-                >
-                  Refuză non-esențiale
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={refuseNonEssential}
+                className="ml-auto rounded-lg px-2 py-2 text-sm text-neutral-400 hover:text-white"
+              >
+                Refuză non-esențiale
+              </button>
             </div>
           </div>
         </div>

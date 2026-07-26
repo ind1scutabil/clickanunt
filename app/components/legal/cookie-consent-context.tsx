@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -16,6 +17,7 @@ import {
   type StoredCookieConsent,
 } from "@/lib/cookie-consent";
 import { CookieBanner } from "./CookieBanner";
+import { disableAnalyticsBeacons, enableAnalyticsTransports } from "@/app/components/analytics/ConditionalAnalytics";
 
 type CookieConsentContextValue = {
   consent: StoredCookieConsent | null;
@@ -44,6 +46,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const [consent, setConsent] = useState<StoredCookieConsent | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const lastFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     try {
@@ -61,19 +64,27 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore quota */
     }
+    // Disable analytics beacons in the same turn as refusal/withdrawal (before paint/nav).
+    if (!next.analytics) {
+      disableAnalyticsBeacons();
+    } else {
+      enableAnalyticsTransports();
+    }
     setConsent(next);
     dispatchCookieConsentUpdated();
   }, []);
 
+  /** Acceptă statistici (analitice). Marketing rămâne off — activează-l din Preferințe. */
   const acceptAll = useCallback(() => {
     persist({
       v: 1,
       necessary: true,
       analytics: true,
-      marketing: true,
+      marketing: false,
       decidedAt: new Date().toISOString(),
     });
     setSettingsOpen(false);
+    queueMicrotask(() => lastFocusRef.current?.focus?.());
   }, [persist]);
 
   const refuseNonEssential = useCallback(() => {
@@ -85,6 +96,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
       decidedAt: new Date().toISOString(),
     });
     setSettingsOpen(false);
+    queueMicrotask(() => lastFocusRef.current?.focus?.());
   }, [persist]);
 
   const saveCustom = useCallback(
@@ -97,9 +109,23 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
         decidedAt: new Date().toISOString(),
       });
       setSettingsOpen(false);
+      queueMicrotask(() => lastFocusRef.current?.focus?.());
     },
     [persist]
   );
+
+  const openSettings = useCallback(() => {
+    lastFocusRef.current =
+      typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setSettingsOpen(true);
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    queueMicrotask(() => lastFocusRef.current?.focus?.());
+  }, []);
 
   const decided = Boolean(consent);
 
@@ -108,14 +134,14 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
       consent,
       decided,
       hydrated,
-      openSettings: () => setSettingsOpen(true),
-      closeSettings: () => setSettingsOpen(false),
+      openSettings,
+      closeSettings,
       settingsOpen,
       acceptAll,
       refuseNonEssential,
       saveCustom,
     }),
-    [consent, decided, hydrated, settingsOpen, acceptAll, refuseNonEssential, saveCustom]
+    [consent, decided, hydrated, settingsOpen, acceptAll, refuseNonEssential, saveCustom, openSettings, closeSettings]
   );
 
   return (

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPageLayout } from "@/app/components/legal/LegalPageLayout";
 import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
+import { CookiesPageSettingsButton } from "@/app/components/legal/CookiesPageSettingsButton";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -41,10 +42,12 @@ export default function CookiesPolicyPage() {
       </section>
       <section>
         <h2 className="mb-3 text-2xl font-semibold text-white">3. Gestionarea preferințelor</h2>
-        <p>
-          Poți modifica oricând alegerile din footer, la linkul „Setări cookie”, sau ștergând cheia din browser și
-          revenind pe site (vei vedea din nou bannerul).
+        <p className="mb-3">
+          Poți modifica oricând alegerile din footer („Setări cookie”), de pe această pagină, sau ștergând cheia din
+          browser și revenind pe site (vei vedea din nou bannerul). Continuarea navigării sau scrollul nu înseamnă
+          acord.
         </p>
+        <CookiesPageSettingsButton className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400" />
       </section>
       <section>
         <h2 className="mb-3 text-2xl font-semibold text-white">4. Contact</h2>

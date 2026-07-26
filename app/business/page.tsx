@@ -1,7 +1,6 @@
 "use client";
 
 import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
 import Link from "next/link";
 import { HERO_DESKTOP_AVIF, HERO_DESKTOP_URL } from "@/lib/hero-asset-urls";
 import { COMPANY_CONFIG } from "@/lib/company-config";
@@ -366,8 +365,6 @@ export default function BusinessPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </>
   );
 }

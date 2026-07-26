@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Footer from "./components/Footer";
 import MobileBottomNav from "./components/MobileBottomNav";
-import { GoogleAnalytics } from "./components/analytics/GoogleAnalytics";
-import { MicrosoftClarity } from "./components/analytics/MicrosoftClarity";
+import { ConditionalAnalytics } from "./components/analytics/ConditionalAnalytics";
+import { CookieConsentProvider } from "./components/legal/cookie-consent-context";
 import { GlobalJsonLd } from "./components/seo/GlobalJsonLd";
 import { getFooterIndexableLinks } from "@/lib/seo/footer-indexable-links";
 import { warnIfProductionSiteUrlMissing } from "@/lib/seo/site-url-guard";
@@ -92,22 +92,23 @@ export default async function RootLayout({
   return (
     <html lang="ro">
       <body className="antialiased flex min-h-screen flex-col bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
-        {/* Analytics: production + env only — see GROWTH_SEO_IMPLEMENTATION_REPORT.md */}
-        <GoogleAnalytics />
-        <MicrosoftClarity />
-        <GlobalJsonLd />
-        {/* Skip link must live in the server layout — not inside client Navbar — so SSR and hydration always match */}
-        <a href="#main-content" className="skip-to-content-link">
-          Salt la conținut principal
-        </a>
-        <div
-          id="main-content"
-          className="flex-grow pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
-        >
-          {children}
-        </div>
-        <MobileBottomNav />
-        <Footer categoryLinks={categoryLinks} cityHubLinks={cityHubLinks} />
+        <CookieConsentProvider>
+          {/* Analytics: only after explicit analytics consent (ConditionalAnalytics). */}
+          <ConditionalAnalytics />
+          <GlobalJsonLd />
+          {/* Skip link must live in the server layout — not inside client Navbar — so SSR and hydration always match */}
+          <a href="#main-content" className="skip-to-content-link">
+            Salt la conținut principal
+          </a>
+          <div
+            id="main-content"
+            className="flex-grow pb-[calc(6.25rem+env(safe-area-inset-bottom,0px))] md:pb-0"
+          >
+            {children}
+          </div>
+          <MobileBottomNav />
+          <Footer categoryLinks={categoryLinks} cityHubLinks={cityHubLinks} />
+        </CookieConsentProvider>
       </body>
     </html>
   );
