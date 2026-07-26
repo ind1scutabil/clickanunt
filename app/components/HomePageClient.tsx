@@ -137,7 +137,13 @@ export default function HomePageClient({
     "Sport, timp liber și artă",
   ]);
 
-  const shortcutCategories = ALL_CATEGORIES.filter((c) => popularCategories.has(c)).slice(0, 8);
+  const shortcutCategories = ALL_CATEGORIES.filter(
+    (c) => popularCategories.has(c) && (categoryCountsError || (categoryCounts[c] ?? 0) > 0),
+  ).slice(0, 8);
+
+  const discoverCategories = ALL_CATEGORIES.filter(
+    (c) => categoryCountsError || (categoryCounts[c] ?? 0) > 0,
+  );
 
   const handleSearch = (query: string, category?: string) => {
     const params = new URLSearchParams();
@@ -177,6 +183,7 @@ export default function HomePageClient({
         <HomeRecentlyViewed variant="premium" />
 
         {/* Category shortcuts */}
+        {shortcutCategories.length > 0 ? (
         <section className="border-b border-white/[0.05] bg-gradient-to-b from-[#14161c] via-[#12141a] to-[#101218] py-5 sm:py-6">
           <div className="mx-auto max-w-7xl px-4">
             <p className="mb-3.5 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500/90 sm:mb-4">
@@ -235,8 +242,10 @@ export default function HomePageClient({
             </div>
           </div>
         </section>
+        ) : null}
 
-        {/* Full category browse */}
+        {/* Full category browse — hide section when no non-zero categories */}
+        {discoverCategories.length > 0 ? (
         <section className="border-t border-white/[0.04] bg-gradient-to-b from-[#0e1015] via-[#0c0e13] to-[#0a0c10] py-8 md:py-11">
           <div className="mx-auto max-w-7xl px-4">
             <div className="mb-6 text-center md:mb-8">
@@ -250,7 +259,7 @@ export default function HomePageClient({
             </div>
 
             <ul className="mx-auto grid max-w-7xl list-none grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4 lg:gap-5">
-              {ALL_CATEGORIES.map((categoryName, index) => {
+              {discoverCategories.map((categoryName, index) => {
                 const meta = HOME_CATEGORY_CARD_META[categoryName] ?? {
                   icon: "other" as const,
                   sub: "Anunțuri în această categorie.",
@@ -339,6 +348,7 @@ export default function HomePageClient({
             </ul>
           </div>
         </section>
+        ) : null}
 
         <HomeDiscoverShelf variant="premium" />
 

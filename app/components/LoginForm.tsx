@@ -3,8 +3,9 @@
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
+import { sanitizeAuthReturnPath } from "@/lib/auth/safe-auth-return-path";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const devLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV === "development") console.log(...args);
@@ -20,6 +21,14 @@ export default function LoginForm() {
   const [requiresTwoFA, setRequiresTwoFA] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function postLoginPath(role: string | undefined): string {
+    const safeNext = sanitizeAuthReturnPath(searchParams.get("next"));
+    if (safeNext) return safeNext;
+    if (isAdminStaffRole(role)) return "/admin/dashboard";
+    return "/dashboard";
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -111,13 +120,9 @@ export default function LoginForm() {
       }
       broadcastAuthSessionChanged();
 
-      devLog('[LOGIN] Redirecting to dashboard...');
-
-      if (isAdminStaffRole(data.user?.role)) {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/dashboard');
-      }
+      const dest = postLoginPath(data.user?.role);
+      devLog('[LOGIN] Redirecting to', dest);
+      router.push(dest);
     } catch (err: unknown) {
       console.error('[LOGIN] Error:', err);
       if (err instanceof Error && err.message) {
@@ -183,8 +188,9 @@ export default function LoginForm() {
 
       broadcastAuthSessionChanged();
 
-      devLog('[2FA] 2FA verification successful');
-      router.push('/admin/dashboard');
+      const dest = postLoginPath(data.user?.role);
+      devLog('[2FA] 2FA verification successful →', dest);
+      router.push(dest);
     } catch (err: unknown) {
       console.error('[2FA] Error:', err);
       if (err instanceof Error && err.message) {

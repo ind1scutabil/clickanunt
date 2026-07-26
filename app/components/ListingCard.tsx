@@ -12,6 +12,7 @@ import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
 import { isListingSaved, toggleSavedListingId } from '@/lib/recent-listings-storage';
+import { formatListingPrice } from '@/lib/format-listing-price';
 
 const motionEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -123,15 +124,7 @@ export function ListingCard({
     setSaved(toggleSavedListingId(listing.id));
   };
 
-  const formatPrice = (amount: number, currency: string) => {
-    if (amount === 0) return 'Negociabil';
-    return new Intl.NumberFormat('ro-RO', {
-      style: 'currency',
-      currency: currency || 'RON',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  // Price formatting: lib/format-listing-price (single currency code).
 
   const photos = normalizeListingPhotosArray(listing.photos);
   const hasRealPhoto = photos.length > 0;
@@ -322,14 +315,9 @@ export function ListingCard({
         {locationLabel ? <p className={locationClass}>{locationLabel}</p> : null}
 
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-          <span className={priceClass}>{formatPrice(listing.priceAmount, listing.priceCurrency)}</span>
-          {!compact ? (
-            <span
-              className={`text-[8px] font-medium uppercase tracking-[0.12em] ${ink ? 'text-zinc-500/55' : 'text-slate-400'}`}
-            >
-              {listing.priceCurrency}
-            </span>
-          ) : null}
+          <span className={priceClass}>
+            {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
+          </span>
         </div>
 
         {showMetaRow ? (

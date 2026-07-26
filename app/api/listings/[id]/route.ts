@@ -13,7 +13,8 @@ import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promotions";
 import { isListingExplicitlyExpired } from "@/lib/listing-expiry";
-import { resolveListingGetRequestLimits } from "@/lib/listing-view-count";
+import { resolveListingGetRequestLimits, finalizeShouldCountListingView } from "@/lib/listing-view-count";
+import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -49,10 +50,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      return NextResponse.json({
-        ...listing,
-        photos: normalizeListingPhotosArray((listing as { photos?: unknown }).photos, origin),
-      });
+      return NextResponse.json(
+        sanitizeListingPayloadForViewer(
+          {
+            ...listing,
+            photos: normalizeListingPhotosArray((listing as { photos?: unknown }).photos, origin),
+          } as Record<string, unknown>,
+          { isOwnerOrAdmin: memIsOwnerOrAdmin },
+        ),
+      );
     }
     
     const listing = await prisma.listing.findFirst({
@@ -72,6 +78,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             trustScore: true,
             totalSales: true,
             averageRating: true,
+            totalListings: true,
+            responseRate: true,
             role: true,
             createdAt: true,
           }
@@ -104,7 +112,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const viewLimits = await resolveListingGetRequestLimits(request, id);
-    if (viewLimits.shouldCountView) {
+    // Owner/admin self-views (detail, edit, promote, messages) must not inflate counters.
+    // Limitation: a direct API GET with a normal browser UA still counts — cannot safely
+    // distinguish “real page view” from raw GET without architecture change.
+    const shouldCountView = finalizeShouldCountListingView({
+      shouldCountView: viewLimits.shouldCountView,
+      isOwnerOrAdmin,
+    });
+    if (shouldCountView) {
       await prisma.listing.update({
         where: { id },
         data: { views: { increment: 1 } },
@@ -119,10 +134,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    const response = NextResponse.json({
-      ...listingFresh,
-      photos: normalizeListingPhotosArray(listingFresh.photos, origin),
-    });
+    const response = NextResponse.json(
+      sanitizeListingPayloadForViewer(
+        {
+          ...listingFresh,
+          photos: normalizeListingPhotosArray(listingFresh.photos, origin),
+        } as Record<string, unknown>,
+        { isOwnerOrAdmin },
+      ),
+    );
 
     if (!viewLimits.allowed && viewLimits.retryAfter) {
       response.headers.set("X-RateLimit-Remaining", "0");

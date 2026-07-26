@@ -11,6 +11,7 @@
  */
 
 import { isCompanyLegalDetailsPublic } from '@/lib/company-config';
+import { getVerifiedBrandSameAsUrls } from '@/lib/brand-social-urls';
 import { siteOrigin } from '@/lib/site-url';
 
 export interface SearchActionJsonLd {
@@ -64,6 +65,7 @@ export function buildOrganizationJsonLd() {
   const siteUrl = siteOrigin();
   const showLegal = isCompanyLegalDetailsPublic();
   const companyPhone = publicCompanyPhoneForSchema();
+  const sameAs = getVerifiedBrandSameAsUrls();
 
   return {
     '@context': 'https://schema.org',
@@ -79,11 +81,7 @@ export function buildOrganizationJsonLd() {
       email: 'contact@clickanunt.ro',
       availableLanguage: ['Romanian'],
     },
-    sameAs: [
-      'https://www.facebook.com/clickanunt',
-      'https://twitter.com/clickanunt',
-      'https://www.instagram.com/clickanunt',
-    ],
+    ...(sameAs.length > 0 ? { sameAs } : {}),
     ...(showLegal
       ? {
           address: {

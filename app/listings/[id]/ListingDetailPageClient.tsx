@@ -45,13 +45,6 @@ async function trackListingEngagement(
   }
 }
 
-function maskEmail(email: string): string {
-  const [localPart, domain] = email.split('@');
-  if (!localPart || !domain) return 'Utilizator verificat';
-  const visible = localPart.length > 2 ? localPart.slice(0, 2) : localPart.slice(0, 1);
-  return `${visible}***@${domain}`;
-}
-
 type ListingDetailPageClientProps = {
   id: string;
   /** SSR technical details block — shown on mobile (< md) only */
@@ -407,7 +400,12 @@ export default function ListingDetailPageClient({
         : null;
   const sellerEmail = listing.owner?.email || '';
   const sellerName = listing.owner?.name || '';
-  const sellerDisplayName = sellerName || (sellerEmail ? (isOwner || isPrivileged ? sellerEmail : maskEmail(sellerEmail)) : 'Vânzător verificat');
+  // Public API no longer returns owner.email — never mask a leaked address in UI.
+  const sellerDisplayName =
+    sellerName ||
+    (sellerEmail && (isOwner || isPrivileged) ? sellerEmail : '') ||
+    listing.owner?.businessName?.trim() ||
+    'Vânzător verificat';
   const sellerInitial = sellerDisplayName.charAt(0).toUpperCase();
   const sellerPhone = (
     listing.contactPhone ||

@@ -861,15 +861,15 @@ export default function ListingsView({
         </div>
       )}
 
-      {/* Loading - Skeleton Cards */}
-      {loading && (
+      {/* Loading - Skeleton Cards (only when no seeded/existing results) */}
+      {loading && listings.length === 0 && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
               className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-[#12151c]"
               role="status"
-              aria-label="Se încarcă anunț"
+              aria-label="Catalog"
             >
               <div className="aspect-[5/3] bg-zinc-800/70" />
               <div className="space-y-2 p-2.5 sm:p-3 md:p-3.5">
@@ -882,10 +882,10 @@ export default function ListingsView({
         </div>
       )}
 
-      {/* Results */}
-      {!loading && (
+      {/* Results — keep cards visible while revalidating */}
+      {(!loading || listings.length > 0) && (
         <>
-          <div id="listings-results" className="mb-6 text-sm font-medium text-zinc-500">
+          <div id="listings-results" className="mb-6 text-sm font-medium text-zinc-500" aria-busy={loading}>
             Găsite <span className="font-bold tabular-nums text-zinc-100">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 

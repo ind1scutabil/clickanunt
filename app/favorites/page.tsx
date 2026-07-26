@@ -9,6 +9,7 @@ import {
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
 import type { FavoriteWithListingDto } from "@clickanunt/api-contracts";
+import { formatListingPrice } from "@/lib/format-listing-price";
 
 type Favorite = FavoriteWithListingDto;
 
@@ -106,10 +107,6 @@ export default function FavoritesPage() {
     } catch (err) {
       console.error("Error removing favorite:", err);
     }
-  };
-
-  const formatPrice = (amount: number, currency: string) => {
-    return `${amount.toLocaleString()} ${currency}`;
   };
 
   const formatLocation = (city: string | null, county: string | null) => {
@@ -381,7 +378,7 @@ export default function FavoritesPage() {
 
                     <div className="mb-4">
                       <div className="bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-3xl font-semibold tabular-nums tracking-tight text-transparent">
-                        {formatPrice(listing.priceAmount, listing.priceCurrency)}
+                        {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
                       </div>
                     </div>
 

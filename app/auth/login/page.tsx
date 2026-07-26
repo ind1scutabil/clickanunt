@@ -1,5 +1,6 @@
 import LoginForm from "@/app/components/LoginForm";
 import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -58,7 +59,13 @@ export default function LoginPage() {
             Autentificare
           </h2>
           
-          <LoginForm />
+          <Suspense
+            fallback={
+              <div className="h-40 animate-pulse rounded-xl bg-zinc-800/40" aria-busy="true" />
+            }
+          >
+            <LoginForm />
+          </Suspense>
 
           <p className="text-center text-[#C7CCD6] mt-6">
             Nu ai cont?{" "}

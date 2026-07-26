@@ -27,6 +27,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { listingCreateSchema, searchListingsSchema, parseAndValidateQuery, uuidSchema } from "@/lib/security/validation-schemas";
 import { verifyToken } from "@/lib/auth";
 import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
+import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import { isModerationSuspensionActive } from "@/lib/user-moderation-status";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
@@ -278,10 +279,19 @@ export async function GET(request: NextRequest) {
       const byId = new Map(rows.map((r) => [r.id, r]));
       const ordered = pageIds.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
 
-      const listingsWithPhotos = ordered.map((l) => ({
-        ...l,
-        photos: normalizeListingPhotosArray(l.photos, origin),
-      }));
+      const listingsWithPhotos = ordered.map((l) => {
+        const row = {
+          ...l,
+          photos: normalizeListingPhotosArray(l.photos, origin),
+        };
+        const isOwnerOrAdmin =
+          (!!tokenUserId && l.ownerUserId === tokenUserId) ||
+          tokenPayload?.role === "admin" ||
+          tokenPayload?.role === "owner";
+        return sanitizeListingPayloadForViewer(row as Record<string, unknown>, {
+          isOwnerOrAdmin: Boolean(userIdParam) && isOwnerOrAdmin,
+        }) as typeof row;
+      });
 
       const pages = total > 0 ? Math.ceil(total / limitNum) : 0;
 
@@ -334,10 +344,19 @@ export async function GET(request: NextRequest) {
       prisma.listing.count({ where }),
     ]);
 
-    const listingsWithPhotos = listings.map((l) => ({
-      ...l,
-      photos: normalizeListingPhotosArray(l.photos, origin),
-    }));
+    const listingsWithPhotos = listings.map((l) => {
+      const row = {
+        ...l,
+        photos: normalizeListingPhotosArray(l.photos, origin),
+      };
+      const isOwnerOrAdmin =
+        (!!tokenUserId && l.ownerUserId === tokenUserId) ||
+        tokenPayload?.role === "admin" ||
+        tokenPayload?.role === "owner";
+      return sanitizeListingPayloadForViewer(row as Record<string, unknown>, {
+        isOwnerOrAdmin: Boolean(userIdParam) && isOwnerOrAdmin,
+      }) as typeof row;
+    });
 
     const encodeCursorFn = useKeyset
       ? (last: (typeof listingsWithPhotos)[0]) =>

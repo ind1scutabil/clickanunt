@@ -4,6 +4,9 @@ import { hubWhereBase } from "@/lib/seo/hub-queries";
 import { listingPrimaryPhotoSrcForVariant } from "@/lib/listing-image-variants";
 import { SEO_HIGHLIGHT_CITY_LABELS, SEO_NAV_CATEGORY_SLUGS, CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
+import { getActiveListingCountForHub } from "@/lib/seo/hub-queries";
+import { isCategoryCityHubSeoIndexable } from "@/lib/seo/hub-index-policy";
+import { formatListingPrice } from "@/lib/format-listing-price";
 
 /** Discover-oriented strip: fresh listings + crawlable hubs (server HTML). */
 export async function HomeEditorialSeoStrip() {
@@ -15,6 +18,27 @@ export async function HomeEditorialSeoStrip() {
     take: 8,
     select: { id: true, title: true, photos: true, priceCurrency: true, priceAmount: true },
   });
+
+  const hubCandidates = SEO_NAV_CATEGORY_SLUGS.flatMap((slug) => {
+    const label = CATEGORY_LABEL_BY_CANONICAL_SLUG[slug];
+    if (!label) return [];
+    return SEO_HIGHLIGHT_CITY_LABELS.slice(0, 4).map((city) => ({
+      slug,
+      label: label.split(",")[0]?.trim() ?? slug,
+      categoryLabel: label,
+      city,
+    }));
+  });
+
+  const hubCounts = await Promise.all(
+    hubCandidates.map(async (h) => ({
+      ...h,
+      count: await getActiveListingCountForHub(h.categoryLabel, h.city),
+    })),
+  );
+  const hubs = hubCounts.filter((h) => isCategoryCityHubSeoIndexable(h.count));
+
+  if (latest.length === 0 && hubs.length === 0) return null;
 
   return (
     <section
@@ -53,11 +77,7 @@ export async function HomeEditorialSeoStrip() {
                     {l.title}
                   </h3>
                   <p className="mt-1 text-sm text-white/50">
-                    {new Intl.NumberFormat("ro-RO", {
-                      style: "currency",
-                      currency: l.priceCurrency || "RON",
-                      maximumFractionDigits: 0,
-                    }).format(l.priceAmount)}
+                    {formatListingPrice(l.priceAmount, l.priceCurrency)}
                   </p>
                   <span className="mt-2 inline-block text-xs font-semibold text-primary-300/90">Vezi anunțul →</span>
                 </div>
@@ -66,32 +86,32 @@ export async function HomeEditorialSeoStrip() {
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
-            Hub-uri populare
-          </h3>
-          <ul className="flex flex-wrap gap-2">
-            {SEO_NAV_CATEGORY_SLUGS.flatMap((slug) => {
-              const label = CATEGORY_LABEL_BY_CANONICAL_SLUG[slug]?.split(",")[0]?.trim() ?? slug;
-              return SEO_HIGHLIGHT_CITY_LABELS.slice(0, 4).map((city) => (
-                <li key={`${slug}-${city}`}>
+        {hubs.length > 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-neutral-400">
+              Hub-uri populare
+            </h3>
+            <ul className="flex flex-wrap gap-2" data-testid="home-popular-hubs">
+              {hubs.map((h) => (
+                <li key={`${h.slug}-${h.city}`}>
                   <Link
-                    href={`/${slug}/${slugifyRo(city)}`}
+                    href={`/${h.slug}/${slugifyRo(h.city)}`}
                     className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-sm text-neutral-200 transition-colors hover:border-primary-400/40 hover:text-white"
+                    data-hub-count={h.count}
                   >
-                    {label} · {city}
+                    {h.label} · {h.city}
                   </Link>
                 </li>
-              ));
-            })}
-          </ul>
-          <p className="mt-5 text-sm text-neutral-500">
-            <Link href="/harta-site" className="text-primary-300 hover:text-primary-100 underline-offset-4 hover:underline">
-              Harta site — index HTML
-            </Link>{" "}
-            cu legături către categorii și orașe.
-          </p>
-        </div>
+              ))}
+            </ul>
+            <p className="mt-5 text-sm text-neutral-500">
+              <Link href="/harta-site" className="text-primary-300 hover:text-primary-100 underline-offset-4 hover:underline">
+                Harta site — index HTML
+              </Link>{" "}
+              cu legături către categorii și orașe.
+            </p>
+          </div>
+        ) : null}
       </div>
     </section>
   );

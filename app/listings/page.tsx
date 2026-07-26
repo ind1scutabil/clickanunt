@@ -161,14 +161,25 @@ export default async function Page({
       <div className="relative min-w-0 max-w-full text-zinc-100">
         <Suspense
           fallback={
-            <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6">
-              <div className="relative mx-auto max-w-md overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950/95 px-6 py-12 shadow-[0_24px_64px_-20px_rgba(0,0,0,0.65)] ring-1 ring-white/[0.05]">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" />
-                <div
-                  className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-zinc-800 border-t-orange-500"
-                  aria-hidden
-                />
-                <p className="mt-4 text-sm font-medium text-zinc-500">Se încarcă anunțurile…</p>
+            <div
+              className="mx-auto max-w-7xl px-4 py-10 sm:px-6"
+              aria-busy="true"
+              aria-label="Catalog anunțuri"
+            >
+              <div className="mb-6 h-10 max-w-md animate-pulse rounded-lg bg-zinc-800/60" />
+              <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 md:grid-cols-4 md:gap-5">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#12151c] animate-pulse"
+                  >
+                    <div className="aspect-[5/3] bg-zinc-800/55" />
+                    <div className="space-y-2 p-3">
+                      <div className="h-3.5 w-[88%] rounded-full bg-zinc-800/70" />
+                      <div className="h-3 w-[45%] rounded-full bg-zinc-800/50" />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           }

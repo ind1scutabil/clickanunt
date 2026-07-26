@@ -59,16 +59,6 @@ export default function SignupPage() {
           </h2>
           
           <SignupFormExtended />
-
-          <p className="text-center text-[#C7CCD6] mt-6">
-            Ai deja cont?{" "}
-            <Link 
-              href="/auth/login" 
-            className="font-semibold text-orange-300/95 transition-smooth hover:text-amber-200"
-            >
-              Conecteaza-te
-            </Link>
-          </p>
         </div>
 
         <div className="mt-8 text-center text-[#9AA3B2] text-sm">

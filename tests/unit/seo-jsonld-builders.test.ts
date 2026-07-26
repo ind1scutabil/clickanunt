@@ -39,6 +39,10 @@ function isParseable(obj: unknown): boolean {
 
 describe("site-jsonld (Organization / WebSite / SearchAction)", () => {
   it("Organization is valid, parseable and emits NO fabricated rating/review fields", () => {
+    delete process.env.NEXT_PUBLIC_BRAND_FACEBOOK_URL;
+    delete process.env.NEXT_PUBLIC_BRAND_INSTAGRAM_URL;
+    delete process.env.NEXT_PUBLIC_BRAND_TWITTER_URL;
+    delete process.env.NEXT_PUBLIC_BRAND_X_URL;
     const org = buildOrganizationJsonLd();
     expect(isParseable(org)).toBe(true);
     expect(org["@context"]).toBe("https://schema.org");
@@ -49,6 +53,8 @@ describe("site-jsonld (Organization / WebSite / SearchAction)", () => {
     expect(serialized).not.toMatch(/ratingValue/i);
     expect(serialized).not.toMatch(/reviewCount/i);
     expect(serialized).not.toMatch(/founder/i);
+    expect(serialized).not.toMatch(/facebook\.com/i);
+    expect(serialized).not.toMatch(/instagram\.com/i);
   });
 
   it("SearchAction target matches the real on-site search URL pattern", () => {

@@ -57,7 +57,6 @@ export async function GET(req: NextRequest) {
             owner: {
               select: {
                 id: true,
-                email: true,
                 name: true,
                 businessName: true,
               },

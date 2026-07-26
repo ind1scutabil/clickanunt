@@ -100,6 +100,7 @@ function Shelf({ config, premium = false }: { config: ShelfConfig; premium?: boo
   }, [config.sort, config.category, config.city]);
 
   if (err && items.length === 0 && loaded) return null;
+  if (loaded && items.length === 0) return null;
 
   const appearance = premium ? "ink" : "paper";
 

@@ -211,7 +211,7 @@ export default function NavbarContent() {
   }, [isLoggedIn, isAdmin, router]);
 
   const getAccountBadge = () => {
-    if (!isLoggedIn) return 'DELOGAT';
+    if (!isLoggedIn) return "Intră în cont";
     if (isAdmin) return 'ADMIN';
     
     // Show initials or name for regular users
@@ -621,12 +621,12 @@ export default function NavbarContent() {
                   </svg>
                   <span className="hidden lg:inline">Cont</span>
                   <span
-                    className={`hidden xl:inline-flex min-h-[1.625rem] items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
+                    className={`hidden xl:inline-flex min-h-[1.625rem] items-center rounded-full border px-2.5 py-1 text-[10px] font-bold tracking-wide shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
                       isLoggedIn
                         ? isAdmin || userRole === "owner"
-                          ? "border-violet-500/40 bg-violet-950/75 text-violet-100 ring-1 ring-violet-500/15"
-                          : "border-emerald-500/40 bg-emerald-950/75 text-emerald-100 ring-1 ring-emerald-500/15"
-                        : "border-zinc-600 bg-zinc-900/90 text-zinc-300"
+                          ? "border-violet-500/40 bg-violet-950/75 text-violet-100 ring-1 ring-violet-500/15 uppercase tracking-wider"
+                          : "border-emerald-500/40 bg-emerald-950/75 text-emerald-100 ring-1 ring-emerald-500/15 uppercase tracking-wider"
+                        : "border-orange-500/35 bg-orange-950/50 text-orange-100 ring-1 ring-orange-500/15 normal-case"
                     }`}
                   >
                     {accountBadge}
