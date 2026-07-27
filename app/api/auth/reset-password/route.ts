@@ -4,6 +4,7 @@ import { hashPassword } from '@/lib/auth';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { validateSecureRequest } from '@/lib/security/middleware';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token lipsă'),
@@ -21,22 +22,27 @@ const resetPasswordSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    
-    // Validare
-    const validation = resetPasswordSchema.safeParse(body);
-    if (!validation.success) {
-      const errors = validation.error.flatten();
+    const security = await validateSecureRequest(request, {
+      requireCSRF: false,
+      rateLimit: 'login',
+      schema: resetPasswordSchema,
+    });
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.validationError
+          ? 400
+          : 400;
       return NextResponse.json(
-        { 
-          error: 'Date invalide', 
-          details: errors.fieldErrors 
-        },
-        { status: 400 }
+        { error: security.error || 'Date invalide' },
+        { status }
       );
     }
 
-    const { token, password } = validation.data;
+    const { token, password } = security.data as {
+      token: string;
+      password: string;
+    };
 
     // Hash token pentru comparație
     const resetTokenHash = crypto
@@ -54,8 +60,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!user) {
-      logger.warn({ tokenHash: resetTokenHash }, 'Invalid or expired reset token');
+    if (!user || user.isBanned || user.deletedAt) {
+      logger.warn('Invalid, expired, or ineligible reset token');
       return NextResponse.json(
         { error: 'Link-ul de resetare este invalid sau a expirat. Solicitați unul nou.' },
         { status: 400 }
@@ -78,13 +84,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    logger.info({ userId: user.id, email: user.email }, 'Password reset successfully');
+    logger.info({ userId: user.id }, 'Password reset successfully');
 
     return NextResponse.json({
       success: true,
       message: 'Parola a fost resetată cu succes. Puteți acum să vă autentificați.',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({ error }, 'Error in reset-password endpoint');
     return NextResponse.json(
       { error: 'A apărut o eroare. Vă rugăm încercați din nou.' },
@@ -122,11 +128,12 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
-        email: true,
+        isBanned: true,
+        deletedAt: true,
       },
     });
 
-    if (!user) {
+    if (!user || user.isBanned || user.deletedAt) {
       return NextResponse.json({
         valid: false,
         error: 'Link-ul este invalid sau a expirat',
@@ -135,9 +142,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       valid: true,
-      email: user.email,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({ error }, 'Error verifying reset token');
     return NextResponse.json(
       { valid: false, error: 'Eroare la verificare' },

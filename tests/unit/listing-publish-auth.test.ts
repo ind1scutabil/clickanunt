@@ -6,9 +6,16 @@ import { NextRequest } from 'next/server';
 import { peekSecureRateLimit } from '@/lib/rate-limit-distributed';
 
 const decodeAccessJwtPayload = jest.fn();
+const findUserById = jest.fn();
 
 jest.mock('@/lib/auth', () => ({
   decodeAccessJwtPayload: (...args: unknown[]) => decodeAccessJwtPayload(...args),
+}));
+
+jest.mock('@/lib/db', () => ({
+  db: {
+    findUserById: (...args: unknown[]) => findUserById(...args),
+  },
 }));
 
 import { getMessagingApiAuthPayload } from '@/lib/messages-request-auth';
@@ -18,6 +25,12 @@ describe('listing publish auth (cookie before stale Bearer)', () => {
 
   beforeEach(() => {
     decodeAccessJwtPayload.mockReset();
+    findUserById.mockReset();
+    findUserById.mockResolvedValue({
+      id: userId,
+      isBanned: false,
+      deletedAt: null,
+    });
     decodeAccessJwtPayload.mockImplementation(async (token: string) => {
       if (token === 'valid-cookie-jwt') {
         return { userId, email: 'admin@test.ro', role: 'admin', type: 'access' };

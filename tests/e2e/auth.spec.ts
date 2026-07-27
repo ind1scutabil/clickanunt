@@ -16,6 +16,17 @@ async function fillRegisterForm(
 test.describe.serial('Authentication - Registration & session', () => {
   const email = `serial-${Date.now()}@example.com`;
 
+  async function loginWithVisibleForm(
+    page: import('@playwright/test').Page,
+    userEmail: string,
+    password: string
+  ) {
+    await page.goto('/auth/login');
+    await page.locator('input[type="email"]').first().fill(userEmail);
+    await page.locator('input[type="password"]').first().fill(password);
+    await page.locator('button[type="submit"]').first().click();
+  }
+
   test('should register new user with valid credentials', async ({ page }) => {
     await page.goto('/auth/register');
 
@@ -25,7 +36,7 @@ test.describe.serial('Authentication - Registration & session', () => {
       password: strongPassword,
     });
 
-    const submitButton = page.locator('button[type="submit"]');
+    const submitButton = page.locator('button[type="submit"]').first();
     await expect(submitButton).not.toBeDisabled();
     await submitButton.click();
 
@@ -33,35 +44,39 @@ test.describe.serial('Authentication - Registration & session', () => {
     expect(page.url()).toContain('/dashboard');
   });
 
-  test('should reject registration with duplicate email', async ({ page }) => {
+  test('should reject registration with duplicate email without confirming existence', async ({
+    page,
+  }) => {
     await page.goto('/auth/register');
     await fillRegisterForm(page, {
       name: 'Test User',
       email,
       password: strongPassword,
     });
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
 
-    await expect(
-      page.getByText(/există deja|already|exists/i).first()
-    ).toBeVisible({ timeout: 5000 });
+    // Anti-enumeration: generic failure, never "email already exists"
+    await expect(page.getByText(/există deja|already exists/i)).toHaveCount(0, {
+      timeout: 8000,
+    });
+    await expect(page).not.toHaveURL(/\/dashboard/, { timeout: 3000 });
   });
 
   test('signup → dashboard → logout → login → dashboard', async ({ page }) => {
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await loginWithVisibleForm(page, email, strongPassword);
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
-    await page.locator('header').getByRole('button', { name: 'Meniu utilizator' }).first().click();
-    await page.getByRole('button', { name: /^logout$/i }).click();
+    const desktopMenu = page.locator('header').getByRole('button', { name: 'Meniu utilizator' });
+    const mobileMenu = page.locator('header').getByRole('button', { name: /Deschide\/închide meniu/i });
+    if (await desktopMenu.first().isVisible().catch(() => false)) {
+      await desktopMenu.first().click();
+    } else {
+      await mobileMenu.first().click();
+    }
+    await page.getByRole('button', { name: /deconectare|logout/i }).click();
     await page.waitForURL(/\/$/, { timeout: 10000 });
 
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await loginWithVisibleForm(page, email, strongPassword);
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
   });
 });
@@ -134,10 +149,10 @@ test.describe('Authentication - Login', () => {
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/auth/login');
 
-  await page.fill('input[type="email"]', 'invalid@example.com');
-  await page.fill('input[type="password"]', 'WrongPassword123!');
+    await page.locator('input[type="email"]').first().fill('invalid@example.com');
+    await page.locator('input[type="password"]').first().fill('WrongPassword123!');
 
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
 
     await expect(
       page.getByText(/incorect|incorrect|invalid|negăsit|not found/i).first()
@@ -146,8 +161,8 @@ test.describe('Authentication - Login', () => {
 
   test('should stay on login when password is missing', async ({ page }) => {
     await page.goto('/auth/login');
-  await page.fill('input[type="email"]', 'any@example.com');
-    await page.click('button[type="submit"]');
+    await page.locator('input[type="email"]').first().fill('any@example.com');
+    await page.locator('button[type="submit"]').first().click();
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });
@@ -155,11 +170,11 @@ test.describe('Authentication - Login', () => {
 test.describe('Authentication - 2FA', () => {
   test('login page is ready for optional 2FA step after submit', async ({ page }) => {
     await page.goto('/auth/login');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
-  await page.fill('input[type="email"]', 'nonexistent-2fa-check@example.com');
-  await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
+    await expect(page.locator('input[type="password"]').first()).toBeVisible();
+    await page.locator('input[type="email"]').first().fill('nonexistent-2fa-check@example.com');
+    await page.locator('input[type="password"]').first().fill(strongPassword);
+    await page.locator('button[type="submit"]').first().click();
     await expect(
       page.getByText(/incorect|incorrect|invalid|negăsit|not found|parolă|password|email/i).first()
     ).toBeVisible({ timeout: 8000 });

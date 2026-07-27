@@ -199,7 +199,11 @@ export async function getUserFromRequest(request: NextRequest) {
     const payload = await decodeAccessJwtPayload(token);
     if (!payload?.userId) continue;
     const user = await db.findUserById(payload.userId);
-    if (user) return user;
+    if (!user) continue;
+    // Ban / soft-delete must revoke effective auth even if JWT is still unexpired.
+    if (user.isBanned) continue;
+    if ("deletedAt" in user && user.deletedAt) continue;
+    return user;
   }
 
   return null;
@@ -241,7 +245,7 @@ export async function authenticateUser(
     if (user.isBanned) {
       return {
         success: false,
-        error: `Contul este banat. Motiv: ${user.banReason || 'Necunoscut'}`,
+        error: 'Contul este suspendat. Contactează suportul dacă ai nevoie de ajutor.',
       };
     }
 
@@ -362,6 +366,13 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       return {
         success: false,
         error: 'Contul este banat',
+      };
+    }
+
+    if ("deletedAt" in user && user.deletedAt) {
+      return {
+        success: false,
+        error: 'Contul nu mai este disponibil',
       };
     }
 

@@ -363,6 +363,15 @@ export const authApi = {
     const data = await request<Record<string, unknown>>('/api/users/me');
     return (data as { user?: User }).user ?? (data as User);
   },
+
+  /** Best-effort server logout (Bearer + CSRF). Local SecureStore clear is caller's job. */
+  async logout(): Promise<void> {
+    try {
+      await request('/api/auth/logout', { method: 'POST', body: '{}' });
+    } catch {
+      // offline / 401 — still proceed with local clear
+    }
+  },
 };
 
 export const listingsApi = {

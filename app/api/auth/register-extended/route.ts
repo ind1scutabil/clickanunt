@@ -119,8 +119,11 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Un cont cu acest email există deja" },
-        { status: 409 }
+        {
+          error:
+            "Nu am putut crea contul. Verifică datele sau încearcă din nou mai târziu.",
+        },
+        { status: 400 }
       );
     }
 
@@ -321,11 +324,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle duplicate key error
+    // Handle duplicate key error — anti-enumeration (same copy as pre-check)
     if (err.code === "P2002") {
       return NextResponse.json(
-        { error: "Un cont cu acest email există deja" },
-        { status: 409 }
+        {
+          error:
+            "Nu am putut crea contul. Verifică datele sau încearcă din nou mai târziu.",
+        },
+        { status: 400 }
       );
     }
 

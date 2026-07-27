@@ -8,6 +8,7 @@ import { getClientIp } from "@/lib/rateLimit";
 import validator from "validator";
 import { auditActions } from "@/lib/audit";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { setSession, RedisUnavailableError } from "@/lib/redis";
 import crypto from "crypto";
 
 export type LoginSharedResult =
@@ -55,6 +56,26 @@ export async function runSharedPasswordLogin(
     result.user?.email === "daniel.enoiu29@gmail.com";
   if (isAdmin && process.env.ADMIN_2FA_ENABLED === "true") {
     const sessionToken = crypto.randomBytes(32).toString("hex");
+    try {
+      await setSession(
+        sessionToken,
+        {
+          userId: result.user!.id,
+          email: result.user!.email,
+          createdAt: Date.now(),
+        },
+        300
+      );
+    } catch (err) {
+      if (err instanceof RedisUnavailableError) {
+        return {
+          kind: "failure",
+          status: 503,
+          body: { error: "2FA temporar indisponibil. Încearcă mai târziu." },
+        };
+      }
+      throw err;
+    }
     return {
       kind: "two_factor",
       status: 206,

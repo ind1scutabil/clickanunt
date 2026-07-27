@@ -3,64 +3,82 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { validateSecureRequest } from '@/lib/security/middleware';
+import { getUserFromRequest, hashPassword } from '@/lib/auth';
+import { hasPermission, Permission } from '@/lib/rbac';
+import type { UserRole } from '@prisma/client';
 
 /**
  * POST /api/admin/reset-password
- * Temporary endpoint to reset admin password via secure token
- * This bypasses email and allows direct password reset with a secure token
+ * Admin-authenticated password reset. Requires ADMIN_RESET_TOKEN env
+ * (no hard-coded fallback) in addition to admin RBAC + CSRF.
  */
 
 const resetSchema = z.object({
   email: z.string().email(),
   newPassword: z.string().min(8, 'Password must be at least 8 characters'),
-  token: z.string().optional(),
+  token: z.string().min(32, 'Token required'),
 });
-
-// Secret token for admin reset (should be environment variable in production)
-const ADMIN_RESET_TOKEN = process.env.ADMIN_RESET_TOKEN || 'temporary-admin-reset-token-change-me';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    
-    const validation = resetSchema.safeParse(body);
-    if (!validation.success) {
+    const actor = await getUserFromRequest(request);
+    if (!actor || !hasPermission(actor.role as UserRole, Permission.USERS_UPDATE_ANY)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const configured = process.env.ADMIN_RESET_TOKEN?.trim();
+    if (!configured || configured.length < 32) {
+      logger.error('ADMIN_RESET_TOKEN missing or too short — endpoint disabled');
       return NextResponse.json(
-        { error: 'Invalid input' },
-        { status: 400 }
+        { error: 'Admin password reset is not configured' },
+        { status: 503 }
       );
     }
 
-    const { email, newPassword, token } = validation.data;
+    const security = await validateSecureRequest(request, {
+      requireCSRF: true,
+      rateLimit: 'api',
+      schema: resetSchema,
+    });
+    if (!security.success) {
+      const status = security.rateLimitError
+        ? 429
+        : security.csrfError
+          ? 403
+          : 400;
+      return NextResponse.json({ error: security.error }, { status });
+    }
+
+    const { email, newPassword, token } = security.data as z.infer<typeof resetSchema>;
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Verify the token for security
-    if (!token || token !== ADMIN_RESET_TOKEN) {
-      logger.warn({ email: normalizedEmail }, 'Admin password reset attempted with invalid token');
+    const tokenOk =
+      token.length === configured.length &&
+      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(configured));
+    if (!tokenOk) {
+      logger.warn({ adminId: actor.id }, 'Admin password reset attempted with invalid token');
       return NextResponse.json(
         { error: 'Unauthorized. Invalid or missing token.' },
         { status: 401 }
       );
     }
 
-    // Find the user
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
+      select: { id: true, email: true },
     });
 
+    // Anti-enumeration: identical outcome shape whether user exists or not.
     if (!user) {
-      logger.warn({ email: normalizedEmail }, 'Admin password reset attempted for non-existent user');
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: 'If the account exists, the password was updated.',
+      });
     }
 
-    // Hash the new password
-    const bcrypt = require('bcrypt');
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const passwordHash = await hashPassword(newPassword);
 
-    // Update user password
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -70,11 +88,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    logger.info({ userId: user.id, email: user.email }, 'Admin password reset successfully');
+    logger.info({ adminId: actor.id, targetUserId: user.id }, 'Admin password reset successfully');
 
     return NextResponse.json({
       success: true,
-      message: 'Password reset successfully. You can now login with the new password.',
+      message: 'If the account exists, the password was updated.',
     });
   } catch (error) {
     logger.error({ error }, 'Error in admin password reset');

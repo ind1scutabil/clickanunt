@@ -60,7 +60,7 @@ describe('Authentication API', () => {
       accessToken = data.accessToken;
     });
 
-    test('should return 409 for duplicate email', async () => {
+    test('should reject duplicate email without confirming account existence', async () => {
       const response = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: {
@@ -76,8 +76,8 @@ describe('Authentication API', () => {
 
       const data = await response.json();
 
-      expect(response.status).toBe(409);
-      expect(data.error).toContain('există deja');
+      expect(response.status).toBe(400);
+      expect(String(data.error || '')).not.toMatch(/există deja|already exists/i);
     });
 
     test('should return 400 for invalid email', async () => {

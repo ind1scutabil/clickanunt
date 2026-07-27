@@ -15,6 +15,9 @@ type MeResponse = {
   name: string | null;
   phone: string | null;
   location?: string;
+  subscriptionTier?: string;
+  subscriptionExpiresAt?: string | null;
+  freeBoostsRemaining?: number;
   notificationPreferences?: {
     email: boolean;
     sms: boolean;
@@ -330,6 +333,39 @@ export default function SettingsPage() {
             Date personale, securitate și preferințe de notificare — sincronizate cu contul tău.
           </p>
         </header>
+
+        {me && (
+          <section className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 p-6 sm:p-8">
+            <h2 className="text-lg font-semibold">Abonament</h2>
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              Doar afișare — planul nu se poate schimba din setări.
+            </p>
+            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-[var(--text-muted)]">Plan</dt>
+                <dd className="font-medium capitalize">
+                  {me.subscriptionTier || "free"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--text-muted)]">Boost-uri gratuite</dt>
+                <dd className="font-medium">
+                  {typeof me.freeBoostsRemaining === "number"
+                    ? me.freeBoostsRemaining
+                    : "—"}
+                </dd>
+              </div>
+            </dl>
+            {(!me.subscriptionTier || me.subscriptionTier === "free") && (
+              <Link
+                href="/business"
+                className="mt-4 inline-flex text-sm font-semibold text-orange-400 hover:text-orange-300"
+              >
+                Află despre Business →
+              </Link>
+            )}
+          </section>
+        )}
 
         <form
           onSubmit={saveProfile}

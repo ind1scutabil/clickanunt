@@ -58,9 +58,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
+      // Anti-enumeration: do not confirm that the email is registered.
       return NextResponse.json(
-        { error: "Un cont cu acest email există deja" },
-        { status: 409 }
+        {
+          error:
+            "Nu am putut crea contul. Verifică datele sau încearcă din nou mai târziu.",
+        },
+        { status: 400 }
       );
     }
 

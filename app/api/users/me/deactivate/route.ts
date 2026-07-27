@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { accountDeactivateSchema } from "@/lib/security/validation-schemas";
 import { createAuditLog } from "@/lib/audit";
+import { clearAuthCookies } from "@/lib/auth/clear-auth-cookies";
 
 /**
  * Soft-delete cont: `deletedAt` setat. Login-ul existent respinge utilizatorii șterși.
+ * Listingurile active sunt pausate (nu mai sunt publice). Payment/Invoice rămân.
  * Email rămâne unic — același email nu se poate reînregistra fără intervenție suport.
  */
 export async function POST(request: NextRequest) {
@@ -52,17 +54,27 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { deletedAt: now },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: { deletedAt: now },
+      }),
+      prisma.listing.updateMany({
+        where: {
+          ownerUserId: user.id,
+          deletedAt: null,
+          status: { in: ["active", "pending", "draft", "paused"] },
+        },
+        data: { status: "paused" },
+      }),
+    ]);
 
     await createAuditLog({
       userId: user.id,
       action: "user.self_deactivate",
       resource: "user",
       resourceId: user.id,
-      details: { at: now.toISOString() },
+      details: { at: now.toISOString(), listingsPaused: true },
     });
 
     const res = NextResponse.json({
@@ -70,8 +82,7 @@ export async function POST(request: NextRequest) {
       message: "Contul a fost dezactivat. Te poți deloga.",
     });
 
-    res.cookies.set("accessToken", "", { path: "/", maxAge: 0 });
-    res.cookies.set("refreshToken", "", { path: "/", maxAge: 0 });
+    clearAuthCookies(res, request);
 
     return res;
   } catch {

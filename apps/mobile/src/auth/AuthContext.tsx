@@ -97,6 +97,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         }
       },
       logout: async () => {
+        try {
+          await authApi.logout();
+        } catch {
+          // offline / network — local clear still required
+        }
         await clearStoredAuthTokens();
         setUser(null);
         addBreadcrumb('logout', 'auth');
