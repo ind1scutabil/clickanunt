@@ -153,9 +153,22 @@ export async function POST(req: NextRequest) {
         const apply = await getListingPromotionApplyFromUiPackage(
           promotionUiPackageIdForMeta as import('@/lib/promotion-packages').PromotionUiId
         );
+        if (
+          !Number.isInteger(apply.durationDays) ||
+          apply.durationDays < 1 ||
+          apply.durationDays > 365
+        ) {
+          return NextResponse.json(
+            { error: 'Durata pachetului de promovare este invalidă' },
+            { status: 400 }
+          );
+        }
         durationDaysSnapshot = apply.durationDays;
       } catch {
-        durationDaysSnapshot = undefined;
+        return NextResponse.json(
+          { error: 'Nu am putut determina durata pachetului de promovare' },
+          { status: 400 }
+        );
       }
     }
 

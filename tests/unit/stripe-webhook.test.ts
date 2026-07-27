@@ -7,6 +7,10 @@ const mockVerify = jest.fn();
 const mockRedisSet = jest.fn();
 const mockFindUnique = jest.fn();
 const mockUpdateMany = jest.fn();
+const mockGetListingPromotionApply = jest.fn();
+const mockInferUiPackageId = jest.fn(() => null as string | null);
+const mockListingFindUnique = jest.fn();
+const mockListingUpdate = jest.fn();
 
 jest.mock('@/lib/stripe', () => ({
   verifyWebhookSignature: (...args: unknown[]) => mockVerify(...args),
@@ -27,7 +31,10 @@ jest.mock('@/lib/prisma', () => ({
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
       updateMany: (...args: unknown[]) => mockUpdateMany(...args),
     },
-    listing: { findUnique: jest.fn(), update: jest.fn() },
+    listing: {
+      findUnique: (...args: unknown[]) => mockListingFindUnique(...args),
+      update: (...args: unknown[]) => mockListingUpdate(...args),
+    },
     invoice: { findUnique: jest.fn() },
   },
 }));
@@ -69,9 +76,10 @@ jest.mock('@/lib/listing-feed-boost', () => ({
 }));
 
 jest.mock('@/lib/promotion-packages', () => ({
-  getListingPromotionApplyFromUiPackage: jest.fn(),
-  inferUiPackageIdFromStripeType: jest.fn(() => null),
-  PROMOTION_UI_IDS: [],
+  getListingPromotionApplyFromUiPackage: (...args: unknown[]) =>
+    mockGetListingPromotionApply(...args),
+  inferUiPackageIdFromStripeType: (...args: unknown[]) => mockInferUiPackageId(...args),
+  PROMOTION_UI_IDS: ['featured', 'top', 'urgent', 'refresh'],
 }));
 
 import { POST } from '@/app/api/payments/webhook/route';
@@ -115,6 +123,7 @@ describe('Stripe webhook POST', () => {
     jest.clearAllMocks();
     mockRedisSet.mockResolvedValue('OK');
     mockUpdateMany.mockResolvedValue({ count: 1 });
+    mockInferUiPackageId.mockReturnValue(null);
     mockFindUnique.mockResolvedValue({
       id: 'pay-1',
       userId: 'user-1',
@@ -197,6 +206,42 @@ describe('Stripe webhook POST', () => {
     const res = await POST(webhookRequest('{}', 't=1,v1=ok'));
     expect(res.status).toBe(200);
     expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not activate promotion when durationDays snapshot is missing', async () => {
+    mockVerify.mockReturnValue(baseEvent());
+    mockInferUiPackageId.mockReturnValue('featured');
+    mockGetListingPromotionApply.mockResolvedValue({
+      promotionType: 'featured',
+      featured: true,
+      durationDays: 99,
+    });
+    mockFindUnique.mockResolvedValue({
+      id: 'pay-1',
+      userId: 'user-1',
+      status: 'pending',
+      purpose: 'promote_listing',
+      amount: 2900,
+      currency: 'ron',
+      metadata: {
+        listingId: 'listing-1',
+        packageType: 'featured_7_days',
+        promotionUiPackageId: 'featured',
+      },
+      user: { id: 'user-1', email: 'a@b.com', name: 'Test' },
+    });
+    mockListingFindUnique.mockResolvedValue({
+      title: 'L',
+      ownerUserId: 'user-1',
+      status: 'active',
+      isPromoted: false,
+      promotionExpiresAt: null,
+    });
+
+    const res = await POST(webhookRequest('{}', 't=1,v1=ok'));
+    expect(res.status).toBe(200);
+    expect(mockUpdateMany).toHaveBeenCalled();
+    expect(mockListingUpdate).not.toHaveBeenCalled();
   });
 
   it('/api/webhooks/stripe delegates to the same handler', async () => {

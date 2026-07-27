@@ -164,3 +164,55 @@ Bypass cotă/rate-limit (`lib/e2e-rate-limit-bypass.ts`):
 - **interzis** pe staging/producție PM2 (`ecosystem.config.js` nu le definește).
 
 Cleanup: scriptul oprește doar PID-ul care ascultă pe portul ales și a cărui comandă conține `next-server`.
+
+---
+
+## Migrare `invoice_payment_unique` (expand-only)
+
+**Migrare:** `prisma/migrations/20260727140000_invoice_payment_unique/`
+**SQL:** `CREATE UNIQUE INDEX IF NOT EXISTS "invoices_paymentId_key" ON "invoices"("paymentId");`
+**Tabel real:** `"invoices"` (`@@map("invoices")`). **Coloană:** `"paymentId"` (nullable).
+PostgreSQL UNIQUE permite mai multe `NULL` — facturi legacy fără plată rămân valide.
+
+### Preflight obligatoriu (read-only) înainte de staging/producție
+
+Nu rula migrate dacă există duplicate. Query (zero rânduri = OK):
+
+```sql
+SELECT "paymentId", COUNT(*)
+FROM "invoices"
+WHERE "paymentId" IS NOT NULL
+GROUP BY "paymentId"
+HAVING COUNT(*) > 1;
+```
+
+Agregate read-only suplimentare (investigație, fără cleanup automat):
+
+```sql
+SELECT COUNT(*) AS total_invoices FROM "invoices";
+SELECT COUNT(*) AS invoices_without_payment FROM "invoices" WHERE "paymentId" IS NULL;
+
+SELECT p.id AS payment_id, COUNT(i.id)::int AS invoice_count
+FROM "payments" p
+JOIN "invoices" i ON i."paymentId" = p.id
+GROUP BY p.id
+HAVING COUNT(i.id) > 1;
+
+SELECT COUNT(*) AS succeeded_without_invoice
+FROM "payments" p
+WHERE p.status = 'succeeded'
+  AND NOT EXISTS (SELECT 1 FROM "invoices" i WHERE i."paymentId" = p.id);
+
+SELECT i.id AS invoice_id, i."paymentId", i.amount AS invoice_amount, i.currency AS invoice_currency,
+       p.amount AS payment_amount, p.currency AS payment_currency
+FROM "invoices" i
+JOIN "payments" p ON p.id = i."paymentId"
+WHERE i.amount <> p.amount OR UPPER(i.currency) <> UPPER(p.currency);
+```
+
+Gate:
+
+- [ ] Query duplicate = **0 rânduri**
+- [ ] Dacă există duplicate: **oprește migrarea**; investigație manuală; **fără** cleanup automat / alegere arbitrară / reasignare `paymentId`
+- [ ] Rollback aplicație numai către SHA compatibil cu schema expandată (unique pe `paymentId`)
+- [ ] Migrarea eșuează intenționat pe duplicate existente — acceptabil cu acest preflight

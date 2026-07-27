@@ -51,6 +51,34 @@ test.describe("Publish auth — anonymous", () => {
   });
 });
 
+async function dismissCookieBannerIfPresent(page: import("@playwright/test").Page) {
+  const cookie = page.getByRole("dialog", { name: /Consimțământ cookie/i });
+  if (await cookie.isVisible().catch(() => false)) {
+    await cookie.getByRole("button", { name: "Refuză" }).click();
+    await expect(cookie).toHaveCount(0);
+  }
+}
+
+async function fillLoginForm(
+  page: import("@playwright/test").Page,
+  email: string,
+  password: string,
+) {
+  await dismissCookieBannerIfPresent(page);
+  const emailInput = page.getByLabel(/^Email$/i).or(page.locator('input[type="email"]')).first();
+  const passInput = page.getByLabel(/^Parola$/i).or(page.locator('input[type="password"]')).first();
+  await emailInput.waitFor({ state: "visible" });
+  await emailInput.fill("");
+  await emailInput.fill(email);
+  await expect(emailInput).toHaveValue(email);
+  await passInput.fill("");
+  await passInput.fill(password);
+  await expect(passInput).toHaveValue(password);
+  // Re-assert email after password fill (hydration/autofill can clear it).
+  await expect(emailInput).toHaveValue(email);
+  await page.getByRole("button", { name: /Conectează-te/i }).click();
+}
+
 test.describe("Publish auth — next= round-trip (one UI login)", () => {
   test.describe.configure({ mode: "serial", timeout: 90000 });
 
@@ -60,15 +88,7 @@ test.describe("Publish auth — next= round-trip (one UI login)", () => {
     const email = process.env.E2E_USER_EMAIL ?? process.env.E2E_EMAIL ?? "user@example.com";
     const password =
       process.env.E2E_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "Password123!";
-    const emailInput = page.locator('input[type="email"]').first();
-    const passInput = page.locator('input[type="password"]').first();
-    await emailInput.click();
-    await emailInput.fill(email);
-    await expect(emailInput).toHaveValue(email);
-    await passInput.click();
-    await passInput.fill(password);
-    await expect(passInput).toHaveValue(password);
-    await page.locator('button[type="submit"]').first().click();
+    await fillLoginForm(page, email, password);
     await page.waitForURL(/\/listings\/new$/, { timeout: 60000 });
     expect(new URL(page.url()).pathname).toBe("/listings/new");
     await page.waitForFunction(
@@ -89,14 +109,7 @@ test.describe("Publish auth — next= round-trip (one UI login)", () => {
     const email = process.env.E2E_USER_EMAIL ?? process.env.E2E_EMAIL ?? "user@example.com";
     const password =
       process.env.E2E_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "Password123!";
-    const emailInput = page.locator('input[type="email"]').first();
-    const passInput = page.locator('input[type="password"]').first();
-    await emailInput.click();
-    await emailInput.fill(email);
-    await expect(emailInput).toHaveValue(email);
-    await passInput.click();
-    await passInput.fill(password);
-    await page.locator('button[type="submit"]').first().click();
+    await fillLoginForm(page, email, password);
     await page.waitForURL((url) => !url.pathname.includes("/auth/login"), { timeout: 60000 });
     expect(page.url()).not.toMatch(/evil\.example/i);
     expect(new URL(page.url()).origin).toMatch(/localhost|127\.0\.0\.1/);

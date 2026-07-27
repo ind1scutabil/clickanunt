@@ -368,17 +368,41 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
 
       if (uiId) {
         const apply = await getListingPromotionApplyFromUiPackage(uiId);
-        promotionTypeStr = apply.promotionType;
-        featured = apply.featured;
-        const snapDays = meta && typeof meta.durationDays === 'number'
-          ? meta.durationDays
-          : meta && typeof meta.durationDays === 'string'
-            ? parseInt(meta.durationDays, 10)
-            : NaN;
-        const durationDays =
-          Number.isFinite(snapDays) && snapDays >= 1 ? snapDays : apply.durationDays;
-        promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + durationDays);
+        // Duration must come from Payment.metadata snapshot at intent creation.
+        // Never re-read FeatureFlag duration after payment (fail closed if missing/invalid).
+        const snapRaw = meta?.durationDays;
+        let snapDays: number | null = null;
+        if (typeof snapRaw === 'number' && Number.isInteger(snapRaw)) {
+          snapDays = snapRaw;
+        } else if (typeof snapRaw === 'string' && snapRaw.trim() !== '') {
+          const parsed = Number.parseInt(snapRaw, 10);
+          if (Number.isInteger(parsed) && String(parsed) === snapRaw.trim()) {
+            snapDays = parsed;
+          }
+        }
+        const MAX_PROMOTION_DURATION_DAYS = 365;
+        if (
+          snapDays == null ||
+          snapDays < 1 ||
+          snapDays > MAX_PROMOTION_DURATION_DAYS
+        ) {
+          logger.error(
+            'Listing promotion skipped: missing or invalid durationDays snapshot on Payment',
+            {
+              listingId,
+              paymentId: payment.id,
+              durationDays: snapRaw ?? null,
+            }
+          );
+          promotionTypeStr = '';
+          featured = false;
+          promotionEnd = new Date();
+        } else {
+          promotionTypeStr = apply.promotionType;
+          featured = apply.featured;
+          promotionEnd = new Date();
+          promotionEnd.setDate(promotionEnd.getDate() + snapDays);
+        }
       } else if (stripePackageType && STRIPE_ONLY_FALLBACK[stripePackageType]) {
         const fb = STRIPE_ONLY_FALLBACK[stripePackageType];
         promotionTypeStr = fb.type;

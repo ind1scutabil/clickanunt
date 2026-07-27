@@ -8,6 +8,7 @@ test.describe('Payment Integration - Sandbox Mode', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('should load payment page with sandbox Stripe', async ({ page }) => {
+    test.setTimeout(60_000);
     const res = await page.goto('/listings/test-listing-1/promote/payment/card', {
       waitUntil: 'domcontentloaded',
     });
@@ -16,6 +17,8 @@ test.describe('Payment Integration - Sandbox Mode', () => {
     // Unauthenticated or invalid listing — page still renders a card/promote/auth surface.
     await expect(page.locator('body')).toBeVisible();
     expect(page.url()).toMatch(/payment|auth|login|promote/);
+    // Unload Stripe.js before context teardown (otherwise close() can hang past timeout).
+    await page.goto('about:blank', { waitUntil: 'domcontentloaded' });
   });
 
   test('PayPal page does not activate promotion API', async ({ page }) => {
