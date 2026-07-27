@@ -6,6 +6,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { accountDeactivateSchema } from "@/lib/security/validation-schemas";
 import { createAuditLog } from "@/lib/audit";
 import { clearAuthCookies } from "@/lib/auth/clear-auth-cookies";
+import { bumpSessionVersion } from "@/lib/auth/session-version";
 
 /**
  * Soft-delete cont: `deletedAt` setat. Login-ul existent respinge utilizatorii șterși.
@@ -68,6 +69,8 @@ export async function POST(request: NextRequest) {
         data: { status: "paused" },
       }),
     ]);
+
+    await bumpSessionVersion(user.id);
 
     await createAuditLog({
       userId: user.id,

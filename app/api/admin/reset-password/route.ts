@@ -7,6 +7,7 @@ import { validateSecureRequest } from '@/lib/security/middleware';
 import { getUserFromRequest, hashPassword } from '@/lib/auth';
 import { hasPermission, Permission } from '@/lib/rbac';
 import type { UserRole } from '@prisma/client';
+import { bumpSessionVersion } from '@/lib/auth/session-version';
 
 /**
  * POST /api/admin/reset-password
@@ -87,6 +88,8 @@ export async function POST(request: NextRequest) {
         resetPasswordExpires: null,
       },
     });
+
+    await bumpSessionVersion(user.id);
 
     logger.info({ adminId: actor.id, targetUserId: user.id }, 'Admin password reset successfully');
 

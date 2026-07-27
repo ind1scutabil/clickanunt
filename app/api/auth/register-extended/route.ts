@@ -249,8 +249,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ============== GENEREZA TOKENS ==============
-    const accessToken = await generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
+    const accessToken = await generateAccessToken(
+      user.id,
+      user.email,
+      user.role,
+      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
+    );
+    const refreshToken = await generateRefreshToken(
+      user.id,
+      user.email,
+      user.role,
+      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
+    );
 
     // ============== AUDIT LOG ==============
     try {
@@ -278,8 +288,6 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         user: userWithoutPassword,
-        accessToken,
-        refreshToken,
         accountType,
         message:
           accountType === "business"

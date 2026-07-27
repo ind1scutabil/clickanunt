@@ -9,6 +9,11 @@ import { verifyJwtHs256AccessFlexible } from '@/lib/security/tokens';
 import { db } from './db';
 import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
+import {
+  isSessionVersionMatch,
+  sessionVersionFromTokenPayload,
+  sessionVersionFromUser,
+} from '@/lib/auth/session-version';
 
 // Secret pentru JWT (din .env)
 const JWT_SECRET_RAW = process.env.JWT_SECRET;
@@ -27,6 +32,8 @@ export interface TokenPayload extends JWTPayload {
   email: string;
   role: string;
   type: 'access' | 'refresh';
+  /** Session version — must match User.sessionVersion */
+  sv?: number;
 }
 
 export interface AuthResult {
@@ -42,12 +49,18 @@ export interface AuthResult {
 /**
  * Generare Access Token JWT
  */
-export async function generateAccessToken(userId: string, email: string, role: string): Promise<string> {
+export async function generateAccessToken(
+  userId: string,
+  email: string,
+  role: string,
+  sessionVersion: number = 0
+): Promise<string> {
   const token = await new SignJWT({
     userId,
     email,
     role,
     type: 'access',
+    sv: sessionVersion,
   })
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
@@ -62,12 +75,18 @@ export async function generateAccessToken(userId: string, email: string, role: s
 /**
  * Generare Refresh Token JWT
  */
-export async function generateRefreshToken(userId: string, email: string, role: string): Promise<string> {
+export async function generateRefreshToken(
+  userId: string,
+  email: string,
+  role: string,
+  sessionVersion: number = 0
+): Promise<string> {
   const token = await new SignJWT({
     userId,
     email,
     role,
     type: 'refresh',
+    sv: sessionVersion,
   })
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
@@ -203,6 +222,9 @@ export async function getUserFromRequest(request: NextRequest) {
     // Ban / soft-delete must revoke effective auth even if JWT is still unexpired.
     if (user.isBanned) continue;
     if ("deletedAt" in user && user.deletedAt) continue;
+    const tokenSv = sessionVersionFromTokenPayload(payload);
+    const userSv = sessionVersionFromUser(user);
+    if (!isSessionVersionMatch(tokenSv, userSv)) continue;
     return user;
   }
 
@@ -316,9 +338,10 @@ export async function authenticateUser(
       lastLoginIp: ip || null,
     });
 
-    // Generate tokens
-    const accessToken = await generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
+    // Generate tokens bound to current sessionVersion
+    const sv = sessionVersionFromUser(user);
+    const accessToken = await generateAccessToken(user.id, user.email, user.role, sv);
+    const refreshToken = await generateRefreshToken(user.id, user.email, user.role, sv);
 
     // Remove password from user object
     const { password: userPassword, ...userWithoutPassword } = user;
@@ -376,8 +399,22 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       };
     }
 
-    // Generează token nou
-    const newAccessToken = await generateAccessToken(user.id, user.email, user.role);
+    const tokenSv = sessionVersionFromTokenPayload(payload);
+    const userSv = sessionVersionFromUser(user);
+    if (!isSessionVersionMatch(tokenSv, userSv)) {
+      return {
+        success: false,
+        error: 'Sesiune revocată',
+      };
+    }
+
+    // Generează access nou (aceeași versiune de sesiune). Refresh JWT rămâne valabil până la bump.
+    const newAccessToken = await generateAccessToken(
+      user.id,
+      user.email,
+      user.role,
+      userSv
+    );
 
     const { password: _password, ...userWithoutPassword } = user;
 

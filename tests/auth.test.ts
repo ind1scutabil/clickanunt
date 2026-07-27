@@ -8,6 +8,38 @@ import { prisma } from '../lib/prisma';
 
 const API_URL = process.env.TEST_API_URL || 'http://localhost:3000';
 
+function getSetCookieHeaders(response: Response): string[] {
+  const headers = response.headers as Headers & { getSetCookie?: () => string[] };
+  if (typeof headers.getSetCookie === 'function') {
+    return headers.getSetCookie();
+  }
+  const single = response.headers.get('set-cookie');
+  return single ? [single] : [];
+}
+
+function cookieValueFromSetCookie(setCookie: string, name: string): string | undefined {
+  const match = setCookie.match(new RegExp(`^${name}=([^;]+)`));
+  return match?.[1];
+}
+
+function accessTokenFromResponse(response: Response): string | undefined {
+  for (const header of getSetCookieHeaders(response)) {
+    const value = cookieValueFromSetCookie(header, 'accessToken');
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function expectAuthCookies(response: Response): void {
+  const setCookies = getSetCookieHeaders(response);
+  expect(setCookies.length).toBeGreaterThan(0);
+  const accessCookie = setCookies.find((c) => c.startsWith('accessToken='));
+  expect(accessCookie).toBeDefined();
+  expect(accessCookie).toContain('HttpOnly');
+  const refreshCookie = setCookies.find((c) => c.startsWith('refreshToken='));
+  expect(refreshCookie).toBeDefined();
+}
+
 describe('Authentication API', () => {
   const testEmail = `test-${Date.now()}@example.com`;
   const testPassword = 'TestPassword123!';
@@ -54,10 +86,12 @@ describe('Authentication API', () => {
       expect(data.user).toBeDefined();
       expect(data.user.email).toBe(testEmail);
       expect(data.user.password).toBeUndefined();
-      expect(data.accessToken).toBeDefined();
-      expect(data.refreshToken).toBeDefined();
+      expect(data.accessToken).toBeUndefined();
+      expect(data.refreshToken).toBeUndefined();
+      expectAuthCookies(response);
 
-      accessToken = data.accessToken;
+      accessToken = accessTokenFromResponse(response)!;
+      expect(accessToken).toBeDefined();
     });
 
     test('should reject duplicate email without confirming account existence', async () => {
@@ -151,8 +185,9 @@ describe('Authentication API', () => {
       expect(data.success).toBe(true);
       expect(data.user).toBeDefined();
       expect(data.user.email).toBe(testEmail);
-      expect(data.accessToken).toBeDefined();
-      expect(data.refreshToken).toBeDefined();
+      expect(data.accessToken).toBeUndefined();
+      expect(data.refreshToken).toBeUndefined();
+      expectAuthCookies(response);
     });
 
     test('should return 401 for wrong password', async () => {
@@ -257,12 +292,11 @@ describe('Authentication API', () => {
         credentials: 'include',
       });
 
-      const setCookieHeader = response.headers.get('set-cookie');
-      expect(setCookieHeader).toBeDefined();
-      if (setCookieHeader) {
-        expect(setCookieHeader).toContain('accessToken');
-        expect(setCookieHeader).toContain('HttpOnly');
-      }
+      const setCookies = getSetCookieHeaders(response);
+      expect(setCookies.length).toBeGreaterThan(0);
+      const accessCookie = setCookies.find((c) => c.startsWith('accessToken='));
+      expect(accessCookie).toBeDefined();
+      expect(accessCookie).toContain('HttpOnly');
     });
   });
 

@@ -86,8 +86,18 @@ export async function POST(request: NextRequest) {
     });
 
     // Generează tokens
-    const accessToken = await generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
+    const accessToken = await generateAccessToken(
+      user.id,
+      user.email,
+      user.role,
+      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
+    );
+    const refreshToken = await generateRefreshToken(
+      user.id,
+      user.email,
+      user.role,
+      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
+    );
 
     // Audit log (skip if in-memory mode)
     try {
@@ -116,8 +126,6 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         user: userWithoutPassword,
-        accessToken,
-        refreshToken,
         message: "Cont creat cu succes! Bine ai venit!",
         mode: db.isUsingInMemory() ? 'development' : 'production',
       },

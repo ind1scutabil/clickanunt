@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { validateSecureRequest } from '@/lib/security/middleware';
+import { bumpSessionVersion } from '@/lib/auth/session-version';
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token lipsă'),
@@ -83,6 +84,9 @@ export async function POST(request: NextRequest) {
         lockedUntil: null,
       },
     });
+
+    // Revoke all outstanding sessions — user must log in again.
+    await bumpSessionVersion(user.id);
 
     logger.info({ userId: user.id }, 'Password reset successfully');
 

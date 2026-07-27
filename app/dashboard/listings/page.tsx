@@ -5,7 +5,11 @@ import Footer from "@/app/components/Footer";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { memoryStorage } from "@/lib/memory-storage";
-import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
@@ -94,14 +98,20 @@ export default function MyListingsPage() {
 
   useEffect(() => {
     if (!clientReady) return;
-    // Check authentication
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.push('/auth/login?redirect=/dashboard/listings');
-      return;
-    }
 
-    void fetchListings();
+    const init = async () => {
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        if (!session.transient) {
+          clearStaleBrowserAuth();
+          router.push('/auth/login?redirect=/dashboard/listings');
+        }
+        return;
+      }
+      void fetchListings();
+    };
+
+    void init();
   }, [clientReady, router]);
 
   const fetchListings = async () => {

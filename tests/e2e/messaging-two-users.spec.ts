@@ -177,11 +177,8 @@ test("DB+API+browser: buyer trimite din fir anunț; seller vede în inbox; răsp
       .poll(
         async () => {
           return sellerPage.evaluate(async (needle) => {
-            const t = localStorage.getItem("accessToken");
-            if (!t) return false;
             const r = await fetch("/api/messages/conversations", {
               credentials: "include",
-              headers: { Authorization: `Bearer ${t}` },
               cache: "no-store",
             });
             if (!r.ok) return false;

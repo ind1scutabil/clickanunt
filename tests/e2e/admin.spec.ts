@@ -41,8 +41,6 @@ test.describe('Admin Dashboard', () => {
     const storageState = await request.storageState();
     const origin = new URL(baseURL || 'http://localhost:3000').origin;
     const user = loginData?.user;
-    const accessToken = loginData?.accessToken;
-    const refreshToken = loginData?.refreshToken;
 
     storageState.origins = storageState.origins || [];
     const existingOrigin = storageState.origins.find((o) => o.origin === origin);
@@ -62,8 +60,6 @@ test.describe('Admin Dashboard', () => {
     if (user) {
       setLocalStorageItem('user', JSON.stringify(user));
     }
-    setLocalStorageItem('accessToken', accessToken);
-    setLocalStorageItem('refreshToken', refreshToken);
 
     if (!existingOrigin) {
       storageState.origins.push(targetOrigin);

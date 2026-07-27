@@ -7,6 +7,7 @@ import {
   fetchWithAuthRefresh,
   postJsonWithAuthRefresh,
   syncSessionFromCookies,
+  validateServerAuthSession,
 } from "@/lib/admin-fetch";
 import { notifyMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
@@ -146,38 +147,52 @@ export default function MessagesPage() {
   };
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.replace('/auth/login?redirect=/messages');
-      return;
-    }
+    let cancelled = false;
 
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr) as { id?: string; userId?: string };
-        const rawMe =
-          typeof user?.id === "string"
-            ? user.id
-            : typeof user?.userId === "string"
-              ? user.userId
-              : null;
-        setCurrentUserId(rawMe ? rawMe.trim().toLowerCase() : null);
-      } catch {
-        setCurrentUserId(null);
+    const bootstrap = async () => {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr) as { id?: string; userId?: string };
+          const rawMe =
+            typeof user?.id === "string"
+              ? user.id
+              : typeof user?.userId === "string"
+                ? user.userId
+                : null;
+          if (rawMe) {
+            setCurrentUserId(rawMe.trim().toLowerCase());
+          }
+        } catch {
+          /* ignore stale profile cache */
+        }
       }
-    }
 
-    sseWatchdogRef.current = window.setTimeout(() => {
-      if (!sseEverOpenedRef.current) {
-        ensurePollingIntervalsRef.current();
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (!session.ok) {
+        router.replace("/auth/login?redirect=/messages");
+        return;
       }
-    }, SSE_WATCHDOG_MS) as unknown as number;
 
-    void fetchConversations();
+      const sessionId = session.user?.id;
+      if (typeof sessionId === "string" && sessionId.trim()) {
+        setCurrentUserId(sessionId.trim().toLowerCase());
+      }
+
+      sseWatchdogRef.current = window.setTimeout(() => {
+        if (!sseEverOpenedRef.current) {
+          ensurePollingIntervalsRef.current();
+        }
+      }, SSE_WATCHDOG_MS) as unknown as number;
+
+      void fetchConversations();
+    };
+
+    void bootstrap();
 
     return () => {
+      cancelled = true;
       clearFallbackPolling();
     };
   }, [router]);
@@ -497,8 +512,6 @@ export default function MessagesPage() {
     fetchMessages(userId, listingId, conversationId, "manual");
 
   useEffect(() => {
-    if (!localStorage.getItem("accessToken")) return;
-
     const dispose = connectMessageEventsSse({
       onOpen: () => {
         if (sseWatchdogRef.current) {
@@ -580,7 +593,6 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const onFocus = () => {
-      if (!localStorage.getItem("accessToken")) return;
       void sseHandlerRef.current.fetchConversations();
       const sel = selectedConversationRef.current;
       if (sel) {

@@ -15,6 +15,8 @@ import {
 } from "@/lib/listing-image-variants";
 import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { postJsonWithAuthRefresh, validateServerAuthSession } from "@/lib/admin-fetch";
+import { cacheWebUserProfile } from "@/lib/auth/clear-legacy-web-auth-storage";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
@@ -218,14 +220,33 @@ export default function ListingDetailPageClient({
   }, [id]);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        setCurrentUser(JSON.parse(userStr));
-      } catch {
-        setCurrentUser(null);
+    let cancelled = false;
+
+    const loadUser = async () => {
+      const userStr = localStorage.getItem('user');
+      let cached: any = null;
+      if (userStr) {
+        try {
+          cached = JSON.parse(userStr);
+          if (!cancelled) setCurrentUser(cached);
+        } catch {
+          cached = null;
+        }
       }
-    }
+
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (session.ok && session.user) {
+        const merged = { ...(cached || {}), ...session.user };
+        cacheWebUserProfile(merged);
+        setCurrentUser(merged);
+      }
+    };
+
+    void loadUser();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -537,21 +558,10 @@ export default function ListingDetailPageClient({
     setReportLoading(true);
     setReportFeedback(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-      const res = await fetch("/api/reports", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          listingId: id,
-          reason: reportReason,
-          description: reportDescription.trim(),
-        }),
+      const res = await postJsonWithAuthRefresh('/api/reports', {
+        listingId: id,
+        reason: reportReason,
+        description: reportDescription.trim(),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
 import { memoryStorage } from '@/lib/memory-storage';
 import { getCsrfToken } from '@/lib/security/csrf-client';
-import { postJsonWithAuthRefresh } from '@/lib/admin-fetch';
+import { postJsonWithAuthRefresh, fetchWithAuthRefresh, jsonMutationWithAuthRefresh } from '@/lib/admin-fetch';
 import { CarSelectorPro } from '@/app/components/CarSelectorPro';
 import { ALL_CATEGORIES, CATEGORIES, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from '@/lib/carData';
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from '@/lib/listing-photo-url';
@@ -353,12 +353,9 @@ export default function EditListingPage() {
           }
         } else {
           // Production: fetch from API
-          const token = localStorage.getItem('accessToken');
-          const response = await fetch(`/api/listings/${id}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
+          const response = await fetchWithAuthRefresh(`/api/listings/${id}`, {
+            credentials: 'include',
+            cache: 'no-store',
           });
 
           if (!response.ok) {
@@ -586,18 +583,7 @@ export default function EditListingPage() {
         });
         setNotification({ message: 'Anunț salvat cu succes!', type: 'success' });
       } else {
-        const token = localStorage.getItem('accessToken');
-        const csrfToken = await getCsrfToken();
-        const response = await fetch(`/api/listings/${id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'x-csrf-token': csrfToken,
-          },
-          credentials: 'include',
-          body: JSON.stringify(payload),
-        });
+        const response = await jsonMutationWithAuthRefresh(`/api/listings/${id}`, 'PATCH', payload);
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));

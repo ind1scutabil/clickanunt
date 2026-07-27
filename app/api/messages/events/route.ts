@@ -23,9 +23,10 @@ const encoder = new TextEncoder();
 const HEARTBEAT_MS = 25_000;
 
 /**
- * GET /api/messages/events?token=JWT
+ * GET /api/messages/events[?token=JWT]
  * Server-Sent Events: push când apare un mesaj nou (expeditor + destinatar).
- * EventSource nu trimite header Authorization — folosim token în query (același JWT ca în localStorage).
+ * Web: same-origin EventSource trimite cookie HttpOnly automat (auth principal).
+ * Mobile: opțional ?token= pentru clienți fără cookie jar (SecureStore Bearer).
  */
 export async function GET(request: NextRequest) {
   const userId = await getAuthUserIdFromRequest(request);

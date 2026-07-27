@@ -4,6 +4,10 @@ import { getCsrfToken } from "@/lib/security/csrf-client";
 import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
 import { sanitizeAuthReturnPath } from "@/lib/auth/safe-auth-return-path";
+import {
+  cacheWebUserProfile,
+  clearLegacyWebAuthStorage,
+} from "@/lib/auth/clear-legacy-web-auth-storage";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -43,11 +47,9 @@ export default function LoginForm() {
     devLog('[LOGIN] Starting login process...');
 
     try {
-      // Clear any existing session first
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      devLog('[LOGIN] Cleared existing session');
+      // Cookie-first: strip any legacy JWT mirrors before login
+      clearLegacyWebAuthStorage({ broadcast: false });
+      devLog('[LOGIN] Cleared legacy localStorage auth');
 
       devLog('[LOGIN] Making API call...');
 
@@ -105,18 +107,10 @@ export default function LoginForm() {
         return;
       }
 
-      // Salvează tokens în localStorage
-      if (data.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-        devLog('[LOGIN] Access token saved');
-      }
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-        devLog('[LOGIN] Refresh token saved');
-      }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-        devLog('[LOGIN] User data saved');
+      // Cookies HttpOnly are set by the API. Never mirror access/refresh into localStorage.
+      clearLegacyWebAuthStorage({ broadcast: false });
+      if (data.user && typeof data.user === "object") {
+        cacheWebUserProfile(data.user as { id?: string; email?: string; role?: string; name?: string | null });
       }
       broadcastAuthSessionChanged();
 
@@ -175,15 +169,10 @@ export default function LoginForm() {
         return;
       }
 
-      // Salvează tokens
-      if (data.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-      }
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+      // Cookies set by API — do not store JWTs in localStorage
+      clearLegacyWebAuthStorage({ broadcast: false });
+      if (data.user && typeof data.user === "object") {
+        cacheWebUserProfile(data.user as { id?: string; email?: string; role?: string; name?: string | null });
       }
 
       broadcastAuthSessionChanged();

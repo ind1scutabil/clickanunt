@@ -66,12 +66,19 @@ test.describe.serial('Authentication - Registration & session', () => {
     await loginWithVisibleForm(page, email, strongPassword);
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
-    const desktopMenu = page.locator('header').getByRole('button', { name: 'Meniu utilizator' });
-    const mobileMenu = page.locator('header').getByRole('button', { name: /Deschide\/închide meniu/i });
-    if (await desktopMenu.first().isVisible().catch(() => false)) {
-      await desktopMenu.first().click();
+    // Cookie banner can sit above chrome; dismiss if present.
+    const acceptCookies = page.getByRole('button', { name: /Acceptă/i });
+    if (await acceptCookies.isVisible().catch(() => false)) {
+      await acceptCookies.click();
+    }
+
+    const userMenu = page.locator('header button[aria-label="Meniu utilizator"]');
+    const mobileToggle = page.locator('header button[aria-label*="meniu" i], header button[aria-label*="Meniu" i]').filter({ hasNot: userMenu });
+    if (await userMenu.isVisible().catch(() => false)) {
+      await userMenu.click();
     } else {
-      await mobileMenu.first().click();
+      const burger = page.locator('header').getByRole('button', { name: /Deschide\/închide meniu/i });
+      await burger.first().click();
     }
     await page.getByRole('button', { name: /deconectare|logout/i }).click();
     await page.waitForURL(/\/$/, { timeout: 10000 });

@@ -21,10 +21,21 @@ export type UserMeResponseDto = {
 };
 
 /**
- * POST /api/auth/login — 200 success JSON (tokens also set as httpOnly cookies).
+ * POST /api/auth/login, /register, /register-extended, /verify-2fa — 200 success JSON (web).
+ * Tokens are set only as httpOnly cookies (`accessToken`, `refreshToken`); not returned in the body.
  * `user` is the DB user without password (may include more keys than GET /api/users/me).
  */
 export type LoginSuccessResponseDto = {
+  success: true;
+  user: UserMeResponseDto;
+  message?: string;
+};
+
+/**
+ * POST /api/auth/mobile-login — 200 success JSON (mobile Bearer clients).
+ * Does not set httpOnly cookies; tokens are returned in the body.
+ */
+export type MobileLoginSuccessResponseDto = {
   success: true;
   user: UserMeResponseDto;
   accessToken: string;
@@ -47,7 +58,16 @@ export type AuthTokensDto = {
 };
 
 /**
- * POST /api/auth/refresh and POST /api/auth/mobile-refresh — new access token (refresh token unchanged).
+ * POST /api/auth/refresh — 200 success JSON (web).
+ * New access token is set only as an httpOnly cookie; body returns success + user.
+ */
+export type WebRefreshSuccessResponseDto = {
+  success: true;
+  user: UserMeResponseDto;
+};
+
+/**
+ * POST /api/auth/mobile-refresh — new access token in JSON body (refresh token unchanged).
  */
 export type RefreshAccessTokenResponseDto = {
   success: true;

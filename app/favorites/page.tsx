@@ -3,7 +3,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import { useState, useEffect } from "react";
-import { fetchWithAuthRefresh, jsonMutationWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  jsonMutationWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
@@ -43,12 +48,20 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (!clientReady) return;
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      router.push("/auth/login?redirect=/favorites");
-      return;
-    }
-    void fetchFavorites();
+
+    const init = async () => {
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        if (!session.transient) {
+          clearStaleBrowserAuth();
+          router.push("/auth/login?redirect=/favorites");
+        }
+        return;
+      }
+      void fetchFavorites();
+    };
+
+    void init();
   }, [clientReady, router]);
 
   const fetchFavorites = async () => {

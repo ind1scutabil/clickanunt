@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const { db } = await import('@/lib/db');
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, name: true },
+      select: { id: true, email: true, role: true, name: true, sessionVersion: true },
     });
 
     if (!user) {
@@ -90,8 +90,9 @@ export async function POST(request: NextRequest) {
     }
 
     const role = typeof user.role === "string" && user.role ? user.role : "user";
-    const accessToken = await generateAccessToken(user.id, user.email, role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, role);
+    const sv = typeof user.sessionVersion === "number" ? user.sessionVersion : 0;
+    const accessToken = await generateAccessToken(user.id, user.email, role, sv);
+    const refreshToken = await generateRefreshToken(user.id, user.email, role, sv);
     await deleteSession(sessionToken);
 
     void recordAnalyticsEvent({
@@ -103,9 +104,8 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json(
       {
+        success: true,
         user,
-        accessToken,
-        refreshToken,
         message: '2FA verification successful',
       },
       { status: 200 }

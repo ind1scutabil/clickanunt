@@ -3,6 +3,11 @@ import type { TokenPayload } from "@/lib/auth";
 import { decodeAccessJwtPayload } from "@/lib/auth";
 import { normalizeJwtInput } from "@/lib/jwt-normalize";
 import { db } from "@/lib/db";
+import {
+  isSessionVersionMatch,
+  sessionVersionFromTokenPayload,
+  sessionVersionFromUser,
+} from "@/lib/auth/session-version";
 
 function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -32,18 +37,22 @@ async function payloadIfActiveUser(
   if (!user) return null;
   if (user.isBanned) return null;
   if ("deletedAt" in user && user.deletedAt) return null;
+  const tokenSv = sessionVersionFromTokenPayload(payload);
+  const userSv = sessionVersionFromUser(user);
+  if (!isSessionVersionMatch(tokenSv, userSv)) return null;
   return payload;
 }
 
 /**
- * Auth SSE: ?token= (EventSource), cookie httpOnly, apoi Bearer / Authorization brut.
+ * Auth SSE: cookie httpOnly first, optional ?token= legacy, then Bearer.
  */
 export async function getAuthUserIdFromRequest(request: NextRequest): Promise<string | null> {
   const queryToken = request.nextUrl.searchParams.get("token")?.trim();
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  for (const candidate of uniqMessagingTokens([queryToken, cookieToken, headerToken])) {
+  // Cookie before query token — prefer HttpOnly session over URL-leaked JWT.
+  for (const candidate of uniqMessagingTokens([cookieToken, headerToken, queryToken])) {
     const payload = await decodeAccessJwtPayload(candidate);
     const active = await payloadIfActiveUser(payload);
     if (active?.userId) return active.userId;
@@ -53,9 +62,7 @@ export async function getAuthUserIdFromRequest(request: NextRequest): Promise<st
 
 /**
  * GET/POST JSON mesaje: cookie httpOnly înainte de Bearer.
- * Pe live, `localStorage` poate rămâne cu access expirat în timp ce cookie-ul `.clickanunt.ro`
- * e încă valabil — ordinea veche (Bearer primul) ducea la 401 intermitent pe pagina anunțului.
- * Banned / soft-deleted users are rejected even if JWT is unexpired.
+ * Banned / soft-deleted / revoked sessionVersion are rejected.
  */
 export async function getMessagingApiAuthPayload(
   request: NextRequest

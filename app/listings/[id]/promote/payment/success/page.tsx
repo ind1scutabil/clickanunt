@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
+import { fetchWithAuthRefresh, clearStaleBrowserAuth } from '@/lib/admin-fetch';
 
 type PaymentStatusResponse = {
   status: string;
@@ -31,21 +32,19 @@ export default function PaymentSuccessPage() {
     }
 
     try {
-      const accessToken =
-        typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-      const headers: Record<string, string> = { Accept: 'application/json' };
-      if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-      const res = await fetch(`/api/payments/by-intent/${encodeURIComponent(paymentIntent)}`, {
-        headers,
-        credentials: 'include',
-      });
+      const res = await fetchWithAuthRefresh(
+        `/api/payments/by-intent/${encodeURIComponent(paymentIntent)}`,
+        {
+          headers: { Accept: 'application/json' },
+        }
+      );
       const data = (await res.json().catch(() => ({}))) as PaymentStatusResponse & {
         error?: string;
         listingId?: string | null;
       };
 
       if (res.status === 401) {
+        clearStaleBrowserAuth();
         setError('Autentificare necesară pentru verificarea plății');
         setLoading(false);
         return;

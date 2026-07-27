@@ -14,6 +14,7 @@ import type { UserRole } from "@prisma/client";
 import { AdminNotificationSeverity } from "@prisma/client";
 import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
+import { bumpSessionVersion } from "@/lib/auth/session-version";
 
 const banUserSchema = z.object({
   reason: z.string().min(1, "Motivul este necesar"),
@@ -86,6 +87,9 @@ export async function POST(
         moderationSuspendedBy: null,
       },
     });
+
+    // Invalidate all JWTs for this user
+    await bumpSessionVersion(id);
 
     // Audit log
     await auditActions.userBanned(user, targetUser.id, reason, targetUser);

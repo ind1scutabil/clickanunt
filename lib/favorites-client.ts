@@ -10,13 +10,13 @@ import {
 
 const LEGACY_DETAIL_KEY = "favorites";
 
-function readAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
+/** Hint that a cookie session may exist (UI profile cache — not a JWT). */
+function hasCachedWebUser(): boolean {
+  if (typeof window === "undefined") return false;
   try {
-    const t = localStorage.getItem("accessToken");
-    return t && t.length > 0 ? t : null;
+    return localStorage.getItem("user") !== null;
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -71,10 +71,10 @@ export type FavoriteToggleResult = {
  */
 export async function toggleFavoriteListing(listingId: string): Promise<FavoriteToggleResult> {
   migrateLegacyFavoriteKeys();
-  const token = readAccessToken();
   const currentlySaved = isListingSaved(listingId);
+  const tryApi = hasCachedWebUser();
 
-  if (!token) {
+  if (!tryApi) {
     const saved = toggleSavedListingId(listingId);
     return { saved, via: "local" };
   }
@@ -85,13 +85,13 @@ export async function toggleFavoriteListing(listingId: string): Promise<Favorite
       const res = await fetch(`/api/favorites?listingId=${encodeURIComponent(listingId)}`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
           ...(csrf ? { "x-csrf-token": csrf } : {}),
         },
-        credentials: "same-origin",
+        credentials: "include",
       });
       if (res.status === 401) {
-        return { saved: currentlySaved, via: "api", needsAuth: true, error: "Unauthorized" };
+        const saved = toggleSavedListingId(listingId);
+        return { saved, via: "local", needsAuth: true };
       }
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -101,7 +101,6 @@ export async function toggleFavoriteListing(listingId: string): Promise<Favorite
           error: body.error || `Eroare (${res.status})`,
         };
       }
-      // Keep local mirror in sync for optimistic UI / offline affordance
       if (isListingSaved(listingId)) toggleSavedListingId(listingId);
       return { saved: false, via: "api" };
     }
@@ -111,17 +110,16 @@ export async function toggleFavoriteListing(listingId: string): Promise<Favorite
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
         ...(csrf ? { "x-csrf-token": csrf } : {}),
       },
-      credentials: "same-origin",
+      credentials: "include",
       body: JSON.stringify({ listingId }),
     });
     if (res.status === 401) {
-      return { saved: currentlySaved, via: "api", needsAuth: true, error: "Unauthorized" };
+      const saved = toggleSavedListingId(listingId);
+      return { saved, via: "local", needsAuth: true };
     }
     if (res.status === 400) {
-      // Already favorited — treat as saved
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (String(body.error || "").toLowerCase().includes("already")) {
         if (!isListingSaved(listingId)) toggleSavedListingId(listingId);

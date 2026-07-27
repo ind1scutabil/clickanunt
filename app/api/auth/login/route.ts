@@ -64,8 +64,6 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
         message: "Conectat cu succes",
       },
       { status: 200 }

@@ -12,7 +12,6 @@ import {
   putJsonWithAuthRefresh,
   syncSessionFromCookies,
 } from '@/lib/admin-fetch';
-import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
 import UserModerationEnterprise, {
   type EnterpriseModerationUser as ModerationUser,
 } from '@/app/components/admin/UserModerationEnterprise';
@@ -469,17 +468,11 @@ function AdminModerationPageInner() {
     const silent = opts?.silent;
     try {
       if (!silent) setReportsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      // Add timeout to prevent hanging
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/admin/reports?status=pending', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetchWithAuthRefresh('/api/admin/reports?status=pending', {
         signal: controller.signal,
       });
 
@@ -507,17 +500,11 @@ function AdminModerationPageInner() {
     const silent = opts?.silent;
     try {
       if (!silent) setAppealsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      // Add timeout to prevent hanging
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/admin/appeals?status=pending', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetchWithAuthRefresh('/api/admin/appeals?status=pending', {
         signal: controller.signal,
       });
 
@@ -538,15 +525,9 @@ function AdminModerationPageInner() {
   };
   const resolveReport = async (reportId: string, resolution: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'resolved', resolution }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/reports/${reportId}/resolve`, {
+        status: 'resolved',
+        resolution,
       });
 
       if (!response.ok) throw new Error('Failed to resolve report');
@@ -565,15 +546,9 @@ function AdminModerationPageInner() {
 
   const dismissReport = async (reportId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'dismissed', resolution: 'Dismissed by admin' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/reports/${reportId}/resolve`, {
+        status: 'dismissed',
+        resolution: 'Dismissed by admin',
       });
 
       if (!response.ok) throw new Error('Failed to dismiss report');
@@ -593,15 +568,9 @@ function AdminModerationPageInner() {
   // Appeal action handlers
   const approveAppeal = async (appealId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'approved', response: 'Apelul a fost aprobat' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/appeals/${appealId}/resolve`, {
+        status: 'approved',
+        response: 'Apelul a fost aprobat',
       });
 
       if (!response.ok) throw new Error('Failed to approve appeal');
@@ -620,15 +589,9 @@ function AdminModerationPageInner() {
 
   const rejectAppeal = async (appealId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'rejected', response: 'Apelul a fost respins' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/appeals/${appealId}/resolve`, {
+        status: 'rejected',
+        response: 'Apelul a fost respins',
       });
 
       if (!response.ok) throw new Error('Failed to reject appeal');
@@ -1438,95 +1401,20 @@ function AdminModerationPageInner() {
     setIsSavingBenefits(true);
 
     try {
-      // Always refresh CSRF token before privileged writes (avoids stale cached token mismatch).
-      clearCsrfTokenCache();
-
-      // Avoid leaving the UI stuck if `/api/csrf` stalls.
-      const csrfToken = await Promise.race<string>([
-        getCsrfToken(),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
-        ),
-      ]);
-      let bearerToken = localStorage.getItem('accessToken');
-
-      // If backend stalls (DB/prisma issues), fail fast so `finally` resets loading.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-      const doRequest = async (tokenToUse: string) => {
-        return fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
-          method: 'POST',
-          credentials: 'include',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-csrf-token': tokenToUse,
-            ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-          },
-          body: JSON.stringify({
-            creditsBonus: credits,
-            globalDiscount: discount,
-            freePromotions,
-            promotionType: creditsForm.promotionType,
-            expiryDays,
-          }),
-        });
-      };
-
-      const fetchCsrfTokenFresh = async () => {
-        clearCsrfTokenCache();
-        return Promise.race<string>([
-          getCsrfToken(),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
-          ),
-        ]);
-      };
-
-      let response = await doRequest(csrfToken);
-      if (response.status === 403) {
-        // Read body once to decide if it's CSRF-related or auth-related.
-        const firstText = await response.text();
-        let firstPayload: any = null;
-        try {
-          firstPayload = firstText ? JSON.parse(firstText) : null;
-        } catch {
-          firstPayload = null;
-        }
-
-        // Refresh: body sau cookie httpOnly (localStorage poate să nu mai aibă refreshToken).
-        if (firstPayload?.error === 'Acces interzis') {
-          const rt = (localStorage.getItem('refreshToken') || '').trim();
-          const csrfForRefresh = await fetchCsrfTokenFresh();
-          const refreshResp = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-            signal: controller.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-csrf-token': csrfForRefresh,
-            },
-            body: JSON.stringify(rt ? { refreshToken: rt } : {}),
-          });
-
-          if (refreshResp.ok) {
-            const refreshJson: any = await refreshResp.json();
-            const newAccess = refreshJson?.accessToken as string | undefined;
-            if (newAccess) {
-              bearerToken = newAccess;
-              localStorage.setItem('accessToken', newAccess);
-            }
-            if (refreshJson?.user) {
-              localStorage.setItem('user', JSON.stringify(refreshJson.user));
-            }
-          }
-        }
-
-        // Retry once with freshly fetched CSRF (covers rotated cookies / stale token cache).
-        const freshCsrfToken = await fetchCsrfTokenFresh();
-        response = await doRequest(freshCsrfToken);
-      }
+      const response = await postJsonWithAuthRefresh(
+        `/api/admin/users/${selectedUser.id}/benefits`,
+        {
+          creditsBonus: credits,
+          globalDiscount: discount,
+          freePromotions,
+          promotionType: creditsForm.promotionType,
+          expiryDays,
+        },
+        { signal: controller.signal }
+      );
 
       clearTimeout(timeoutId);
 
@@ -1545,7 +1433,7 @@ function AdminModerationPageInner() {
         const msg = payload?.error || `Eroare API (${response.status})`;
         if (response.status === 403 && msg === 'Acces interzis') {
           throw new Error(
-            'Sesiune expirată sau lipsă refresh token. Deloghează-te și autentifică-te din nou, apoi reîncearcă.'
+            'Sesiune expirată. Deloghează-te și autentifică-te din nou, apoi reîncearcă.'
           );
         }
         throw new Error(msg);

@@ -49,8 +49,6 @@ export default async function globalSetup(config: FullConfig) {
 
   const origin = new URL(baseURL).origin;
   const user = loginData?.user;
-  const accessToken = loginData?.accessToken;
-  const refreshToken = loginData?.refreshToken;
 
   storageState.origins = storageState.origins || [];
   const existingOrigin = storageState.origins.find((o) => o.origin === origin);
@@ -70,8 +68,6 @@ export default async function globalSetup(config: FullConfig) {
   if (user) {
     setLocalStorageItem('user', JSON.stringify(user));
   }
-  setLocalStorageItem('accessToken', accessToken);
-  setLocalStorageItem('refreshToken', refreshToken);
 
   if (!existingOrigin) {
     storageState.origins.push(targetOrigin);

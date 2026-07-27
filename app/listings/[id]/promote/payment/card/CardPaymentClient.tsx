@@ -6,7 +6,7 @@ import { loadStripe, type StripeError } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import Navbar from '@/app/components/Navbar';
 import { COMPANY_CONFIG } from '@/lib/company-config';
-import { getCsrfToken } from '@/lib/security/csrf-client';
+import { postJsonWithAuthRefresh } from '@/lib/admin-fetch';
 
 // Map short package names to Stripe enum values
 const PACKAGE_MAPPING: Record<string, string> = {
@@ -187,24 +187,10 @@ export default function CardPaymentClient({
         if (!packageId) return;
         const fullPackageType = PACKAGE_MAPPING[packageId] || packageId;
 
-        const csrfToken = await getCsrfToken();
-        const accessToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (csrfToken) headers['x-csrf-token'] = csrfToken;
-        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-
-        const response = await fetch('/api/payments/create-intent', {
-          method: 'POST',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify({
-            listingId,
-            packageType: fullPackageType,
-            packageId,
-          }),
+        const response = await postJsonWithAuthRefresh('/api/payments/create-intent', {
+          listingId,
+          packageType: fullPackageType,
+          packageId,
         });
 
         if (!response.ok) {

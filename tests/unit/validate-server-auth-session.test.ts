@@ -5,125 +5,105 @@
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
-jest.mock('@/lib/security/csrf-client', () => ({
+jest.mock("@/lib/security/csrf-client", () => ({
   clearCsrfTokenCache: jest.fn(),
-  getCsrfToken: jest.fn().mockResolvedValue('csrf-test'),
-  fetchCsrfTokenFresh: jest.fn().mockResolvedValue('csrf-test'),
+  getCsrfToken: jest.fn().mockResolvedValue("csrf-test"),
+  fetchCsrfTokenFresh: jest.fn().mockResolvedValue("csrf-test"),
 }));
 
-jest.mock('@/lib/client-canonical-www', () => ({
+jest.mock("@/lib/client-canonical-www", () => ({
   resolveClientApiUrl: (path: string) => path,
 }));
 
-import { validateServerAuthSession } from '@/lib/admin-fetch';
+jest.mock("@/lib/auth-session-events", () => ({
+  broadcastAuthSessionChanged: jest.fn(),
+}));
 
-/** Unsigned JWT-shaped token for client expiry heuristics only (not server-verified). */
-function fakeJwt(payload: Record<string, unknown>): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  return `${header}.${body}.sig`;
-}
+import { validateServerAuthSession } from "@/lib/admin-fetch";
 
-describe('validateServerAuthSession', () => {
+describe("validateServerAuthSession (cookie-first)", () => {
   beforeEach(() => {
     mockFetch.mockReset();
     localStorage.clear();
-    localStorage.setItem('user', JSON.stringify({ email: 'a@test.ro', role: 'user' }));
+    localStorage.setItem("user", JSON.stringify({ email: "a@test.ro", role: "user" }));
+    localStorage.setItem("accessToken", "legacy-should-be-cleared");
+    localStorage.setItem("refreshToken", "legacy-should-be-cleared");
   });
 
-  it('sends Authorization Bearer on GET /api/users/me when access token has future exp', async () => {
-    const token = fakeJwt({
-      userId: 'u1',
-      email: 'a@test.ro',
-      role: 'user',
-      type: 'access',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    });
-    localStorage.setItem('accessToken', token);
-
+  it("GET /me with credentials, no Bearer; clears legacy JWT mirrors", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
-        id: 'u1',
-        email: 'a@test.ro',
-        role: 'admin',
-        name: 'Admin',
+        id: "u1",
+        email: "a@test.ro",
+        role: "admin",
+        name: "Admin",
       }),
     });
 
     const result = await validateServerAuthSession();
 
     expect(result.ok).toBe(true);
-    expect(result.user?.role).toBe('admin');
-    expect(result.user?.id).toBe('u1');
-    expect(JSON.parse(localStorage.getItem('user') || '{}')).toMatchObject({
-      id: 'u1',
-      email: 'a@test.ro',
-      role: 'admin',
+    expect(result.user?.role).toBe("admin");
+    expect(result.user?.id).toBe("u1");
+    expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(localStorage.getItem("refreshToken")).toBeNull();
+    expect(JSON.parse(localStorage.getItem("user") || "{}")).toMatchObject({
+      id: "u1",
+      email: "a@test.ro",
+      role: "admin",
     });
 
-    // Future-exp token → refresh skipped → single /me call
     expect(mockFetch).toHaveBeenCalledTimes(1);
-    const meCall = mockFetch.mock.calls[0];
-    expect(String(meCall[0])).toContain('/api/users/me');
-    const init = meCall[1] as RequestInit;
-    const headers = init.headers as Record<string, string>;
-    expect(headers.Authorization).toBe(`Bearer ${token}`);
-    expect(init.credentials).toBe('include');
+    expect(String(mockFetch.mock.calls[0][0])).toContain("/api/users/me");
+    const meInit = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(meInit.credentials).toBe("include");
+    const headers = meInit.headers as Record<string, string> | undefined;
+    expect(headers?.Authorization).toBeUndefined();
   });
 
-  it('attempts refresh when access token is expired before calling /me', async () => {
-    const expired = fakeJwt({
-      userId: 'u1',
-      email: 'a@test.ro',
-      role: 'user',
-      type: 'access',
-      exp: Math.floor(Date.now() / 1000) - 120,
-    });
-    localStorage.setItem('accessToken', expired);
-    localStorage.setItem('refreshToken', 'refresh-token');
-
-    const fresh = fakeJwt({
-      userId: 'u1',
-      email: 'a@test.ro',
-      role: 'user',
-      type: 'access',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    });
-
+  it("refreshes via cookie after 401 /me then retries", async () => {
     mockFetch
       .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ accessToken: fresh, user: { email: 'a@test.ro', role: 'user' } }),
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "unauth" }),
       })
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ id: 'u1', email: 'a@test.ro', role: 'user', name: 'U' }),
+        json: async () => ({ success: true, user: { email: "a@test.ro", role: "user" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "u1", email: "a@test.ro", role: "user", name: "U" }),
       });
 
     const result = await validateServerAuthSession();
     expect(result.ok).toBe(true);
-    expect(result.user?.id).toBe('u1');
-    expect(String(mockFetch.mock.calls[0][0])).toContain('/api/auth/refresh');
-    expect(String(mockFetch.mock.calls[1][0])).toContain('/api/users/me');
+    expect(String(mockFetch.mock.calls[0][0])).toContain("/api/users/me");
+    expect(String(mockFetch.mock.calls[1][0])).toContain("/api/auth/refresh");
+    expect(String(mockFetch.mock.calls[2][0])).toContain("/api/users/me");
   });
 
-  it('opaque non-JWT token skips refresh (no exp) then calls /me with Bearer', async () => {
-    // Contract of accessTokenNeedsRefresh: unreadable exp → treat as still-valid until 401.
-    localStorage.setItem('accessToken', 'opaque-not-a-jwt');
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ id: 'u1', email: 'a@test.ro', role: 'user', name: 'U' }),
-    });
+  it("returns ok:false on hard 401 and clears auth storage", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "unauth" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "fail" }),
+      });
 
     const result = await validateServerAuthSession();
-    expect(result.ok).toBe(true);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(String(mockFetch.mock.calls[0][0])).toContain('/api/users/me');
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(localStorage.getItem("user")).toBeNull();
   });
 });

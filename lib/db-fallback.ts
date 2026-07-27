@@ -35,6 +35,8 @@ interface IUser {
   lastLoginIp?: string | null;
   twoFactorEnabled?: boolean;
   twoFactorSecret?: string | null;
+  /** JWT session revocation counter — mirrors User.sessionVersion */
+  sessionVersion?: number;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -175,6 +177,7 @@ class MemoryDB {
       lastLoginIp: null,
       twoFactorEnabled: false,
       twoFactorSecret: null,
+      sessionVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

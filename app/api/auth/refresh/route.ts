@@ -57,11 +57,10 @@ export async function POST(request: NextRequest) {
 
     const json = NextResponse.json({
       success: true,
-      accessToken: result.accessToken,
       user: result.user,
     });
 
-    /** Aliniază cookie httpOnly cu access-ul din JSON — altfel SPA rămâne proaspăt, cookie-ul rămâne expirat. */
+    /** Setează cookie httpOnly cu noul access token (web: token doar în cookie, nu în JSON). */
     if (result.accessToken) {
       const cookieDomain = cookieDomainFromRequest(request);
       const secureCookies = cookieSecureFromRequest(request);

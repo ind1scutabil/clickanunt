@@ -95,10 +95,8 @@ export default function NavbarContent() {
           return;
         }
 
-        const hasLocal =
-          Boolean(localStorage.getItem("user")) &&
-          Boolean(localStorage.getItem("accessToken"));
-        if (hasLocal) {
+        const hasStaleUser = Boolean(localStorage.getItem("user"));
+        if (hasStaleUser) {
           clearStaleBrowserAuth();
         }
         if (!cancelled) applyLoggedOut();
@@ -270,6 +268,7 @@ export default function NavbarContent() {
       const csrfToken = await csrfMod.getCsrfToken();
       await fetch("/api/auth/logout", {
         method: "POST",
+        credentials: "include",
         headers: { "x-csrf-token": csrfToken },
       });
       csrfMod.clearCsrfTokenCache();
@@ -288,9 +287,14 @@ export default function NavbarContent() {
         /* ignore */
       }
     }
-    localStorage.removeItem("user");
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
+    try {
+      const { clearLegacyWebAuthStorage } = await import(
+        "@/lib/auth/clear-legacy-web-auth-storage"
+      );
+      clearLegacyWebAuthStorage({ broadcast: false });
+    } catch {
+      /* ignore */
+    }
     setIsLoggedIn(false);
     setUserEmail(null);
     setUserRole(null);

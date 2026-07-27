@@ -239,6 +239,9 @@ export async function DELETE(
       details: { at: now.toISOString(), hardDeleteRefused: true },
     });
 
+    const { bumpSessionVersion } = await import("@/lib/auth/session-version");
+    await bumpSessionVersion(id);
+
     return NextResponse.json({
       success: true,
       softDeleted: true,

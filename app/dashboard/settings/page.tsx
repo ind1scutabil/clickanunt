@@ -6,6 +6,7 @@ import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
 import { useCallback, useEffect, useState } from "react";
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { clearLegacyWebAuthStorage } from "@/lib/auth/clear-legacy-web-auth-storage";
 
 type Toast = { kind: "success" | "error" | "info"; text: string } | null;
 
@@ -39,11 +40,7 @@ const defaultNotif = {
 };
 
 async function authHeaders(): Promise<HeadersInit> {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const h: HeadersInit = { "Content-Type": "application/json" };
-  if (token) (h as Record<string, string>).Authorization = `Bearer ${token}`;
-  return h;
+  return { "Content-Type": "application/json" };
 }
 
 export default function SettingsPage() {
@@ -67,6 +64,8 @@ export default function SettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingNotif, setSavingNotif] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+  const [loggingOutAll, setLoggingOutAll] = useState(false);
+  const [logoutAllPwd, setLogoutAllPwd] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
 
@@ -80,11 +79,6 @@ export default function SettingsPage() {
       const silent = Boolean(opts?.silent);
       if (!silent) setLoading(true);
       try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-          router.push("/auth/login?redirect=/dashboard/settings");
-          return;
-        }
         const res = await fetch("/api/users/me", {
           method: "GET",
           credentials: "include",
@@ -92,6 +86,10 @@ export default function SettingsPage() {
         });
         const data = await res.json();
         if (!res.ok) {
+          if (res.status === 401) {
+            router.push("/auth/login?redirect=/dashboard/settings");
+            return;
+          }
           if (!silent) {
             showToast({ kind: "error", text: data.error || "Nu s-au putut încărca datele" });
           }
@@ -244,6 +242,40 @@ export default function SettingsPage() {
     }
   };
 
+  const logoutAllDevices = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoggingOutAll(true);
+    showToast({ kind: "info", text: "Se deconectează celelalte dispozitive…" });
+    try {
+      const csrf = await getCsrfToken();
+      if (!csrf) {
+        showToast({ kind: "error", text: "Nu s-a putut obține tokenul CSRF" });
+        return;
+      }
+      const res = await fetch("/api/auth/logout-all", {
+        method: "POST",
+        credentials: "include",
+        headers: { ...(await authHeaders()), "x-csrf-token": csrf },
+        body: JSON.stringify({ currentPassword: logoutAllPwd }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast({ kind: "error", text: data.error || "Operațiune eșuată" });
+        return;
+      }
+      clearLegacyWebAuthStorage({ broadcast: false });
+      setLogoutAllPwd("");
+      showToast({
+        kind: "success",
+        text: data.message || "Celelalte dispozitive au fost deconectate.",
+      });
+    } catch {
+      showToast({ kind: "error", text: "Eroare de rețea" });
+    } finally {
+      setLoggingOutAll(false);
+    }
+  };
+
   const deactivate = async (e: React.FormEvent) => {
     e.preventDefault();
     setDeleting(true);
@@ -268,6 +300,7 @@ export default function SettingsPage() {
       localStorage.removeItem("user");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      clearLegacyWebAuthStorage({ broadcast: false });
       showToast({ kind: "success", text: data.message || "Cont dezactivat." });
       setTimeout(() => router.push("/"), 1200);
     } catch {
@@ -548,6 +581,29 @@ export default function SettingsPage() {
               className="w-full rounded-xl bg-white/[0.08] py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-white/[0.12] disabled:opacity-50 sm:w-auto sm:px-8"
             >
               {savingPwd ? "Se actualizează…" : "Schimbă parola"}
+            </button>
+          </form>
+
+          <form onSubmit={logoutAllDevices} className="mt-8 space-y-3 border-t border-white/[0.06] pt-6">
+            <h3 className="text-sm font-semibold">Deconectează toate dispozitivele</h3>
+            <p className="text-xs text-[var(--text-tertiary)]">
+              Invalidează sesiunile pe celelalte dispozitive. Dispozitivul curent rămâne conectat.
+            </p>
+            <input
+              type="password"
+              value={logoutAllPwd}
+              onChange={(e) => setLogoutAllPwd(e.target.value)}
+              placeholder="Confirmă cu parola curentă"
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-white/[0.1] bg-black/30 px-4 py-3 text-sm outline-none focus:border-orange-500/45"
+              required
+            />
+            <button
+              type="submit"
+              disabled={loggingOutAll || !logoutAllPwd}
+              className="inline-flex min-h-[2.75rem] items-center justify-center rounded-xl border border-orange-500/40 bg-orange-500/10 px-6 text-sm font-semibold text-orange-100 disabled:opacity-50"
+            >
+              {loggingOutAll ? "Se procesează…" : "Deconectează celelalte dispozitive"}
             </button>
           </form>
 

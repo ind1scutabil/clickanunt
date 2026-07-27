@@ -38,7 +38,8 @@ async function login(page: Page) {
   await page.fill('input[type="password"]', password);
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(/\/(dashboard|listings|admin)/, { timeout: 30_000 });
-  await expect(page.evaluate(() => localStorage.getItem("accessToken"))).resolves.toBeTruthy();
+  await expect(page.evaluate(() => localStorage.getItem("accessToken"))).resolves.toBeNull();
+  await expect(page).not.toHaveURL(/\/auth\/login/);
 }
 
 async function clearListingDraft(page: Page) {
@@ -208,10 +209,7 @@ test.describe("Listing photo upload — mobile pre-deploy", () => {
 
       await testEditListingPhoto(page, listingId);
 
-      const token = await page.evaluate(() => localStorage.getItem("accessToken"));
-      const existing = await page.request.get(`/api/listings/${listingId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const existing = await page.request.get(`/api/listings/${listingId}`);
       expect(existing.ok()).toBeTruthy();
       const body = (await existing.json()) as { photos?: string[] };
       expect((body.photos ?? []).length).toBeGreaterThanOrEqual(1);
