@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -137,6 +137,11 @@ export default function ListingDetailPageClient({
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showPhone, setShowPhone] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [revealedTelHref, setRevealedTelHref] = useState<string>("");
+  const [phoneRevealLoading, setPhoneRevealLoading] = useState(false);
+  const [phoneRevealError, setPhoneRevealError] = useState<string | null>(null);
+  const phoneRevealInFlightRef = useRef(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
@@ -182,6 +187,11 @@ export default function ListingDetailPageClient({
 
   useEffect(() => {
     setShowPhone(false);
+    setRevealedPhone(null);
+    setRevealedTelHref("");
+    setPhoneRevealError(null);
+    setPhoneRevealLoading(false);
+    phoneRevealInFlightRef.current = false;
   }, [id]);
 
   useEffect(() => {
@@ -429,13 +439,64 @@ export default function ListingDetailPageClient({
     listing.owner?.businessName?.trim() ||
     'Vânzător verificat';
   const sellerInitial = sellerDisplayName.charAt(0).toUpperCase();
-  const sellerPhone = (
-    listing.contactPhone ||
-    listing.owner?.phone ||
-    listing.owner?.businessPhone ||
-    ""
+  // Owner/admin payloads may include contactPhone; public payloads only hasContactPhone.
+  const ownerDirectPhone = (
+    isOwner || isPrivileged
+      ? listing.contactPhone || listing.owner?.phone || listing.owner?.businessPhone || ""
+      : ""
   ).trim();
-  const phoneTelHref = sellerPhone ? phoneToTelHref(sellerPhone) : "";
+  const hasContactPhone =
+    Boolean(listing.hasContactPhone) ||
+    Boolean(ownerDirectPhone) ||
+    Boolean(revealedPhone);
+  const sellerPhone = (revealedPhone || ownerDirectPhone).trim();
+  const phoneTelHref = sellerPhone
+    ? revealedTelHref || phoneToTelHref(sellerPhone)
+    : "";
+
+  const revealSellerPhone = async () => {
+    if (!id || phoneRevealInFlightRef.current || phoneRevealLoading) return;
+    if (ownerDirectPhone) {
+      setRevealedPhone(ownerDirectPhone);
+      setRevealedTelHref(phoneToTelHref(ownerDirectPhone));
+      setShowPhone(true);
+      setPhoneRevealError(null);
+      return;
+    }
+    phoneRevealInFlightRef.current = true;
+    setPhoneRevealLoading(true);
+    setPhoneRevealError(null);
+    try {
+      const res = await fetch(`/api/listings/${id}/contact-phone`, {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        phone?: string;
+        telHref?: string;
+        error?: string;
+        hasPhone?: boolean;
+      };
+      if (res.status === 429) {
+        setPhoneRevealError(data.error || "Prea multe solicitări. Încearcă mai târziu.");
+        return;
+      }
+      if (!res.ok || !data.phone || !data.telHref) {
+        setPhoneRevealError(data.error || "Telefon indisponibil");
+        return;
+      }
+      setRevealedPhone(data.phone);
+      setRevealedTelHref(data.telHref);
+      setShowPhone(true);
+      void trackListingEngagement(id, "listing_contact_click");
+    } catch {
+      setPhoneRevealError("Nu am putut afișa telefonul. Reîncearcă.");
+    } finally {
+      setPhoneRevealLoading(false);
+      phoneRevealInFlightRef.current = false;
+    }
+  };
 
   const openMessages = () => {
     if (!currentUser?.id) {
@@ -753,8 +814,8 @@ export default function ListingDetailPageClient({
                           <span>💬</span>
                           <span>Trimite mesaj</span>
                         </button>
-                        {sellerPhone ? (
-                          showPhone ? (
+                        {hasContactPhone ? (
+                          showPhone && sellerPhone ? (
                             <a
                               href={`tel:${phoneTelHref}`}
                               onClick={() => id && void trackListingEngagement(id, "listing_phone_click")}
@@ -766,14 +827,15 @@ export default function ListingDetailPageClient({
                           ) : (
                             <button
                               type="button"
+                              disabled={phoneRevealLoading}
+                              aria-busy={phoneRevealLoading}
                               onClick={() => {
-                                if (id) void trackListingEngagement(id, "listing_contact_click");
-                                setShowPhone(true);
+                                void revealSellerPhone();
                               }}
-                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 md:py-2.5 md:text-sm"
+                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 disabled:cursor-wait disabled:opacity-70 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
-                              <span>Afișează telefon</span>
+                              <span>{phoneRevealLoading ? "Se încarcă…" : "Afișează telefon"}</span>
                             </button>
                           )
                         ) : (
@@ -781,6 +843,11 @@ export default function ListingDetailPageClient({
                             Vânzătorul nu a afișat telefon — folosește mesajul.
                           </p>
                         )}
+                        {phoneRevealError ? (
+                          <p className="text-center text-xs text-amber-300/90" role="status">
+                            {phoneRevealError}
+                          </p>
+                        ) : null}
                       </>
                     )}
 

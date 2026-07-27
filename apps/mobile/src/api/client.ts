@@ -380,6 +380,26 @@ export const listingsApi = {
   async getById(id: string): Promise<Listing> {
     return fetchWithCache(`listing.${id}`, () => request<PublicListingDto | OwnerAdminListingDto>(`/api/listings/${id}`));
   },
+
+  /**
+   * Public phone reveal — number is not in the listing DTO.
+   * Old app builds that read `contactPhone` from getById will show empty until updated.
+   */
+  async revealContactPhone(
+    id: string
+  ): Promise<{ phone: string; telHref: string }> {
+    const data = await request<{
+      phone?: string;
+      telHref?: string;
+      error?: string;
+      hasPhone?: boolean;
+    }>(`/api/listings/${id}/contact-phone`);
+    if (!data.phone || !data.telHref) {
+      throw new Error(data.error || 'Telefon indisponibil');
+    }
+    return { phone: data.phone, telHref: data.telHref };
+  },
+
   async my(): Promise<OwnerAdminListingDto[]> {
     const data = await request<{ listings?: OwnerAdminListingDto[]; data?: OwnerAdminListingDto[] }>(
       '/api/listings?userId=me&status=all'

@@ -126,7 +126,8 @@ describe("public listing DTO — default-deny allowlist", () => {
       expect(out).not.toHaveProperty(key);
       expect(PUBLIC_LISTING_KEYS).not.toContain(key);
     }
-    expect(out.contactPhone).toBe("+40700000000");
+    expect(out).not.toHaveProperty("contactPhone");
+    expect(out.hasContactPhone).toBe(true);
     expect(out.owner).toEqual(expect.objectContaining({ id: "owner-1" }));
     expect(out.status).toBe("active");
   });
@@ -144,10 +145,11 @@ describe("public listing DTO — default-deny allowlist", () => {
     expect(Object.keys(owner!).sort()).toEqual([...PUBLIC_OWNER_KEYS].sort());
   });
 
-  it("public viewer: keeps contactPhone, strips account PII and internals", () => {
+  it("public viewer: hasContactPhone only, strips account PII and internals", () => {
     const out = sanitizeListingPayloadForViewer(fullListing, { isOwnerOrAdmin: false });
     expect(listingPayloadContainsOwnerEmail(out)).toBe(false);
-    expect(out.contactPhone).toBe("+40700000000");
+    expect(out).not.toHaveProperty("contactPhone");
+    expect(out.hasContactPhone).toBe(true);
     expect(out.owner).toEqual(
       expect.objectContaining({
         id: "owner-1",

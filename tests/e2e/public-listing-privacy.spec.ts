@@ -61,10 +61,10 @@ test.describe("Public listing API privacy", () => {
     expect(listing.owner?.businessPhone).toBeUndefined();
     expect(listing.moderationNotes).toBeUndefined();
     expect(listing.scamFlags).toBeUndefined();
-    // contactPhone may exist (product reveal) — must not look like an email
-    if (typeof listing.contactPhone === "string" && listing.contactPhone.includes("@")) {
-      throw new Error("contactPhone must not contain @");
-    }
+    expect(listing.contactPhone).toBeUndefined();
+    expect(typeof listing.hasContactPhone === "boolean" || listing.hasContactPhone === undefined).toBe(
+      true
+    );
   });
 
   test("GET /api/listings list rows have no owner.email + private cache", async ({ request }) => {

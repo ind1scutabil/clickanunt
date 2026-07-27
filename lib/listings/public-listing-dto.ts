@@ -7,20 +7,23 @@
  * Owner/admin receive the authorized Prisma payload (pass-through) for edit /
  * promote / messages / moderation tools.
  *
- * PRODUCT NOTE: `contactPhone` is intentionally public and harvestable
- * (listing contact reveal for buyers). It is NOT the same as `owner.phone` /
- * `owner.businessPhone`, which are account PII and stay owner/admin-only.
+ * PRODUCT NOTE: `contactPhone` is NOT public. Anonymous viewers get
+ * `hasContactPhone` only; the number is served via GET
+ * `/api/listings/[id]/contact-phone` (rate-limited, no-store).
+ * Account `owner.phone` / `owner.businessPhone` stay owner/admin-only.
  *
  * Intentionally omitted from public payloads (owner/admin only): ownerUserId,
  * moderationStatus, feedBoost, isDealer, dealerBrands, dealerPriceMin,
  * dealerPriceMax, region, promotionType, promotionExpiresAt, promotionStartedAt,
- * updatedAt, publishedAt.
+ * updatedAt, publishedAt, contactPhone.
  *
  * Ownership for UI: use `owner.id` (public) vs session user — never leak
  * `ownerUserId` solely for client-side comparison. Public rows are always
  * moderation-approved via seoIndexableListingWhere, so `moderationStatus` is
  * redundant publicly. Owner/admin pass-through retains both fields.
  */
+
+import { listingHasContactPhone } from "@/lib/phone-display";
 
 /** Top-level listing keys allowed for anonymous / non-owner JSON. */
 export const PUBLIC_LISTING_KEYS = [
@@ -33,7 +36,7 @@ export const PUBLIC_LISTING_KEYS = [
   "photos",
   "county",
   "city",
-  "contactPhone", // intentional public / harvestable listing contact
+  "hasContactPhone",
   "make",
   "model",
   "year",
@@ -113,9 +116,10 @@ export function toPublicListingPayload(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const key of PUBLIC_LISTING_KEYS) {
-    if (key === "owner") continue;
+    if (key === "owner" || key === "hasContactPhone") continue;
     if (hasOwn(listing, key)) out[key] = listing[key];
   }
+  out.hasContactPhone = listingHasContactPhone(listing);
   if (hasOwn(listing, "owner")) {
     out.owner = toPublicListingOwner(listing.owner as ListingOwnerLike);
   }
@@ -152,6 +156,7 @@ export const PUBLIC_FORBIDDEN_LISTING_KEYS = [
   "deletedAt",
   "email",
   "phone",
+  "contactPhone",
   "businessPhone",
   "role",
   "stripeCustomerId",

@@ -26,10 +26,15 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
   const [offlineMode, setOfflineMode] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favBusy, setFavBusy] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setRevealedPhone(null);
+    setPhoneError(null);
     try {
       const data = await listingsApi.getById(listingId);
       setItem(data);
@@ -205,8 +210,37 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
         </View>
         <View style={styles.specRow}>
           <Text style={styles.specLabel}>Telefon</Text>
-          <Text style={styles.specValue}>{item.contactPhone || '—'}</Text>
+          <Text style={styles.specValue}>
+            {revealedPhone ||
+              (item.hasContactPhone || item.contactPhone ? 'Ascuns — apasă Afișează' : '—')}
+          </Text>
         </View>
+        {(item.hasContactPhone || !!item.contactPhone) && !revealedPhone && !inactiveListing ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.messageCta}
+            disabled={phoneBusy}
+            onPress={() => {
+              void (async () => {
+                setPhoneBusy(true);
+                setPhoneError(null);
+                try {
+                  const revealed = await listingsApi.revealContactPhone(item.id);
+                  setRevealedPhone(revealed.phone);
+                } catch (e) {
+                  setPhoneError(e instanceof Error ? e.message : 'Telefon indisponibil');
+                } finally {
+                  setPhoneBusy(false);
+                }
+              })();
+            }}
+          >
+            <Text style={styles.messageCtaText}>
+              {phoneBusy ? 'Se încarcă…' : 'Afișează telefon'}
+            </Text>
+          </Pressable>
+        ) : null}
+        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
 
         {ownerId && user?.id && ownerId.toLowerCase() !== String(user.id).toLowerCase() && !inactiveListing ? (
           <Pressable

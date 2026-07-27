@@ -30,8 +30,8 @@ export type PublicListingDto = PriceFields & {
   photos: string[];
   county?: string | null;
   city?: string | null;
-  /** Intentional public listing contact — harvestable by design. */
-  contactPhone?: string | null;
+  /** True when a reveal endpoint can return a number — never the number itself. */
+  hasContactPhone?: boolean;
   make?: string | null;
   model?: string | null;
   year?: number | null;
