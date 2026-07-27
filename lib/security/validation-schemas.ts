@@ -852,7 +852,7 @@ export const searchListingsSchema = z.object({
   model: z.string().max(100).optional(),
   fuel: z.string().max(50).optional(),
   transmission: z.string().max(50).optional(),
-  sort: z.enum(['newest', 'priceAsc', 'priceDesc', 'featured']).default('newest'),
+  sort: z.enum(['newest', 'priceAsc', 'priceDesc', 'featured', 'relevance']).optional(),
   ...paginationSchema.shape,
 }).catchall(z.string().max(200));
 

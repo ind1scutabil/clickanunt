@@ -16,6 +16,44 @@ import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
 type Listing = ListingPublicDto;
 
+/** Maps ListingsView sort UI → API `sort` allowlist. */
+function mapUiSortToApi(
+  sortBy: string | undefined,
+  sortOrder: string | undefined,
+  q: string | undefined
+): string | undefined {
+  const key = `${sortBy || ""}-${sortOrder || ""}`;
+  if (key === "relevance-desc" || key === "relevance-") {
+    return q && q.trim().length >= 2 ? "relevance" : "newest";
+  }
+  const map: Record<string, string> = {
+    "createdAt-desc": "newest",
+    "price-asc": "priceAsc",
+    "price-desc": "priceDesc",
+    "featured-desc": "featured",
+  };
+  return map[key];
+}
+
+function mapApiSortToUi(sort: string | null, hasQ: boolean): { sortBy: string; sortOrder: string } {
+  switch (sort) {
+    case "relevance":
+      return { sortBy: "relevance", sortOrder: "desc" };
+    case "featured":
+      return { sortBy: "featured", sortOrder: "desc" };
+    case "priceAsc":
+      return { sortBy: "price", sortOrder: "asc" };
+    case "priceDesc":
+      return { sortBy: "price", sortOrder: "desc" };
+    case "newest":
+      return { sortBy: "createdAt", sortOrder: "desc" };
+    default:
+      return hasQ
+        ? { sortBy: "relevance", sortOrder: "desc" }
+        : { sortBy: "createdAt", sortOrder: "desc" };
+  }
+}
+
 function mapPublicListingToCardProps(l: Listing) {
   const owner = l.owner;
   const o =
@@ -138,9 +176,14 @@ export default function ListingsView({
   const [isFilterSticky, setIsFilterSticky] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
   const [showFiltersApplied, setShowFiltersApplied] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
+  const [filters, setFilters] = useState<Filters>(() => {
+    const q0 = searchParams.get("q") || searchParams.get("search") || undefined;
+    const hasQ = Boolean(q0 && q0.trim().length >= 2);
+    const fromUrl = mapApiSortToUi(searchParams.get("sort"), hasQ);
+    return {
+      sortBy: fromUrl.sortBy,
+      sortOrder: fromUrl.sortOrder,
+    };
   });
   const activeRequestRef = useRef(0);
   const ssrSeedConsumedRef = useRef(false);
@@ -155,6 +198,14 @@ export default function ListingsView({
           params.set(k, String(v));
         }
       });
+      const sortApi = mapUiSortToApi(nextFilters.sortBy, nextFilters.sortOrder, nextFilters.q);
+      if (sortApi) params.set("sort", sortApi);
+      if (
+        (sortApi === "priceAsc" || sortApi === "priceDesc" || nextFilters.priceMin != null || nextFilters.priceMax != null) &&
+        !params.get("priceCurrency")
+      ) {
+        params.set("priceCurrency", nextFilters.priceCurrency || "RON");
+      }
       if (nextPage > 1) {
         params.set("page", String(nextPage));
       }
@@ -195,10 +246,15 @@ export default function ListingsView({
     const subcategory = searchParams.get("subcategory");
     const county = searchParams.get("county");
     const city = searchParams.get("city");
+    const sortParam = searchParams.get("sort");
+    const priceCurrencyParam = searchParams.get("priceCurrency");
     const pageParam = parseInt(searchParams.get("page") || "1", 10);
 
     const hasListingQuery =
       Boolean(searchQuery) || Boolean(category) || Boolean(subcategory) || Boolean(county) || Boolean(city);
+
+    const hasQ = Boolean(searchQuery && searchQuery.trim().length >= 2);
+    const uiSort = mapApiSortToUi(sortParam, hasQ);
 
     if (
       !hasListingQuery &&
@@ -207,23 +263,36 @@ export default function ListingsView({
     ) {
       setFilters((prev) => ({
         ...prev,
+        ...uiSort,
         ...(initialCategory ? { category: initialCategory } : {}),
         ...(initialCounty ? { county: initialCounty } : {}),
         ...(initialCity ? { city: initialCity } : {}),
         ...(initialMake ? { make: initialMake } : {}),
         ...(initialModel ? { model: initialModel } : {}),
+        ...(priceCurrencyParam === "RON" || priceCurrencyParam === "EUR" || priceCurrencyParam === "USD"
+          ? { priceCurrency: priceCurrencyParam }
+          : {}),
       }));
       setIsFiltersOpen(false);
     } else if (hasListingQuery) {
       setFilters((prev) => ({
         ...prev,
+        ...uiSort,
         ...(searchQuery && { q: searchQuery }),
         ...(category && { category }),
         ...(subcategory && { subcategory }),
         ...(county && { county }),
         ...(city && { city }),
+        ...(priceCurrencyParam === "RON" || priceCurrencyParam === "EUR" || priceCurrencyParam === "USD"
+          ? { priceCurrency: priceCurrencyParam }
+          : {}),
       }));
       setIsFiltersOpen(false);
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        ...uiSort,
+      }));
     }
 
     if (!Number.isNaN(pageParam) && pageParam > 0) {
@@ -278,16 +347,12 @@ export default function ListingsView({
         params.set('priceCurrency', filters.priceCurrency || 'RON');
       }
 
-      const sortKey = `${filters.sortBy}-${filters.sortOrder}`;
-      const sortMap: Record<string, string> = {
-        'createdAt-desc': 'newest',
-        'price-asc': 'priceAsc',
-        'price-desc': 'priceDesc',
-        'featured-desc': 'featured',
-      };
-      const sort = sortMap[sortKey];
+      const sort = mapUiSortToApi(filters.sortBy, filters.sortOrder, filters.q);
       if (sort) {
         params.set('sort', sort);
+      }
+      if ((sort === 'priceAsc' || sort === 'priceDesc') && !params.get('priceCurrency')) {
+        params.set('priceCurrency', filters.priceCurrency || 'RON');
       }
 
       const res = await fetch(`/api/listings?${params}`, {
@@ -331,8 +396,18 @@ export default function ListingsView({
     if (key === 'priceMin' || key === 'priceMax') {
       if (newFilters.priceMin != null || newFilters.priceMax != null) {
         newFilters.priceCurrency = newFilters.priceCurrency || 'RON';
-      } else {
+      } else if (
+        newFilters.sortBy !== 'price' &&
+        newFilters.priceMin == null &&
+        newFilters.priceMax == null
+      ) {
         delete newFilters.priceCurrency;
+      }
+    }
+    if (key === 'sortBy' || key === 'sortOrder') {
+      const apiSort = mapUiSortToApi(newFilters.sortBy, newFilters.sortOrder, newFilters.q);
+      if (apiSort === 'priceAsc' || apiSort === 'priceDesc') {
+        newFilters.priceCurrency = newFilters.priceCurrency || 'RON';
       }
     }
     setFilters(newFilters);
@@ -347,6 +422,14 @@ export default function ListingsView({
           params.set(k, String(v));
         }
       });
+      const sortApi = mapUiSortToApi(newFilters.sortBy, newFilters.sortOrder, newFilters.q);
+      if (sortApi) params.set("sort", sortApi);
+      if (
+        (sortApi === "priceAsc" || sortApi === "priceDesc" || newFilters.priceMin != null || newFilters.priceMax != null) &&
+        !params.get("priceCurrency")
+      ) {
+        params.set("priceCurrency", newFilters.priceCurrency || "RON");
+      }
 
       router.push(`/listings${params.toString() ? "?" + params.toString() : ""}`, { scroll: false });
     }
@@ -770,16 +853,49 @@ export default function ListingsView({
               value={`${filters.sortBy}-${filters.sortOrder}`}
               onChange={(e) => {
                 const [sortBy, sortOrder] = e.target.value.split('-');
-                setFilters(prev => ({ ...prev, sortBy, sortOrder }));
+                handleFilterChange('sortBy', sortBy);
+                // sortOrder must update in same turn — apply both
+                const next: Filters = {
+                  ...filters,
+                  sortBy,
+                  sortOrder,
+                };
+                const apiSort = mapUiSortToApi(sortBy, sortOrder, filters.q);
+                if (apiSort === 'priceAsc' || apiSort === 'priceDesc') {
+                  next.priceCurrency = next.priceCurrency || 'RON';
+                }
+                setFilters(next);
+                setPage(1);
+                if (routeBase) {
+                  pushBrowsePath(next, 1);
+                } else {
+                  const params = new URLSearchParams();
+                  Object.entries(next).forEach(([k, v]) => {
+                    if (v !== undefined && v !== "" && k !== "sortBy" && k !== "sortOrder") {
+                      params.set(k, String(v));
+                    }
+                  });
+                  if (apiSort) params.set("sort", apiSort);
+                  if (
+                    (apiSort === "priceAsc" || apiSort === "priceDesc" || next.priceMin != null || next.priceMax != null) &&
+                    !params.get("priceCurrency")
+                  ) {
+                    params.set("priceCurrency", next.priceCurrency || "RON");
+                  }
+                  router.push(`/listings${params.toString() ? "?" + params.toString() : ""}`, {
+                    scroll: false,
+                  });
+                }
               }}
               className="w-full rounded-lg border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:px-4 sm:py-3 md:w-80"
             >
+              {filters.q && filters.q.trim().length >= 2 ? (
+                <option value="relevance-desc">Relevanță</option>
+              ) : null}
               <option value="createdAt-desc">Cele mai noi</option>
-              <option value="createdAt-asc">Cele mai vechi</option>
-              <option value="price-asc">Preț crescător</option>
-              <option value="price-desc">Preț descrescător</option>
-              <option value="year-desc">An fabricație descrescător</option>
-              <option value="year-asc">An fabricație crescător</option>
+              <option value="featured-desc">Promovate</option>
+              <option value="price-asc">Preț crescător (RON)</option>
+              <option value="price-desc">Preț descrescător (RON)</option>
             </select>
           </div>
 

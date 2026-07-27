@@ -45,6 +45,7 @@ import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
 import {
   feedBoostKeysetPaginationEnabled,
+  isPriceFeedSort,
   parseListingFeedSort,
   prismaOrderByForListingSort,
 } from "@/lib/listing-feed-sort";
@@ -60,6 +61,8 @@ import {
   guardBrowsePriceBand,
   guardVehicleFiltersForCategory,
   parseOptionalNonNegNumber,
+  BROWSE_PRICE_CURRENCIES,
+  type BrowsePriceCurrency,
 } from "@/lib/listings/browse-filter-guards";
 
 export async function GET(request: NextRequest) {
@@ -117,7 +120,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const sortMode = parseListingFeedSort(query.sort);
+    const sortMode = parseListingFeedSort(query.sort, {
+      hasTextQuery: Boolean((query.q ?? q.get("q") ?? "").toString().trim().length >= 2),
+    });
     const { limit: limitFromQuery, cursor: cursorParam } = parsePaginationParams(q);
     const rawPage = Math.max(1, Math.min(parseInt(q.get("page") || "1", 10), 10_000));
     const limitNum = limitFromQuery || 20;
@@ -224,6 +229,30 @@ export async function GET(request: NextRequest) {
     if (!priceBand.ok) {
       return NextResponse.json({ error: priceBand.error }, { status: 400 });
     }
+
+    // Price sorts require an explicit currency (no cross-currency amount compare).
+    let sortCurrency: BrowsePriceCurrency | null = priceBand.priceCurrency;
+    if (isPriceFeedSort(sortMode)) {
+      const rawSortCurrency =
+        typeof priceCurrencyRaw === "string" ? priceCurrencyRaw.trim().toUpperCase() : "";
+      if (!rawSortCurrency) {
+        return NextResponse.json(
+          {
+            error:
+              "priceCurrency este obligatoriu pentru sortarea după preț (RON, EUR sau USD).",
+          },
+          { status: 400 }
+        );
+      }
+      if (!(BROWSE_PRICE_CURRENCIES as readonly string[]).includes(rawSortCurrency)) {
+        return NextResponse.json(
+          { error: "priceCurrency invalid. Folosește RON, EUR sau USD." },
+          { status: 400 }
+        );
+      }
+      sortCurrency = rawSortCurrency as BrowsePriceCurrency;
+    }
+
     if (priceBand.minPrice != null || priceBand.maxPrice != null) {
       where.priceAmount = {};
       if (priceBand.minPrice != null) where.priceAmount.gte = priceBand.minPrice;
@@ -311,6 +340,8 @@ export async function GET(request: NextRequest) {
           minPrice: priceBand.minPrice,
           maxPrice: priceBand.maxPrice,
           priceCurrency: priceBand.priceCurrency,
+          sortCurrency: isPriceFeedSort(sortMode) ? sortCurrency : null,
+          sort: sortMode,
           make: vehicleGuard.apply ? (query.make ?? null) : null,
           model: vehicleGuard.apply ? (query.model ?? null) : null,
           fuel: vehicleGuard.apply ? (query.fuel ?? null) : null,
