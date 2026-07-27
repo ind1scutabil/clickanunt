@@ -64,6 +64,7 @@ import {
   BROWSE_PRICE_CURRENCIES,
   type BrowsePriceCurrency,
 } from "@/lib/listings/browse-filter-guards";
+import { browseListingIdsOrdered } from "@/lib/listings/catalog-listing-ids";
 
 export async function GET(request: NextRequest) {
   try {
@@ -415,6 +416,102 @@ export async function GET(request: NextRequest) {
     const cursorPayload = useKeyset ? decodeListingFeedCursor(cursorParam) : null;
     if (cursorParam && useKeyset && !cursorPayload) {
       return NextResponse.json({ error: "Cursor invalid sau expirat" }, { status: 400 });
+    }
+
+    // Currency-aware price sorts cannot be expressed safely via Prisma orderBy alone
+    // (would mix RON/EUR by raw amount). Use the same CASE ORDER BY as FTS.
+    if (isPriceFeedSort(sortMode)) {
+      if (!sortCurrency) {
+        return NextResponse.json(
+          {
+            error:
+              "priceCurrency este obligatoriu pentru sortarea după preț (RON, EUR sau USD).",
+          },
+          { status: 400 }
+        );
+      }
+
+      const offset = (rawPage - 1) * limitNum;
+      const { ids, total } = await browseListingIdsOrdered(
+        prisma,
+        {
+          activeOnly: statusParam !== "all",
+          publicCatalogOnly: !resolvedOwnerForFts && statusParam !== "all",
+          category: query.category ?? null,
+          subcategory: query.subcategory ?? null,
+          county: query.county ?? null,
+          city: query.city ?? null,
+          year: vehicleGuard.apply && !Number.isNaN(yNum) ? yNum : null,
+          yearMin: vehicleGuard.apply && !Number.isNaN(yMinNum) ? yMinNum : null,
+          yearMax: vehicleGuard.apply && !Number.isNaN(yMaxNum) ? yMaxNum : null,
+          minPrice: priceBand.minPrice,
+          maxPrice: priceBand.maxPrice,
+          priceCurrency: priceBand.priceCurrency,
+          sortCurrency,
+          sort: sortMode,
+          make: vehicleGuard.apply ? (query.make ?? null) : null,
+          model: vehicleGuard.apply ? (query.model ?? null) : null,
+          fuel: vehicleGuard.apply ? (query.fuel ?? null) : null,
+          transmission: vehicleGuard.apply ? (query.transmission ?? null) : null,
+          condition: query.condition ?? null,
+          attributesContainmentJson,
+          ownerUserId: resolvedOwnerForFts,
+        },
+        limitNum + 1,
+        offset
+      );
+
+      const hasMore = ids.length > limitNum;
+      const pageIds = hasMore ? ids.slice(0, limitNum) : ids;
+      const rows =
+        pageIds.length === 0
+          ? []
+          : await prisma.listing.findMany({
+              where: { id: { in: pageIds } },
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                    subscriptionTier: true,
+                    trustScore: true,
+                  },
+                },
+              },
+            });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered = pageIds.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+      const listingsWithPhotos = ordered.map((l) => {
+        const row = {
+          ...l,
+          photos: normalizeListingPhotosArray(l.photos, origin),
+        };
+        const isOwnerOrAdmin =
+          (!!tokenUserId && l.ownerUserId === tokenUserId) ||
+          tokenPayload?.role === "admin" ||
+          tokenPayload?.role === "owner";
+        return sanitizeListingPayloadForViewer(row as Record<string, unknown>, {
+          isOwnerOrAdmin: Boolean(userIdParam) && isOwnerOrAdmin,
+        }) as typeof row;
+      });
+      const pages = total > 0 ? Math.ceil(total / limitNum) : 0;
+      return NextResponse.json({
+        data: listingsWithPhotos,
+        pagination: {
+          hasMore,
+          nextCursor: null,
+          prevCursor: null,
+          count: listingsWithPhotos.length,
+          page: rawPage,
+          usedOffset: true,
+          total,
+          limit: limitNum,
+          pages,
+          totalPages: pages,
+        },
+      });
     }
 
     const finalWhere = buildListingFeedKeysetWhere(cursorPayload, where);

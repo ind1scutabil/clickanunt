@@ -49,14 +49,14 @@ export function prismaOrderByForListingSort(
       // relevance without FTS degenerates to newest (no rank column in Prisma path).
       return [{ createdAt: 'desc' }, { id: 'desc' }];
     case 'priceAsc':
-      // Null / FREE / ON_REQUEST amounts sort last on ascending (Postgres nulls last).
+      // Prefer browseListingIdsOrdered / FTS ftsOrderBySql for currency-aware CASE.
+      // Prisma raw amount order must not be used for public multi-currency catalogs.
       return [
         { priceAmount: { sort: 'asc', nulls: 'last' } },
         { createdAt: 'desc' },
         { id: 'desc' },
       ];
     case 'priceDesc':
-      // Null amounts last on descending so paid listings stay at the top.
       return [
         { priceAmount: { sort: 'desc', nulls: 'last' } },
         { createdAt: 'desc' },

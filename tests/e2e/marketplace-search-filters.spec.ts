@@ -144,4 +144,87 @@ test.describe("Marketplace search and filters", () => {
       await expect(page).toHaveURL(/q=telefon/);
     }
   });
+
+  test("non-FTS priceAsc requires currency", async ({ request }) => {
+    const res = await request.get("/api/listings?sort=priceAsc&limit=10");
+    expect(res.status()).toBe(400);
+  });
+
+  test("non-FTS priceDesc RON does not mix EUR amounts ahead of RON", async ({ request }) => {
+    const res = await request.get(
+      "/api/listings?sort=priceDesc&priceCurrency=RON&limit=30"
+    );
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    const items = body.data || [];
+    let seenNonComparable = false;
+    for (const row of items) {
+      const comparable =
+        row.priceAmount != null &&
+        row.priceCurrency === "RON" &&
+        (row.priceType == null ||
+          ["FIXED", "NEGOTIABLE", "FROM"].includes(String(row.priceType)));
+      if (comparable) {
+        expect(seenNonComparable).toBe(false);
+        expect(row.priceCurrency).toBe("RON");
+      } else {
+        seenNonComparable = true;
+      }
+    }
+    // No EUR FIXED/NEGOTIABLE/FROM should appear before RON comparables
+    const firstComparableIdx = items.findIndex(
+      (r: { priceAmount: number | null; priceCurrency: string | null; priceType?: string | null }) =>
+        r.priceAmount != null &&
+        r.priceCurrency === "RON" &&
+        (r.priceType == null || ["FIXED", "NEGOTIABLE", "FROM"].includes(String(r.priceType)))
+    );
+    if (firstComparableIdx >= 0) {
+      for (let i = 0; i < firstComparableIdx; i++) {
+        const r = items[i];
+        const eurComparable =
+          r.priceAmount != null &&
+          r.priceCurrency === "EUR" &&
+          (r.priceType == null || ["FIXED", "NEGOTIABLE", "FROM"].includes(String(r.priceType)));
+        expect(eurComparable).toBe(false);
+      }
+    }
+  });
+
+  test("FTS and non-FTS priceAsc RON share currency policy on overlapping set", async ({
+    request,
+  }) => {
+    const fts = await request.get(
+      "/api/listings?q=telefon&sort=priceAsc&priceCurrency=RON&limit=20"
+    );
+    const catalog = await request.get(
+      "/api/listings?sort=priceAsc&priceCurrency=RON&limit=50"
+    );
+    expect(fts.status()).toBe(200);
+    expect(catalog.status()).toBe(200);
+    const ftsItems = (await fts.json()).data || [];
+    const catalogItems = (await catalog.json()).data || [];
+    const catalogById = new Map(
+      catalogItems.map((r: { id: string }) => [r.id, r])
+    );
+    const ftsComparable = ftsItems.filter(
+      (r: { priceAmount: number | null; priceCurrency: string | null; priceType?: string | null }) =>
+        r.priceAmount != null &&
+        r.priceCurrency === "RON" &&
+        (r.priceType == null || ["FIXED", "NEGOTIABLE", "FROM"].includes(String(r.priceType)))
+    );
+    for (let i = 1; i < ftsComparable.length; i++) {
+      expect(ftsComparable[i - 1].priceAmount).toBeLessThanOrEqual(
+        ftsComparable[i].priceAmount
+      );
+    }
+    // Every FTS hit present in catalog page must remain RON-comparable ordered
+    for (const row of ftsComparable) {
+      const cat = catalogById.get(row.id) as
+        | { priceCurrency: string; priceAmount: number }
+        | undefined;
+      if (cat) {
+        expect(cat.priceCurrency).toBe("RON");
+      }
+    }
+  });
 });
