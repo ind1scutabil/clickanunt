@@ -8,6 +8,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { clearAuthCookies } from "@/lib/auth/clear-auth-cookies";
+import { revokeRefreshTokenByRaw } from "@/lib/auth/refresh-token-store";
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,11 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await getUserFromRequest(request);
+    const presentedRefresh = request.cookies.get("refreshToken")?.value;
+
+    if (presentedRefresh) {
+      await revokeRefreshTokenByRaw(presentedRefresh, "logout");
+    }
 
     if (user) {
       await auditActions.userLogout(user.id, user.email);

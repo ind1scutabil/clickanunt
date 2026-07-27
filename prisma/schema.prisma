@@ -246,6 +246,7 @@ model User {
   conversationsAsParticipant2 Conversation[]        @relation("ConversationParticipant2")
   analyticsSessions           AnalyticsSession[]
   analyticsEvents             AnalyticsEvent[]
+  authRefreshTokens           AuthRefreshToken[]
 
   @@index([email])
   @@index([role])
@@ -258,6 +259,29 @@ model User {
   @@index([moderationSuspendedUntil])
   @@index([deletedAt])
   @@map("users")
+}
+
+/// Persistent single-use refresh tokens (hash only — never store raw JWT).
+/// familyId groups rotations for one device login; replay of a used token revokes the family.
+model AuthRefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  familyId     String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  replacedById String?
+  revokeReason String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt])
+  @@map("auth_refresh_tokens")
 }
 
 // 2FA Backup Codes - one-time use recovery codes

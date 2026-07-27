@@ -5,7 +5,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hashPassword, generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { hashPassword, issueAuthTokenPair } from "@/lib/auth";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
@@ -85,19 +85,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Generează tokens
-    const accessToken = await generateAccessToken(
-      user.id,
-      user.email,
-      user.role,
-      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
-    );
-    const refreshToken = await generateRefreshToken(
-      user.id,
-      user.email,
-      user.role,
-      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
-    );
+    // Generează tokens + persistă refresh hash
+    const { accessToken, refreshToken } = await issueAuthTokenPair(user);
 
     // Audit log (skip if in-memory mode)
     try {

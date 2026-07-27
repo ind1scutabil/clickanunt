@@ -132,38 +132,59 @@ export async function clearStoredAuthTokens(): Promise<void> {
   }
 }
 
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function tryMobileRefresh(): Promise<boolean> {
-  try {
-    const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    if (!rt) {
-      return false;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-request-id': getRequestId(),
-      },
-      body: JSON.stringify({ refreshToken: rt }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    let body: { accessToken?: string; error?: string } = {};
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  refreshInFlight = (async () => {
     try {
-      body = (await response.json()) as typeof body;
+      const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      if (!rt) {
+        return false;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': getRequestId(),
+        },
+        body: JSON.stringify({ refreshToken: rt }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      let body: { accessToken?: string; refreshToken?: string; error?: string } = {};
+      try {
+        body = (await response.json()) as typeof body;
+      } catch {
+        body = {};
+      }
+      if (!response.ok || !body.accessToken) {
+        return false;
+      }
+      // Persist rotated refresh when present; if SecureStore write fails, clear both.
+      try {
+        setAccessToken(body.accessToken);
+        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
+        if (typeof body.refreshToken === 'string' && body.refreshToken.length > 0) {
+          await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, body.refreshToken);
+        }
+        return true;
+      } catch {
+        await clearStoredAuthTokens();
+        return false;
+      }
     } catch {
-      body = {};
-    }
-    if (!response.ok || !body.accessToken) {
       return false;
     }
-    setAccessToken(body.accessToken);
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
-    return true;
-  } catch {
-    return false;
+  })();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
 

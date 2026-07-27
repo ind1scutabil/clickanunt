@@ -7,7 +7,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { changePasswordSchema } from "@/lib/security/validation-schemas";
 import { bumpSessionVersion } from "@/lib/auth/session-version";
 import { createAuditLog } from "@/lib/audit";
-import { generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { issueAuthTokenPair } from "@/lib/auth";
 import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
 
 export async function POST(request: NextRequest) {
@@ -78,18 +78,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Emit sesiune nouă pe dispozitivul curent; celelalte dispozitive rămân invalide.
-    const accessToken = await generateAccessToken(
-      dbUser.id,
-      dbUser.email,
-      dbUser.role,
-      newSv
-    );
-    const refreshToken = await generateRefreshToken(
-      dbUser.id,
-      dbUser.email,
-      dbUser.role,
-      newSv
-    );
+    const { accessToken, refreshToken } = await issueAuthTokenPair({
+      id: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      sessionVersion: newSv,
+    });
 
     const response = NextResponse.json({
       success: true,

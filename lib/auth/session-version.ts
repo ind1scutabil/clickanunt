@@ -33,6 +33,7 @@ export function isSessionVersionMatch(
 
 /**
  * Atomically increment sessionVersion — invalidates all outstanding JWTs.
+ * Also revokes all persistent refresh-token families for the user.
  * Returns the new version.
  */
 export async function bumpSessionVersion(userId: string): Promise<number> {
@@ -41,5 +42,13 @@ export async function bumpSessionVersion(userId: string): Promise<number> {
     data: { sessionVersion: { increment: 1 } },
     select: { sessionVersion: true },
   });
+  try {
+    const { revokeAllRefreshTokensForUser } = await import(
+      "@/lib/auth/refresh-token-store"
+    );
+    await revokeAllRefreshTokensForUser(userId, "session_version_bump");
+  } catch {
+    /* DB may lack table during expand rollout — JWT sv still protects */
+  }
   return updated.sessionVersion;
 }

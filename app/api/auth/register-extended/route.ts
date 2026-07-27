@@ -6,7 +6,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hashPassword, generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { hashPassword, issueAuthTokenPair } from "@/lib/auth";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
@@ -249,18 +249,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============== GENEREZA TOKENS ==============
-    const accessToken = await generateAccessToken(
-      user.id,
-      user.email,
-      user.role,
-      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
-    );
-    const refreshToken = await generateRefreshToken(
-      user.id,
-      user.email,
-      user.role,
-      typeof user.sessionVersion === "number" ? user.sessionVersion : 0
-    );
+    const { accessToken, refreshToken } = await issueAuthTokenPair(user);
 
     // ============== AUDIT LOG ==============
     try {

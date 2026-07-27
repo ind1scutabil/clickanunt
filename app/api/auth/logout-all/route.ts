@@ -5,7 +5,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcrypt";
-import { getUserFromRequest, generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { getUserFromRequest, issueAuthTokenPair } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
@@ -60,18 +60,12 @@ export async function POST(request: NextRequest) {
     });
 
     // Keep current browser logged in with fresh cookies after global revoke.
-    const accessToken = await generateAccessToken(
-      dbUser.id,
-      dbUser.email,
-      dbUser.role,
-      newSv
-    );
-    const refreshToken = await generateRefreshToken(
-      dbUser.id,
-      dbUser.email,
-      dbUser.role,
-      newSv
-    );
+    const { accessToken, refreshToken } = await issueAuthTokenPair({
+      id: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      sessionVersion: newSv,
+    });
 
     const response = NextResponse.json({
       success: true,

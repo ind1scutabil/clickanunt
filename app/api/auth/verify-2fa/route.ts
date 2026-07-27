@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTOTPLogin, useBackupCode as consumeBackupCode } from '@/lib/2fa';
 import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
-import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
+import { issueAuthTokenPair } from '@/lib/auth';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { verify2FASchema } from '@/lib/security/validation-schemas';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
@@ -90,9 +90,12 @@ export async function POST(request: NextRequest) {
     }
 
     const role = typeof user.role === "string" && user.role ? user.role : "user";
-    const sv = typeof user.sessionVersion === "number" ? user.sessionVersion : 0;
-    const accessToken = await generateAccessToken(user.id, user.email, role, sv);
-    const refreshToken = await generateRefreshToken(user.id, user.email, role, sv);
+    const { accessToken, refreshToken } = await issueAuthTokenPair({
+      id: user.id,
+      email: user.email,
+      role,
+      sessionVersion: user.sessionVersion,
+    });
     await deleteSession(sessionToken);
 
     void recordAnalyticsEvent({

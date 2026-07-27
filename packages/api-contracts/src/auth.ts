@@ -67,10 +67,11 @@ export type WebRefreshSuccessResponseDto = {
 };
 
 /**
- * POST /api/auth/mobile-refresh — new access token in JSON body (refresh token unchanged).
+ * POST /api/auth/mobile-refresh — rotated access + refresh tokens in JSON body.
  */
 export type RefreshAccessTokenResponseDto = {
   success: true;
   accessToken: string;
+  refreshToken: string;
   user: UserMeResponseDto;
 };

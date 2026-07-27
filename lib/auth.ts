@@ -4,6 +4,7 @@
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { randomUUID } from 'crypto';
 import { normalizeJwtInput } from './jwt-normalize';
 import { verifyJwtHs256AccessFlexible } from '@/lib/security/tokens';
 import { db } from './db';
@@ -14,6 +15,13 @@ import {
   sessionVersionFromTokenPayload,
   sessionVersionFromUser,
 } from '@/lib/auth/session-version';
+import {
+  auditRefreshReplay,
+  lazyCleanupRefreshTokens,
+  persistIssuedRefreshToken,
+  RefreshRotateError,
+  rotateRefreshTokenRecord,
+} from '@/lib/auth/refresh-token-store';
 
 // Secret pentru JWT (din .env)
 const JWT_SECRET_RAW = process.env.JWT_SECRET;
@@ -87,6 +95,7 @@ export async function generateRefreshToken(
     role,
     type: 'refresh',
     sv: sessionVersion,
+    jti: randomUUID(),
   })
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
@@ -96,6 +105,25 @@ export async function generateRefreshToken(
     .sign(JWT_SECRET);
 
   return token;
+}
+
+/**
+ * Issue access + refresh and persist refresh hash (new device session family).
+ */
+export async function issueAuthTokenPair(user: {
+  id: string;
+  email: string;
+  role: string;
+  sessionVersion?: number | null;
+}): Promise<{ accessToken: string; refreshToken: string; familyId: string }> {
+  const sv = sessionVersionFromUser(user);
+  const accessToken = await generateAccessToken(user.id, user.email, user.role, sv);
+  const refreshToken = await generateRefreshToken(user.id, user.email, user.role, sv);
+  const { familyId } = await persistIssuedRefreshToken({
+    userId: user.id,
+    rawToken: refreshToken,
+  });
+  return { accessToken, refreshToken, familyId };
 }
 
 export { normalizeJwtInput };
@@ -338,10 +366,8 @@ export async function authenticateUser(
       lastLoginIp: ip || null,
     });
 
-    // Generate tokens bound to current sessionVersion
-    const sv = sessionVersionFromUser(user);
-    const accessToken = await generateAccessToken(user.id, user.email, user.role, sv);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role, sv);
+    // Generate tokens bound to current sessionVersion + persist refresh hash
+    const tokens = await issueAuthTokenPair(user);
 
     // Remove password from user object
     const { password: userPassword, ...userWithoutPassword } = user;
@@ -349,8 +375,8 @@ export async function authenticateUser(
     return {
       success: true,
       user: userWithoutPassword,
-      accessToken,
-      refreshToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   } catch (error: unknown) {
     console.error('Authentication error:', error);
@@ -362,7 +388,7 @@ export async function authenticateUser(
 }
 
 /**
- * Refresh access token folosind refresh token
+ * Refresh access (+ rotate refresh) using a single-use refresh token.
  */
 export async function refreshAccessToken(refreshToken: string): Promise<AuthResult> {
   try {
@@ -408,7 +434,34 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       };
     }
 
-    // Generează access nou (aceeași versiune de sesiune). Refresh JWT rămâne valabil până la bump.
+    const nextRefreshToken = await generateRefreshToken(
+      user.id,
+      user.email,
+      user.role,
+      userSv
+    );
+
+    try {
+      await rotateRefreshTokenRecord({
+        userId: user.id,
+        presentedRawToken: refreshToken,
+        nextRawToken: nextRefreshToken,
+      });
+    } catch (err) {
+      if (err instanceof RefreshRotateError) {
+        if (err.reason === 'replay') {
+          void auditRefreshReplay(user.id, err.familyId || 'unknown');
+        }
+        return {
+          success: false,
+          error: 'Sesiune revocată',
+        };
+      }
+      throw err;
+    }
+
+    void lazyCleanupRefreshTokens(25);
+
     const newAccessToken = await generateAccessToken(
       user.id,
       user.email,
@@ -422,6 +475,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       success: true,
       user: userWithoutPassword,
       accessToken: newAccessToken,
+      refreshToken: nextRefreshToken,
     };
   } catch (_error: unknown) {
     return {
