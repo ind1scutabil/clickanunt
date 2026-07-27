@@ -162,6 +162,30 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
+  // Fail closed: Stripe amount/currency must match the pending Payment row created server-side.
+  const expectedCurrency = String(payment.currency || '').toLowerCase();
+  const actualCurrency = String(currency || '').toLowerCase();
+  if (payment.amount !== amount || expectedCurrency !== actualCurrency) {
+    logger.error('PaymentIntent amount/currency mismatch — refusing promotion/invoice side-effects', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+      expectedAmount: payment.amount,
+      actualAmount: amount,
+      expectedCurrency,
+      actualCurrency,
+    });
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.PAYMENT_SUCCEEDED,
+      severity: AdminNotificationSeverity.critical,
+      title: 'Plată Stripe — nepotrivire sumă/monedă',
+      message: `PaymentIntent ${id} nu corespunde înregistrării ${payment.id}; side-effects blocate.`,
+      entityType: 'payment',
+      entityId: payment.id,
+      metadata: { expectedAmount: payment.amount, actualAmount: amount },
+    });
+    return;
+  }
+
   // Determine payment method
   // Note: charges is not always available in PaymentIntent object
   // We'll fetch it separately or use payment_method
@@ -386,11 +410,37 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
           select: {
             title: true,
             ownerUserId: true,
+            status: true,
             isPromoted: true,
             promotionExpiresAt: true,
           },
         });
 
+        if (!listingBeforePromo) {
+          logger.error('Listing not found for promotion activation', { listingId, paymentId: payment.id });
+        } else if (listingBeforePromo.ownerUserId !== payment.userId) {
+          logger.error('Listing ownership mismatch — refusing promotion activation', {
+            listingId,
+            paymentId: payment.id,
+            paymentUserId: payment.userId,
+            listingOwnerId: listingBeforePromo.ownerUserId,
+          });
+          void createAdminNotification({
+            type: ADMIN_NOTIFICATION_TYPE.PROMOTION_ACTIVATED,
+            severity: AdminNotificationSeverity.critical,
+            title: 'Promovare blocată — ownership mismatch',
+            message: `Payment ${payment.id} vs listing ${listingId} owner mismatch.`,
+            entityType: 'payment',
+            entityId: payment.id,
+            metadata: { listingId },
+          });
+        } else if (listingBeforePromo.status !== 'active') {
+          logger.warn('Listing not active — skipping promotion activation', {
+            listingId,
+            status: listingBeforePromo.status,
+            paymentId: payment.id,
+          });
+        } else {
         await prisma.listing.update({
           where: { id: listingId },
           data: {
@@ -456,6 +506,7 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
           entityId: listingId,
           metadata: { paymentId: payment.id },
         });
+        }
       }
     } catch (error) {
       logger.error('Failed to update listing promotion', {

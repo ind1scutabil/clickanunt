@@ -120,6 +120,7 @@ describe('Stripe webhook POST', () => {
       userId: 'user-1',
       status: 'pending',
       purpose: 'promote_listing',
+      amount: 2900,
       currency: 'ron',
       metadata: { listingId: 'listing-1', packageType: 'featured_7_days' },
       user: { id: 'user-1', email: 'a@b.com', name: 'Test' },
@@ -169,8 +170,27 @@ describe('Stripe webhook POST', () => {
       userId: 'user-1',
       status: 'succeeded',
       purpose: 'promote_listing',
+      amount: 2900,
       currency: 'ron',
       metadata: {},
+      user: { id: 'user-1', email: 'a@b.com', name: 'Test' },
+    });
+
+    const res = await POST(webhookRequest('{}', 't=1,v1=ok'));
+    expect(res.status).toBe(200);
+    expect(mockUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses side-effects when PaymentIntent amount mismatches DB payment', async () => {
+    mockVerify.mockReturnValue(baseEvent());
+    mockFindUnique.mockResolvedValue({
+      id: 'pay-1',
+      userId: 'user-1',
+      status: 'pending',
+      purpose: 'promote_listing',
+      amount: 1900,
+      currency: 'ron',
+      metadata: { listingId: 'listing-1', packageType: 'featured_7_days' },
       user: { id: 'user-1', email: 'a@b.com', name: 'Test' },
     });
 
