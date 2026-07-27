@@ -76,6 +76,7 @@
     "staging:isolation": "node scripts/staging/verify-production-isolation.mjs",
     "staging:metrics": "node scripts/staging/collect-runtime-metrics.mjs",
     "deploy:staging": "bash scripts/deploy-staging-from-local.sh",
+    "staging:preflight": "node scripts/staging/preflight-deploy.mjs",
     "staging:load-campaign": "bash scripts/staging/run-load-campaign.sh"
   },
   "prisma": {
