@@ -184,6 +184,17 @@ export async function GET(request: NextRequest) {
       where.priceAmount = {};
       if (minPrice) where.priceAmount.gte = Number(minPrice);
       if (maxPrice) where.priceAmount.lte = Number(maxPrice);
+      // Numeric price bands only apply to types with a real amount.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { priceType: null },
+            { priceType: { in: ["FIXED", "NEGOTIABLE", "FROM"] } },
+          ],
+        },
+        { priceAmount: { not: null } },
+      ];
     }
 
     const year = query.year ?? q.get("year");
@@ -807,37 +818,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const data: any = {
-      owner: {
-        connect: { id: userId }
-      },
-      title: cleanBody.title,
-      category: cleanBody.category,
-      subcategory: cleanBody.subcategory,
-      priceAmount: cleanBody.priceAmount,
-      priceCurrency: cleanBody.priceCurrency ?? "RON",
-      condition: cleanBody.condition ?? "used",
-      status: moderationStatus === "approved" ? "active" : "pending",
-      description: cleanBody.description,
-      county: cleanBody.county,
-      city: cleanBody.city,
-      region: cleanBody.region,
-      photos: cleanBody.photos ?? [],
-      contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
-      // Client cannot grant featured via create payload (field not in schema; force false).
-      isFeatured: false,
-      feedBoost: computeFeedBoost(false, false),
-      
-      // Auto-specific fields — only persist for Auto category
-      make: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.make : null,
-      model: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.model : null,
-      year: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.year : null,
-      mileage: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.mileage : null,
-      fuel: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.fuel : null,
-      transmission: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.transmission : null,
-      vin: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.vin : null,
-
-      attributes: buildPersistedAttributes({
+    const persistedAttrs = buildPersistedAttributes({
         categoryLabel: String(cleanBody.category),
         subcategoryLabel: (cleanBody.subcategory as string | null | undefined) ?? null,
         attributes: cleanBody.attributes,
@@ -860,7 +841,59 @@ export async function POST(request: Request) {
           upholstery: cleanBody.upholstery || null,
           cocPapers: cleanBody.cocPapers || false,
         },
-      }).attributes,
+      }).attributes;
+
+    // New structured salary replaces legacy attributes.salary_range text.
+    if (
+      cleanBody.salaryMin != null ||
+      cleanBody.salaryMax != null
+    ) {
+      if (
+        persistedAttrs &&
+        typeof persistedAttrs === "object" &&
+        !Array.isArray(persistedAttrs) &&
+        "salary_range" in persistedAttrs
+      ) {
+        delete (persistedAttrs as Record<string, unknown>).salary_range;
+      }
+    }
+
+    const data: any = {
+      owner: {
+        connect: { id: userId }
+      },
+      title: cleanBody.title,
+      category: cleanBody.category,
+      subcategory: cleanBody.subcategory,
+      priceType: cleanBody.priceType ?? null,
+      priceAmount: cleanBody.priceAmount ?? null,
+      priceCurrency: cleanBody.priceCurrency ?? (cleanBody.priceType ? "RON" : null),
+      salaryMin: cleanBody.salaryMin ?? null,
+      salaryMax: cleanBody.salaryMax ?? null,
+      salaryCurrency: cleanBody.salaryCurrency ?? null,
+      salaryPeriod: cleanBody.salaryPeriod ?? null,
+      condition: cleanBody.condition ?? "used",
+      status: moderationStatus === "approved" ? "active" : "pending",
+      description: cleanBody.description,
+      county: cleanBody.county,
+      city: cleanBody.city,
+      region: cleanBody.region,
+      photos: cleanBody.photos ?? [],
+      contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
+      // Client cannot grant featured via create payload (field not in schema; force false).
+      isFeatured: false,
+      feedBoost: computeFeedBoost(false, false),
+      
+      // Auto-specific fields — only persist for Auto category
+      make: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.make : null,
+      model: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.model : null,
+      year: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.year : null,
+      mileage: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.mileage : null,
+      fuel: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.fuel : null,
+      transmission: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.transmission : null,
+      vin: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.vin : null,
+
+      attributes: persistedAttrs,
 
       // Moderation fields
       moderationStatus,

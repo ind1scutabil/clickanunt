@@ -60,20 +60,20 @@ test.describe("Publish auth — next= round-trip (one UI login)", () => {
     const email = process.env.E2E_USER_EMAIL ?? process.env.E2E_EMAIL ?? "user@example.com";
     const password =
       process.env.E2E_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "Password123!";
-    const emailInput = page.locator('input[type="email"]');
-    const passInput = page.locator('input[type="password"]');
+    const emailInput = page.locator('input[type="email"]').first();
+    const passInput = page.locator('input[type="password"]').first();
     await emailInput.click();
     await emailInput.fill(email);
     await expect(emailInput).toHaveValue(email);
     await passInput.click();
     await passInput.fill(password);
     await expect(passInput).toHaveValue(password);
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
     await page.waitForURL(/\/listings\/new$/, { timeout: 60000 });
     expect(new URL(page.url()).pathname).toBe("/listings/new");
     await page.waitForFunction(
       () =>
-        /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca/i.test(
+        /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca|Completează manual|Scrie ce vinzi/i.test(
           document.body.innerText || "",
         ),
       null,
@@ -89,14 +89,14 @@ test.describe("Publish auth — next= round-trip (one UI login)", () => {
     const email = process.env.E2E_USER_EMAIL ?? process.env.E2E_EMAIL ?? "user@example.com";
     const password =
       process.env.E2E_USER_PASSWORD ?? process.env.E2E_PASSWORD ?? "Password123!";
-    const emailInput = page.locator('input[type="email"]');
-    const passInput = page.locator('input[type="password"]');
+    const emailInput = page.locator('input[type="email"]').first();
+    const passInput = page.locator('input[type="password"]').first();
     await emailInput.click();
     await emailInput.fill(email);
     await expect(emailInput).toHaveValue(email);
     await passInput.click();
     await passInput.fill(password);
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
     await page.waitForURL((url) => !url.pathname.includes("/auth/login"), { timeout: 60000 });
     expect(page.url()).not.toMatch(/evil\.example/i);
     expect(new URL(page.url()).origin).toMatch(/localhost|127\.0\.0\.1/);
@@ -115,7 +115,7 @@ test.describe("Publish auth — user storageState", () => {
     await expect(page).not.toHaveURL(/\/auth\/login/);
     await page.waitForFunction(
       () =>
-        /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca/i.test(
+        /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca|Completează manual|Scrie ce vinzi/i.test(
           document.body.innerText || "",
         ),
       null,
@@ -139,7 +139,7 @@ test.describe("Publish auth — admin storageState", () => {
     if (path === "/listings/new") {
       await page.waitForFunction(
         () =>
-          /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca/i.test(
+          /Selectează categor|Categorie|Publică anunț|Titlu|Fotograf|Descriere|Marca|Completează manual|Scrie ce vinzi/i.test(
             document.body.innerText || "",
           ),
         null,

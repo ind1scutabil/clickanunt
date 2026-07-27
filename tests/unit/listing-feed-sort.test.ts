@@ -25,8 +25,14 @@ describe('listing feed sort', () => {
       { id: 'desc' },
     ]);
     expect(prismaOrderByForListingSort('newest')).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
-    expect(prismaOrderByForListingSort('priceAsc')).toEqual([{ priceAmount: 'asc' }, { id: 'desc' }]);
-    expect(prismaOrderByForListingSort('priceDesc')).toEqual([{ priceAmount: 'desc' }, { id: 'desc' }]);
+    expect(prismaOrderByForListingSort('priceAsc')).toEqual([
+      { priceAmount: { sort: 'asc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
+    expect(prismaOrderByForListingSort('priceDesc')).toEqual([
+      { priceAmount: { sort: 'desc', nulls: 'last' } },
+      { id: 'desc' },
+    ]);
   });
 
   it('uses feed keyset only for featured', () => {

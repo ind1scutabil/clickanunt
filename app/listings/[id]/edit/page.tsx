@@ -10,8 +10,54 @@ import { ALL_CATEGORIES, CATEGORIES, ROMANIAN_COUNTIES, CITIES_BY_COUNTY } from 
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from '@/lib/listing-photo-url';
 import { normalizeCountryOfOriginValue } from '@/lib/listing-country-options';
 import CountryOfOriginSelect from '@/app/components/listing/CountryOfOriginSelect';
+import {
+  allowedPriceTypesFor,
+  isJobsCategory,
+  priceTypeForbidsAmount,
+  priceTypeRequiresAmount,
+  PRICE_TYPE_LABEL_RO,
+  SALARY_PERIOD_LABEL_RO,
+  SALARY_PERIODS,
+  type PriceTypeValue,
+  type SalaryPeriodValue,
+} from '@/lib/listing-price-salary-policy';
 
 const AUTO_CATEGORY = 'Auto, moto și ambarcațiuni';
+
+function priceSalaryFromListing(data: Record<string, unknown>) {
+  const jobs = isJobsCategory(String(data.category || ''));
+  const sMin =
+    typeof data.salaryMin === 'number' && Number.isFinite(data.salaryMin)
+      ? data.salaryMin
+      : null;
+  const sMax =
+    typeof data.salaryMax === 'number' && Number.isFinite(data.salaryMax)
+      ? data.salaryMax
+      : null;
+  let salaryMode: 'unspecified' | 'exact' | 'range' = 'unspecified';
+  if (sMin != null || sMax != null) {
+    salaryMode = sMin != null && sMax != null && sMin === sMax ? 'exact' : 'range';
+  }
+  const pt = data.priceType;
+  const allowed = allowedPriceTypesFor(
+    String(data.category || ''),
+    (data.subcategory as string) || null
+  );
+  const priceType =
+    typeof pt === 'string' && allowed.includes(pt as PriceTypeValue)
+      ? (pt as PriceTypeValue)
+      : jobs
+        ? ('' as const)
+        : allowed[0] || 'FIXED';
+  return {
+    priceType,
+    salaryMode,
+    salaryMin: salaryMode === 'exact' ? sMin : sMin,
+    salaryMax: salaryMode === 'exact' ? null : sMax,
+    salaryCurrency: (data.salaryCurrency as string) || 'RON',
+    salaryPeriod: (data.salaryPeriod as SalaryPeriodValue) || 'MONTH',
+  };
+}
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -158,8 +204,14 @@ export default function EditListingPage() {
     title: '',
     category: '',
     subcategory: '',
+    priceType: 'FIXED' as PriceTypeValue | '',
     priceAmount: null as number | null,
     priceCurrency: 'RON',
+    salaryMode: 'unspecified' as 'unspecified' | 'exact' | 'range',
+    salaryMin: null as number | null,
+    salaryMax: null as number | null,
+    salaryCurrency: 'RON',
+    salaryPeriod: 'MONTH' as SalaryPeriodValue,
     condition: '',
     description: '',
     county: '',
@@ -280,6 +332,7 @@ export default function EditListingPage() {
               title: data.title || '',
               category: data.category || '',
               subcategory: data.subcategory || '',
+              ...priceSalaryFromListing(data),
               priceAmount: parseLoadedPrice(data.priceAmount),
               priceCurrency: data.priceCurrency || 'RON',
               condition: normalizeCondition(data.condition || ''),
@@ -318,11 +371,12 @@ export default function EditListingPage() {
           const data = await response.json();
           setListing(data);
           setFormData({
-            title: data.title || '',
-            category: data.category || '',
-            subcategory: data.subcategory || '',
-            priceAmount: parseLoadedPrice(data.priceAmount),
-            priceCurrency: data.priceCurrency || 'RON',
+              title: data.title || '',
+              category: data.category || '',
+              subcategory: data.subcategory || '',
+              ...priceSalaryFromListing(data),
+              priceAmount: parseLoadedPrice(data.priceAmount),
+              priceCurrency: data.priceCurrency || 'RON',
             condition: normalizeCondition(data.condition || ''),
             description: data.description || '',
             county: data.county || '',
@@ -372,10 +426,43 @@ export default function EditListingPage() {
         return;
       }
 
-      if (formData.priceAmount == null || !Number.isFinite(formData.priceAmount) || formData.priceAmount < 0) {
-        setNotification({ message: 'Introdu un preț valid (număr ≥ 0).', type: 'error' });
-        setSaving(false);
-        return;
+      if (isJobsCategory(formData.category)) {
+        if (formData.salaryMode === 'exact') {
+          if (formData.salaryMin == null || formData.salaryMin <= 0) {
+            setNotification({ message: 'Salariul trebuie să fie > 0.', type: 'error' });
+            setSaving(false);
+            return;
+          }
+        } else if (formData.salaryMode === 'range') {
+          if (
+            formData.salaryMin == null ||
+            formData.salaryMax == null ||
+            formData.salaryMin <= 0 ||
+            formData.salaryMax <= 0 ||
+            formData.salaryMax < formData.salaryMin
+          ) {
+            setNotification({ message: 'Interval salarial invalid.', type: 'error' });
+            setSaving(false);
+            return;
+          }
+        }
+      } else {
+        const allowed = allowedPriceTypesFor(formData.category, formData.subcategory || null);
+        if (!formData.priceType || !allowed.includes(formData.priceType as PriceTypeValue)) {
+          setNotification({ message: 'Selectează un tip de preț valid.', type: 'error' });
+          setSaving(false);
+          return;
+        }
+        if (
+          priceTypeRequiresAmount(formData.priceType as PriceTypeValue) &&
+          (formData.priceAmount == null ||
+            !Number.isFinite(formData.priceAmount) ||
+            formData.priceAmount <= 0)
+        ) {
+          setNotification({ message: 'Introdu un preț valid (> 0).', type: 'error' });
+          setSaving(false);
+          return;
+        }
       }
 
       if (isAutoCategory && formData.year != null && Number.isFinite(formData.year)) {
@@ -411,11 +498,49 @@ export default function EditListingPage() {
         city: formData.city.trim() || null,
         contactPhone: formData.contactPhone.trim() || null,
         condition,
-        priceAmount: formData.priceAmount,
-        priceCurrency: formData.priceCurrency,
         photos,
         attributes: attrs,
       };
+
+      delete payload.salaryMode;
+
+      if (isJobsCategory(formData.category)) {
+        payload.priceType = null;
+        payload.priceAmount = null;
+        payload.priceCurrency = null;
+        if (formData.salaryMode === 'exact' && formData.salaryMin != null) {
+          payload.salaryMin = formData.salaryMin;
+          payload.salaryMax = formData.salaryMin;
+          payload.salaryCurrency = formData.salaryCurrency;
+          payload.salaryPeriod = formData.salaryPeriod;
+        } else if (formData.salaryMode === 'range') {
+          payload.salaryMin = formData.salaryMin;
+          payload.salaryMax = formData.salaryMax;
+          payload.salaryCurrency = formData.salaryCurrency;
+          payload.salaryPeriod = formData.salaryPeriod;
+        } else {
+          payload.salaryMin = null;
+          payload.salaryMax = null;
+          payload.salaryCurrency = null;
+          payload.salaryPeriod = null;
+        }
+      } else {
+        payload.priceType = formData.priceType || 'FIXED';
+        if (
+          formData.priceType &&
+          priceTypeForbidsAmount(formData.priceType as PriceTypeValue)
+        ) {
+          payload.priceAmount = null;
+          payload.priceCurrency = null;
+        } else {
+          payload.priceAmount = formData.priceAmount;
+          payload.priceCurrency = formData.priceCurrency;
+        }
+        payload.salaryMin = null;
+        payload.salaryMax = null;
+        payload.salaryCurrency = null;
+        payload.salaryPeriod = null;
+      }
 
       if (isAutoCategory) {
         payload.make = formData.make.trim() || null;
@@ -663,43 +788,143 @@ export default function EditListingPage() {
                 </div>
               </div>
 
-              {/* Prețul */}
+              {/* Preț / Salariu */}
               <div>
-                <h2 className="text-2xl font-semibold text-white mb-6">Preț</h2>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="relative group">
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Preț
-                    </label>
-                    <input
-                      type="number"
-                      value={finiteNumberInputValue(formData.priceAmount)}
-                      onChange={(e) =>
-                        setFormData({ ...formData, priceAmount: parseOptionalFloatInput(e.target.value) })
-                      }
-                      min={0}
-                      step="0.01"
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white placeholder-gray-500 focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium group-hover:border-gray-600"
-                      placeholder="0"
-                    />
-                  </div>
+                <h2 className="text-2xl font-semibold text-white mb-6">
+                  {isJobsCategory(formData.category) ? 'Salariu' : 'Preț'}
+                </h2>
 
-                  <div className="relative group">
-                    <label className="block text-sm font-medium text-gray-400 mb-2">
-                      Monedă
-                    </label>
+                {isJobsCategory(formData.category) ? (
+                  <div className="space-y-4">
                     <select
-                      value={formData.priceCurrency}
-                      onChange={(e) => setFormData({ ...formData, priceCurrency: e.target.value })}
-                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white focus:border-[#4E3CFF] focus:ring-4 focus:ring-[#4E3CFF]/20 transition-all duration-normal ease-premium appearance-none cursor-pointer group-hover:border-gray-600"
+                      value={formData.salaryMode}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          salaryMode: e.target.value as typeof formData.salaryMode,
+                        })
+                      }
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
                     >
-                      <option value="RON">RON</option>
-                      <option value="EUR">EUR</option>
-                      <option value="USD">USD</option>
+                      <option value="unspecified">Salariu nespecificat</option>
+                      <option value="exact">Salariu exact</option>
+                      <option value="range">Interval salarial</option>
                     </select>
+                    {formData.salaryMode !== 'unspecified' && (
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder={formData.salaryMode === 'range' ? 'Minim' : 'Sumă'}
+                          value={finiteNumberInputValue(formData.salaryMin)}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              salaryMin: parseOptionalFloatInput(e.target.value),
+                            })
+                          }
+                          className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                        />
+                        {formData.salaryMode === 'range' && (
+                          <input
+                            type="number"
+                            min={1}
+                            placeholder="Maxim"
+                            value={finiteNumberInputValue(formData.salaryMax)}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                salaryMax: parseOptionalFloatInput(e.target.value),
+                              })
+                            }
+                            className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                          />
+                        )}
+                        <select
+                          value={formData.salaryCurrency}
+                          onChange={(e) =>
+                            setFormData({ ...formData, salaryCurrency: e.target.value })
+                          }
+                          className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                        >
+                          <option value="RON">RON</option>
+                          <option value="EUR">EUR</option>
+                        </select>
+                        <select
+                          value={formData.salaryPeriod}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              salaryPeriod: e.target.value as SalaryPeriodValue,
+                            })
+                          }
+                          className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white md:col-span-3"
+                        >
+                          {SALARY_PERIODS.map((p) => (
+                            <option key={p} value={p}>
+                              Pe {SALARY_PERIOD_LABEL_RO[p]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    <select
+                      value={formData.priceType || ''}
+                      onChange={(e) => {
+                        const next = e.target.value as PriceTypeValue;
+                        setFormData({
+                          ...formData,
+                          priceType: next,
+                          priceAmount: priceTypeForbidsAmount(next)
+                            ? null
+                            : formData.priceAmount,
+                        });
+                      }}
+                      className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                    >
+                      {allowedPriceTypesFor(
+                        formData.category,
+                        formData.subcategory || null
+                      ).map((t) => (
+                        <option key={t} value={t}>
+                          {PRICE_TYPE_LABEL_RO[t]}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.priceType &&
+                      priceTypeRequiresAmount(formData.priceType as PriceTypeValue) && (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <input
+                            type="number"
+                            value={finiteNumberInputValue(formData.priceAmount)}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                priceAmount: parseOptionalFloatInput(e.target.value),
+                              })
+                            }
+                            min={1}
+                            className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                            placeholder="Sumă"
+                          />
+                          <select
+                            value={formData.priceCurrency}
+                            onChange={(e) =>
+                              setFormData({ ...formData, priceCurrency: e.target.value })
+                            }
+                            className="w-full px-5 py-3 bg-gray-900/70 border-2 border-gray-700/50 rounded-xl text-white"
+                          >
+                            <option value="RON">RON</option>
+                            <option value="EUR">EUR</option>
+                            <option value="USD">USD</option>
+                          </select>
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
 
               {/* Poze */}

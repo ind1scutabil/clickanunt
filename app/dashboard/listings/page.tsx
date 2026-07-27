@@ -15,6 +15,7 @@ import {
   formatListingExpiryDisplay,
   isListingDateExpired,
 } from "@/lib/listing-expiry";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
 /** Token-uri vizuale — doar această pagină. */
 const pageAmbient =
@@ -29,15 +30,21 @@ const listingRowSurface =
   "group relative overflow-hidden rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/40 to-zinc-950/95 p-5 shadow-md shadow-black/30 ring-1 ring-white/[0.04] transition-all duration-300 hover:border-orange-500/20 hover:shadow-[0_0_32px_-12px_rgba(249,115,22,0.1)] sm:p-6";
 
 function formatListingPrice(listing: Record<string, unknown>): string {
-  if (listing?.price != null && String(listing.price).trim() !== "") {
-    return String(listing.price);
-  }
-  const amount = listing?.priceAmount as number | undefined;
-  const currency = (listing?.priceCurrency as string) || "RON";
-  if (typeof amount === "number" && !Number.isNaN(amount)) {
-    return `${amount.toLocaleString("ro-RO")} ${currency}`;
-  }
-  return "Preț la cerere";
+  const line = formatListingCommercialOrSalaryLine({
+    category: typeof listing.category === "string" ? listing.category : null,
+    priceType: typeof listing.priceType === "string" ? listing.priceType : null,
+    priceAmount:
+      typeof listing.priceAmount === "number" ? listing.priceAmount : null,
+    priceCurrency:
+      typeof listing.priceCurrency === "string" ? listing.priceCurrency : null,
+    salaryMin: typeof listing.salaryMin === "number" ? listing.salaryMin : null,
+    salaryMax: typeof listing.salaryMax === "number" ? listing.salaryMax : null,
+    salaryCurrency:
+      typeof listing.salaryCurrency === "string" ? listing.salaryCurrency : null,
+    salaryPeriod:
+      typeof listing.salaryPeriod === "string" ? listing.salaryPeriod : null,
+  });
+  return line.suffix ? `${line.primary} · ${line.suffix}` : line.primary;
 }
 
 export default function MyListingsPage() {

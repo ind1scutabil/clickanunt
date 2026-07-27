@@ -7,7 +7,19 @@ import {
   emptyFieldsAfterCategoryChange,
   isSubcategoryRequired,
 } from "@/lib/listing-attributes-sanitize";
-import { getPriceFieldSemantics } from "@/lib/listing-price-semantics";
+import {
+  allowedPriceTypesFor,
+  getMarketplacePriceFieldCopy,
+  isJobsCategory,
+  priceTypeForbidsAmount,
+  priceTypeRequiresAmount,
+  PRICE_TYPE_LABEL_RO,
+  SALARY_PERIOD_LABEL_RO,
+  SALARY_PERIODS,
+  type PriceTypeValue,
+  type SalaryPeriodValue,
+} from "@/lib/listing-price-salary-policy";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 import {
   postJsonWithAuthRefresh,
   validateServerAuthSession,
@@ -28,8 +40,14 @@ interface DraftListing {
   title: string;
   category: string;
   subcategory: string;
+  priceType: PriceTypeValue | "";
   priceAmount: number | "";
   priceCurrency: "RON" | "EUR";
+  salaryMode: "unspecified" | "exact" | "range";
+  salaryMin: number | "";
+  salaryMax: number | "";
+  salaryCurrency: "RON" | "EUR";
+  salaryPeriod: SalaryPeriodValue;
   county: string;
   city: string;
   photos: string[];
@@ -87,8 +105,14 @@ const INITIAL_DRAFT: DraftListing = {
   title: "",
   category: "",
   subcategory: "",
+  priceType: "FIXED",
   priceAmount: "",
   priceCurrency: "RON",
+  salaryMode: "unspecified",
+  salaryMin: "",
+  salaryMax: "",
+  salaryCurrency: "RON",
+  salaryPeriod: "MONTH",
   county: "",
   city: "",
   photos: [],
@@ -120,7 +144,7 @@ const INITIAL_DRAFT: DraftListing = {
   vin: "",
 };
 
-const DRAFT_VERSION = "4"; // Increment when schema changes
+const DRAFT_VERSION = "5"; // v5: priceType + salary fields
 
 export default function OptimizedListingFlow() {
   const router = useRouter();
@@ -280,6 +304,49 @@ export default function OptimizedListingFlow() {
     return draft.county ? CITIES_BY_COUNTY[draft.county as keyof typeof CITIES_BY_COUNTY] || [] : [];
   }, [draft.county]);
 
+  const isJobs = isJobsCategory(draft.category);
+  const allowedPriceTypes = useMemo(
+    () => allowedPriceTypesFor(draft.category, draft.subcategory || null),
+    [draft.category, draft.subcategory]
+  );
+  const priceFieldCopy = getMarketplacePriceFieldCopy(draft.category || null);
+  const pricePreview = useMemo(() => {
+    if (isJobs) {
+      return formatListingCommercialOrSalaryLine({
+        category: draft.category,
+        salaryMin:
+          draft.salaryMode === "unspecified"
+            ? null
+            : draft.salaryMin === ""
+              ? null
+              : Number(draft.salaryMin),
+        salaryMax:
+          draft.salaryMode === "exact"
+            ? draft.salaryMin === ""
+              ? null
+              : Number(draft.salaryMin)
+            : draft.salaryMode === "range"
+              ? draft.salaryMax === ""
+                ? null
+                : Number(draft.salaryMax)
+              : null,
+        salaryCurrency: draft.salaryCurrency,
+        salaryPeriod: draft.salaryPeriod,
+      });
+    }
+    return formatListingCommercialOrSalaryLine({
+      category: draft.category,
+      priceType: draft.priceType || "FIXED",
+      priceAmount:
+        draft.priceType && priceTypeForbidsAmount(draft.priceType)
+          ? null
+          : draft.priceAmount === ""
+            ? null
+            : Number(draft.priceAmount),
+      priceCurrency: draft.priceCurrency,
+    });
+  }, [draft, isJobs]);
+
   // Validation rules
   const validateStep = useCallback((step: number): boolean => {
     const newErrors: Record<string, string> = {};
@@ -297,10 +364,37 @@ export default function OptimizedListingFlow() {
       ) {
         newErrors.subcategory = "Selectează subcategoria";
       }
-      if (!draft.priceAmount || draft.priceAmount <= 0) {
-        const priceLabel = getPriceFieldSemantics(draft.category).label;
-        newErrors.priceAmount = `${priceLabel} trebuie să fie mai mare de 0`;
+
+      if (isJobsCategory(draft.category)) {
+        if (draft.salaryMode === "exact") {
+          if (!draft.salaryMin || Number(draft.salaryMin) <= 0) {
+            newErrors.salaryMin = "Salariul trebuie să fie mai mare de 0";
+          }
+        } else if (draft.salaryMode === "range") {
+          if (!draft.salaryMin || Number(draft.salaryMin) <= 0) {
+            newErrors.salaryMin = "Salariul minim trebuie să fie > 0";
+          }
+          if (!draft.salaryMax || Number(draft.salaryMax) <= 0) {
+            newErrors.salaryMax = "Salariul maxim trebuie să fie > 0";
+          }
+          if (
+            draft.salaryMin &&
+            draft.salaryMax &&
+            Number(draft.salaryMax) < Number(draft.salaryMin)
+          ) {
+            newErrors.salaryMax = "Maximul nu poate fi mai mic decât minimul";
+          }
+        }
+      } else {
+        if (!draft.priceType || !allowedPriceTypesFor(draft.category, draft.subcategory).includes(draft.priceType)) {
+          newErrors.priceType = "Selectează un tip de preț valid";
+        } else if (priceTypeRequiresAmount(draft.priceType)) {
+          if (!draft.priceAmount || draft.priceAmount <= 0) {
+            newErrors.priceAmount = "Prețul trebuie să fie mai mare de 0";
+          }
+        }
       }
+
       if (!draft.county) newErrors.county = "Selectează județul";
       if (!draft.city) newErrors.city = "Selectează orașul";
       if (draft.photos.length === 0) newErrors.photos = "Adaugă minim o poză";
@@ -558,8 +652,6 @@ export default function OptimizedListingFlow() {
         title: draft.title?.trim(),
         category: draft.category,
         subcategory: draft.subcategory || null,
-        priceAmount: Number(draft.priceAmount),
-        priceCurrency: draft.priceCurrency,
         condition: draft.condition,
         description: draft.description,
         county: draft.county,
@@ -569,6 +661,42 @@ export default function OptimizedListingFlow() {
         uploadSessionId,
         ...(Object.keys(draft.attributes).length > 0 ? { attributes: draft.attributes } : {}),
       };
+
+      if (isJobsCategory(draft.category)) {
+        payload.priceType = null;
+        payload.priceAmount = null;
+        payload.priceCurrency = null;
+        if (draft.salaryMode === "exact" && draft.salaryMin !== "") {
+          const v = Number(draft.salaryMin);
+          payload.salaryMin = v;
+          payload.salaryMax = v;
+          payload.salaryCurrency = draft.salaryCurrency;
+          payload.salaryPeriod = draft.salaryPeriod;
+        } else if (draft.salaryMode === "range") {
+          payload.salaryMin = draft.salaryMin === "" ? null : Number(draft.salaryMin);
+          payload.salaryMax = draft.salaryMax === "" ? null : Number(draft.salaryMax);
+          payload.salaryCurrency = draft.salaryCurrency;
+          payload.salaryPeriod = draft.salaryPeriod;
+        } else {
+          payload.salaryMin = null;
+          payload.salaryMax = null;
+          payload.salaryCurrency = null;
+          payload.salaryPeriod = null;
+        }
+      } else {
+        payload.priceType = draft.priceType || "FIXED";
+        if (draft.priceType && priceTypeForbidsAmount(draft.priceType)) {
+          payload.priceAmount = null;
+          payload.priceCurrency = null;
+        } else {
+          payload.priceAmount = Number(draft.priceAmount);
+          payload.priceCurrency = draft.priceCurrency;
+        }
+        payload.salaryMin = null;
+        payload.salaryMax = null;
+        payload.salaryCurrency = null;
+        payload.salaryPeriod = null;
+      }
 
       // Client-side sanity validation to avoid server schema errors
       if (!payload.title || payload.title.length < 5) {
@@ -968,18 +1096,28 @@ export default function OptimizedListingFlow() {
                 onSelect={(cat, sub) => {
                   setDraft((prev) => {
                     const categoryChanged = prev.category && prev.category !== cat;
+                    const nextJobs = isJobsCategory(cat);
+                    const allowed = allowedPriceTypesFor(cat, sub || null);
+                    const nextPriceType =
+                      nextJobs
+                        ? ""
+                        : (allowed.includes(prev.priceType as PriceTypeValue)
+                            ? (prev.priceType as PriceTypeValue)
+                            : allowed[0] || "FIXED");
                     if (categoryChanged) {
                       const hasData =
                         Object.keys(prev.attributes).length > 0 ||
                         Boolean(prev.make) ||
                         Boolean(prev.model) ||
                         Boolean(prev.year) ||
-                        Boolean(prev.mileage);
+                        Boolean(prev.mileage) ||
+                        Boolean(prev.priceAmount) ||
+                        prev.salaryMode !== "unspecified";
                       if (
                         hasData &&
                         typeof window !== "undefined" &&
                         !window.confirm(
-                          "Schimbarea categoriei resetează câmpurile specifice (marcă, atribute etc.). Continui?"
+                          "Schimbarea categoriei resetează câmpurile specifice (marcă, atribute, preț/salariu). Continui?"
                         )
                       ) {
                         return prev;
@@ -989,13 +1127,32 @@ export default function OptimizedListingFlow() {
                         category: cat,
                         ...emptyFieldsAfterCategoryChange(),
                         subcategory: sub || "",
+                        priceType: nextPriceType,
+                        priceAmount: nextJobs || (nextPriceType && priceTypeForbidsAmount(nextPriceType as PriceTypeValue)) ? "" : prev.priceAmount,
+                        salaryMode: nextJobs ? "unspecified" : "unspecified",
+                        salaryMin: "",
+                        salaryMax: "",
                       };
+                    }
+                    const subChanged = sub !== prev.subcategory;
+                    let priceType = prev.priceType;
+                    if (!nextJobs && subChanged) {
+                      const stillOk =
+                        priceType && allowed.includes(priceType as PriceTypeValue);
+                      if (!stillOk) priceType = allowed[0] || "FIXED";
                     }
                     return {
                       ...prev,
                       category: cat,
                       subcategory: sub || "",
-                      attributes: sub !== prev.subcategory ? {} : prev.attributes,
+                      attributes: subChanged ? {} : prev.attributes,
+                      priceType: nextJobs ? "" : priceType,
+                      priceAmount:
+                        !nextJobs &&
+                        priceType &&
+                        priceTypeForbidsAmount(priceType as PriceTypeValue)
+                          ? ""
+                          : prev.priceAmount,
                     };
                   });
                   if (errors.category || errors.subcategory) {
@@ -1130,43 +1287,199 @@ export default function OptimizedListingFlow() {
               </div>
             )}
 
-            {/* Price */}
+            {/* Price / Salary */}
             <div>
-              <label className="block text-white font-semibold mb-2">
-                {getPriceFieldSemantics(draft.category).label}{" "}
-                <span className="text-red-500">*</span>
-              </label>
-              {getPriceFieldSemantics(draft.category).hint ? (
-                <p className="text-xs text-amber-400/90 mb-2">
-                  {getPriceFieldSemantics(draft.category).hint}
-                </p>
-              ) : null}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <input
-                    type="number"
-                    value={draft.priceAmount}
-                    onChange={(e) => updateField("priceAmount", e.target.value ? Number(e.target.value) : "")}
-                    placeholder="Introdu valoarea"
-                    min={0}
-                    step={1}
-                    inputMode="decimal"
-                    className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
-                      errors.priceAmount ? "border-red-500" : "border-gray-800"
-                    } focus:border-[var(--accent-primary)] text-white outline-none transition`}
-                  />
-                </div>
-                <select
-                  value={draft.priceCurrency}
-                  onChange={(e) => updateField("priceCurrency", e.target.value as "RON" | "EUR")}
-                  aria-label="Monedă"
-                  className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition cursor-pointer font-semibold"
-                >
-                  <option value="RON">RON</option>
-                  <option value="EUR">EUR</option>
-                </select>
-              </div>
-              {errors.priceAmount && <p className="text-red-500 text-sm mt-1">{errors.priceAmount}</p>}
+              {isJobs ? (
+                <>
+                  <label className="block text-white font-semibold mb-2">
+                    {priceFieldCopy.label}
+                  </label>
+                  {priceFieldCopy.hint ? (
+                    <p className="text-xs text-amber-400/90 mb-2">{priceFieldCopy.hint}</p>
+                  ) : null}
+                  <select
+                    value={draft.salaryMode}
+                    onChange={(e) =>
+                      updateField(
+                        "salaryMode",
+                        e.target.value as DraftListing["salaryMode"]
+                      )
+                    }
+                    className="w-full mb-3 px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition"
+                  >
+                    <option value="unspecified">Salariu nespecificat</option>
+                    <option value="exact">Salariu exact</option>
+                    <option value="range">Interval salarial</option>
+                  </select>
+                  {draft.salaryMode !== "unspecified" && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className={draft.salaryMode === "range" ? "col-span-1" : "col-span-2"}>
+                          <input
+                            type="number"
+                            value={draft.salaryMin}
+                            onChange={(e) =>
+                              updateField(
+                                "salaryMin",
+                                e.target.value ? Number(e.target.value) : ""
+                              )
+                            }
+                            placeholder={draft.salaryMode === "range" ? "Minim" : "Sumă"}
+                            min={1}
+                            className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
+                              errors.salaryMin ? "border-red-500" : "border-gray-800"
+                            } focus:border-[var(--accent-primary)] text-white outline-none`}
+                          />
+                        </div>
+                        {draft.salaryMode === "range" && (
+                          <div className="col-span-1">
+                            <input
+                              type="number"
+                              value={draft.salaryMax}
+                              onChange={(e) =>
+                                updateField(
+                                  "salaryMax",
+                                  e.target.value ? Number(e.target.value) : ""
+                                )
+                              }
+                              placeholder="Maxim"
+                              min={1}
+                              className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
+                                errors.salaryMax ? "border-red-500" : "border-gray-800"
+                              } focus:border-[var(--accent-primary)] text-white outline-none`}
+                            />
+                          </div>
+                        )}
+                        <select
+                          value={draft.salaryCurrency}
+                          onChange={(e) =>
+                            updateField(
+                              "salaryCurrency",
+                              e.target.value as "RON" | "EUR"
+                            )
+                          }
+                          className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 text-white outline-none font-semibold"
+                        >
+                          <option value="RON">RON</option>
+                          <option value="EUR">EUR</option>
+                        </select>
+                      </div>
+                      <select
+                        value={draft.salaryPeriod}
+                        onChange={(e) =>
+                          updateField(
+                            "salaryPeriod",
+                            e.target.value as SalaryPeriodValue
+                          )
+                        }
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 text-white outline-none"
+                      >
+                        {SALARY_PERIODS.map((p) => (
+                          <option key={p} value={p}>
+                            Pe {SALARY_PERIOD_LABEL_RO[p]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {(errors.salaryMin || errors.salaryMax) && (
+                    <p className="text-red-500 text-sm mt-1">
+                      {errors.salaryMin || errors.salaryMax}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <label className="block text-white font-semibold mb-2">
+                    {priceFieldCopy.label} <span className="text-red-500">*</span>
+                  </label>
+                  {priceFieldCopy.hint ? (
+                    <p className="text-xs text-amber-400/90 mb-2">{priceFieldCopy.hint}</p>
+                  ) : null}
+                  <select
+                    value={draft.priceType || ""}
+                    onChange={(e) => {
+                      const next = e.target.value as PriceTypeValue;
+                      const prevType = draft.priceType;
+                      const losingAmount =
+                        prevType &&
+                        priceTypeRequiresAmount(prevType) &&
+                        draft.priceAmount !== "" &&
+                        priceTypeForbidsAmount(next);
+                      if (
+                        losingAmount &&
+                        typeof window !== "undefined" &&
+                        !window.confirm(
+                          "Schimbarea tipului de preț elimină suma introdusă. Continui?"
+                        )
+                      ) {
+                        return;
+                      }
+                      setDraft((prev) => ({
+                        ...prev,
+                        priceType: next,
+                        priceAmount: priceTypeForbidsAmount(next) ? "" : prev.priceAmount,
+                      }));
+                    }}
+                    className={`w-full mb-3 px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
+                      errors.priceType ? "border-red-500" : "border-gray-800"
+                    } focus:border-[var(--accent-primary)] text-white outline-none`}
+                  >
+                    {allowedPriceTypes.map((t) => (
+                      <option key={t} value={t}>
+                        {PRICE_TYPE_LABEL_RO[t]}
+                      </option>
+                    ))}
+                  </select>
+                  {draft.priceType && priceTypeRequiresAmount(draft.priceType) && (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          value={draft.priceAmount}
+                          onChange={(e) =>
+                            updateField(
+                              "priceAmount",
+                              e.target.value ? Number(e.target.value) : ""
+                            )
+                          }
+                          placeholder="Introdu valoarea"
+                          min={1}
+                          step={1}
+                          inputMode="decimal"
+                          className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
+                            errors.priceAmount ? "border-red-500" : "border-gray-800"
+                          } focus:border-[var(--accent-primary)] text-white outline-none transition`}
+                        />
+                      </div>
+                      <select
+                        value={draft.priceCurrency}
+                        onChange={(e) =>
+                          updateField(
+                            "priceCurrency",
+                            e.target.value as "RON" | "EUR"
+                          )
+                        }
+                        aria-label="Monedă"
+                        className="w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 border-gray-800 focus:border-[var(--accent-primary)] text-white outline-none transition cursor-pointer font-semibold"
+                      >
+                        <option value="RON">RON</option>
+                        <option value="EUR">EUR</option>
+                      </select>
+                    </div>
+                  )}
+                  {errors.priceType && (
+                    <p className="text-red-500 text-sm mt-1">{errors.priceType}</p>
+                  )}
+                  {errors.priceAmount && (
+                    <p className="text-red-500 text-sm mt-1">{errors.priceAmount}</p>
+                  )}
+                </>
+              )}
+              <p className="text-sm text-gray-400 mt-2" data-testid="price-preview">
+                Previzualizare: {pricePreview.primary}
+                {pricePreview.suffix ? ` · ${pricePreview.suffix}` : ""}
+              </p>
             </div>
 
             {/* Location */}
@@ -1779,9 +2092,8 @@ export default function OptimizedListingFlow() {
                 {/* Title & Price */}
                 <h4 className="text-2xl font-bold text-white mb-2">{draft.title || "Titlu anunț"}</h4>
                 <div className="text-3xl font-black text-[var(--accent-primary)] mb-4">
-                  {draft.priceAmount !== "" && draft.priceAmount != null
-                    ? `${draft.priceAmount} ${draft.priceCurrency}`
-                    : "—"}
+                  {pricePreview.primary}
+                  {pricePreview.suffix ? ` · ${pricePreview.suffix}` : ""}
                 </div>
 
                 {/* Details */}

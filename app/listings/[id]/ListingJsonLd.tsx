@@ -12,6 +12,10 @@ import {
   buildVehicleProductFields,
 } from "@/lib/seo/listing-product-jsonld";
 import { listingJsonLdKindForCategory } from "@/lib/seo/listing-jsonld-policy";
+import {
+  buildCommercialOfferPriceFields,
+  buildJobBaseSalaryJsonLd,
+} from "@/lib/seo/listing-offer-jsonld";
 import type { Condition } from "@prisma/client";
 import type { ReactNode } from "react";
 
@@ -47,6 +51,11 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       description: true,
       priceAmount: true,
       priceCurrency: true,
+      priceType: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+      salaryPeriod: true,
       photos: true,
       make: true,
       model: true,
@@ -86,10 +95,11 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     .map((p) => (p.startsWith("http://") || p.startsWith("https://") ? p : `${origin}${p.startsWith("/") ? p : `/${p}`}`));
 
   const itemUrl = absoluteUrl(`/listings/${listing.id}`);
-  const currency = (listing.priceCurrency?.trim() || "RON").toUpperCase();
   const availability = listingSchemaAvailabilityUrl(listing);
   const itemCondition = schemaItemConditionUrl(listing.condition);
   const kind = listingJsonLdKindForCategory(listing.category);
+  const offerPrice = buildCommercialOfferPriceFields(listing);
+  const jobBaseSalary = buildJobBaseSalaryJsonLd(listing);
 
   let seller: { "@type": "Organization"; name: string; url: string } | { "@type": "Person"; name: string; url: string } | undefined;
   if (listing.owner) {
@@ -174,20 +184,24 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
       const mode = attrs.work_mode.toLowerCase();
       if (mode.includes("remote")) jobLd.jobLocationType = "TELECOMMUTE";
     }
-    // Never map priceAmount → baseSalary (placeholder / no salaryMin schema).
+    if (jobBaseSalary) {
+      jobLd.baseSalary = jobBaseSalary;
+    }
     scripts.unshift(
       <script key="job" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jobLd) }} />
     );
   } else if (kind === "product_offer" || kind === "product_car") {
     const offer: Record<string, unknown> = {
       "@type": "Offer",
-      priceCurrency: currency,
-      price: Number(listing.priceAmount),
       availability,
       url: itemUrl,
       priceValidUntil: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       ...buildClassifiedOfferPolicyFields(),
     };
+    if (offerPrice) {
+      offer.price = offerPrice.price;
+      offer.priceCurrency = offerPrice.priceCurrency;
+    }
     if (seller) offer.seller = seller;
     if (locationPlace) offer.availableAtOrFrom = locationPlace;
 

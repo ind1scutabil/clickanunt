@@ -15,6 +15,7 @@ export function buildWebCreatePayload(
     description: "Descriere suficient de lunga pentru publicare pe web.",
     category: "Electronice și electrocasnice",
     subcategory: "Telefoane mobile",
+    priceType: "FIXED",
     priceAmount: 4500,
     priceCurrency: "RON",
     county: "Cluj",
@@ -34,6 +35,7 @@ export function buildMobileCreatePayload(
     description: "Descriere din aplicatia mobila Expo.",
     category: "Altele",
     subcategory: "Diverse",
+    priceType: "FIXED",
     priceAmount: 100,
     priceCurrency: "RON",
     county: "București",
@@ -54,6 +56,7 @@ export function buildWebAutoCreatePayload(
     description: "Masina in stare buna, istoric service.",
     category: "Auto, moto și ambarcațiuni",
     subcategory: "Autoturisme",
+    priceType: "FIXED",
     priceAmount: 12500,
     priceCurrency: "EUR",
     county: "București",
@@ -68,8 +71,31 @@ export function buildWebAutoCreatePayload(
   };
 }
 
-/** Jobs payload — priceAmount still required (>0) until salary migration. */
+/** Jobs — new contract: optional structured salary, no product price. */
 export function buildJobsCreatePayload(
+  overrides: Partial<ListingCreateBodyDto> = {}
+): ListingCreateBodyDto {
+  return {
+    title: "Developer React mid-level Cluj",
+    description: "Cautam developer React cu experienta pe Next.js.",
+    category: "Locuri de muncă",
+    subcategory: "IT/Software",
+    priceType: null,
+    priceAmount: null,
+    priceCurrency: null,
+    salaryMin: 8000,
+    salaryMax: 8000,
+    salaryCurrency: "RON",
+    salaryPeriod: "MONTH",
+    county: "Cluj",
+    city: "Cluj-Napoca",
+    photos: [PHOTO],
+    ...overrides,
+  };
+}
+
+/** Legacy mobile Jobs: priceAmount only (compat window; no invented salaryPeriod). */
+export function buildLegacyJobsCreatePayload(
   overrides: Partial<ListingCreateBodyDto> = {}
 ): ListingCreateBodyDto {
   return {
@@ -82,11 +108,6 @@ export function buildJobsCreatePayload(
     county: "Cluj",
     city: "Cluj-Napoca",
     photos: [PHOTO],
-    attributes: {
-      contract_type: "Full-time",
-      salary_range: "7000-9000 RON net",
-      work_mode: "Hibrid",
-    },
     ...overrides,
   };
 }

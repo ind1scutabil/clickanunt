@@ -97,8 +97,16 @@ export async function ftsSearchListingIds(
       AND (${yearParam}::int IS NULL OR year = ${yearParam})
       AND (${yearMinParam}::int IS NULL OR year >= ${yearMinParam})
       AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
-      AND (${minPriceParam}::int IS NULL OR "priceAmount" >= ${minPriceParam})
-      AND (${maxPriceParam}::int IS NULL OR "priceAmount" <= ${maxPriceParam})
+      AND (${minPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND "priceAmount" >= ${minPriceParam}
+      ))
+      AND (${maxPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND "priceAmount" <= ${maxPriceParam}
+      ))
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
       AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
@@ -133,8 +141,16 @@ export async function ftsSearchListingIds(
       AND (${yearParam}::int IS NULL OR year = ${yearParam})
       AND (${yearMinParam}::int IS NULL OR year >= ${yearMinParam})
       AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
-      AND (${minPriceParam}::int IS NULL OR "priceAmount" >= ${minPriceParam})
-      AND (${maxPriceParam}::int IS NULL OR "priceAmount" <= ${maxPriceParam})
+      AND (${minPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND "priceAmount" >= ${minPriceParam}
+      ))
+      AND (${maxPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND "priceAmount" <= ${maxPriceParam}
+      ))
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
       AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})

@@ -10,11 +10,12 @@ import {
 import {
   formatCategoryAwarePriceLine,
   getPriceFieldSemantics,
-  shouldOmitProductOfferPrice,
 } from "@/lib/listing-price-semantics";
+import { listingJsonLdKindForCategory } from "@/lib/seo/listing-jsonld-policy";
 import { listingCreateSchema } from "@/lib/security/validation-schemas";
 import {
   buildJobsCreatePayload,
+  buildLegacyJobsCreatePayload,
   buildWebAutoCreatePayload,
   buildWebCreatePayload,
 } from "@/lib/listing-create-payload-builders";
@@ -73,11 +74,13 @@ describe("FAZA 5 attribute sanitize", () => {
   });
 });
 
-describe("FAZA 5 price semantics", () => {
-  it("labels jobs as compat placeholder; omits Product Offer price", () => {
-    expect(getPriceFieldSemantics("Locuri de muncă").meaning).toBe("jobs_compat_placeholder");
-    expect(shouldOmitProductOfferPrice("Locuri de muncă")).toBe(true);
-    expect(shouldOmitProductOfferPrice("Electronice și electrocasnice")).toBe(false);
+describe("FAZA 5/6 price semantics", () => {
+  it("labels jobs as salary mode; uses JobPosting JSON-LD kind", () => {
+    expect(getPriceFieldSemantics("Locuri de muncă").meaning).toBe("salary");
+    expect(listingJsonLdKindForCategory("Locuri de muncă")).toBe("job_posting");
+    expect(listingJsonLdKindForCategory("Electronice și electrocasnice")).toBe(
+      "product_offer"
+    );
   });
 
   it("prefers salary_range free text on cards without claiming structured salary", () => {
@@ -89,6 +92,12 @@ describe("FAZA 5 price semantics", () => {
     });
     expect(line.primary).toBe("4000-6000 RON net");
     expect(line.suffix).toBe("detalii text");
+  });
+
+  it("accepts legacy Jobs create with priceAmount only", () => {
+    expect(listingCreateSchema.safeParse(buildLegacyJobsCreatePayload()).success).toBe(
+      true
+    );
   });
 });
 

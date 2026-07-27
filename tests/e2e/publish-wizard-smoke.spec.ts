@@ -62,11 +62,17 @@ test.describe("Publish wizard smoke", () => {
       const pad = await page.evaluate(() => {
         const el = document.getElementById("main-content");
         return {
-          hide: document.documentElement.dataset.hideMobileBottomNav,
           pb: el ? getComputedStyle(el).paddingBottom : "",
         };
       });
-      expect(pad.hide).toBe("1");
+      // Semantic contract: attribute present after layout effect; bottom nav absent.
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-hide-mobile-bottom-nav",
+        "1"
+      );
+      await expect(
+        page.getByRole("navigation", { name: /Navigare rapidă/i })
+      ).toHaveCount(0);
       expect(parseFloat(pad.pb || "0")).toBeLessThan(80);
     }
   });

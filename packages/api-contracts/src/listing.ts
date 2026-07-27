@@ -172,8 +172,14 @@ export type ListingCreateBodyDto = {
   description?: string | null;
   category: string;
   subcategory?: string | null;
-  priceAmount: number;
-  priceCurrency: 'RON' | 'EUR' | 'USD';
+  /** Optional for Jobs; required (or legacy-implied FIXED) for commercial. */
+  priceType?: 'FIXED' | 'NEGOTIABLE' | 'FREE' | 'ON_REQUEST' | 'FROM' | null;
+  priceAmount?: number | null;
+  priceCurrency?: 'RON' | 'EUR' | 'USD' | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: 'RON' | 'EUR' | 'USD' | null;
+  salaryPeriod?: 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR' | null;
   condition?: 'new' | 'used' | 'refurbished' | 'for_parts' | null;
   year?: number | null;
   mileage?: number | null;

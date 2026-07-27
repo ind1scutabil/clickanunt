@@ -48,8 +48,13 @@ export const PUBLIC_LISTING_KEYS = [
   "isPromoted",
   "createdAt",
   "expiresAt",
+  "priceType",
   "priceAmount",
   "priceCurrency",
+  "salaryMin",
+  "salaryMax",
+  "salaryCurrency",
+  "salaryPeriod",
   "owner",
 ] as const;
 

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ListingJsonLd } from "./ListingJsonLd";
 import { ListingBreadcrumbsNav } from "./ListingBreadcrumbsNav";
 import { ListingRelatedCrawlLinks } from "@/app/components/seo/ListingRelatedCrawlLinks";
-import { formatListingPrice } from "@/lib/format-listing-price";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 import { prisma } from "@/lib/prisma";
 import { createPageMetadata } from "@/lib/seo";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -43,6 +43,12 @@ export async function generateMetadata({
       createdAt: true,
       priceAmount: true,
       priceCurrency: true,
+      priceType: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+      salaryPeriod: true,
+      attributes: true,
       deletedAt: true,
       status: true,
       moderationStatus: true,
@@ -71,7 +77,26 @@ export async function generateMetadata({
   }
 
   const loc = listing.city || listing.county || "";
-  const priceLine = formatListingPrice(listing.priceAmount, listing.priceCurrency);
+  const priceFormatted = formatListingCommercialOrSalaryLine({
+    category: listing.category,
+    priceType: listing.priceType,
+    priceAmount: listing.priceAmount,
+    priceCurrency: listing.priceCurrency,
+    salaryMin: listing.salaryMin,
+    salaryMax: listing.salaryMax,
+    salaryCurrency: listing.salaryCurrency,
+    salaryPeriod: listing.salaryPeriod,
+    legacySalaryRange:
+      listing.attributes &&
+      typeof listing.attributes === "object" &&
+      !Array.isArray(listing.attributes) &&
+      typeof (listing.attributes as Record<string, unknown>).salary_range === "string"
+        ? String((listing.attributes as Record<string, unknown>).salary_range)
+        : null,
+  });
+  const priceLine = priceFormatted.suffix
+    ? `${priceFormatted.primary} · ${priceFormatted.suffix}`
+    : priceFormatted.primary;
   const ogImage = `/listings/${id}/opengraph-image`;
 
   const rawDesc = listing.description?.replace(/\s+/g, " ").trim() ?? "";

@@ -16,6 +16,7 @@ import { resolveListingGetRequestLimits, finalizeShouldCountListingView } from "
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
+import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -189,6 +190,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         category: true,
         subcategory: true,
         attributes: true,
+        priceType: true,
+        priceAmount: true,
+        priceCurrency: true,
+        salaryMin: true,
+        salaryMax: true,
+        salaryCurrency: true,
+        salaryPeriod: true,
         make: true,
         model: true,
         vin: true,
@@ -236,6 +244,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
+    const priceCheck = validateEffectivePriceSalaryPatch({
+      existing: {
+        category: existingListing.category,
+        subcategory: existingListing.subcategory,
+        priceType: existingListing.priceType,
+        priceAmount: existingListing.priceAmount,
+        priceCurrency: existingListing.priceCurrency,
+        salaryMin: existingListing.salaryMin,
+        salaryMax: existingListing.salaryMax,
+        salaryCurrency: existingListing.salaryCurrency,
+        salaryPeriod: existingListing.salaryPeriod,
+      },
+      patch: body,
+      effectiveCategory: taxonomyCheck.effectiveCategory,
+      effectiveSubcategory: taxonomyCheck.effectiveSubcategory,
+    });
+    if (!priceCheck.ok) {
+      return NextResponse.json(
+        { error: priceCheck.message, path: priceCheck.path },
+        { status: 400 }
+      );
+    }
+
     const allowed: Record<string, unknown> = {};
     const fields = [
       "title",
@@ -243,6 +274,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       "subcategory",
       "priceAmount",
       "priceCurrency",
+      "priceType",
+      "salaryMin",
+      "salaryMax",
+      "salaryCurrency",
+      "salaryPeriod",
       "condition",
       "status",
       "make",
@@ -275,6 +311,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       allowed.mileage = null;
       allowed.fuel = null;
       allowed.transmission = null;
+    }
+
+    if (priceCheck.ok && priceCheck.next) {
+      const n = priceCheck.next;
+      const touchesPrice = [
+        "priceType",
+        "priceAmount",
+        "priceCurrency",
+        "salaryMin",
+        "salaryMax",
+        "salaryCurrency",
+        "salaryPeriod",
+        "category",
+      ].some((k) => k in body);
+      if (touchesPrice) {
+        allowed.priceType = n.priceType;
+        allowed.priceAmount = n.priceAmount;
+        allowed.priceCurrency = n.priceCurrency;
+        allowed.salaryMin = n.salaryMin;
+        allowed.salaryMax = n.salaryMax;
+        allowed.salaryCurrency = n.salaryCurrency;
+        allowed.salaryPeriod = n.salaryPeriod;
+      }
     }
 
     if (allowed.isFeatured !== undefined && existingListing) {

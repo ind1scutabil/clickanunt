@@ -24,6 +24,15 @@ import {
   contractCategoryRequiresSubcategory,
   getContractAttributeDefsFor,
   getMarketplacePriceFieldCopy,
+  allowedPriceTypesFor,
+  isJobsCategoryLabel,
+  priceTypeForbidsAmount,
+  priceTypeRequiresAmount,
+  PRICE_TYPE_LABEL_RO,
+  SALARY_PERIOD_LABEL_RO,
+  SALARY_PERIODS,
+  type PriceTypeValue,
+  type SalaryPeriodValue,
 } from '@clickanunt/api-contracts';
 import { AttributeFields } from '../components/AttributeFields';
 
@@ -49,7 +58,13 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [subcategory, setSubcategory] = useState('');
+  const [priceType, setPriceType] = useState<PriceTypeValue>('FIXED');
   const [priceAmount, setPriceAmount] = useState('');
+  const [salaryMode, setSalaryMode] = useState<'unspecified' | 'exact' | 'range'>('unspecified');
+  const [salaryMin, setSalaryMin] = useState('');
+  const [salaryMax, setSalaryMax] = useState('');
+  const [salaryCurrency, setSalaryCurrency] = useState<'RON' | 'EUR'>('RON');
+  const [salaryPeriod, setSalaryPeriod] = useState<SalaryPeriodValue>('MONTH');
   const [city, setCity] = useState('');
   const [county, setCounty] = useState('');
   const [make, setMake] = useState('');
@@ -67,7 +82,34 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     setDescription(data.description || '');
     setCategory(data.category || '');
     setSubcategory(data.subcategory || '');
+    const pt = (data as { priceType?: PriceTypeValue | null }).priceType;
+    setPriceType(pt && PRICE_TYPE_LABEL_RO[pt] ? pt : 'FIXED');
     setPriceAmount(data.priceAmount != null ? String(data.priceAmount) : '');
+    const sMin = (data as { salaryMin?: number | null }).salaryMin;
+    const sMax = (data as { salaryMax?: number | null }).salaryMax;
+    if (sMin != null || sMax != null) {
+      if (sMin != null && sMax != null && sMin === sMax) {
+        setSalaryMode('exact');
+        setSalaryMin(String(sMin));
+        setSalaryMax('');
+      } else {
+        setSalaryMode('range');
+        setSalaryMin(sMin != null ? String(sMin) : '');
+        setSalaryMax(sMax != null ? String(sMax) : '');
+      }
+      setSalaryCurrency(
+        ((data as { salaryCurrency?: string | null }).salaryCurrency as 'RON' | 'EUR') ||
+          'RON'
+      );
+      setSalaryPeriod(
+        ((data as { salaryPeriod?: SalaryPeriodValue | null }).salaryPeriod as SalaryPeriodValue) ||
+          'MONTH'
+      );
+    } else {
+      setSalaryMode('unspecified');
+      setSalaryMin('');
+      setSalaryMax('');
+    }
     setCity(data.city || '');
     setCounty(data.county || '');
     setMake(data.make || '');
@@ -144,7 +186,12 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   }, [apiCategories, category]);
 
   const isAutoCategory = category === 'Auto, moto și ambarcațiuni';
+  const isJobs = isJobsCategoryLabel(category);
   const priceSemantics = getMarketplacePriceFieldCopy(category || null);
+  const allowedTypes = useMemo(
+    () => allowedPriceTypesFor(category, subcategory || null),
+    [category, subcategory],
+  );
   const attributeDefs = useMemo(
     () => getContractAttributeDefsFor(category, subcategory || null),
     [category, subcategory],
@@ -155,16 +202,37 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       !category.trim() ||
       !contractCategoryRequiresSubcategory(category) ||
       subcategory.trim().length > 0;
-    return (
+    const base =
       title.trim().length >= 5 &&
-      Number(priceAmount) > 0 &&
       photoUrls.length >= 1 &&
       category.trim().length > 0 &&
       subOk &&
       county.trim().length > 0 &&
-      city.trim().length > 0
-    );
-  }, [photoUrls, priceAmount, title, category, subcategory, county, city]);
+      city.trim().length > 0;
+    if (!base) return false;
+    if (isJobs) {
+      if (salaryMode === 'unspecified') return true;
+      if (salaryMode === 'exact') return Number(salaryMin) > 0;
+      return Number(salaryMin) > 0 && Number(salaryMax) > 0 && Number(salaryMax) >= Number(salaryMin);
+    }
+    if (!allowedTypes.includes(priceType)) return false;
+    if (priceTypeRequiresAmount(priceType)) return Number(priceAmount) > 0;
+    return true;
+  }, [
+    photoUrls,
+    priceAmount,
+    priceType,
+    title,
+    category,
+    subcategory,
+    county,
+    city,
+    isJobs,
+    salaryMode,
+    salaryMin,
+    salaryMax,
+    allowedTypes,
+  ]);
 
   const uploadAsset = async (uri: string, type: 'image' | 'video') => {
     if (type === 'video') {
@@ -260,8 +328,23 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       return;
     }
 
-    if (Number(priceAmount) <= 0) {
-      Alert.alert('Preț invalid', `${priceSemantics.label} trebuie să fie mai mare de 0.`);
+    if (!isJobs) {
+      if (!allowedTypes.includes(priceType)) {
+        Alert.alert('Tip preț', 'Selectează un tip de preț valid pentru categorie.');
+        return;
+      }
+      if (priceTypeRequiresAmount(priceType) && Number(priceAmount) <= 0) {
+        Alert.alert('Preț invalid', 'Prețul trebuie să fie mai mare de 0.');
+        return;
+      }
+    } else if (salaryMode === 'exact' && Number(salaryMin) <= 0) {
+      Alert.alert('Salariu invalid', 'Salariul trebuie să fie mai mare de 0.');
+      return;
+    } else if (
+      salaryMode === 'range' &&
+      (Number(salaryMin) <= 0 || Number(salaryMax) <= 0 || Number(salaryMax) < Number(salaryMin))
+    ) {
+      Alert.alert('Salariu invalid', 'Completează un interval salarial valid.');
       return;
     }
     if (!county.trim() || !city.trim()) {
@@ -280,8 +363,6 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       description: description.trim() || undefined,
       category: category.trim(),
       subcategory: subcategory.trim() || null,
-      priceAmount: Number(priceAmount),
-      priceCurrency: 'RON',
       city: city.trim(),
       county: county.trim(),
       photos: photoUrls,
@@ -294,6 +375,42 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
           }
         : {}),
     };
+
+    if (isJobs) {
+      payload.priceType = null;
+      payload.priceAmount = null;
+      payload.priceCurrency = null;
+      if (salaryMode === 'exact' && Number(salaryMin) > 0) {
+        const v = Number(salaryMin);
+        payload.salaryMin = v;
+        payload.salaryMax = v;
+        payload.salaryCurrency = salaryCurrency;
+        payload.salaryPeriod = salaryPeriod;
+      } else if (salaryMode === 'range') {
+        payload.salaryMin = Number(salaryMin);
+        payload.salaryMax = Number(salaryMax);
+        payload.salaryCurrency = salaryCurrency;
+        payload.salaryPeriod = salaryPeriod;
+      } else {
+        payload.salaryMin = null;
+        payload.salaryMax = null;
+        payload.salaryCurrency = null;
+        payload.salaryPeriod = null;
+      }
+    } else {
+      payload.priceType = priceType;
+      if (priceTypeForbidsAmount(priceType)) {
+        payload.priceAmount = null;
+        payload.priceCurrency = null;
+      } else {
+        payload.priceAmount = Number(priceAmount);
+        payload.priceCurrency = 'RON';
+      }
+      payload.salaryMin = null;
+      payload.salaryMax = null;
+      payload.salaryCurrency = null;
+      payload.salaryPeriod = null;
+    }
 
     setIsSaving(true);
     try {
@@ -410,15 +527,101 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
         }
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder={`${priceSemantics.label} (obligatoriu > 0)`}
-        placeholderTextColor={THEME.colors.textMuted}
-        keyboardType="numeric"
-        value={priceAmount}
-        onChangeText={setPriceAmount}
-      />
-      {priceSemantics.hint ? <Text style={styles.metaHint}>{priceSemantics.hint}</Text> : null}
+      {isJobs ? (
+        <View style={styles.priceBlock}>
+          <Text style={styles.metaHint}>{priceSemantics.label}</Text>
+          {priceSemantics.hint ? <Text style={styles.metaHint}>{priceSemantics.hint}</Text> : null}
+          <View style={styles.chipRow}>
+            {(
+              [
+                ['unspecified', 'Nespecificat'],
+                ['exact', 'Exact'],
+                ['range', 'Interval'],
+              ] as const
+            ).map(([modeKey, label]) => (
+              <Pressable
+                key={modeKey}
+                style={[styles.chip, salaryMode === modeKey && styles.chipActive]}
+                onPress={() => setSalaryMode(modeKey)}
+              >
+                <Text style={styles.chipText}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {salaryMode !== 'unspecified' ? (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder={salaryMode === 'range' ? 'Salariu minim' : 'Salariu'}
+                placeholderTextColor={THEME.colors.textMuted}
+                keyboardType="numeric"
+                value={salaryMin}
+                onChangeText={setSalaryMin}
+              />
+              {salaryMode === 'range' ? (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Salariu maxim"
+                  placeholderTextColor={THEME.colors.textMuted}
+                  keyboardType="numeric"
+                  value={salaryMax}
+                  onChangeText={setSalaryMax}
+                />
+              ) : null}
+              <View style={styles.chipRow}>
+                {SALARY_PERIODS.map((p) => (
+                  <Pressable
+                    key={p}
+                    style={[styles.chip, salaryPeriod === p && styles.chipActive]}
+                    onPress={() => setSalaryPeriod(p)}
+                  >
+                    <Text style={styles.chipText}>/{SALARY_PERIOD_LABEL_RO[p]}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.chipRow}>
+                {(['RON', 'EUR'] as const).map((c) => (
+                  <Pressable
+                    key={c}
+                    style={[styles.chip, salaryCurrency === c && styles.chipActive]}
+                    onPress={() => setSalaryCurrency(c)}
+                  >
+                    <Text style={styles.chipText}>{c}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : (
+        <View style={styles.priceBlock}>
+          <Text style={styles.metaHint}>{priceSemantics.label}</Text>
+          <View style={styles.chipRow}>
+            {allowedTypes.map((t) => (
+              <Pressable
+                key={t}
+                style={[styles.chip, priceType === t && styles.chipActive]}
+                onPress={() => {
+                  setPriceType(t);
+                  if (priceTypeForbidsAmount(t)) setPriceAmount('');
+                }}
+              >
+                <Text style={styles.chipText}>{PRICE_TYPE_LABEL_RO[t]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {priceTypeRequiresAmount(priceType) ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Sumă (RON)"
+              placeholderTextColor={THEME.colors.textMuted}
+              keyboardType="numeric"
+              value={priceAmount}
+              onChangeText={setPriceAmount}
+            />
+          ) : null}
+        </View>
+      )}
       <TextInput style={styles.input} placeholder="Județ *" placeholderTextColor={THEME.colors.textMuted} value={county} onChangeText={setCounty} />
       <TextInput style={styles.input} placeholder="Oraș *" placeholderTextColor={THEME.colors.textMuted} value={city} onChangeText={setCity} />
       {isAutoCategory ? (
@@ -472,6 +675,21 @@ const styles = StyleSheet.create({
   errorText: { color: '#fecaca', textAlign: 'center' },
   heading: { fontSize: 22, fontWeight: '800', color: THEME.colors.textPrimary, marginBottom: 4 },
   metaHint: { fontSize: 11, color: THEME.colors.textMuted, marginBottom: 4 },
+  priceBlock: { gap: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: THEME.colors.surface,
+  },
+  chipActive: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primary + '22',
+  },
+  chipText: { color: THEME.colors.textPrimary, fontSize: 12, fontWeight: '600' },
   input: {
     borderWidth: 1,
     borderColor: THEME.colors.border,

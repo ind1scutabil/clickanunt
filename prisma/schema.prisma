@@ -118,6 +118,22 @@ enum SubscriptionTier {
   premium
 }
 
+enum PriceType {
+  FIXED
+  NEGOTIABLE
+  FREE
+  ON_REQUEST
+  FROM
+}
+
+enum SalaryPeriod {
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
 enum AccountType {
   private
   business
@@ -133,101 +149,101 @@ enum VerificationLevel {
 // ==================== MODELS ====================
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      UserRole @default(user)
-  
+  id       String   @id @default(uuid())
+  email    String   @unique
+  password String
+  role     UserRole @default(user)
+
   // Account Type & Profile
-  accountType         AccountType @default(private)
-  verificationLevel   VerificationLevel @default(none)
-  
+  accountType       AccountType       @default(private)
+  verificationLevel VerificationLevel @default(none)
+
   // Personal profile
-  name                String?
-  phone               String?
-  phoneVerified       Boolean @default(false)
-  emailVerified       Boolean @default(false)
-  avatar              String?
-  
+  name          String?
+  phone         String?
+  phoneVerified Boolean @default(false)
+  emailVerified Boolean @default(false)
+  avatar        String?
+
   // Business profile (doar pentru accountType = business)
   businessName        String?
   businessLogo        String?
-  businessDescription String?  @db.Text
+  businessDescription String? @db.Text
   businessLocation    String?
   businessPhone       String?
   businessWebsite     String?
   businessEmail       String?
   businessCUI         String?
   businessRegCom      String?
-  
+
   // Trust & Security
-  trustScore          Int      @default(50)
-  isBanned            Boolean  @default(false)
-  bannedAt            DateTime?
-  bannedBy            String?
-  banReason           String?
+  trustScore Int       @default(50)
+  isBanned   Boolean   @default(false)
+  bannedAt   DateTime?
+  bannedBy   String?
+  banReason  String?
 
   // Suspendare temporară (moderare): nu poate publica anunțuri până la dată
   moderationSuspendedUntil   DateTime?
-  moderationSuspensionReason String?  @db.Text
+  moderationSuspensionReason String?   @db.Text
   moderationSuspendedBy      String?
-  
+
   // Seller Reputation & Activity
-  lastActiveAt        DateTime @default(now())
-  responseRate        Int      @default(0) // 0-100 percentage
-  totalSales          Int      @default(0)
-  totalListings       Int      @default(0)
-  averageRating       Float    @default(0.0) // 0-5 stars (for future reviews)
-  
+  lastActiveAt  DateTime @default(now())
+  responseRate  Int      @default(0) // 0-100 percentage
+  totalSales    Int      @default(0)
+  totalListings Int      @default(0)
+  averageRating Float    @default(0.0) // 0-5 stars (for future reviews)
+
   // Subscription & Monetization
-  subscriptionTier    SubscriptionTier @default(free)
-  subscriptionExpiresAt DateTime?
-  subscriptionRenewsAt  DateTime?
-  freeBoostsRemaining Int      @default(0)
-  creditsBalance       Int      @default(0)
-  promotionDiscountPercent Int  @default(0)
-  promotionBenefits    Json?
-  
+  subscriptionTier         SubscriptionTier @default(free)
+  subscriptionExpiresAt    DateTime?
+  subscriptionRenewsAt     DateTime?
+  freeBoostsRemaining      Int              @default(0)
+  creditsBalance           Int              @default(0)
+  promotionDiscountPercent Int              @default(0)
+  promotionBenefits        Json?
+
   // 2FA
-  twoFactorSecret     String?
-  twoFactorEnabled    Boolean  @default(false)
-  
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean @default(false)
+
   // Password Reset
-  resetPasswordToken  String?  @unique
+  resetPasswordToken   String?   @unique
   resetPasswordExpires DateTime?
-  
+
   // Login tracking & lockout
   lastLoginAt         DateTime?
   lastLoginIp         String?
-  failedLoginAttempts Int      @default(0)
+  failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-  
+
   // Timestamps
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  deletedAt           DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   // Relations
-  listings            Listing[]
-  favorites           Favorite[]
-  reports             Report[]
-  appeals             Appeal[]
-  auditLogs           AuditLog[]
-  moderationActions   ModerationQueue[] @relation("ModeratorActions")
-  staffNotes          StaffNote[]
-  payments            Payment[]
-  invoices            Invoice[]
-  verificationRequests VerificationRequest[]
-  notifications       UserNotification[]
-  pushDeviceTokens    PushDeviceToken[]
-  createdBroadcasts   AdminBroadcast[] @relation("BroadcastCreator")
-  sentMessages        Message[] @relation("MessageSender")
-  receivedMessages    Message[] @relation("MessageReceiver")
-  conversationsAsParticipant1 Conversation[] @relation("ConversationParticipant1")
-  conversationsAsParticipant2 Conversation[] @relation("ConversationParticipant2")
+  listings                    Listing[]
+  favorites                   Favorite[]
+  reports                     Report[]
+  appeals                     Appeal[]
+  auditLogs                   AuditLog[]
+  moderationActions           ModerationQueue[]     @relation("ModeratorActions")
+  staffNotes                  StaffNote[]
+  payments                    Payment[]
+  invoices                    Invoice[]
+  verificationRequests        VerificationRequest[]
+  notifications               UserNotification[]
+  pushDeviceTokens            PushDeviceToken[]
+  createdBroadcasts           AdminBroadcast[]      @relation("BroadcastCreator")
+  sentMessages                Message[]             @relation("MessageSender")
+  receivedMessages            Message[]             @relation("MessageReceiver")
+  conversationsAsParticipant1 Conversation[]        @relation("ConversationParticipant1")
+  conversationsAsParticipant2 Conversation[]        @relation("ConversationParticipant2")
   analyticsSessions           AnalyticsSession[]
   analyticsEvents             AnalyticsEvent[]
-  
+
   @@index([email])
   @@index([role])
   @@index([isBanned])
@@ -243,13 +259,13 @@ model User {
 
 // 2FA Backup Codes - one-time use recovery codes
 model TwoFactorBackupCode {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
   code      String
-  used      Boolean  @default(false)
+  used      Boolean   @default(false)
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  
+  createdAt DateTime  @default(now())
+
   @@unique([userId, code])
   @@index([userId])
   @@index([used])
@@ -266,7 +282,7 @@ model TwoFactorLog {
   userAgent String?
   details   Json?
   createdAt DateTime @default(now())
-  
+
   @@index([userId])
   @@index([action])
   @@index([createdAt])
@@ -274,90 +290,99 @@ model TwoFactorLog {
 }
 
 model Listing {
-  id            String        @id @default(uuid())
-  ownerUserId   String
-  owner         User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  id          String @id @default(uuid())
+  ownerUserId String
+  owner       User   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
 
-  title         String
-  category      String
-  subcategory   String?
-  
+  title       String
+  category    String
+  subcategory String?
+
   // Generic fields for all listings
-  description   String?       @db.Text
-  priceAmount   Int
-  priceCurrency String        @default("RON")
-  condition     Condition?    @default(used)
-  photos        String[]      @default([])
-  
+  description   String?    @db.Text
+  /// Commercial price semantics. Null for Locuri de muncă (use salary* fields).
+  priceType     PriceType?
+  /// Major units. Null when FREE / ON_REQUEST or Jobs without product price.
+  priceAmount   Int?
+  priceCurrency String?    @default("RON")
+  condition     Condition? @default(used)
+  photos        String[]   @default([])
+
+  /// Structured salary for Locuri de muncă only (optional).
+  salaryMin      Int?
+  salaryMax      Int?
+  salaryCurrency String?
+  salaryPeriod   SalaryPeriod?
+
   // Location
-  county        String?
-  city          String?
-  region        String?
-  
+  county String?
+  city   String?
+  region String?
+
   // Contact
-  contactPhone  String?
-  
+  contactPhone String?
+
   // Auto-specific fields (nullable for non-auto listings)
-  make          String?
-  model         String?
-  year          Int?
-  mileage       Int?
-  fuel          FuelType?
-  transmission  Transmission?
-  vin           String?
-  
+  make         String?
+  model        String?
+  year         Int?
+  mileage      Int?
+  fuel         FuelType?
+  transmission Transmission?
+  vin          String?
+
   // Dealer-specific fields (doar pentru business accounts în categoria AUTO)
-  isDealer      Boolean       @default(false)
-  dealerBrands  String[]      @default([])
+  isDealer       Boolean  @default(false)
+  dealerBrands   String[] @default([])
   dealerPriceMin Int?
   dealerPriceMax Int?
-  
+
   // Generic attributes stored as JSON
-  attributes    Json?
-  
-  status        ListingStatus @default(pending)
-  views         Int           @default(0)
-  isFeatured    Boolean       @default(false)
+  attributes Json?
+
+  status     ListingStatus @default(pending)
+  views      Int           @default(0)
+  isFeatured Boolean       @default(false)
 
   // feedBoost: ORDER BY + keyset pagination at scale (denormalized from promoted/featured)
-  feedBoost     Int           @default(0)
-  
+  feedBoost Int @default(0)
+
   // Promotion fields
-  isPromoted        Boolean       @default(false)
-  promotionType     PromotionType?
+  isPromoted         Boolean        @default(false)
+  promotionType      PromotionType?
   promotionExpiresAt DateTime?
   promotionStartedAt DateTime?
-  
+
   // Scam detection
-  scamScore         Int           @default(0)
-  scamFlags         String[]      @default([])
-  isScamSuspected   Boolean       @default(false)
-  isDuplicate       Boolean       @default(false)
-  duplicateOfId     String?
-  
+  scamScore       Int      @default(0)
+  scamFlags       String[] @default([])
+  isScamSuspected Boolean  @default(false)
+  isDuplicate     Boolean  @default(false)
+  duplicateOfId   String?
+
   // Moderation
-  moderationStatus  ModerationStatus @default(pending)
-  moderatedAt       DateTime?
-  moderatedBy       String?
-  moderationNotes   String?
-  
+  moderationStatus ModerationStatus @default(pending)
+  moderatedAt      DateTime?
+  moderatedBy      String?
+  moderationNotes  String?
+
   // Timestamps
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  publishedAt       DateTime?
-  expiresAt         DateTime?
-  deletedAt         DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  deletedAt   DateTime?
 
   /// PostgreSQL full-text search (`tsvector`). Populated by trigger; queried in /api/search.
-  searchVector      Unsupported("tsvector")? @map("search_vector")
+  searchVector Unsupported("tsvector")? @map("search_vector")
 
   // Relations
-  reports           Report[]
-  favorites         Favorite[]
-  moderationQueue   ModerationQueue[]
-  conversations     Conversation[]
-  analyticsEvents   AnalyticsEvent[]
-  
+  reports         Report[]
+  favorites       Favorite[]
+  moderationQueue ModerationQueue[]
+  conversations   Conversation[]
+  analyticsEvents AnalyticsEvent[]
+
   @@index([ownerUserId])
   @@index([category])
   @@index([status])
@@ -370,8 +395,12 @@ model Listing {
   @@index([city])
   @@index([year])
   @@index([priceAmount])
+  @@index([priceType])
+  @@index([salaryMin])
+  @@index([salaryMax])
   @@index([category, city])
   @@index([status, priceAmount])
+  @@index([status, priceType, priceAmount])
   @@index([status, createdAt])
   @@index([status, feedBoost, createdAt, id])
   @@index([deletedAt])
@@ -379,15 +408,15 @@ model Listing {
 }
 
 model Favorite {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
-  
+
   @@unique([userId, listingId])
   @@index([userId])
   @@index([createdAt])
@@ -395,25 +424,25 @@ model Favorite {
 }
 
 model Report {
-  id          String       @id @default(uuid())
-  reporterId  String
-  reporter    User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  
-  listingId   String
-  listing     Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  
+  id         String @id @default(uuid())
+  reporterId String
+  reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
   reason      String
   description String?      @db.Text
   status      ReportStatus @default(pending)
-  
+
   // Resolution
-  resolvedAt  DateTime?
-  resolvedBy  String?
-  resolution  String?
-  
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  
+  resolvedAt DateTime?
+  resolvedBy String?
+  resolution String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([listingId])
   @@index([reporterId])
   @@index([status])
@@ -421,42 +450,42 @@ model Report {
 }
 
 model Appeal {
-  id          String       @id @default(uuid())
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  reason      String       @db.Text
-  evidence    String[]     @default([])
-  status      AppealStatus @default(pending)
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reason   String       @db.Text
+  evidence String[]     @default([])
+  status   AppealStatus @default(pending)
+
   // Resolution
-  reviewedAt  DateTime?
-  reviewedBy  String?
-  response    String?      @db.Text
-  
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  
+  reviewedAt DateTime?
+  reviewedBy String?
+  response   String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([status])
   @@map("appeals")
 }
 
 model ModerationQueue {
-  id          String           @id @default(uuid())
-  listingId   String
-  listing     Listing          @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  
-  priority    Int              @default(0)
-  assignedTo  String?
-  moderator   User?            @relation("ModeratorActions", fields: [assignedTo], references: [id])
-  
-  status      ModerationStatus @default(pending)
-  notes       String?          @db.Text
-  
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  
+  id        String  @id @default(uuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  priority   Int     @default(0)
+  assignedTo String?
+  moderator  User?   @relation("ModeratorActions", fields: [assignedTo], references: [id])
+
+  status ModerationStatus @default(pending)
+  notes  String?          @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([listingId])
   @@index([status])
   @@index([priority])
@@ -481,16 +510,16 @@ model AnalyticsSession {
 
 /// Evenimente de produs (funnel, control center, risc)
 model AnalyticsEvent {
-  id        String   @id @default(uuid())
-  eventType String   @db.VarChar(80)
+  id        String            @id @default(uuid())
+  eventType String            @db.VarChar(80)
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   sessionId String?
   session   AnalyticsSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   listingId String?
-  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listing   Listing?          @relation(fields: [listingId], references: [id], onDelete: SetNull)
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
 
   @@index([eventType, createdAt])
   @@index([listingId, createdAt])
@@ -511,15 +540,15 @@ model AnalyticsEventQueue {
 
 /// Pre-aggregated daily metrics (filled by cron rollup from analytics_events)
 model AnalyticsDaily {
-  id                 String   @id @default(uuid())
-  day                DateTime @db.Date
-  listingViews       Int      @default(0)
-  contactClicks      Int      @default(0)
-  messagesSent       Int      @default(0)
-  searchesPerformed  Int      @default(0)
-  loginSuccess       Int      @default(0)
-  uniqueSessions     Int      @default(0)
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(uuid())
+  day               DateTime @db.Date
+  listingViews      Int      @default(0)
+  contactClicks     Int      @default(0)
+  messagesSent      Int      @default(0)
+  searchesPerformed Int      @default(0)
+  loginSuccess      Int      @default(0)
+  uniqueSessions    Int      @default(0)
+  updatedAt         DateTime @updatedAt
 
   @@unique([day])
   @@map("analytics_daily")
@@ -540,19 +569,19 @@ model SystemErrorLog {
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  action      String
-  resource    String
-  resourceId  String?
-  details     Json?
-  ipAddress   String?
-  userAgent   String?
-  
-  createdAt   DateTime @default(now())
-  
+  id     String  @id @default(uuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action     String
+  resource   String
+  resourceId String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
   @@index([userId])
   @@index([action])
   @@index([resource])
@@ -562,17 +591,17 @@ model AuditLog {
 
 /// In-app admin alert center (staff dashboard) — not user push notifications
 model AdminNotification {
-  id          String                    @id @default(uuid())
-  type        String                    @db.VarChar(64)
-  severity    AdminNotificationSeverity
-  title       String                    @db.VarChar(220)
-  message     String                    @db.Text
-  entityType  String?                   @db.VarChar(40)
-  entityId    String?                   @db.VarChar(64)
-  readAt      DateTime?
-  resolvedAt  DateTime?
-  metadata    Json?
-  createdAt   DateTime                  @default(now())
+  id         String                    @id @default(uuid())
+  type       String                    @db.VarChar(64)
+  severity   AdminNotificationSeverity
+  title      String                    @db.VarChar(220)
+  message    String                    @db.Text
+  entityType String?                   @db.VarChar(40)
+  entityId   String?                   @db.VarChar(64)
+  readAt     DateTime?
+  resolvedAt DateTime?
+  metadata   Json?
+  createdAt  DateTime                  @default(now())
 
   @@index([createdAt])
   @@index([severity, readAt])
@@ -581,49 +610,49 @@ model AdminNotification {
 }
 
 model StaffNote {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  authorId    String
-  content     String   @db.Text
-  isInternal  Boolean  @default(true)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  authorId   String
+  content    String  @db.Text
+  isInternal Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([authorId])
   @@map("staff_notes")
 }
 
 model Payment {
-  id          String        @id @default(uuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  amount      Int
-  currency    String        @default("RON")
-  status      PaymentStatus @default(pending)
-  method      PaymentMethod?
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String         @default("RON")
+  status   PaymentStatus  @default(pending)
+  method   PaymentMethod?
+
   // Stripe
   stripePaymentIntentId String? @unique
   stripeCustomerId      String?
-  
+
   // Purpose
   purpose     String
   description String?
   metadata    Json?
-  
+
   // Timestamps
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  paidAt      DateTime?
-  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  paidAt    DateTime?
+
   // Relations
-  invoices    Invoice[]
-  
+  invoices Invoice[]
+
   @@index([userId])
   @@index([status])
   @@index([stripePaymentIntentId])
@@ -631,29 +660,29 @@ model Payment {
 }
 
 model Invoice {
-  id          String        @id @default(uuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  paymentId   String?
-  payment     Payment?      @relation(fields: [paymentId], references: [id])
-  
-  invoiceNumber String      @unique
-  amount      Int
-  currency    String        @default("RON")
-  status      InvoiceStatus @default(draft)
-  
-  items       Json
-  metadata    Json?
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  invoiceNumber String        @unique
+  amount        Int
+  currency      String        @default("RON")
+  status        InvoiceStatus @default(draft)
+
+  items    Json
+  metadata Json?
+
   // Dates
-  issuedAt    DateTime?
-  dueAt       DateTime?
-  paidAt      DateTime?
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
+  issuedAt DateTime?
+  dueAt    DateTime?
+  paidAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([paymentId])
   @@index([invoiceNumber])
@@ -663,21 +692,21 @@ model Invoice {
 
 // Verification Requests
 model VerificationRequest {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type      String   // 'email', 'phone', 'business'
-  status    String   @default("pending") // 'pending', 'approved', 'rejected'
-  data      Json     // Request data (business info, documents, etc.)
-  
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   String // 'email', 'phone', 'business'
+  status String @default("pending") // 'pending', 'approved', 'rejected'
+  data   Json // Request data (business info, documents, etc.)
+
   reviewedBy String?
   reviewedAt DateTime?
   reviewNote String?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@index([userId])
   @@index([status])
   @@index([type])
@@ -692,24 +721,24 @@ model FeatureFlag {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@map("feature_flags")
 }
 
 // Admin Broadcasts
 model AdminBroadcast {
-  id          String   @id @default(uuid())
-  title       String
-  message     String   @db.Text
-  channels    Json
-  segment     String   @default("all")
-  status      String   @default("sent") // sent | scheduled
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  createdBy   String
-  createdByUser User @relation("BroadcastCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  id            String             @id @default(uuid())
+  title         String
+  message       String             @db.Text
+  channels      Json
+  segment       String             @default("all")
+  status        String             @default("sent") // sent | scheduled
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  createdBy     String
+  createdByUser User               @relation("BroadcastCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   notifications UserNotification[]
-  createdAt   DateTime @default(now())
+  createdAt     DateTime           @default(now())
 
   @@index([createdBy])
   @@index([status])
@@ -718,16 +747,16 @@ model AdminBroadcast {
 
 // User Notifications
 model UserNotification {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   broadcastId String?
   broadcast   AdminBroadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
   title       String
-  message     String   @db.Text
-  isRead      Boolean  @default(false)
+  message     String          @db.Text
+  isRead      Boolean         @default(false)
   readAt      DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
 
   @@index([userId])
   @@index([broadcastId])
@@ -752,22 +781,22 @@ model PushDeviceToken {
 
 // Conversations - tracks message threads between users
 model Conversation {
-  id            String   @id @default(uuid())
-  listingId     String?
-  listing       Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(uuid())
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
   // Participants
   participant1Id String
   participant1   User   @relation("ConversationParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
   participant2Id String
   participant2   User   @relation("ConversationParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
-  
-  messages      Message[]
-  
+
+  messages Message[]
+
   lastMessageAt DateTime @default(now())
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+
   @@unique([participant1Id, participant2Id, listingId])
   @@index([participant1Id])
   @@index([participant2Id])
@@ -781,21 +810,21 @@ model Message {
   id             String       @id @default(uuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  
-  senderId       String
-  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  
-  receiverId     String
-  receiver       User         @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  
-  content        String       @db.Text
-  isRead         Boolean      @default(false)
-  readAt         DateTime?
-  deliveredAt    DateTime?
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  
+
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  receiverId String
+  receiver   User   @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  content     String    @db.Text
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  deliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([conversationId])
   @@index([senderId])
   @@index([receiverId])
@@ -806,4 +835,3 @@ model Message {
   @@index([conversationId, senderId, createdAt])
   @@map("messages")
 }
-

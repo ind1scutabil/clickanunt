@@ -7,17 +7,28 @@ async function fetchRelated(
   category: string,
   excludeId: string,
   city: string | null,
-  priceAmount: number,
+  priceAmount: number | null,
 ): Promise<Array<{ id: string; title: string }>> {
-  const bandLow = Math.max(0, Math.floor(priceAmount * 0.75));
-  const bandHigh = Math.ceil(priceAmount * 1.25);
+  const hasBand = priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0;
+  const bandLow = hasBand ? Math.max(0, Math.floor(priceAmount * 0.75)) : null;
+  const bandHigh = hasBand ? Math.ceil(priceAmount * 1.25) : null;
 
-  const base = {
+  const base: Record<string, unknown> = {
     ...hubWhereBase,
     category,
     id: { not: excludeId },
-    priceAmount: { gte: bandLow, lte: bandHigh },
   };
+  if (hasBand && bandLow != null && bandHigh != null) {
+    base.priceAmount = { gte: bandLow, lte: bandHigh };
+    base.AND = [
+      {
+        OR: [
+          { priceType: null },
+          { priceType: { in: ["FIXED", "NEGOTIABLE", "FROM"] } },
+        ],
+      },
+    ];
+  }
 
   let rows = await prisma.listing.findMany({
     where: city ? { ...base, city } : base,

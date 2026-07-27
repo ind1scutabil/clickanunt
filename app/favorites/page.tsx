@@ -9,7 +9,7 @@ import {
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
 import type { FavoriteWithListingDto } from "@clickanunt/api-contracts";
-import { formatListingPrice } from "@/lib/format-listing-price";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
 type Favorite = FavoriteWithListingDto;
 
@@ -378,7 +378,23 @@ export default function FavoritesPage() {
 
                     <div className="mb-4">
                       <div className="bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-3xl font-semibold tabular-nums tracking-tight text-transparent">
-                        {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
+                        {(() => {
+                          const line = formatListingCommercialOrSalaryLine({
+                            category: listing.category,
+                            priceType: (listing as { priceType?: string | null }).priceType,
+                            priceAmount: listing.priceAmount,
+                            priceCurrency: listing.priceCurrency,
+                            salaryMin: (listing as { salaryMin?: number | null }).salaryMin,
+                            salaryMax: (listing as { salaryMax?: number | null }).salaryMax,
+                            salaryCurrency: (listing as { salaryCurrency?: string | null })
+                              .salaryCurrency,
+                            salaryPeriod: (listing as { salaryPeriod?: string | null })
+                              .salaryPeriod,
+                          });
+                          return line.suffix
+                            ? `${line.primary} · ${line.suffix}`
+                            : line.primary;
+                        })()}
                       </div>
                     </div>
 

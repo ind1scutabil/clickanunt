@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { Condition, FuelType, Transmission } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { buildSeedListingCreateData } from '../lib/seed-listings-data';
 
 async function main() {
   console.log('🌱 Starting seed...');
@@ -21,6 +22,8 @@ async function main() {
   console.log('✅ Admin user created/verified');
 
   // Sample listings for each category
+  // NOTE: Manual/dev seed script — not wired in package.json or CI workflows.
+  // After expand migration, non-Job amount>0 must set priceType FIXED (same as backfill).
   const sampleListings = [
     {
       category: "Auto, moto și ambarcațiuni",
@@ -178,9 +181,10 @@ async function main() {
   console.log('📝 Creating sample listings...');
 
   for (const listing of sampleListings) {
+    const data = buildSeedListingCreateData(listing);
     await prisma.listing.create({
       data: {
-        ...listing,
+        ...data,
         ownerUserId: user.id,
         status: 'active',
       },

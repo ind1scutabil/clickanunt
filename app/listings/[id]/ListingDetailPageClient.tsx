@@ -21,7 +21,7 @@ import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
-import { formatCategoryAwarePriceLine } from "@/lib/listing-price-semantics";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
 async function trackListingEngagement(
   listingId: string,
@@ -583,15 +583,27 @@ export default function ListingDetailPageClient({
                   <div className="flex items-center justify-between border-t border-zinc-700/45 pt-3 md:pt-4">
                     <div className="min-w-0">
                       {(() => {
-                        const line = formatCategoryAwarePriceLine({
-                          categoryLabel: listing.category,
+                        const line = formatListingCommercialOrSalaryLine({
+                          category: listing.category,
+                          priceType: (listing as { priceType?: string | null }).priceType,
                           priceAmount: listing.priceAmount,
                           priceCurrency: listing.priceCurrency,
-                          attributes:
+                          salaryMin: (listing as { salaryMin?: number | null }).salaryMin,
+                          salaryMax: (listing as { salaryMax?: number | null }).salaryMax,
+                          salaryCurrency: (listing as { salaryCurrency?: string | null })
+                            .salaryCurrency,
+                          salaryPeriod: (listing as { salaryPeriod?: string | null })
+                            .salaryPeriod,
+                          legacySalaryRange:
                             listing.attributes &&
                             typeof listing.attributes === "object" &&
-                            !Array.isArray(listing.attributes)
-                              ? (listing.attributes as Record<string, unknown>)
+                            !Array.isArray(listing.attributes) &&
+                            typeof (listing.attributes as Record<string, unknown>)
+                              .salary_range === "string"
+                              ? String(
+                                  (listing.attributes as Record<string, unknown>)
+                                    .salary_range
+                                )
                               : null,
                         });
                         return (

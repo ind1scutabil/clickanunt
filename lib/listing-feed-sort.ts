@@ -17,9 +17,11 @@ export function prismaOrderByForListingSort(sort: ListingFeedSort): Prisma.Listi
     case 'newest':
       return [{ createdAt: 'desc' }, { id: 'desc' }];
     case 'priceAsc':
-      return [{ priceAmount: 'asc' }, { id: 'desc' }];
+      // Null / FREE / ON_REQUEST amounts sort last on ascending (Postgres nulls last).
+      return [{ priceAmount: { sort: 'asc', nulls: 'last' } }, { id: 'desc' }];
     case 'priceDesc':
-      return [{ priceAmount: 'desc' }, { id: 'desc' }];
+      // Null amounts last on descending so paid listings stay at the top.
+      return [{ priceAmount: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }];
     default:
       return [{ createdAt: 'desc' }, { id: 'desc' }];
   }

@@ -1,4 +1,4 @@
-import { formatListingPrice } from "@/lib/format-listing-price";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 import { marketplaceOpenGraphImageResponse } from "@/lib/seo/marketplace-og";
 import { prisma } from "@/lib/prisma";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -29,6 +29,12 @@ export default async function Image({ params }: Props) {
       county: true,
       priceAmount: true,
       priceCurrency: true,
+      priceType: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+      salaryPeriod: true,
+      attributes: true,
       deletedAt: true,
       status: true,
       moderationStatus: true,
@@ -45,12 +51,29 @@ export default async function Image({ params }: Props) {
   }
 
   const loc = listing.city || listing.county || "";
-  const currency = listing.priceCurrency?.trim() || "RON";
+  const line = formatListingCommercialOrSalaryLine({
+    category: listing.category,
+    priceType: listing.priceType,
+    priceAmount: listing.priceAmount,
+    priceCurrency: listing.priceCurrency,
+    salaryMin: listing.salaryMin,
+    salaryMax: listing.salaryMax,
+    salaryCurrency: listing.salaryCurrency,
+    salaryPeriod: listing.salaryPeriod,
+    legacySalaryRange:
+      listing.attributes &&
+      typeof listing.attributes === "object" &&
+      !Array.isArray(listing.attributes) &&
+      typeof (listing.attributes as Record<string, unknown>).salary_range === "string"
+        ? String((listing.attributes as Record<string, unknown>).salary_range)
+        : null,
+  });
+  const priceLine = line.suffix ? `${line.primary} · ${line.suffix}` : line.primary;
 
   return marketplaceOpenGraphImageResponse({
     title: listing.title.slice(0, 100),
     subtitle: `${listing.category.split(",")[0]?.trim() ?? listing.category}${loc ? ` · ${loc}` : ""}`,
-    priceLine: formatListingPrice(listing.priceAmount, currency),
+    priceLine,
     footer: `clickanunt.ro/listings/${id}`,
   });
 }

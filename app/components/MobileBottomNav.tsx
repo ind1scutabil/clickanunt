@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
 import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import { CLICKANUNT_AUTH_SESSION_EVENT } from "@/lib/auth-session-events";
@@ -112,12 +112,11 @@ export default function MobileBottomNav() {
     pathname === "/listings/new" || pathname.startsWith("/listings/new/");
   const isListingEdit = /^\/listings\/[^/]+\/edit\/?$/.test(pathname);
 
-  useEffect(() => {
+  // useLayoutEffect: attribute must be set before paint so mobile CSS + E2E
+  // do not observe a gap where cleanup deleted the flag between remounts.
+  useLayoutEffect(() => {
     const hide = isPublishFlow || isListingEdit;
     document.documentElement.dataset.hideMobileBottomNav = hide ? "1" : "0";
-    return () => {
-      delete document.documentElement.dataset.hideMobileBottomNav;
-    };
   }, [isPublishFlow, isListingEdit]);
 
   if (isPublishFlow || isListingEdit) {

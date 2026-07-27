@@ -6,8 +6,13 @@ import type { IsoDateTimeString } from './common';
 export type FavoriteListingSlimDto = {
   id: string;
   title: string;
-  priceAmount: number;
-  priceCurrency: string;
+  priceAmount: number | null;
+  priceCurrency: string | null;
+  priceType?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
   photos: string[];
   city: string | null;
   county: string | null;

@@ -27,6 +27,15 @@ import {
   isSubcategoryRequired,
   sanitizeListingAttributes,
 } from '@/lib/listing-attributes-sanitize';
+import {
+  isJobsCategory,
+  normalizeLegacyPricePayload,
+  validatePriceSalaryFields,
+  type PriceTypeValue,
+  type SalaryPeriodValue,
+  PRICE_TYPES,
+  SALARY_PERIODS,
+} from '@/lib/listing-price-salary-policy';
 
 /**
  * URL pentru foto la create/edit/listing draft: permite https/http (CDN/stocare) și căi interne de upload
@@ -262,9 +271,29 @@ const listingCreateBaseSchema = z.object({
   ),
   category: z.string().min(1, 'Categorie necesară'),
   subcategory: z.string().optional().nullable(),
-  /** Align with publish wizard: price must be > 0 (free listings not supported in create flow). */
-  priceAmount: z.coerce.number().gt(0, 'Prețul trebuie să fie mai mare de 0').max(99999999, 'Preț prea mare'),
-  priceCurrency: z.enum(['RON', 'EUR', 'USD']).default('RON'),
+  priceType: z
+    .enum(['FIXED', 'NEGOTIABLE', 'FREE', 'ON_REQUEST', 'FROM'])
+    .optional()
+    .nullable(),
+  /** Nullable for FREE / ON_REQUEST / Jobs. Legacy clients still send > 0. */
+  priceAmount: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int().max(99999999, 'Preț prea mare').nullable().optional()
+  ),
+  priceCurrency: z.enum(['RON', 'EUR', 'USD']).optional().nullable(),
+  salaryMin: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int().max(99999999).nullable().optional()
+  ),
+  salaryMax: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int().max(99999999).nullable().optional()
+  ),
+  salaryCurrency: z.enum(['RON', 'EUR', 'USD']).optional().nullable(),
+  salaryPeriod: z
+    .enum(['HOUR', 'DAY', 'WEEK', 'MONTH', 'YEAR'])
+    .optional()
+    .nullable(),
   condition: z.enum(['new', 'used', 'refurbished', 'for_parts']).optional().nullable(),
   year: z.coerce.number().int().min(1900).max(new Date().getFullYear() + 1).optional().nullable(),
   mileage: z.coerce.number().int().min(0).max(9999999).optional().nullable(),
@@ -404,6 +433,67 @@ export const listingCreateSchema = listingCreateBaseSchema.superRefine((data, ct
       });
     }
   }
+
+  const normalized = normalizeLegacyPricePayload({
+    category: data.category,
+    subcategory: sub || null,
+    priceType: data.priceType ?? null,
+    priceAmount: data.priceAmount ?? null,
+    priceCurrency: data.priceCurrency ?? null,
+  });
+
+  const priceIssues = validatePriceSalaryFields(
+    {
+      category: data.category,
+      subcategory: sub || null,
+      priceType: normalized.priceType,
+      priceAmount: isJobsCategory(data.category)
+        ? normalized.legacyJobPriceAmount
+          ? normalized.priceAmount
+          : null
+        : normalized.priceAmount,
+      priceCurrency: normalized.priceCurrency,
+      salaryMin: data.salaryMin ?? null,
+      salaryMax: data.salaryMax ?? null,
+      salaryCurrency: data.salaryCurrency ?? null,
+      salaryPeriod: (data.salaryPeriod as SalaryPeriodValue | null) ?? null,
+    },
+    {
+      mode: 'create',
+      allowLegacyJobPriceAmount: normalized.legacyJobPriceAmount,
+    }
+  );
+  for (const issue of priceIssues) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: issue.message,
+      path: [issue.path],
+    });
+  }
+}).transform((data) => {
+  const sub = typeof data.subcategory === 'string' ? data.subcategory.trim() : '';
+  const normalized = normalizeLegacyPricePayload({
+    category: data.category,
+    subcategory: sub || null,
+    priceType: data.priceType ?? null,
+    priceAmount: data.priceAmount ?? null,
+    priceCurrency: data.priceCurrency ?? null,
+  });
+  const jobs = isJobsCategory(data.category);
+  return {
+    ...data,
+    priceType: jobs ? null : normalized.priceType,
+    priceAmount: jobs
+      ? normalized.legacyJobPriceAmount
+        ? normalized.priceAmount
+        : null
+      : normalized.priceAmount,
+    priceCurrency: jobs ? null : normalized.priceCurrency ?? 'RON',
+    salaryMin: jobs ? data.salaryMin ?? null : null,
+    salaryMax: jobs ? data.salaryMax ?? null : null,
+    salaryCurrency: jobs ? data.salaryCurrency ?? null : null,
+    salaryPeriod: jobs ? data.salaryPeriod ?? null : null,
+  };
 });
 
 const listingEditYearSchema = z.preprocess(
@@ -783,21 +873,37 @@ export const draftCreateSchema = z.object({
   userId: uuidSchema.optional(),
   title: z.string().min(1).max(200).optional(),
   category: z.string().max(100).optional(),
-  description: z.string().max(10000).optional(),
-  priceAmount: z.coerce.number().min(0).optional(),
+  subcategory: z.string().max(100).optional().nullable(),
+  description: z.string().max(10000).optional().nullable(),
+  priceType: z.enum(PRICE_TYPES).optional().nullable(),
+  priceAmount: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : v === null ? null : v),
+    z.union([z.coerce.number().int().min(0).max(99_999_999), z.null()]).optional()
+  ),
+  priceCurrency: z.enum(['RON', 'EUR', 'USD']).optional().nullable(),
+  salaryMin: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : v === null ? null : v),
+    z.union([z.coerce.number().int().positive().max(99_999_999), z.null()]).optional()
+  ),
+  salaryMax: z.preprocess(
+    (v) => (v === '' || v === undefined ? undefined : v === null ? null : v),
+    z.union([z.coerce.number().int().positive().max(99_999_999), z.null()]).optional()
+  ),
+  salaryCurrency: z.enum(['RON', 'EUR', 'USD']).optional().nullable(),
+  salaryPeriod: z.enum(SALARY_PERIODS).optional().nullable(),
   photos: z.array(listingSubmittedPhotoUrlSchema).max(20).optional(),
-  county: z.string().max(100).optional(),
-  city: z.string().max(100).optional(),
-  make: z.string().max(100).optional(),
-  model: z.string().max(100).optional(),
-  year: z.coerce.number().int().optional(),
-  mileage: z.coerce.number().int().optional(),
-  fuel: z.string().max(50).optional(),
-  transmission: z.string().max(50).optional(),
+  county: z.string().max(100).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  make: z.string().max(100).optional().nullable(),
+  model: z.string().max(100).optional().nullable(),
+  year: z.coerce.number().int().optional().nullable(),
+  mileage: z.coerce.number().int().optional().nullable(),
+  fuel: z.string().max(50).optional().nullable(),
+  transmission: z.string().max(50).optional().nullable(),
   isDealer: z.boolean().optional(),
   dealerBrands: z.array(z.string()).optional(),
-  dealerPriceMin: z.coerce.number().optional(),
-  dealerPriceMax: z.coerce.number().optional(),
+  dealerPriceMin: z.coerce.number().optional().nullable(),
+  dealerPriceMax: z.coerce.number().optional().nullable(),
 }).strict();
 
 /**

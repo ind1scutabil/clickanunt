@@ -12,7 +12,7 @@ import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
 import { isListingSaved, toggleSavedListingId } from '@/lib/recent-listings-storage';
-import { formatCategoryAwarePriceLine } from '@/lib/listing-price-semantics';
+import { formatListingCommercialOrSalaryLine } from '@/lib/format-listing-price';
 
 const motionEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -34,8 +34,8 @@ const cardHoverPaper =
 export interface ListingCardListing {
   id: string;
   title: string;
-  priceAmount: number;
-  priceCurrency: string;
+  priceAmount: number | null;
+  priceCurrency: string | null;
   category: string;
   photos: string[];
   createdAt: string;
@@ -45,6 +45,11 @@ export interface ListingCardListing {
   city?: string | null;
   county?: string | null;
   attributes?: Record<string, unknown> | null;
+  priceType?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
   owner?: {
     id: string;
     businessName?: string;
@@ -317,11 +322,19 @@ export function ListingCard({
 
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
           {(() => {
-            const line = formatCategoryAwarePriceLine({
-              categoryLabel: listing.category,
+            const line = formatListingCommercialOrSalaryLine({
+              category: listing.category,
+              priceType: listing.priceType,
               priceAmount: listing.priceAmount,
               priceCurrency: listing.priceCurrency,
-              attributes: listing.attributes,
+              salaryMin: listing.salaryMin,
+              salaryMax: listing.salaryMax,
+              salaryCurrency: listing.salaryCurrency,
+              salaryPeriod: listing.salaryPeriod,
+              legacySalaryRange:
+                typeof listing.attributes?.salary_range === 'string'
+                  ? listing.attributes.salary_range
+                  : null,
             });
             return (
               <>

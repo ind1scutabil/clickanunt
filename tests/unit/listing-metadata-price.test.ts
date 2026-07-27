@@ -57,35 +57,36 @@ describe("listing metadata price — major units", () => {
     expect(ron).toBe("2.500 RON");
   });
 
-  it("listing layout metadata uses formatListingPrice and does not divide by 100", () => {
+  it("listing layout metadata uses formatListingCommercialOrSalaryLine and does not divide by 100", () => {
     const src = readFileSync(
       path.join(process.cwd(), "app/listings/[id]/layout.tsx"),
       "utf8",
     );
     expect(src).toContain('from "@/lib/format-listing-price"');
-    expect(src).toContain("formatListingPrice(");
+    expect(src).toContain("formatListingCommercialOrSalaryLine(");
     expect(src).not.toMatch(/priceAmount\s*\/\s*100/);
     expect(src).not.toMatch(/\/\s*100/);
   });
 
-  it("opengraph-image uses formatListingPrice and does not divide by 100", () => {
+  it("opengraph-image uses formatListingCommercialOrSalaryLine and does not divide by 100", () => {
     const src = readFileSync(
       path.join(process.cwd(), "app/listings/[id]/opengraph-image.tsx"),
       "utf8",
     );
     expect(src).toContain('from "@/lib/format-listing-price"');
-    expect(src).toContain("formatListingPrice(");
+    expect(src).toContain("formatListingCommercialOrSalaryLine(");
     expect(src).not.toMatch(/priceAmount\s*\/\s*100/);
     expect(src).not.toMatch(/\/\s*100/);
   });
 
-  it("ListingJsonLd Offer.price uses Number(priceAmount) major units", () => {
+  it("ListingJsonLd Offer.price uses factual commercial helper (major units)", () => {
     const src = readFileSync(
       path.join(process.cwd(), "app/listings/[id]/ListingJsonLd.tsx"),
       "utf8",
     );
-    expect(src).toMatch(/price:\s*Number\(listing\.priceAmount\)/);
+    expect(src).toContain("buildCommercialOfferPriceFields");
+    expect(src).toContain("buildJobBaseSalaryJsonLd");
     expect(src).not.toMatch(/priceAmount\s*\/\s*100/);
-    expect(src).toContain("priceCurrency");
+    expect(src).toContain("offerPrice.priceCurrency");
   });
 });

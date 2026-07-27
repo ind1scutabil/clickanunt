@@ -25,8 +25,8 @@ function mapPublicListingToCardProps(l: Listing) {
   return {
     id: l.id,
     title: l.title,
-    priceAmount: l.priceAmount,
-    priceCurrency: l.priceCurrency,
+    priceAmount: l.priceAmount ?? null,
+    priceCurrency: l.priceCurrency ?? null,
     category: l.category,
     photos: l.photos,
     createdAt: l.createdAt,
@@ -35,6 +35,15 @@ function mapPublicListingToCardProps(l: Listing) {
     views: l.views,
     city: l.city,
     county: l.county,
+    priceType: "priceType" in l ? (l as { priceType?: string | null }).priceType ?? null : null,
+    salaryMin: "salaryMin" in l ? (l as { salaryMin?: number | null }).salaryMin ?? null : null,
+    salaryMax: "salaryMax" in l ? (l as { salaryMax?: number | null }).salaryMax ?? null : null,
+    salaryCurrency:
+      "salaryCurrency" in l
+        ? (l as { salaryCurrency?: string | null }).salaryCurrency ?? null
+        : null,
+    salaryPeriod:
+      "salaryPeriod" in l ? (l as { salaryPeriod?: string | null }).salaryPeriod ?? null : null,
     owner: o
       ? {
           id: o.id,

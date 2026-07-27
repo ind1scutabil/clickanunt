@@ -877,34 +877,5 @@ export function contractCategoryRequiresSubcategory(categoryLabel: string): bool
   return Boolean(cat && cat.subcategories.length > 0);
 }
 
-/**
- * Neutral price-field copy for clients (no DB migration).
- * Jobs: do not claim structured salary.
- */
-export function getMarketplacePriceFieldCopy(categoryLabel: string | null | undefined): {
-  label: string;
-  hint: string;
-} {
-  const slug = categoryLabel
-    ? MARKETPLACE_TAXONOMY.find((c) => c.label === categoryLabel)?.slug
-    : undefined;
-  switch (slug) {
-    case 'locuri-de-munca':
-      return {
-        label: 'Valoare numerică (compatibilitate)',
-        hint: 'Limitare tehnică: trebuie un număr > 0. Nu este salariu structurat.',
-      };
-    case 'servicii':
-      return {
-        label: 'Tarif (RON/EUR)',
-        hint: 'Tipul de tarif e în atribute; valoarea numerică rămâne obligatorie (> 0).',
-      };
-    case 'altele':
-      return {
-        label: 'Preț',
-        hint: 'Nu există tip „gratuit” în DB — valoarea trebuie să fie > 0.',
-      };
-    default:
-      return { label: 'Preț', hint: '' };
-  }
-}
+/** @deprecated Prefer getMarketplacePriceFieldCopy from price-salary-policy. */
+export { getMarketplacePriceFieldCopy } from './price-salary-policy';
