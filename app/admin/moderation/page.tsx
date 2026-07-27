@@ -1113,9 +1113,21 @@ function AdminModerationPageInner() {
   };
 
   const deleteListing = async (listingId: string) => {
-    if (!confirm('Ștergi definitiv acest anunț din baza de date?')) return;
+    const reason = prompt('Motiv ștergere (obligatoriu, min. 3 caractere):');
+    if (reason === null) return;
+    if (reason.trim().length < 3) {
+      setNotificationMessage('❌ Motivul ștergerii este obligatoriu');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+    if (!confirm('Retragi anunțul din public (soft-delete)? Conversațiile, rapoartele și plățile rămân păstrate.')) {
+      return;
+    }
     try {
-      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'DELETE');
+      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'DELETE', {
+        reason: reason.trim(),
+      });
       const text = await res.text();
       let payload: { error?: string } | null = null;
       try {
@@ -1126,7 +1138,7 @@ function AdminModerationPageInner() {
       if (!res.ok) {
         throw new Error(payload?.error || `Eroare API (${res.status})`);
       }
-      setNotificationMessage('✅ Anunț șters');
+      setNotificationMessage('✅ Anunț retras (soft-delete)');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2800);
       if (expandedUserId) {
@@ -2103,13 +2115,13 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
                         void deleteListing(listing.id);
                       }
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    Șterge permanent
+                    Retrage anunț
                   </button>
                 </>
               )
@@ -2148,7 +2160,7 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
                         void deleteListing(listing.id);
                       }
                     }}
@@ -2171,7 +2183,7 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
                         setRejectedListings(rejectedListings.filter(l => l.id !== listing.id));
                         setNotificationMessage('Anunț șters permanent');
                         setShowNotification(true);
@@ -2180,7 +2192,7 @@ function AdminModerationPageInner() {
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    Șterge permanent
+                    Retrage anunț
                   </button>
                 </>
               )

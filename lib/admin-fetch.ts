@@ -426,7 +426,7 @@ export async function jsonMutationWithAuthRefresh(
       'x-csrf-token': csrf,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
-    if (method !== 'DELETE' && body !== undefined) {
+    if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
     }
     return fetch(url, {
@@ -435,7 +435,7 @@ export async function jsonMutationWithAuthRefresh(
       cache: 'no-store',
       signal: controller.signal,
       headers,
-      body: method === 'DELETE' || body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   };
 

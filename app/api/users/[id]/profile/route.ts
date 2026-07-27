@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 
 export async function GET(
   req: NextRequest,
@@ -42,12 +43,14 @@ export async function GET(
       );
     }
 
-    // Fetch active listings
+    const publicWhere = {
+      ownerUserId: userId,
+      ...seoIndexableListingWhere(),
+    };
+
+    // Public profile listings — same visibility rules as homepage/search
     const listings = await prisma.listing.findMany({
-      where: {
-        ownerUserId: userId,
-        status: { in: ['active', 'pending'] },
-      },
+      where: publicWhere,
       select: {
         id: true,
         title: true,
@@ -68,15 +71,13 @@ export async function GET(
     });
 
     const [totalListings, activeListings, soldListings, viewsAgg] = await Promise.all([
-      prisma.listing.count({ where: { ownerUserId: userId } }),
+      prisma.listing.count({ where: { ownerUserId: userId, deletedAt: null } }),
+      prisma.listing.count({ where: publicWhere }),
       prisma.listing.count({
-        where: { ownerUserId: userId, status: 'active' },
-      }),
-      prisma.listing.count({
-        where: { ownerUserId: userId, status: 'sold' },
+        where: { ownerUserId: userId, status: 'sold', deletedAt: null },
       }),
       prisma.listing.aggregate({
-        where: { ownerUserId: userId },
+        where: { ownerUserId: userId, deletedAt: null },
         _sum: { views: true },
       }),
     ]);

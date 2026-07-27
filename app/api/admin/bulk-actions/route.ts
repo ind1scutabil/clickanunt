@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Bulk delete listings
+    // Bulk soft-delete listings (never hard-delete — preserves relations + Payment/Invoice)
     else if (action === 'delete_listings' && entityType === 'listing') {
       if (!hasPermission(user.role as UserRole, Permission.LISTINGS_DELETE_ANY)) {
         return NextResponse.json(
@@ -160,16 +160,40 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const reason =
+        typeof data?.reason === 'string' && data.reason.trim().length >= 3
+          ? data.reason.trim().slice(0, 2000)
+          : 'Bulk soft-delete';
+
       for (const listingId of entityIds) {
         try {
-          const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-          
-          await prisma.listing.delete({ where: { id: listingId } });
-
-          if (listing) {
-            await auditActions.listingDeleted(user, listingId, listing);
+          const listing = await prisma.listing.findFirst({
+            where: { id: listingId, deletedAt: null },
+          });
+          if (!listing) {
+            results.errors.push(`Listing missing ${listingId}`);
+            results.failed++;
+            continue;
           }
 
+          const updated = await prisma.listing.updateMany({
+            where: { id: listingId, deletedAt: null },
+            data: {
+              status: 'deleted',
+              deletedAt: new Date(),
+              moderationNotes: reason,
+              moderatedAt: new Date(),
+              moderatedBy: user.id,
+            },
+          });
+
+          if (updated.count === 0) {
+            results.errors.push(`Already deleted ${listingId}`);
+            results.failed++;
+            continue;
+          }
+
+          await auditActions.listingDeleted(user, listingId, listing);
           results.success++;
         } catch (error: any) {
           results.errors.push(`Error deleting ${listingId}: ${error.message}`);
