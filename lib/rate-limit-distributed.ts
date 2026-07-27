@@ -26,6 +26,7 @@ import {
   type RateLimitResult,
 } from '@/lib/rateLimit';
 import { logger } from '@/lib/observability';
+import { isE2eRateLimitBypassEnabled } from '@/lib/e2e-rate-limit-bypass';
 
 export function isRedisRateLimitEnabled(): boolean {
   return process.env.USE_REDIS_RATE_LIMIT === '1';
@@ -86,7 +87,7 @@ export async function peekRateLimitDistributed(
   key: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+  if (isE2eRateLimitBypassEnabled()) {
     return { allowed: true, remaining: 999, resetTime: Date.now() + 60_000 };
   }
 
@@ -123,7 +124,7 @@ export async function resolveRateLimit(
   key: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+  if (isE2eRateLimitBypassEnabled()) {
     return { allowed: true, remaining: 999, resetTime: Date.now() + 60_000 };
   }
 

@@ -9,6 +9,7 @@ import {
   LISTING_PUBLISH_WINDOW_MS,
   listingPublishMaxForRole,
 } from '@/lib/listing-publish-rate-limit';
+import { isE2eRateLimitBypassEnabled } from '@/lib/e2e-rate-limit-bypass';
 
 /** Statuses that represent a real publish attempt (not draft/autosave). */
 export const LISTING_PUBLISH_QUOTA_STATUSES = ['active', 'pending'] as const;
@@ -46,9 +47,8 @@ export async function assertDailyPublishQuotaAllowed(
   route: string,
   source: string
 ): Promise<{ allowed: boolean; count: number; limit: number }> {
-  // Same local E2E flag as IP rate limiters — publish suites create dozens of
-  // listings per run and must not hit the 24h product quota on a shared fixture user.
-  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+  // Local E2E gate only — see isE2eRateLimitBypassEnabled().
+  if (isE2eRateLimitBypassEnabled()) {
     const count = await countSuccessfulPublishesLast24h(userId);
     logListingPublishQuotaDebug({
       userId,

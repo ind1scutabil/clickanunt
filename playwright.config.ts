@@ -57,7 +57,7 @@ export default defineConfig({
    * Default webServer starts `npm run dev` on :3000 with reuseExistingServer outside CI.
    * Gate E2E for production build MUST NOT rely on that:
    *   PLAYWRIGHT_SKIP_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:<free-port>
-   *   + next start on that port with E2E_DISABLE_RATE_LIMIT=1
+   *   + next start on that port with E2E_DISABLE_RATE_LIMIT=1 and CLICKANUNT_E2E_SERVER=1
    *   (see scripts/e2e-gate-prod-server.sh and docs/PRICE_SALARY_MIGRATION_RUNBOOK.md)
    * Do not point PLAYWRIGHT_BASE_URL at a stale :3000 process from another session.
    */
@@ -72,6 +72,7 @@ export default defineConfig({
           env: {
             ...process.env,
             E2E_DISABLE_RATE_LIMIT: '1',
+            CLICKANUNT_E2E_SERVER: '1',
           },
         },
       }),

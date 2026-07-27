@@ -27,14 +27,13 @@ describe('listing-publish-quota', () => {
     expect(LISTING_PUBLISH_MAX_PRIVILEGED).toBe(500);
   });
 
-  it('E2E_DISABLE_RATE_LIMIT bypasses daily publish quota (source string contract)', () => {
-    // Behavior is env-gated in assertDailyPublishQuotaAllowed; keep the flag name
-    // aligned with lib/rateLimit.ts so one env unlocks both IP limiters and quota.
+  it('quota bypass uses shared isE2eRateLimitBypassEnabled helper', () => {
     const src = readFileSync(
       path.join(__dirname, '../../lib/listing-publish-quota.ts'),
       'utf8'
     );
-    expect(src).toContain("E2E_DISABLE_RATE_LIMIT === '1'");
+    expect(src).toContain('isE2eRateLimitBypassEnabled');
     expect(src).toContain('e2e_bypass');
+    expect(src).not.toMatch(/E2E_DISABLE_RATE_LIMIT\s*===\s*['"]1['"]/);
   });
 });
