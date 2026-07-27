@@ -17,6 +17,7 @@ import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-d
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
 import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
+import { resolveOwnerStatusTransition } from "@/lib/listing-lifecycle";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -185,6 +186,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       select: {
         ownerUserId: true,
         status: true,
+        moderationStatus: true,
+        deletedAt: true,
+        expiresAt: true,
         isPromoted: true,
         isFeatured: true,
         category: true,
@@ -207,7 +211,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    if (!existingListing) {
+    if (!existingListing || existingListing.deletedAt) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
@@ -344,20 +348,38 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const currentStatus = String(existingListing.status || '').toLowerCase();
-    const canRepublishFromStatus = currentStatus === 'paused' || currentStatus === 'hidden' || currentStatus === 'rejected';
-    const requestedStatus = body.status !== undefined ? String(body.status || '').toLowerCase() : null;
-    const ownerRequestedRepublish = isOwner && requestedStatus === 'pending' && canRepublishFromStatus;
-    const ownerEditedSuspendedListing = isOwner && requestedStatus === null && canRepublishFromStatus;
+    const canRepublishFromStatus =
+      currentStatus === 'paused' || currentStatus === 'hidden' || currentStatus === 'rejected';
+    const requestedStatus =
+      body.status !== undefined ? String(body.status || '').toLowerCase() : null;
+    const ownerEditedSuspendedListing =
+      isOwner && requestedStatus === null && canRepublishFromStatus;
 
     if (isOwner && body.status !== undefined) {
-      // Owner cannot set arbitrary statuses.
-      if (!ownerRequestedRepublish) {
+      const decision = resolveOwnerStatusTransition(
+        {
+          status: existingListing.status,
+          moderationStatus: existingListing.moderationStatus,
+          deletedAt: existingListing.deletedAt,
+          expiresAt: existingListing.expiresAt,
+        },
+        String(body.status)
+      );
+      if (!decision.ok) {
         delete allowed.status;
+        return NextResponse.json({ error: decision.error }, { status: 400 });
+      }
+      allowed.status = decision.status;
+      if (decision.moderationStatus) {
+        allowed.moderationStatus = decision.moderationStatus;
+      }
+      if (decision.clearExpiresAt) {
+        allowed.expiresAt = null;
       }
     }
 
     // Any owner edit on a suspended/rejected listing sends it back to moderation queue.
-    if (ownerRequestedRepublish || ownerEditedSuspendedListing) {
+    if (ownerEditedSuspendedListing) {
       allowed.status = 'pending';
       allowed.moderationStatus = 'pending';
     }

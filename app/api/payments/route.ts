@@ -12,6 +12,10 @@ import { logger } from '@/lib/observability';
 import { validateSecureRequest } from '@/lib/security/middleware';
 // import { checkRateLimit } from '@/lib/rateLimit'; // Not implemented yet
 import { PaymentStatus } from '@prisma/client';
+import {
+  isListingPromotionEligible,
+  promotionIneligibleReason,
+} from '@/lib/listing-lifecycle';
 
 export const runtime = 'nodejs';
 
@@ -92,10 +96,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verificare listing este aprobat
-    if (listing.status !== 'active') {
+    // Verificare listing este eligibil pentru promovare (active + approved + not expired)
+    if (!isListingPromotionEligible(listing)) {
       return NextResponse.json(
-        { error: 'Only active listings can be promoted' },
+        { error: promotionIneligibleReason(listing) || 'Only eligible listings can be promoted' },
         { status: 400 }
       );
     }

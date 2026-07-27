@@ -24,6 +24,10 @@ import {
   PROMOTION_UI_IDS,
   type PromotionUiId,
 } from '@/lib/promotion-packages';
+import {
+  isListingPromotionEligible,
+  promotionIneligibleReason,
+} from '@/lib/listing-lifecycle';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -426,6 +430,9 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
             title: true,
             ownerUserId: true,
             status: true,
+            moderationStatus: true,
+            deletedAt: true,
+            expiresAt: true,
             isPromoted: true,
             promotionExpiresAt: true,
           },
@@ -449,11 +456,25 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
             entityId: payment.id,
             metadata: { listingId },
           });
-        } else if (listingBeforePromo.status !== 'active') {
-          logger.warn('Listing not active — skipping promotion activation', {
+        } else if (!isListingPromotionEligible(listingBeforePromo)) {
+          const reason = promotionIneligibleReason(listingBeforePromo);
+          logger.warn('Listing not eligible — skipping promotion activation (payment kept)', {
             listingId,
             status: listingBeforePromo.status,
+            moderationStatus: listingBeforePromo.moderationStatus,
+            expiresAt: listingBeforePromo.expiresAt,
+            deletedAt: listingBeforePromo.deletedAt,
             paymentId: payment.id,
+            reason,
+          });
+          void createAdminNotification({
+            type: ADMIN_NOTIFICATION_TYPE.PROMOTION_ACTIVATED,
+            severity: AdminNotificationSeverity.warning,
+            title: 'Promovare neaplicată — listing neeligibil',
+            message: `Payment ${payment.id} succeeded but listing ${listingId} is not eligible (${reason}).`,
+            entityType: 'payment',
+            entityId: payment.id,
+            metadata: { listingId, reason },
           });
         } else {
         await prisma.listing.update({

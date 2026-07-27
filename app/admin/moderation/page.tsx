@@ -2089,11 +2089,11 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț suspendat');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        const notes = prompt('Motiv suspendare (opțional):') ?? '';
+                        void runListingModeration(listing.id, {
+                          status: 'paused',
+                          moderationNotes: notes || undefined,
+                        });
                       }
                     }}
                     className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
@@ -2104,10 +2104,7 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
-                        setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț șters permanent');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        void deleteListing(listing.id);
                       }
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
@@ -2137,10 +2134,11 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț suspendat');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        const notes = prompt('Motiv suspendare (opțional):') ?? '';
+                        void runListingModeration(listing.id, {
+                          status: 'paused',
+                          moderationNotes: notes || undefined,
+                        });
                       }
                     }}
                     className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
@@ -2151,10 +2149,7 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț șters permanent');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        void deleteListing(listing.id);
                       }
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
@@ -2387,7 +2382,7 @@ function AdminModerationPageInner() {
                                             className={`rounded px-2 py-1 ${
                                               listing.status === 'pending'
                                                 ? 'bg-yellow-500/15 text-yellow-300'
-                                                : listing.status === 'approved' || listing.status === 'active'
+                                                : listing.status === 'active'
                                                   ? 'bg-emerald-500/15 text-emerald-300'
                                                   : listing.status === 'paused' || listing.status === 'draft'
                                                     ? 'bg-white/[0.06] text-[var(--text-tertiary)]'
@@ -2417,7 +2412,7 @@ function AdminModerationPageInner() {
                                         </a>
                                         {listing.queueId ? (
                                           <>
-                                            {listing.status !== 'approved' && (
+                                            {listing.status !== 'active' && (
                                               <button
                                                 type="button"
                                                 onClick={() => approveListing(listing.id)}

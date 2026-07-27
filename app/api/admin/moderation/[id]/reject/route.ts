@@ -58,17 +58,28 @@ export async function POST(
       );
     }
 
-    // Update listing status
-    await prisma.listing.update({
-      where: { id: item.listingId },
+    // Conditional reject — avoid stomping concurrent approve.
+    const listingUpdated = await prisma.listing.updateMany({
+      where: {
+        id: item.listingId,
+        deletedAt: null,
+        status: { notIn: ['deleted'] },
+      },
       data: {
         moderationStatus: 'rejected',
         moderatedAt: new Date(),
         moderatedBy: user.id,
-        moderationNotes: reason,
+        moderationNotes: String(reason).slice(0, 2000),
         status: 'rejected',
       },
     });
+
+    if (listingUpdated.count === 0) {
+      return NextResponse.json(
+        { error: "Listing-ul nu poate fi respins în starea curentă" },
+        { status: 409 }
+      );
+    }
 
     // Audit log
     const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
@@ -76,14 +87,16 @@ export async function POST(
       await auditActions.listingRejected(user, listing, reason);
     }
 
-    // Update moderation queue
-    const updatedItem = await prisma.moderationQueue.update({
-      where: { id },
+    // Update moderation queue from pending only
+    const queueUpdated = await prisma.moderationQueue.updateMany({
+      where: { id, status: 'pending' },
       data: {
         status: 'rejected',
-        notes: reason,
+        notes: String(reason).slice(0, 2000),
       },
     });
+
+    const updatedItem = await prisma.moderationQueue.findUnique({ where: { id } });
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.moderation_action,
@@ -97,6 +110,7 @@ export async function POST(
       success: true,
       message: "Conținut respins cu succes",
       item: updatedItem,
+      duplicate: queueUpdated.count === 0,
     });
   } catch (error) {
     console.error('Reject content error:', error);

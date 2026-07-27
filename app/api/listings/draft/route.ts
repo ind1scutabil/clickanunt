@@ -177,6 +177,7 @@ export async function PUT(req: NextRequest) {
       where: { id },
       select: {
         ownerUserId: true,
+        status: true,
         category: true,
         subcategory: true,
         priceType: true,
@@ -193,6 +194,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(
         { error: 'Draft not found or unauthorized' },
         { status: 404 }
+      );
+    }
+
+    if (existing.status !== 'draft') {
+      return NextResponse.json(
+        { error: 'Only draft listings can be updated via this endpoint' },
+        { status: 400 }
       );
     }
 

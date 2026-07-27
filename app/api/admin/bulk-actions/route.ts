@@ -11,6 +11,7 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
 import type { UserRole } from "@prisma/client";
+import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
 
 const bulkActionSchema = z.object({
   action: z.string().min(1),
@@ -86,6 +87,16 @@ export async function POST(request: NextRequest) {
     else if (action === 'approve_listings' && entityType === 'listing') {
       for (const listingId of entityIds) {
         try {
+          const existing = await prisma.listing.findUnique({
+            where: { id: listingId },
+            select: { publishedAt: true, expiresAt: true, deletedAt: true },
+          });
+          if (!existing || existing.deletedAt) {
+            results.errors.push(`Listing missing ${listingId}`);
+            results.failed++;
+            continue;
+          }
+
           await prisma.listing.update({
             where: { id: listingId },
             data: {
@@ -93,6 +104,7 @@ export async function POST(request: NextRequest) {
               moderatedAt: new Date(),
               moderatedBy: user.id,
               status: 'active',
+              ...applyListingPublishExpiryOnApprove(existing),
             },
           });
 

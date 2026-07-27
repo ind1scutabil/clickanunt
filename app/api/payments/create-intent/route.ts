@@ -15,6 +15,10 @@ import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 import { logger } from '@/lib/observability';
 import { PaymentStatus } from '@prisma/client';
 import { verifyToken } from '@/lib/auth';
+import {
+  isListingPromotionEligible,
+  promotionIneligibleReason,
+} from '@/lib/listing-lifecycle';
 
 export const runtime = 'nodejs';
 
@@ -77,6 +81,9 @@ export async function POST(req: NextRequest) {
         id: true,
         title: true,
         status: true,
+        moderationStatus: true,
+        deletedAt: true,
+        expiresAt: true,
         ownerUserId: true,
       }
     });
@@ -85,10 +92,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    // Verify listing is active
-    if (listing.status !== 'active') {
+    if (!isListingPromotionEligible(listing)) {
       return NextResponse.json(
-        { error: 'Only active listings can be promoted' },
+        { error: promotionIneligibleReason(listing) || 'Only eligible listings can be promoted' },
         { status: 400 }
       );
     }

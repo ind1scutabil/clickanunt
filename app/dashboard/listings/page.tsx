@@ -14,8 +14,10 @@ import {
   formatListingExpiryDateRO,
   formatListingExpiryDisplay,
   isListingDateExpired,
+  isListingExplicitlyExpired,
 } from "@/lib/listing-expiry";
 import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
+import { getCsrfToken } from "@/lib/security/csrf-client";
 
 /** Token-uri vizuale — doar această pagină. */
 const pageAmbient =
@@ -163,35 +165,93 @@ export default function MyListingsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Ești sigur că vrei să ștergi acest anunț?')) return;
+    if (!confirm("Ești sigur că vrei să ștergi acest anunț? Anunțul nu va mai fi public.")) return;
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/listings/${id}`, {
-        method: 'DELETE',
+      const csrfToken = await getCsrfToken();
+      const response = await fetchWithAuthRefresh(`/api/listings/${id}`, {
+        method: "DELETE",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
         },
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete');
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to delete");
       }
 
-      setMessage({ type: 'success', text: 'Anunț șters cu succes' });
-      setListings(listings.filter(l => l.id !== id));
+      setMessage({ type: "success", text: "Anunț șters cu succes" });
+      setListings(listings.filter((l) => l.id !== id));
     } catch (err) {
-      setMessage({ type: 'error', text: 'Eroare la ștergere' });
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Eroare la ștergere",
+      });
     }
   };
 
-  const getCsrfToken = async () => {
+  const patchListingStatus = async (id: string, status: string, successText: string) => {
     try {
-      const response = await fetch('/api/csrf-token');
-      const data = await response.json();
-      return data.token;
+      const csrfToken = await getCsrfToken();
+      const response = await fetchWithAuthRefresh(`/api/listings/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Operație eșuată");
+      }
+      const updated = await response.json();
+      setMessage({ type: "success", text: successText });
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, ...updated } : l)));
     } catch (err) {
-      console.error('Error getting CSRF token:', err);
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Eroare la actualizare",
+      });
+    }
+  };
+
+  const handleDeactivate = async (id: string) => {
+    if (!confirm("Dezactivezi anunțul? Nu va mai apărea public. Promovările plătite rămân înregistrate.")) {
+      return;
+    }
+    await patchListingStatus(id, "paused", "Anunț dezactivat");
+  };
+
+  const handleReactivate = async (id: string) => {
+    if (
+      !confirm(
+        "Reactivezi anunțul? Va fi trimis din nou la moderare înainte de a redeveni public."
+      )
+    ) {
+      return;
+    }
+    await patchListingStatus(id, "pending", "Anunț trimis la moderare pentru reactivare");
+  };
+
+  const handleRenew = async (id: string) => {
+    if (
+      !confirm(
+        "Prelungești anunțul? Va fi trimis la moderare; după aprobare primește o nouă perioadă de publicare."
+      )
+    ) {
+      return;
+    }
+    await patchListingStatus(id, "pending", "Cerere de prelungire trimisă la moderare");
+  };
+
+  const getCsrfTokenLegacy = async () => {
+    try {
+      return await getCsrfToken();
+    } catch (err) {
+      console.error("Error getting CSRF token:", err);
       return null;
     }
   };
@@ -204,33 +264,33 @@ export default function MyListingsPage() {
   const handleRemovePromotion = async (id: string) => {
     try {
       setIsPromoting(id);
-      const token = localStorage.getItem('accessToken');
-      const csrfToken = await getCsrfToken();
+      const csrfToken = await getCsrfTokenLegacy();
 
-      const response = await fetch(`/api/listings/${id}/promote`, {
-        method: 'DELETE',
+      const response = await fetchWithAuthRefresh(`/api/listings/${id}/promote`, {
+        method: "DELETE",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken || "",
         },
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to remove promotion');
+        throw new Error(error.error || "Failed to remove promotion");
       }
 
-      setMessage({ type: 'success', text: 'Promovarea anunțului a fost anulată' });
-      
+      setMessage({ type: "success", text: "Promovarea anunțului a fost anulată" });
+
       // Update listing in local state
-      setListings(listings.map(l => 
-        l.id === id 
-          ? { ...l, isPromoted: false, promotionType: null, promotionExpiresAt: null }
-          : l
-      ));
+      setListings(
+        listings.map((l) =>
+          l.id === id
+            ? { ...l, isPromoted: false, promotionType: null, promotionExpiresAt: null }
+            : l
+        )
+      );
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Eroare la anularea promovării' });
+      setMessage({ type: "error", text: err.message || "Eroare la anularea promovării" });
     } finally {
       setIsPromoting(null);
     }
@@ -506,23 +566,60 @@ export default function MyListingsPage() {
                         </svg>
                         Vizualizează
                       </Link>
-                      <Link
-                        href={`/listings/${listing.id}/edit`}
-                        className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-600 bg-zinc-800 px-3 text-xs font-medium text-white transition hover:bg-zinc-700 sm:text-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                        Editează
-                      </Link>
+                      {String(listing.status) !== "deleted" && (
+                        <Link
+                          href={`/listings/${listing.id}/edit`}
+                          className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-600 bg-zinc-800 px-3 text-xs font-medium text-white transition hover:bg-zinc-700 sm:text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            />
+                          </svg>
+                          Editează
+                        </Link>
+                      )}
+                      {String(listing.status) === "active" &&
+                        !isListingExplicitlyExpired({
+                          expiresAt: listing.expiresAt as string | null | undefined,
+                        }) && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeactivate(listing.id)}
+                            className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-600 bg-zinc-900 px-3 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 sm:text-sm"
+                          >
+                            Dezactivează
+                          </button>
+                        )}
+                      {(String(listing.status) === "paused" ||
+                        String(listing.status) === "hidden" ||
+                        String(listing.status) === "rejected") && (
+                        <button
+                          type="button"
+                          onClick={() => handleReactivate(listing.id)}
+                          className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-800/80 bg-emerald-950/40 px-3 text-xs font-medium text-emerald-200 transition hover:bg-emerald-950/70 sm:text-sm"
+                        >
+                          Reactivează
+                        </button>
+                      )}
+                      {getListingTab(listing) === "expired" &&
+                        String(listing.status) !== "deleted" &&
+                        String(listing.status) !== "sold" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRenew(listing.id)}
+                            className={`${ctaPrimary} h-9 px-3 text-xs sm:text-sm`}
+                          >
+                            Prelungește
+                          </button>
+                        )}
                       {!listing.isPromoted && getListingTab(listing) === "active" && (
                         <button
-                          onClick={() => handlePromote(listing.id, 'top')}
+                          type="button"
+                          onClick={() => handlePromote(listing.id, "top")}
                           disabled={isPromoting === listing.id}
                           className="inline-flex h-9 items-center gap-2 rounded-md border border-amber-800/80 bg-amber-950/40 px-3 text-xs font-medium text-amber-200 transition hover:bg-amber-950/70 disabled:opacity-50 sm:text-sm"
                         >
@@ -534,11 +631,12 @@ export default function MyListingsPage() {
                               d="M13 10V3L4 14h7v7l9-11h-7z"
                             />
                           </svg>
-                          {isPromoting === listing.id ? 'Se promovează...' : 'Promoveaza'}
+                          {isPromoting === listing.id ? "Se promovează..." : "Promovează"}
                         </button>
                       )}
-                      {listing.isPromoted && (
+                      {listing.isPromoted && getListingTab(listing) === "active" && (
                         <button
+                          type="button"
                           onClick={() => handleRemovePromotion(listing.id)}
                           disabled={isPromoting === listing.id}
                           className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-600 bg-zinc-900 px-3 text-xs font-medium text-zinc-200 transition hover:bg-zinc-800 disabled:opacity-50 sm:text-sm"
@@ -551,23 +649,26 @@ export default function MyListingsPage() {
                               d="M6 18L18 6M6 6l12 12"
                             />
                           </svg>
-                          {isPromoting === listing.id ? 'Se procesează...' : 'Anulează promovare'}
+                          {isPromoting === listing.id ? "Se procesează..." : "Anulează promovare"}
                         </button>
                       )}
-                      <button
-                        onClick={() => handleDelete(listing.id)}
-                        className="inline-flex h-9 items-center gap-2 rounded-md border border-red-900/60 bg-red-950/30 px-3 text-xs font-medium text-red-400 transition hover:bg-red-950/50 sm:text-sm"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                        Șterge
-                      </button>
+                      {String(listing.status) !== "deleted" && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(listing.id)}
+                          className="inline-flex h-9 items-center gap-2 rounded-md border border-red-900/60 bg-red-950/30 px-3 text-xs font-medium text-red-400 transition hover:bg-red-950/50 sm:text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                          Șterge
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

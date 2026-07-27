@@ -11,7 +11,7 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
-import { applyListingPublishExpiryIfMissing } from "@/lib/listing-expiry";
+import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
 
 export async function POST(
   request: NextRequest,
@@ -51,20 +51,48 @@ export async function POST(
 
     const existingListing = await prisma.listing.findUnique({
       where: { id: item.listingId },
-      select: { publishedAt: true, expiresAt: true },
+      select: { publishedAt: true, expiresAt: true, status: true, deletedAt: true },
     });
 
-    // Update listing status
-    await prisma.listing.update({
-      where: { id: item.listingId },
+    if (!existingListing || existingListing.deletedAt) {
+      return NextResponse.json({ error: "Listing nu există" }, { status: 404 });
+    }
+
+    // Conditional update — refuse stale concurrent decisions.
+    const listingUpdated = await prisma.listing.updateMany({
+      where: {
+        id: item.listingId,
+        deletedAt: null,
+        status: { in: ['pending', 'rejected', 'paused', 'hidden', 'draft', 'expired'] },
+      },
       data: {
         moderationStatus: 'approved',
         moderatedAt: new Date(),
         moderatedBy: user.id,
         status: 'active',
-        ...applyListingPublishExpiryIfMissing(existingListing ?? {}),
+        ...applyListingPublishExpiryOnApprove(existingListing),
       },
     });
+
+    if (listingUpdated.count === 0 && existingListing.status !== 'active') {
+      return NextResponse.json(
+        { error: "Listing-ul nu mai este în stare ce poate fi aprobată" },
+        { status: 409 }
+      );
+    }
+
+    if (listingUpdated.count === 0 && existingListing.status === 'active') {
+      // Already active — still refresh expiry if past, idempotent approve.
+      await prisma.listing.update({
+        where: { id: item.listingId },
+        data: {
+          moderationStatus: 'approved',
+          moderatedAt: new Date(),
+          moderatedBy: user.id,
+          ...applyListingPublishExpiryOnApprove(existingListing),
+        },
+      });
+    }
 
     // Audit log
     const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
@@ -72,14 +100,19 @@ export async function POST(
       await auditActions.listingApproved(user, listing);
     }
 
-    // Update moderation queue - setează status la approved
-    const updatedItem = await prisma.moderationQueue.update({
-      where: { id },
+    // Update moderation queue only from pending
+    const queueUpdated = await prisma.moderationQueue.updateMany({
+      where: { id, status: 'pending' },
       data: {
         status: 'approved',
         notes: 'Approved by moderator',
       },
     });
+
+    const updatedItem =
+      queueUpdated.count > 0
+        ? await prisma.moderationQueue.findUnique({ where: { id } })
+        : await prisma.moderationQueue.findUnique({ where: { id } });
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.moderation_action,
@@ -93,6 +126,7 @@ export async function POST(
       success: true,
       message: "Conținut aprobat cu succes",
       item: updatedItem,
+      duplicate: queueUpdated.count === 0,
     });
   } catch (error) {
     console.error('Approve content error:', error);
