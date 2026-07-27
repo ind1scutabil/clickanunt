@@ -14,6 +14,7 @@ import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
 import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import { CLICKANUNT_AUTH_SESSION_EVENT } from "@/lib/auth-session-events";
 import AccountMenuPanel from "@/app/components/account/AccountMenuPanel";
+import { buildListingsSearchHref } from "@/lib/listings-search-url";
 
 export default function NavbarContent() {
   const router = useRouter();
@@ -240,7 +241,7 @@ export default function NavbarContent() {
   const handleSearch = () => {
     const query = searchQuery.trim();
     if (!query) return;
-    router.push(`/listings?q=${encodeURIComponent(query)}`);
+    router.push(buildListingsSearchHref(query));
   };
 
   /** Închide toate meniurile (mobil + desktop). */

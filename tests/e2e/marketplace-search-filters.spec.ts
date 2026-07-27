@@ -9,16 +9,26 @@ test.describe("Marketplace search and filters", () => {
     page,
     request,
   }) => {
-    await page.goto("/");
-    const search = page.getByRole("searchbox", { name: /Caută în anunțuri/i });
-    if (await search.isVisible()) {
-      await search.click();
-      await search.fill("telefon");
-      await page.locator('form[role="search"] button[type="submit"]').click();
-      await expect(page).toHaveURL(/\/listings\?(?:.*&)?q=telefon/i, { timeout: 15000 });
-    } else {
-      await page.goto("/listings?q=telefon");
-    }
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const hero = page.locator("#home-hero-search");
+    await expect(hero).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const f = document.querySelector("#home-hero-search")?.closest("form");
+          return f?.getAttribute("action") || "";
+        })
+      )
+      .toMatch(/\/listings/);
+    await hero.fill("telefon");
+    await page
+      .locator("form")
+      .filter({ has: page.locator("#home-hero-search") })
+      .locator('button[type="submit"]')
+      .click();
+    await expect(page).toHaveURL(/\/listings\?(?:.*&)?q=telefon/i, {
+      timeout: 15000,
+    });
 
     const api = await request.get("/api/listings?q=telefon&limit=5");
     expect(api.status()).toBe(200);
@@ -27,12 +37,22 @@ test.describe("Marketplace search and filters", () => {
   });
 
   test("search Enter submits the same as the button", async ({ page }) => {
-    await page.goto("/");
-    const search = page.getByRole("searchbox", { name: /Caută în anunțuri/i });
-    await expect(search).toBeVisible();
-    await search.fill("peugeot");
-    await search.press("Enter");
-    await expect(page).toHaveURL(/\/listings\?(?:.*&)?q=peugeot/i, { timeout: 15000 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const hero = page.locator("#home-hero-search");
+    await expect(hero).toBeVisible({ timeout: 15000 });
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const f = document.querySelector("#home-hero-search")?.closest("form");
+          return f?.getAttribute("action") || "";
+        })
+      )
+      .toMatch(/\/listings/);
+    await hero.fill("peugeot");
+    await hero.press("Enter");
+    await expect(page).toHaveURL(/\/listings\?(?:.*&)?q=peugeot/i, {
+      timeout: 15000,
+    });
   });
 
   test("price band without currency is rejected", async ({ request }) => {

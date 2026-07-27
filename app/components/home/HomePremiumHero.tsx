@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Form from "next/form";
 import { HERO_DESKTOP_AVIF, HERO_DESKTOP_URL } from "@/lib/hero-asset-urls";
 
 type HomePremiumHeroProps = {
@@ -90,13 +91,15 @@ export function HomePremiumHero({
                 contact în platformă.
               </p>
 
-              <form
+              <Form
                 className="mt-3 w-full max-w-xl max-md:mt-2 max-md:max-w-[15rem] sm:max-md:max-w-[16.25rem] md:mt-4"
+                action="/listings"
+                role="search"
                 onSubmit={(e) => {
+                  // Soft-nav via shared builder so empty/whitespace → /listings (no empty q=).
                   e.preventDefault();
                   onSubmitSearch(heroSearch.trim());
                 }}
-                role="search"
               >
                 <label htmlFor="home-hero-search" className="sr-only">
                   Caută în anunțuri
@@ -114,6 +117,7 @@ export function HomePremiumHero({
                     </span>
                     <input
                       id="home-hero-search"
+                      name="q"
                       type="search"
                       value={heroSearch}
                       onChange={(e) => setHeroSearch(e.target.value)}
@@ -130,7 +134,7 @@ export function HomePremiumHero({
                     </button>
                   </div>
                 </div>
-              </form>
+              </Form>
               </div>
 
               {/* Mobile: elastic gap so BMW stays visible; CTAs sit just above tab bar zone */}

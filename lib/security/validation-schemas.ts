@@ -535,7 +535,11 @@ const listingEditTransmissionSchema = z.preprocess(
   z.enum(['manual', 'automatic']).optional().nullable()
 );
 
-export const listingEditSchema = listingCreateBaseSchema.partial().extend({
+export const listingEditSchema = listingCreateBaseSchema
+  .partial()
+  // Ownership is server-derived; never accept client ownerUserId on PATCH.
+  .omit({ ownerUserId: true })
+  .extend({
   id: uuidSchema.optional(),
   status: z.enum(['draft', 'pending', 'active', 'paused', 'expired', 'sold', 'deleted', 'rejected', 'hidden']).optional(),
   year: listingEditYearSchema,

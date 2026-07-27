@@ -17,6 +17,7 @@ import { HomeRecentlyViewed } from "@/app/components/home/HomeRecentlyViewed";
 import { HomeCategoryStockImage } from "@/app/components/home/HomeCategoryStockImage";
 import { HomePremiumHero } from "@/app/components/home/HomePremiumHero";
 import { HomeAutoVerificationPremium } from "@/app/components/home/HomeAutoVerificationPremium";
+import { buildListingsSearchHref } from "@/lib/listings-search-url";
 
 /** Only promote searches that return ≥1 public listing. Empty = hide “Popular acum”. */
 const TRENDING_SEARCHES: string[] = [];
@@ -140,12 +141,7 @@ export default function HomePageClient({
   );
 
   const handleSearch = (query: string, category?: string) => {
-    const params = new URLSearchParams();
-    const q = query.trim();
-    if (q) params.set("q", q);
-    if (category) params.set("category", category);
-    const qs = params.toString();
-    router.push(qs ? `/listings?${qs}` : "/listings");
+    router.push(buildListingsSearchHref(query, { category }));
   };
 
   const listingsCta =

@@ -583,25 +583,62 @@ test.describe("Price/salary PATCH matrix", () => {
     page,
   }) => {
     const { id, csrf, listing } = await createPhone(page);
-    const r = await api(page, {
+
+    // ownerUserId must be rejected by strict edit schema (not mass-assignable).
+    const ownerSpoof = await api(page, {
       method: "PATCH",
       path: `/api/listings/${id}`,
       csrf,
       body: {
-        title: `E2E spoof ${crypto.randomUUID().slice(0, 8)}`,
-        status: "active",
+        title: `E2E spoof-owner ${crypto.randomUUID().slice(0, 8)}`,
         ownerUserId: "00000000-0000-4000-8000-000000000099",
       },
     });
-    // ownerUserId is unknown to strict edit schema → 400, OR stripped
-    if (r.status === 400) {
-      expect(String(r.body.error || "")).toMatch(/unrecognized|invalid|owner|strict|Required|Expected/i);
+    expect(ownerSpoof.status).toBe(400);
+    expect(String(ownerSpoof.body.error || "")).toMatch(
+      /unrecognized key/i
+    );
+    expect(JSON.stringify(ownerSpoof.body)).toMatch(/ownerUserId/i);
+
+    // status spoof must not promote pending → active (lifecycle authority).
+    const statusSpoof = await api(page, {
+      method: "PATCH",
+      path: `/api/listings/${id}`,
+      csrf,
+      body: {
+        title: `E2E spoof-status ${crypto.randomUUID().slice(0, 8)}`,
+        status: "active",
+      },
+    });
+    if (statusSpoof.status === 400) {
+      expect(String(statusSpoof.body.error || "")).toMatch(
+        /status|tranziț|nepermis/i
+      );
     } else {
-      expect(r.status).toBe(200);
-      expect(r.body.ownerUserId).toBe(listing.ownerUserId);
-      // Owner cannot force active via status spoof
-      expect(r.body.status).toBe(listing.status);
+      expect(statusSpoof.status).toBe(200);
+      expect(statusSpoof.body.status).toBe(listing.status);
+      expect(statusSpoof.body.ownerUserId).toBe(listing.ownerUserId);
     }
+
+    // isFeatured is not in edit schema → unrecognized / not granted.
+    const featuredSpoof = await api(page, {
+      method: "PATCH",
+      path: `/api/listings/${id}`,
+      csrf,
+      body: {
+        title: `E2E spoof-feat ${crypto.randomUUID().slice(0, 8)}`,
+        isFeatured: true,
+      },
+    });
+    if (featuredSpoof.status === 400) {
+      expect(String(featuredSpoof.body.error || "")).toMatch(
+        /unrecognized key|isFeatured/i
+      );
+    } else {
+      expect(featuredSpoof.status).toBe(200);
+      expect(featuredSpoof.body.isFeatured).not.toBe(true);
+    }
+
     await softDelete(page, id);
   });
 
