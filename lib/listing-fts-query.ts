@@ -7,6 +7,7 @@ import {
   ftsOrderBySql,
   type ListingFeedSort,
 } from '@/lib/listing-feed-sort';
+import { sqlComparableCommercialPriceType } from '@/lib/listings/comparable-commercial-price';
 
 export function buildRomanianTsQuery(q: string): string | null {
   const words = q
@@ -113,12 +114,12 @@ function buildFtsWhereFragments(filters: ListingFtsFilterParams, searchQuery: st
       AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
       AND (${minPriceParam}::int IS NULL OR (
         "priceAmount" IS NOT NULL
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
         AND "priceAmount" >= ${minPriceParam}
       ))
       AND (${maxPriceParam}::int IS NULL OR (
         "priceAmount" IS NOT NULL
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
         AND "priceAmount" <= ${maxPriceParam}
       ))
       AND (

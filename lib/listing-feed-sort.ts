@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
+import { sqlComparableCommercialPriceType } from '@/lib/listings/comparable-commercial-price';
 
 /**
  * Matches `searchListingsSchema.sort` in `lib/security/validation-schemas.ts`.
@@ -100,7 +101,7 @@ function comparablePriceBucketAsc(priceCurrency: string): Prisma.Sql {
     CASE
       WHEN "priceAmount" IS NOT NULL
         AND "priceCurrency" = ${priceCurrency}
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
       THEN 0
       ELSE 1
     END
@@ -112,7 +113,7 @@ function comparablePriceValue(priceCurrency: string): Prisma.Sql {
     CASE
       WHEN "priceAmount" IS NOT NULL
         AND "priceCurrency" = ${priceCurrency}
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
       THEN "priceAmount"
       ELSE NULL
     END

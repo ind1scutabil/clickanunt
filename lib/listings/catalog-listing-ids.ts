@@ -7,6 +7,7 @@ import {
   ftsOrderBySql,
   type ListingFeedSort,
 } from '@/lib/listing-feed-sort';
+import { sqlComparableCommercialPriceType } from '@/lib/listings/comparable-commercial-price';
 
 export type CatalogBrowseFilterParams = {
   activeOnly?: boolean;
@@ -82,12 +83,12 @@ function buildCatalogWhereSql(filters: CatalogBrowseFilterParams): Prisma.Sql {
       AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
       AND (${minPriceParam}::int IS NULL OR (
         "priceAmount" IS NOT NULL
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
         AND "priceAmount" >= ${minPriceParam}
       ))
       AND (${maxPriceParam}::int IS NULL OR (
         "priceAmount" IS NOT NULL
-        AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
+        AND ${sqlComparableCommercialPriceType()}
         AND "priceAmount" <= ${maxPriceParam}
       ))
       AND (

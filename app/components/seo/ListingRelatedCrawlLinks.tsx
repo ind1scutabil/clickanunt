@@ -1,69 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { hubWhereBase } from "@/lib/seo/hub-queries";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
+import { fetchRelatedListings } from "@/lib/seo/related-listings";
 
-async function fetchRelated(
-  category: string,
-  excludeId: string,
-  city: string | null,
-  priceAmount: number | null,
-): Promise<Array<{ id: string; title: string }>> {
-  const hasBand = priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0;
-  const bandLow = hasBand ? Math.max(0, Math.floor(priceAmount * 0.75)) : null;
-  const bandHigh = hasBand ? Math.ceil(priceAmount * 1.25) : null;
-
-  const base: Record<string, unknown> = {
-    ...hubWhereBase,
-    category,
-    id: { not: excludeId },
-  };
-  if (hasBand && bandLow != null && bandHigh != null) {
-    base.priceAmount = { gte: bandLow, lte: bandHigh };
-    base.AND = [
-      {
-        OR: [
-          { priceType: null },
-          { priceType: { in: ["FIXED", "NEGOTIABLE", "FROM"] } },
-        ],
-      },
-    ];
-  }
-
-  let rows = await prisma.listing.findMany({
-    where: city ? { ...base, city } : base,
-    orderBy: { updatedAt: "desc" },
-    take: 10,
-    select: { id: true, title: true },
-  });
-
-  if (rows.length < 4 && city) {
-    rows = await prisma.listing.findMany({
-      where: { ...base },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-      select: { id: true, title: true },
-    });
-  }
-
-  if (rows.length < 4) {
-    rows = await prisma.listing.findMany({
-      where: {
-        ...hubWhereBase,
-        category,
-        id: { not: excludeId },
-        ...(city ? { city } : {}),
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-      select: { id: true, title: true },
-    });
-  }
-
-  return rows;
-}
-
-/** Crawlable `<a>` block for related inventory (category / city / price proximity). */
+/** Crawlable `<a>` block for related inventory (category / city / optional price proximity). */
 export async function ListingRelatedCrawlLinks({ listingId }: { listingId: string }) {
   if (process.env.USE_IN_MEMORY_DB === "true") return null;
 
@@ -75,6 +15,8 @@ export async function ListingRelatedCrawlLinks({ listingId }: { listingId: strin
       category: true,
       city: true,
       priceAmount: true,
+      priceCurrency: true,
+      priceType: true,
       deletedAt: true,
       status: true,
       moderationStatus: true,
@@ -84,7 +26,14 @@ export async function ListingRelatedCrawlLinks({ listingId }: { listingId: strin
 
   if (!listing || !isListingSeoIndexable(listing)) return null;
 
-  const related = await fetchRelated(listing.category, listing.id, listing.city ?? null, listing.priceAmount);
+  const { rows: related, usedPriceBand } = await fetchRelatedListings({
+    id: listing.id,
+    category: listing.category,
+    city: listing.city ?? null,
+    priceAmount: listing.priceAmount,
+    priceCurrency: listing.priceCurrency,
+    priceType: listing.priceType,
+  });
   if (related.length === 0) return null;
 
   const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
@@ -93,13 +42,16 @@ export async function ListingRelatedCrawlLinks({ listingId }: { listingId: strin
     <section
       className="mx-auto mt-10 max-w-7xl border-t border-white/10 px-4 pt-10 pb-6"
       aria-labelledby="related-listings-seo"
+      data-related-price-band={usedPriceBand ? "1" : "0"}
     >
       <h2 id="related-listings-seo" className="mb-4 text-lg font-bold text-white">
         Anunțuri asemănătoare · {shortCat}
         {listing.city ? ` · ${listing.city}` : ""}
       </h2>
       <p className="mb-4 text-sm text-neutral-400">
-        Aceeași categorie și zonă, cu prețuri în interval apropiat — legături directe către paginile publice.
+        {usedPriceBand
+          ? "Aceeași categorie și zonă, cu prețuri în interval apropiat (aceeași monedă) — legături directe către paginile publice."
+          : "Alte anunțuri din aceeași categorie și zonă — legături directe către paginile publice."}
       </p>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {related.map((r) => (
