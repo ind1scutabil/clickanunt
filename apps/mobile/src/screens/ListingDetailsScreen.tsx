@@ -111,6 +111,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
 
   const photos = normalizeListingPhotosArray(item.photos);
   const inactiveListing = item.status && item.status !== 'active';
+  const ownerId = listingOwnerId(item);
 
   const attributes = item.attributes && typeof item.attributes === 'object'
     ? Object.entries(item.attributes).filter(([, value]) => value !== null && value !== undefined && String(value) !== '')
@@ -138,7 +139,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           </Text>
         ) : null}
         <Text style={styles.title}>{item.title}</Text>
-        {user && listingOwnerId(item) === user.id ? (
+        {user && ownerId === user.id ? (
           <Pressable
             style={({ pressed }) => [styles.editRow, pressed && styles.favRowPressed]}
             onPress={() => navigation.navigate('ListingEdit', { listingId: item.id })}
@@ -206,6 +207,23 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           <Text style={styles.specLabel}>Telefon</Text>
           <Text style={styles.specValue}>{item.contactPhone || '—'}</Text>
         </View>
+
+        {ownerId && user?.id && ownerId.toLowerCase() !== String(user.id).toLowerCase() && !inactiveListing ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.messageCta}
+            onPress={() =>
+              navigation.navigate('Conversation', {
+                userId: ownerId,
+                listingId: item.id,
+                title: item.title || 'Conversație',
+              })
+            }
+          >
+            <Text style={styles.messageCtaText}>Trimite mesaj</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.specRow}>
           <Text style={styles.specLabel}>Status</Text>
           <Text style={styles.specValue}>{item.status || 'active'}</Text>
@@ -274,6 +292,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 90, 0, 0.08)',
   },
   editText: { color: THEME.colors.primary, fontWeight: '700', fontSize: 14 },
+  messageCta: {
+    marginTop: 12,
+    marginBottom: 4,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: THEME.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  messageCtaText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   favRow: {
     marginTop: 10,
     alignSelf: 'flex-start',

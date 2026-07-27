@@ -45,6 +45,7 @@ describe('validateServerAuthSession', () => {
       ok: true,
       status: 200,
       json: async () => ({
+        id: 'u1',
         email: 'a@test.ro',
         role: 'admin',
         name: 'Admin',
@@ -55,6 +56,12 @@ describe('validateServerAuthSession', () => {
 
     expect(result.ok).toBe(true);
     expect(result.user?.role).toBe('admin');
+    expect(result.user?.id).toBe('u1');
+    expect(JSON.parse(localStorage.getItem('user') || '{}')).toMatchObject({
+      id: 'u1',
+      email: 'a@test.ro',
+      role: 'admin',
+    });
 
     // Future-exp token → refresh skipped → single /me call
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -94,11 +101,12 @@ describe('validateServerAuthSession', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ email: 'a@test.ro', role: 'user', name: 'U' }),
+        json: async () => ({ id: 'u1', email: 'a@test.ro', role: 'user', name: 'U' }),
       });
 
     const result = await validateServerAuthSession();
     expect(result.ok).toBe(true);
+    expect(result.user?.id).toBe('u1');
     expect(String(mockFetch.mock.calls[0][0])).toContain('/api/auth/refresh');
     expect(String(mockFetch.mock.calls[1][0])).toContain('/api/users/me');
   });
@@ -110,7 +118,7 @@ describe('validateServerAuthSession', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ email: 'a@test.ro', role: 'user', name: 'U' }),
+      json: async () => ({ id: 'u1', email: 'a@test.ro', role: 'user', name: 'U' }),
     });
 
     const result = await validateServerAuthSession();

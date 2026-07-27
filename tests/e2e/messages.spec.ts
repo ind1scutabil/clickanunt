@@ -79,15 +79,14 @@ test.describe('Messaging', () => {
 
     // Find and click send button
     const sendButton = page.locator('#send-button');
-    expect(await sendButton.isEnabled()).toBe(true);
+    await expect(sendButton).toBeEnabled();
     await sendButton.click();
 
-    // Wait briefly for message to process
-    await page.waitForTimeout(1500);
-
-    // **CRITICAL CHECK**: Verify message appears in conversation thread
-    const messageInThread = page.locator(`text=${testMessage}`);
-    expect(await messageInThread.isVisible({ timeout: 5000 })).toBe(true);
+    // Assert inside the active thread only (inbox list also shows last-message preview).
+    const messageInThread = page
+      .getByTestId('message-thread')
+      .getByText(testMessage, { exact: true });
+    await expect(messageInThread).toBeVisible({ timeout: 8000 });
 
     console.log('[SMOKE-TEST] ✓ Message delivery successful: message appears in thread');
   });

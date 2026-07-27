@@ -664,7 +664,7 @@ model Invoice {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  paymentId String? @unique
+  paymentId String?  @unique
   payment   Payment? @relation(fields: [paymentId], references: [id])
 
   invoiceNumber String        @unique

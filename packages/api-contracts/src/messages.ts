@@ -4,14 +4,22 @@ export type MessageParticipantDto = {
   id: string;
   name: string | null;
   avatar: string | null;
-  email: string;
+  /** Optional — messaging APIs no longer return peer email by default. */
+  email?: string;
   role: string;
 };
 
 export type ConversationListItemDto = {
   id: string;
   otherParticipant: MessageParticipantDto;
-  listing: { id: string; title: string } | null;
+  listing: {
+    id: string;
+    title: string;
+    status?: string;
+    unavailableLabel?: string | null;
+    thumbnailUrl?: string | null;
+    publicHref?: string | null;
+  } | null;
   lastMessage: {
     id: string;
     content: string;

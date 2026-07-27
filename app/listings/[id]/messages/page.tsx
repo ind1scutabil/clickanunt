@@ -91,54 +91,60 @@ export default function ListingMessagesPage() {
   }, [messages]);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const userStr = localStorage.getItem('user');
-    
-    if (!token || !userStr) {
-      router.push('/auth/login');
-      return;
-    }
+    let cancelled = false;
 
-    const parsed = JSON.parse(userStr) as CurrentUser & { userId?: string };
-    const resolvedUserId = parsed.id ?? parsed.userId;
-    if (!resolvedUserId) {
-      router.push('/auth/login');
-      return;
-    }
-    const meId =
-      typeof resolvedUserId === 'string' ? resolvedUserId.trim().toLowerCase() : resolvedUserId;
-    setCurrentUser({ ...parsed, id: meId });
+    const bootstrap = async () => {
+      await syncSessionFromCookies();
+      if (cancelled) return;
 
-    if (!id) {
-      setLoading(false);
-      return;
-    }
+      const token = localStorage.getItem('accessToken');
+      const userStr = localStorage.getItem('user');
 
-    // Fetch listing
-    const fetchListing = async () => {
+      if (!token || !userStr) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const parsed = JSON.parse(userStr) as CurrentUser & { userId?: string };
+      const resolvedUserId = parsed.id ?? parsed.userId;
+      if (!resolvedUserId) {
+        router.push('/auth/login');
+        return;
+      }
+      const meId =
+        typeof resolvedUserId === 'string' ? resolvedUserId.trim().toLowerCase() : resolvedUserId;
+      setCurrentUser({ ...parsed, id: meId });
+
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        await syncSessionFromCookies();
         const res = await fetch(`/api/listings/${id}`);
         if (!res.ok) throw new Error('Failed to fetch listing');
         const data = await res.json();
+        if (cancelled) return;
         setListing(data);
 
         const accessAfterSync = localStorage.getItem('accessToken') || token;
 
         const ownerPeerId = data.owner?.id ?? ('ownerUserId' in data ? data.ownerUserId : null);
-        // Once we have the listing owner, fetch messages (folosește meId = id canonic ca în restul mesageriei)
         if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, meId)) {
           fetchMessages(ownerPeerId, accessAfterSync, data.id);
         }
       } catch (err) {
         console.error('Error fetching listing:', err);
-        setError('Nu am putut încărca anunțul');
+        if (!cancelled) setError('Nu am putut încărca anunțul');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchListing();
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [id, router]);
 
   const fetchMessages = async (ownerId: string, _token: string | null, listingId?: string) => {

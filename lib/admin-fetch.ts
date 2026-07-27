@@ -129,6 +129,7 @@ export function clearStaleBrowserAuth(): void {
 }
 
 export type ValidatedSessionUser = {
+  id?: string;
   email?: string;
   role?: string;
   name?: string | null;
@@ -164,13 +165,32 @@ export async function validateServerAuthSession(
       }
       return { ok: false };
     }
-    const data = (await res.json()) as ValidatedSessionUser & { id?: string };
+    const data = (await res.json()) as ValidatedSessionUser & { id?: string; userId?: string };
     if (typeof window !== 'undefined') {
-      const nextUser = JSON.stringify({
+      let previousId: string | undefined;
+      try {
+        const prevRaw = localStorage.getItem('user');
+        if (prevRaw) {
+          const prev = JSON.parse(prevRaw) as { id?: string; userId?: string };
+          previousId =
+            (typeof prev.id === 'string' && prev.id) ||
+            (typeof prev.userId === 'string' && prev.userId) ||
+            undefined;
+        }
+      } catch {
+        previousId = undefined;
+      }
+      const resolvedId =
+        (typeof data.id === 'string' && data.id) ||
+        (typeof data.userId === 'string' && data.userId) ||
+        previousId;
+      const sessionUser: ValidatedSessionUser = {
+        ...(resolvedId ? { id: resolvedId } : {}),
         email: data.email,
         role: data.role,
         name: data.name ?? null,
-      });
+      };
+      const nextUser = JSON.stringify(sessionUser);
       const prevUser = localStorage.getItem('user');
       localStorage.setItem('user', nextUser);
       if (bearer) {
@@ -184,7 +204,15 @@ export async function validateServerAuthSession(
     }
     return {
       ok: true,
-      user: { email: data.email, role: data.role, name: data.name ?? null },
+      user: {
+        id:
+          (typeof data.id === 'string' && data.id) ||
+          (typeof data.userId === 'string' && data.userId) ||
+          undefined,
+        email: data.email,
+        role: data.role,
+        name: data.name ?? null,
+      },
     };
   } catch {
     return { ok: false, transient: true };
