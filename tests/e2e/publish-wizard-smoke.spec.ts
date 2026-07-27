@@ -88,8 +88,10 @@ test.describe("Publish auth gate", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test("unauthenticated redirects to login with next", async ({ page }) => {
+    await page.context().clearCookies();
     await page.goto("/listings/new", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 });
+    await page.waitForURL(/\/auth\/login/, { timeout: 20_000 });
     expect(page.url()).toMatch(/next=/);
+    expect(new URL(page.url()).searchParams.get("next")).toBe("/listings/new");
   });
 });

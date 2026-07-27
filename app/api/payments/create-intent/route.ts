@@ -146,12 +146,26 @@ export async function POST(req: NextRequest) {
     const promotionUiPackageIdForMeta =
       uiPackageId || inferUiPackageIdFromStripeType(packageType) || '';
 
+    let durationDaysSnapshot: number | undefined;
+    if (promotionUiPackageIdForMeta) {
+      try {
+        const { getListingPromotionApplyFromUiPackage } = await import('@/lib/promotion-packages');
+        const apply = await getListingPromotionApplyFromUiPackage(
+          promotionUiPackageIdForMeta as import('@/lib/promotion-packages').PromotionUiId
+        );
+        durationDaysSnapshot = apply.durationDays;
+      } catch {
+        durationDaysSnapshot = undefined;
+      }
+    }
+
     logger.info('Promotion checkout amounts', {
       userId,
       baseAmount,
       finalAmount,
       discountApplied,
       promotionUiPackageId: promotionUiPackageIdForMeta || undefined,
+      durationDays: durationDaysSnapshot,
     });
 
     // Create PaymentIntent in Stripe with discounted price
@@ -167,6 +181,7 @@ export async function POST(req: NextRequest) {
         discountPercent: user?.promotionDiscountPercent?.toString() || '0',
         discountApplied: discountApplied.toString(),
         ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
+        ...(durationDaysSnapshot != null ? { durationDays: String(durationDaysSnapshot) } : {}),
       },
       // Override amount with discounted price
       amount: finalAmount,
@@ -191,6 +206,7 @@ export async function POST(req: NextRequest) {
           discountApplied,
           finalAmount,
           ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
+          ...(durationDaysSnapshot != null ? { durationDays: durationDaysSnapshot } : {}),
         },
       },
     });

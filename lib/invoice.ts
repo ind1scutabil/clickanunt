@@ -31,35 +31,41 @@ export interface CreateInvoiceOptions {
 }
 
 /**
- * Generare număr factură secvențial
+ * Generare număr factură secvențial (atomic per an fiscal calendaristic).
  * Format: INV-YYYY-NNNNN (ex: INV-2026-00001)
+ * Folosește advisory lock PostgreSQL — nu inventează regim fiscal.
  */
 export async function generateInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
+  // Stable lock key per year (avoid colliding with other advisory locks).
+  const lockKey = 4_200_000_000 + year;
 
-  // Găsește ultima factură din anul curent
-  const lastInvoice = await prisma.invoice.findFirst({
-    where: {
-      invoiceNumber: {
-        startsWith: prefix,
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+
+    const lastInvoice = await tx.invoice.findFirst({
+      where: {
+        invoiceNumber: {
+          startsWith: prefix,
+        },
       },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+      orderBy: {
+        invoiceNumber: 'desc',
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
+      if (Number.isFinite(lastNumber) && lastNumber >= 1) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    const paddedNumber = nextNumber.toString().padStart(5, '0');
+    return `${prefix}${paddedNumber}`;
   });
-
-  let nextNumber = 1;
-  if (lastInvoice) {
-    // Extrage numărul din INV-2026-00123 -> 123
-    const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
-    nextNumber = lastNumber + 1;
-  }
-
-  // Format cu zero-padding (5 cifre)
-  const paddedNumber = nextNumber.toString().padStart(5, '0');
-  return `${prefix}${paddedNumber}`;
 }
 
 /**
@@ -119,6 +125,27 @@ export async function createInvoice(options: CreateInvoiceOptions): Promise<{
     // Validare items
     if (!items || items.length === 0) {
       throw new Error('Invoice must have at least one item');
+    }
+
+    // One invoice per payment (idempotent on webhook retries / concurrency).
+    if (paymentId) {
+      const existing = await prisma.invoice.findFirst({
+        where: { paymentId },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (existing) {
+        logger.info('Reusing existing invoice for payment', {
+          invoiceId: existing.id,
+          invoiceNumber: existing.invoiceNumber,
+          paymentId,
+        });
+        return {
+          id: existing.id,
+          invoiceNumber: existing.invoiceNumber,
+          total: existing.amount,
+          pdfUrl: null,
+        };
+      }
     }
 
     // Generare număr factură

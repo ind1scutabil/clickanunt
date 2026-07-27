@@ -42,6 +42,7 @@ export default function PaymentSuccessPage() {
       });
       const data = (await res.json().catch(() => ({}))) as PaymentStatusResponse & {
         error?: string;
+        listingId?: string | null;
       };
 
       if (res.status === 401) {
@@ -51,6 +52,12 @@ export default function PaymentSuccessPage() {
       }
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : 'Nu am putut verifica plata');
+        setLoading(false);
+        return;
+      }
+
+      if (data.listingId && data.listingId !== id) {
+        setError('Plata nu corespunde acestui anunț');
         setLoading(false);
         return;
       }
@@ -82,7 +89,7 @@ export default function PaymentSuccessPage() {
       setError(err instanceof Error ? err.message : 'Failed to verify payment');
       setLoading(false);
     }
-  }, [paymentIntent]);
+  }, [paymentIntent, id]);
 
   useEffect(() => {
     void verifyPayment();

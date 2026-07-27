@@ -43,6 +43,8 @@ const env = {
   PORT: String(port),
   E2E_DISABLE_RATE_LIMIT: '1',
   CLICKANUNT_E2E_SERVER: '1',
+  // Stripe test keys in NODE_ENV=production require BOTH allow flag and E2E server marker
+  // (see lib/stripe-production-guard.ts). Never set these on staging/prod PM2.
   STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION: '1',
   NODE_ENV: 'production',
 };
@@ -55,6 +57,12 @@ for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
   if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
   env[k] = v;
 }
+// Re-assert gate markers after .env load (must win over host .env).
+env.PORT = String(port);
+env.NODE_ENV = 'production';
+env.E2E_DISABLE_RATE_LIMIT = '1';
+env.CLICKANUNT_E2E_SERVER = '1';
+env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION = '1';
 const out = fs.openSync(logPath, 'a');
 const child = spawn(
   process.execPath,

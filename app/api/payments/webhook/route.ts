@@ -14,7 +14,6 @@ import { createAuditLog } from '@/lib/audit';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
-import { getRedisClient } from '@/lib/redis';
 import Stripe from 'stripe';
 import { AdminNotificationSeverity } from '@prisma/client';
 import { ADMIN_NOTIFICATION_TYPE } from '@/lib/admin-notification-types';
@@ -72,23 +71,8 @@ export async function POST(req: NextRequest) {
 
     logStripeWebhookEvent(event, 'received');
 
-    // Idempotency guard: prevent duplicate processing on webhook retries.
-    // Stripe can deliver the same event multiple times; we treat each `event.id` as unique.
-    if (event.id) {
-      const redis = getRedisClient();
-      const dedupeKey = `stripe:webhook:event:${event.id}`;
-      const ttlSeconds = 60 * 60 * 24 * 7; // 7 days
-      try {
-        const res = await redis.set(dedupeKey, '1', 'EX', ttlSeconds, 'NX');
-        if (!res) {
-          logStripeWebhookEvent(event, 'duplicate');
-          return NextResponse.json({ received: true, duplicate: true });
-        }
-      } catch (e) {
-        // Fail open: if Redis is down, still process payment to avoid missing promotions.
-        logger.warn('Stripe webhook dedupe via Redis failed (processing anyway)', { error: e, eventId: event.id });
-      }
-    }
+    // Durable idempotency is payment.status / updateMany (and invoice-by-paymentId).
+    // Redis is an optional post-success soft cache only — never claim before side-effects.
 
     switch (event.type) {
       case 'payment_intent.succeeded':
@@ -386,8 +370,15 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
         const apply = await getListingPromotionApplyFromUiPackage(uiId);
         promotionTypeStr = apply.promotionType;
         featured = apply.featured;
+        const snapDays = meta && typeof meta.durationDays === 'number'
+          ? meta.durationDays
+          : meta && typeof meta.durationDays === 'string'
+            ? parseInt(meta.durationDays, 10)
+            : NaN;
+        const durationDays =
+          Number.isFinite(snapDays) && snapDays >= 1 ? snapDays : apply.durationDays;
         promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + apply.durationDays);
+        promotionEnd.setDate(promotionEnd.getDate() + durationDays);
       } else if (stripePackageType && STRIPE_ONLY_FALLBACK[stripePackageType]) {
         const fb = STRIPE_ONLY_FALLBACK[stripePackageType];
         promotionTypeStr = fb.type;
@@ -570,10 +561,24 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
+  // Terminal states must not be overwritten by a late failed event.
+  if (
+    payment.status === PaymentStatus.succeeded ||
+    payment.status === PaymentStatus.refunded ||
+    payment.status === PaymentStatus.cancelled
+  ) {
+    logger.warn('Ignoring payment_failed for terminal payment status', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+      status: payment.status,
+    });
+    return;
+  }
+
   const updated = await prisma.payment.updateMany({
     where: {
       id: payment.id,
-      status: { not: PaymentStatus.failed },
+      status: PaymentStatus.pending,
     },
     data: {
       status: PaymentStatus.failed,
@@ -642,7 +647,7 @@ async function handlePaymentCanceled(paymentIntent: Stripe.PaymentIntent) {
   const updated = await prisma.payment.updateMany({
     where: {
       id: payment.id,
-      status: { not: PaymentStatus.cancelled },
+      status: PaymentStatus.pending,
     },
     data: { status: PaymentStatus.cancelled },
   });

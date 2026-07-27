@@ -153,14 +153,14 @@ describe('Stripe webhook POST', () => {
     expect(json.received).toBe(true);
   });
 
-  it('returns 200 duplicate when Redis NX fails', async () => {
+  it('returns 200 for payment_intent.succeeded without Redis pre-claim', async () => {
     mockVerify.mockReturnValue(baseEvent());
-    mockRedisSet.mockResolvedValue(null);
     const res = await POST(webhookRequest('{}', 't=1,v1=ok'));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.duplicate).toBe(true);
-    expect(mockFindUnique).not.toHaveBeenCalled();
+    expect(json.received).toBe(true);
+    expect(json.duplicate).toBeUndefined();
+    expect(mockFindUnique).toHaveBeenCalled();
   });
 
   it('processes payment_intent.succeeded once (idempotent on already succeeded)', async () => {

@@ -168,86 +168,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Activate promotion or subscription if payment succeeded (first time only)
+    // Payment bookkeeping only — never activate listing promotions or subscriptions via Netopia.
+    // Stripe webhook remains the sole authority for paid promotion activation.
     if (runSideEffects) {
-      const metadata = payment.metadata as any;
-      
-      if (metadata.promotionId) {
-        // Activate promotion
-        const listing = await prisma.listing.findUnique({
-          where: { id: metadata.promotionId },
-        });
-
-        if (listing) {
-          const promotionDuration = metadata.promotionType === 'boost_24h' ? 24
-            : metadata.promotionType === 'boost_72h' ? 72
-            : metadata.promotionType === 'boost_7days' ? 168
-            : 24;
-
-          const promotionExpiresAt = new Date(Date.now() + promotionDuration * 60 * 60 * 1000);
-          const { computeFeedBoost } = await import("@/lib/listing-feed-boost");
-          await prisma.listing.update({
-            where: { id: listing.id },
-            data: {
-              isPromoted: true,
-              feedBoost: computeFeedBoost(true, !!listing.isFeatured),
-              promotionType: metadata.promotionType,
-              promotionStartedAt: new Date(),
-              promotionExpiresAt,
-            },
-          });
-
-          const { notifyListingPromoted } = await import("@/lib/user-notifications");
-          void notifyListingPromoted({
-            userId: listing.ownerUserId,
-            listingTitle: listing.title,
-            promotionExpiresAt,
-            wasPromoted: listing.isPromoted,
-            previousPromotionExpiresAt: listing.promotionExpiresAt,
-          });
-
-          console.log('Netopia: Promotion activated:', listing.id);
-        }
-      } else if (metadata.subscriptionTier) {
-        // Activate subscription
-        const expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-        await prisma.user.update({
-          where: { id: payment.userId },
-          data: {
-            subscriptionTier: metadata.subscriptionTier,
-            subscriptionExpiresAt: expiresAt,
-            subscriptionRenewsAt: expiresAt,
-            freeBoostsRemaining: metadata.subscriptionTier === 'business' ? 3 : 5,
-          },
-        });
-
-        console.log('Netopia: Subscription activated:', payment.userId);
-      }
-
-      // Create invoice
-      const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
-      await prisma.invoice.create({
-        data: {
-          userId: payment.userId,
-          paymentId: payment.id,
-          invoiceNumber,
-          amount: payment.amount,
-          currency: payment.currency,
-          status: 'paid',
-          issuedAt: new Date(),
-          paidAt: new Date(),
-          items: {
-            description: payment.description || 'Payment',
-            amount: payment.amount,
-            quantity: 1,
-          },
-        },
+      console.warn('Netopia IPN: listing/subscription activation disabled', {
+        paymentId: payment.id,
       });
 
-      console.log('Netopia: Invoice created:', invoiceNumber);
+      const existingInv = await prisma.invoice.findFirst({ where: { paymentId: payment.id } });
+      if (!existingInv) {
+        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        await prisma.invoice.create({
+          data: {
+            userId: payment.userId,
+            paymentId: payment.id,
+            invoiceNumber,
+            amount: payment.amount,
+            currency: payment.currency,
+            status: 'paid',
+            issuedAt: new Date(),
+            paidAt: new Date(),
+            items: {
+              description: payment.description || 'Payment',
+              amount: payment.amount,
+              quantity: 1,
+            },
+          },
+        });
+        console.log('Netopia: Invoice created:', invoiceNumber);
+      }
     }
 
     // Return success response (XML format required by Netopia)
