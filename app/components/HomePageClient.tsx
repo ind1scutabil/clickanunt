@@ -141,9 +141,11 @@ export default function HomePageClient({
 
   const handleSearch = (query: string, category?: string) => {
     const params = new URLSearchParams();
-    if (query) params.append("search", query);
-    if (category) params.append("category", category);
-    router.push(`/listings?${params.toString()}`);
+    const q = query.trim();
+    if (q) params.set("q", q);
+    if (category) params.set("category", category);
+    const qs = params.toString();
+    router.push(qs ? `/listings?${qs}` : "/listings");
   };
 
   const listingsCta =

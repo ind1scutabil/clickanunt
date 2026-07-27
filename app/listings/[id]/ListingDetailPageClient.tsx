@@ -18,6 +18,7 @@ import { getCsrfToken } from "@/lib/security/csrf-client";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
+import { isFavoriteLocal, toggleFavoriteListing } from "@/lib/favorites-client";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
@@ -202,8 +203,7 @@ export default function ListingDetailPageClient({
   // Check if listing is in favorites
   useEffect(() => {
     if (id) {
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      setIsFavorite(favorites.includes(id));
+      setIsFavorite(isFavoriteLocal(id));
     }
   }, [id]);
 
@@ -301,18 +301,16 @@ export default function ListingDetailPageClient({
   }, [listing?.id, listing?.category, listing?.make, listing?.model]);
 
   const toggleFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    if (isFavorite) {
-      // Remove from favorites
-      const updated = favorites.filter((fav: string) => fav !== id);
-      localStorage.setItem('favorites', JSON.stringify(updated));
-      setIsFavorite(false);
-    } else {
-      // Add to favorites
-      favorites.push(id);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      setIsFavorite(true);
-    }
+    if (!id) return;
+    const prev = isFavorite;
+    setIsFavorite(!prev);
+    void toggleFavoriteListing(id).then((result) => {
+      if (result.error && !result.needsAuth) {
+        setIsFavorite(prev);
+        return;
+      }
+      setIsFavorite(result.saved);
+    });
   };
 
   const shareOnFacebook = () => {

@@ -6,6 +6,7 @@ import { getUserFromRequest } from "@/lib/auth";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-query";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
+import { guardBrowsePriceBand } from "@/lib/listings/browse-filter-guards";
 
 /**
  * @deprecated Prefer `GET /api/listings?q=…` for full listing rows + shared filters/sort.
@@ -18,6 +19,7 @@ const searchSchema = z.object({
   year: z.coerce.number().int().min(1900).max(2100).optional(),
   minPrice: z.coerce.number().min(0).max(1_000_000).optional(),
   maxPrice: z.coerce.number().min(0).max(1_000_000).optional(),
+  priceCurrency: z.enum(["RON", "EUR", "USD"]).optional(),
   page: z.coerce.number().int().min(1).max(50).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
@@ -40,11 +42,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid query" }, { status: 400 });
     }
 
-    const { q, category, city, year, minPrice, maxPrice, page, limit } = parsed.data;
+    const { q, category, city, year, minPrice, maxPrice, priceCurrency, page, limit } = parsed.data;
     const offset = (page - 1) * limit;
 
-    if (typeof minPrice === "number" && typeof maxPrice === "number" && minPrice > maxPrice) {
-      return NextResponse.json({ error: "minPrice cannot be greater than maxPrice" }, { status: 400 });
+    const priceBand = guardBrowsePriceBand({
+      minPrice: typeof minPrice === "number" ? minPrice : null,
+      maxPrice: typeof maxPrice === "number" ? maxPrice : null,
+      priceCurrency: priceCurrency ?? null,
+    });
+    if (!priceBand.ok) {
+      return NextResponse.json({ error: priceBand.error }, { status: 400 });
     }
 
     const tsq = buildRomanianTsQuery(q);
@@ -61,8 +68,9 @@ export async function GET(request: NextRequest) {
         category: category ?? null,
         city: city ?? null,
         year: typeof year === "number" ? year : null,
-        minPrice: typeof minPrice === "number" ? minPrice : null,
-        maxPrice: typeof maxPrice === "number" ? maxPrice : null,
+        minPrice: priceBand.minPrice,
+        maxPrice: priceBand.maxPrice,
+        priceCurrency: priceBand.priceCurrency,
       },
       limit,
       offset

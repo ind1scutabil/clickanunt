@@ -28,10 +28,18 @@ export type ListingFtsFilterParams = {
   yearMax?: number | null;
   minPrice?: number | null;
   maxPrice?: number | null;
+  /** Required by callers when min/max price is set (no cross-currency compare). */
+  priceCurrency?: string | null;
   make?: string | null;
   model?: string | null;
   fuel?: string | null;
   transmission?: string | null;
+  condition?: string | null;
+  /**
+   * Equality containment on `attributes` JSONB (`attributes @> jsonb`).
+   * Pass a JSON object string, e.g. `{"brand":"Samsung"}`.
+   */
+  attributesContainmentJson?: string | null;
   ownerUserId?: string | null;
 };
 
@@ -60,10 +68,13 @@ export async function ftsSearchListingIds(
   const yearMaxParam = typeof filters.yearMax === 'number' ? filters.yearMax : null;
   const minPriceParam = typeof filters.minPrice === 'number' ? filters.minPrice : null;
   const maxPriceParam = typeof filters.maxPrice === 'number' ? filters.maxPrice : null;
+  const priceCurrencyParam = filters.priceCurrency ?? null;
   const makeParam = filters.make ?? null;
   const modelParam = filters.model ?? null;
   const fuelParam = filters.fuel ?? null;
   const transmissionParam = filters.transmission ?? null;
+  const conditionParam = filters.condition ?? null;
+  const attributesJsonParam = filters.attributesContainmentJson ?? null;
   const ownerUserIdParam = filters.ownerUserId ?? null;
   const activeOnly = filters.activeOnly !== false;
   /** Public catalog/search — approved only; owner/admin scoped queries skip this. */
@@ -107,11 +118,20 @@ export async function ftsSearchListingIds(
         AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
         AND "priceAmount" <= ${maxPriceParam}
       ))
+      AND (
+        ${priceCurrencyParam}::text IS NULL
+        OR "priceCurrency" = ${priceCurrencyParam}
+      )
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
       AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
       AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
-    ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC
+      AND (${conditionParam}::text IS NULL OR condition::text = ${conditionParam})
+      AND (
+        ${attributesJsonParam}::text IS NULL
+        OR attributes @> ${attributesJsonParam}::jsonb
+      )
+    ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC, id DESC
     LIMIT ${limit} OFFSET ${offset}
   `;
 
@@ -151,10 +171,19 @@ export async function ftsSearchListingIds(
         AND ("priceType" IS NULL OR "priceType"::text IN ('FIXED','NEGOTIABLE','FROM'))
         AND "priceAmount" <= ${maxPriceParam}
       ))
+      AND (
+        ${priceCurrencyParam}::text IS NULL
+        OR "priceCurrency" = ${priceCurrencyParam}
+      )
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
       AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
       AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
+      AND (${conditionParam}::text IS NULL OR condition::text = ${conditionParam})
+      AND (
+        ${attributesJsonParam}::text IS NULL
+        OR attributes @> ${attributesJsonParam}::jsonb
+      )
   `;
 
   const total = Number(countResult[0]?.count ?? 0);

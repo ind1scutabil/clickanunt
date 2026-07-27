@@ -843,6 +843,8 @@ export const searchListingsSchema = z.object({
   maxPrice: z.coerce.number().min(0).optional(),
   priceMin: z.coerce.number().min(0).optional(),
   priceMax: z.coerce.number().min(0).optional(),
+  /** Required when priceMin/priceMax (or aliases) are set — no cross-currency bands. */
+  priceCurrency: z.enum(['RON', 'EUR', 'USD']).optional(),
   year: z.coerce.number().int().optional(),
   yearMin: z.coerce.number().int().optional(),
   yearMax: z.coerce.number().int().optional(),

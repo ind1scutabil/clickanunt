@@ -8,6 +8,7 @@ import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
+import { jsonMutationWithAuthRefresh } from "@/lib/admin-fetch";
 
 interface SavedListing {
   id: string;
@@ -83,15 +84,12 @@ export default function FavoritesPage() {
 
   const handleRemoveFavorite = async (id: string) => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(`/api/favorites?listingId=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await jsonMutationWithAuthRefresh(
+        `/api/favorites?listingId=${encodeURIComponent(id)}`,
+        "DELETE"
+      );
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error("Failed to remove from favorites");
       }
 

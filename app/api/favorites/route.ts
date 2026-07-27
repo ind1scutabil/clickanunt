@@ -6,6 +6,31 @@ import { verifyToken } from '@/lib/auth';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 import { FAVORITES_LIST_MAX } from '@/lib/infra/production-limits';
+import { isListingSeoIndexable } from '@/lib/seo/listing-seo-eligibility';
+
+function favoriteAvailability(listing: {
+  status: string;
+  deletedAt: Date | null;
+  moderationStatus: string;
+  expiresAt: Date | null;
+}): { available: boolean; unavailableReason: string | null } {
+  if (listing.deletedAt != null || listing.status === 'deleted') {
+    return { available: false, unavailableReason: 'deleted' };
+  }
+  if (listing.status === 'hidden' || listing.status === 'rejected') {
+    return { available: false, unavailableReason: listing.status };
+  }
+  if (listing.moderationStatus !== 'approved') {
+    return { available: false, unavailableReason: 'moderation' };
+  }
+  if (listing.expiresAt != null && listing.expiresAt.getTime() <= Date.now()) {
+    return { available: false, unavailableReason: 'expired' };
+  }
+  if (listing.status !== 'active') {
+    return { available: false, unavailableReason: listing.status };
+  }
+  return { available: true, unavailableReason: null };
+}
 
 // GET /api/favorites - Get user's favorites
 export async function GET(req: NextRequest) {
@@ -38,6 +63,11 @@ export async function GET(req: NextRequest) {
             title: true,
             priceAmount: true,
             priceCurrency: true,
+            priceType: true,
+            salaryMin: true,
+            salaryMax: true,
+            salaryCurrency: true,
+            salaryPeriod: true,
             photos: true,
             city: true,
             county: true,
@@ -45,6 +75,8 @@ export async function GET(req: NextRequest) {
             subcategory: true,
             views: true,
             isFeatured: true,
+            isPromoted: true,
+            promotionExpiresAt: true,
             condition: true,
             make: true,
             model: true,
@@ -53,6 +85,9 @@ export async function GET(req: NextRequest) {
             fuel: true,
             transmission: true,
             status: true,
+            deletedAt: true,
+            moderationStatus: true,
+            expiresAt: true,
             createdAt: true,
             owner: {
               select: {
@@ -68,35 +103,50 @@ export async function GET(req: NextRequest) {
       take: FAVORITES_LIST_MAX,
     });
 
-    const slim = favorites.map((f) => ({
-      id: f.id,
-      userId: f.userId,
-      listingId: f.listingId,
-      createdAt: f.createdAt.toISOString(),
-      listing: {
-        id: f.listing.id,
-        title: f.listing.title,
-        priceAmount: f.listing.priceAmount,
-        priceCurrency: f.listing.priceCurrency,
-        photos: normalizeListingPhotosArray(f.listing.photos, origin).slice(0, 4),
-        city: f.listing.city,
-        county: f.listing.county,
-        category: f.listing.category,
-        subcategory: f.listing.subcategory,
-        views: f.listing.views,
-        isFeatured: f.listing.isFeatured,
-        condition: f.listing.condition,
-        make: f.listing.make,
-        model: f.listing.model,
-        year: f.listing.year,
-        mileage: f.listing.mileage,
-        fuel: f.listing.fuel,
-        transmission: f.listing.transmission,
-        status: f.listing.status,
-        createdAt: f.listing.createdAt.toISOString(),
-        owner: f.listing.owner,
-      },
-    }));
+    const slim = favorites.map((f) => {
+      const avail = favoriteAvailability(f.listing);
+      const promotedLive =
+        Boolean(f.listing.isPromoted) &&
+        (f.listing.promotionExpiresAt == null ||
+          f.listing.promotionExpiresAt.getTime() > Date.now());
+      return {
+        id: f.id,
+        userId: f.userId,
+        listingId: f.listingId,
+        createdAt: f.createdAt.toISOString(),
+        available: avail.available,
+        unavailableReason: avail.unavailableReason,
+        listing: {
+          id: f.listing.id,
+          title: f.listing.title,
+          priceAmount: f.listing.priceAmount,
+          priceCurrency: f.listing.priceCurrency,
+          priceType: f.listing.priceType,
+          salaryMin: f.listing.salaryMin,
+          salaryMax: f.listing.salaryMax,
+          salaryCurrency: f.listing.salaryCurrency,
+          salaryPeriod: f.listing.salaryPeriod,
+          photos: normalizeListingPhotosArray(f.listing.photos, origin).slice(0, 4),
+          city: f.listing.city,
+          county: f.listing.county,
+          category: f.listing.category,
+          subcategory: f.listing.subcategory,
+          views: f.listing.views,
+          isFeatured: f.listing.isFeatured,
+          isPromoted: promotedLive,
+          condition: f.listing.condition,
+          make: f.listing.make,
+          model: f.listing.model,
+          year: f.listing.year,
+          mileage: f.listing.mileage,
+          fuel: f.listing.fuel,
+          transmission: f.listing.transmission,
+          status: f.listing.status,
+          createdAt: f.listing.createdAt.toISOString(),
+          owner: f.listing.owner,
+        },
+      };
+    });
 
     return NextResponse.json(
       { favorites: slim },
@@ -145,16 +195,35 @@ export async function POST(req: NextRequest) {
     const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
     const { listingId } = security.data as any;
 
-    // Check if listing exists
     const listing = await prisma.listing.findUnique({
-      where: { id: listingId }
+      where: { id: listingId },
+      select: {
+        id: true,
+        status: true,
+        deletedAt: true,
+        moderationStatus: true,
+        expiresAt: true,
+      },
     });
 
     if (!listing) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    // Create favorite (will fail if duplicate due to unique constraint)
+    if (
+      !isListingSeoIndexable({
+        status: listing.status,
+        deletedAt: listing.deletedAt,
+        moderationStatus: listing.moderationStatus,
+        expiresAt: listing.expiresAt,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'Anunțul nu este disponibil public pentru favorite' },
+        { status: 400 }
+      );
+    }
+
     const favorite = await prisma.favorite.create({
       data: {
         userId,
@@ -185,6 +254,18 @@ export async function POST(req: NextRequest) {
 // DELETE /api/favorites - Remove from favorites
 export async function DELETE(req: NextRequest) {
   try {
+    const security = await validateSecureRequest(req, {
+      requireCSRF: true,
+      rateLimit: 'api',
+    });
+
+    if (!security.success) {
+      return NextResponse.json(
+        { error: security.error || 'Unauthorized' },
+        { status: security.rateLimitError ? 429 : security.csrfError ? 403 : 400 }
+      );
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

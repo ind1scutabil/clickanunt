@@ -92,6 +92,8 @@ interface Filters {
   yearMax?: number;
   priceMin?: number;
   priceMax?: number;
+  /** Required by API with price bands; UI price inputs are labeled RON. */
+  priceCurrency?: 'RON' | 'EUR' | 'USD';
   sortBy?: string;
   sortOrder?: string;
   [key: `attr_${string}`]: string | undefined;
@@ -269,6 +271,13 @@ export default function ListingsView({
         params.set(key, value.toString());
       });
 
+      if (
+        (filters.priceMin != null || filters.priceMax != null) &&
+        !params.get('priceCurrency')
+      ) {
+        params.set('priceCurrency', filters.priceCurrency || 'RON');
+      }
+
       const sortKey = `${filters.sortBy}-${filters.sortOrder}`;
       const sortMap: Record<string, string> = {
         'createdAt-desc': 'newest',
@@ -318,7 +327,14 @@ export default function ListingsView({
   }
 
   function handleFilterChange(key: keyof Filters, value: any) {
-    const newFilters = { ...filters, [key]: value };
+    const newFilters: Filters = { ...filters, [key]: value };
+    if (key === 'priceMin' || key === 'priceMax') {
+      if (newFilters.priceMin != null || newFilters.priceMax != null) {
+        newFilters.priceCurrency = newFilters.priceCurrency || 'RON';
+      } else {
+        delete newFilters.priceCurrency;
+      }
+    }
     setFilters(newFilters);
     setPage(1);
 
@@ -327,8 +343,8 @@ export default function ListingsView({
     } else {
       const params = new URLSearchParams();
       Object.entries(newFilters).forEach(([k, v]) => {
-        if (v && k !== "sortBy" && k !== "sortOrder") {
-          params.set(k, v.toString());
+        if (v !== undefined && v !== "" && k !== "sortBy" && k !== "sortOrder") {
+          params.set(k, String(v));
         }
       });
 

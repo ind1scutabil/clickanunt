@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import { useState, useEffect } from "react";
-import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import { fetchWithAuthRefresh, jsonMutationWithAuthRefresh } from "@/lib/admin-fetch";
 import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
@@ -11,7 +11,10 @@ import {
 import type { FavoriteWithListingDto } from "@clickanunt/api-contracts";
 import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
-type Favorite = FavoriteWithListingDto;
+type Favorite = FavoriteWithListingDto & {
+  available?: boolean;
+  unavailableReason?: string | null;
+};
 
 /** Token-uri vizuale — doar această pagină. */
 const pageAmbient =
@@ -87,13 +90,9 @@ export default function FavoritesPage() {
     e.stopPropagation();
 
     try {
-      const res = await fetchWithAuthRefresh(
+      const res = await jsonMutationWithAuthRefresh(
         `/api/favorites?listingId=${encodeURIComponent(listingId)}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-          cache: "no-store",
-        }
+        "DELETE"
       );
 
       if (!res.ok) {
@@ -337,11 +336,19 @@ export default function FavoritesPage() {
                       </svg>
                     </button>
 
-                    {listing.isFeatured && (
+                    {favorite.available === false ? (
+                      <div className="absolute left-4 top-4 z-[1] rounded-full border border-amber-500/40 bg-amber-950/85 px-3 py-1.5 text-xs font-semibold text-amber-100 shadow-lg">
+                        {favorite.unavailableReason === "expired"
+                          ? "Expirat"
+                          : favorite.unavailableReason === "deleted"
+                            ? "Retras"
+                            : "Indisponibil"}
+                      </div>
+                    ) : listing.isFeatured ? (
                       <div className="absolute left-4 top-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-900/40">
                         TOP ANUNȚ
                       </div>
-                    )}
+                    ) : null}
 
                     <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/75 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
                       <svg

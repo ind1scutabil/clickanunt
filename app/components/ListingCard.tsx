@@ -11,8 +11,8 @@ import { resolveClientApiUrl } from '@/lib/client-canonical-www';
 import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
-import { isListingSaved, toggleSavedListingId } from '@/lib/recent-listings-storage';
 import { formatListingCommercialOrSalaryLine } from '@/lib/format-listing-price';
+import { isFavoriteLocal, toggleFavoriteListing } from '@/lib/favorites-client';
 
 const motionEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -41,6 +41,7 @@ export interface ListingCardListing {
   createdAt: string;
   status: string;
   isPromoted: boolean;
+  promotionExpiresAt?: string | null;
   views: number;
   city?: string | null;
   county?: string | null;
@@ -112,7 +113,7 @@ export function ListingCard({
   }, [listing.createdAt]);
 
   useEffect(() => {
-    setSaved(isListingSaved(listing.id));
+    setSaved(isFavoriteLocal(listing.id));
   }, [listing.id]);
 
   useEffect(() => {
@@ -127,8 +128,22 @@ export function ListingCard({
   const handleFav = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setSaved(toggleSavedListingId(listing.id));
+    const prev = saved;
+    setSaved(!prev);
+    void toggleFavoriteListing(listing.id).then((result) => {
+      if (result.error && !result.needsAuth) {
+        setSaved(prev);
+        return;
+      }
+      setSaved(result.saved);
+    });
   };
+
+  const promotedLive =
+    Boolean(listing.isPromoted) &&
+    (listing.promotionExpiresAt == null ||
+      listing.promotionExpiresAt === '' ||
+      new Date(listing.promotionExpiresAt).getTime() > Date.now());
 
   // Price formatting: lib/format-listing-price (single currency code).
 
@@ -243,7 +258,7 @@ export function ListingCard({
         </div>
 
         <div className="absolute right-2 top-2 z-[3] flex items-center gap-1.5 sm:right-2.5 sm:top-2.5">
-          {listing.isPromoted ? <PromotedBadge size="xs" tone="glassDark" /> : null}
+          {promotedLive ? <PromotedBadge size="xs" tone="glassDark" /> : null}
           {showFavorite ? (
             <button
               type="button"

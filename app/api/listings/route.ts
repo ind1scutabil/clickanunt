@@ -55,6 +55,12 @@ import {
   listingPublishExpiryFields,
 } from "@/lib/listing-expiry";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
+import {
+  buildAttributesContainmentObject,
+  guardBrowsePriceBand,
+  guardVehicleFiltersForCategory,
+  parseOptionalNonNegNumber,
+} from "@/lib/listings/browse-filter-guards";
 
 export async function GET(request: NextRequest) {
   try {
@@ -173,18 +179,56 @@ export async function GET(request: NextRequest) {
     if (query.county) where.county = { equals: query.county };
     if (query.city) where.city = { equals: query.city };
 
-    if (query.make) where.make = { equals: query.make };
-    if (query.model) where.model = { equals: query.model };
-    if (query.fuel) where.fuel = { equals: query.fuel };
-    if (query.transmission) where.transmission = { equals: query.transmission };
+    const year = query.year ?? q.get("year");
+    const yearMin = query.yearMin ?? q.get("yearMin");
+    const yearMax = query.yearMax ?? q.get("yearMax");
+    const yNum = year != null && year !== "" ? Number(year) : NaN;
+    const yMinNum = yearMin != null && yearMin !== "" ? Number(yearMin) : NaN;
+    const yMaxNum = yearMax != null && yearMax !== "" ? Number(yearMax) : NaN;
 
-    const minPrice = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
-    const maxPrice = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
-    if (minPrice || maxPrice) {
+    const vehicleGuard = guardVehicleFiltersForCategory({
+      category: query.category ?? null,
+      make: query.make ?? null,
+      model: query.model ?? null,
+      fuel: query.fuel ?? null,
+      transmission: query.transmission ?? null,
+      year: !Number.isNaN(yNum) ? yNum : null,
+      yearMin: !Number.isNaN(yMinNum) ? yMinNum : null,
+      yearMax: !Number.isNaN(yMaxNum) ? yMaxNum : null,
+    });
+    if (!vehicleGuard.ok) {
+      return NextResponse.json({ error: vehicleGuard.error }, { status: 400 });
+    }
+    if (vehicleGuard.apply) {
+      if (query.make) where.make = { equals: query.make };
+      if (query.model) where.model = { equals: query.model };
+      if (query.fuel) where.fuel = { equals: query.fuel };
+      if (query.transmission) where.transmission = { equals: query.transmission };
+      if (year || yearMin || yearMax) {
+        where.year = {};
+        if (!Number.isNaN(yNum)) where.year.equals = yNum;
+        if (!Number.isNaN(yMinNum)) where.year.gte = yMinNum;
+        if (!Number.isNaN(yMaxNum)) where.year.lte = yMaxNum;
+      }
+    }
+
+    const minPriceRaw = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
+    const maxPriceRaw = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
+    const priceCurrencyRaw =
+      query.priceCurrency ?? q.get("priceCurrency") ?? q.get("currency") ?? null;
+    const priceBand = guardBrowsePriceBand({
+      minPrice: parseOptionalNonNegNumber(minPriceRaw),
+      maxPrice: parseOptionalNonNegNumber(maxPriceRaw),
+      priceCurrency: typeof priceCurrencyRaw === "string" ? priceCurrencyRaw : null,
+    });
+    if (!priceBand.ok) {
+      return NextResponse.json({ error: priceBand.error }, { status: 400 });
+    }
+    if (priceBand.minPrice != null || priceBand.maxPrice != null) {
       where.priceAmount = {};
-      if (minPrice) where.priceAmount.gte = Number(minPrice);
-      if (maxPrice) where.priceAmount.lte = Number(maxPrice);
-      // Numeric price bands only apply to types with a real amount.
+      if (priceBand.minPrice != null) where.priceAmount.gte = priceBand.minPrice;
+      if (priceBand.maxPrice != null) where.priceAmount.lte = priceBand.maxPrice;
+      // Numeric price bands only apply to types with a real amount + matching currency.
       where.AND = [
         ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
         {
@@ -194,17 +238,8 @@ export async function GET(request: NextRequest) {
           ],
         },
         { priceAmount: { not: null } },
+        { priceCurrency: priceBand.priceCurrency },
       ];
-    }
-
-    const year = query.year ?? q.get("year");
-    const yearMin = query.yearMin ?? q.get("yearMin");
-    const yearMax = query.yearMax ?? q.get("yearMax");
-    if (year || yearMin || yearMax) {
-      where.year = {};
-      if (year) where.year.equals = Number(year);
-      if (yearMin) where.year.gte = Number(yearMin);
-      if (yearMax) where.year.lte = Number(yearMax);
     }
 
     if (query.condition) where.condition = { equals: query.condition };
@@ -229,6 +264,13 @@ export async function GET(request: NextRequest) {
           : attrConditions;
     }
 
+    const attributesContainment = buildAttributesContainmentObject(
+      attrFilters.map((f) => ({ key: f.path[0], value: f.equals }))
+    );
+    const attributesContainmentJson = attributesContainment
+      ? JSON.stringify(attributesContainment)
+      : null;
+
     const rawQ = (query.q ?? q.get("q") ?? "").trim();
     const useFts = rawQ.length >= 2;
 
@@ -252,11 +294,6 @@ export async function GET(request: NextRequest) {
       }
 
       const offset = (rawPage - 1) * limitNum;
-      const y = year != null ? Number(year) : NaN;
-      const yMin = yearMin != null ? Number(yearMin) : NaN;
-      const yMax = yearMax != null ? Number(yearMax) : NaN;
-      const minP = minPrice != null && minPrice !== "" ? Number(minPrice) : null;
-      const maxP = maxPrice != null && maxPrice !== "" ? Number(maxPrice) : null;
 
       const { ids, total } = await ftsSearchListingIds(
         prisma,
@@ -268,15 +305,18 @@ export async function GET(request: NextRequest) {
           subcategory: query.subcategory ?? null,
           county: query.county ?? null,
           city: query.city ?? null,
-          year: !Number.isNaN(y) ? y : null,
-          yearMin: !Number.isNaN(yMin) ? yMin : null,
-          yearMax: !Number.isNaN(yMax) ? yMax : null,
-          minPrice: minP != null && !Number.isNaN(minP) ? minP : null,
-          maxPrice: maxP != null && !Number.isNaN(maxP) ? maxP : null,
-          make: query.make ?? null,
-          model: query.model ?? null,
-          fuel: query.fuel ?? null,
-          transmission: query.transmission ?? null,
+          year: vehicleGuard.apply && !Number.isNaN(yNum) ? yNum : null,
+          yearMin: vehicleGuard.apply && !Number.isNaN(yMinNum) ? yMinNum : null,
+          yearMax: vehicleGuard.apply && !Number.isNaN(yMaxNum) ? yMaxNum : null,
+          minPrice: priceBand.minPrice,
+          maxPrice: priceBand.maxPrice,
+          priceCurrency: priceBand.priceCurrency,
+          make: vehicleGuard.apply ? (query.make ?? null) : null,
+          model: vehicleGuard.apply ? (query.model ?? null) : null,
+          fuel: vehicleGuard.apply ? (query.fuel ?? null) : null,
+          transmission: vehicleGuard.apply ? (query.transmission ?? null) : null,
+          condition: query.condition ?? null,
+          attributesContainmentJson,
           ownerUserId: resolvedOwnerForFts,
         },
         limitNum + 1,
