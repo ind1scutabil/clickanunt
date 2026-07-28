@@ -103,37 +103,34 @@ test.describe('UI Elements - Buttons & Handlers', () => {
     await page.fill('input[type="email"]', 'user@example.com');
     await page.fill('input[type="password"]', 'Password123!');
     
-    const submitButton = page.locator('button[type="submit"]');
+    const submitButton = page.locator('form').getByRole('button', { name: /Conectează/i });
     
-    // Click and immediately check for loading state
     const clickPromise = submitButton.click();
     
-    // Check if button has loading indicator
     const isDisabled = await submitButton.isDisabled().catch(() => false);
     const hasLoadingClass = await submitButton.evaluate((el) => {
       return el.className.includes('loading') || 
              el.className.includes('disabled') ||
-             el.getAttribute('aria-busy') === 'true';
+             el.getAttribute('aria-busy') === 'true' ||
+             (el as HTMLButtonElement).disabled;
     }).catch(() => false);
     
+    await clickPromise.catch(() => undefined);
     expect(isDisabled || hasLoadingClass).toBeTruthy();
   });
 
   test('should disable submit button while form is invalid', async ({ page }) => {
     await page.goto('/auth/register');
     
-    const submitButton = page.locator('button[type="submit"]');
+    const submitButton = page.locator('form').locator('button[type="submit"]');
     
-    // Empty form - should be disabled
-    let isDisabled = await submitButton.isDisabled();
-    expect(isDisabled).toBeTruthy();
+    // Empty form - should be disabled (SignupFormExtended !canSubmit)
+    await expect(submitButton).toBeDisabled();
     
-    // Fill minimum required
     await page.fill('input[name="email"]', 'test@example.com');
     
     // Still should be disabled (missing other fields)
-    isDisabled = await submitButton.isDisabled();
-    expect(isDisabled).toBeTruthy();
+    await expect(submitButton).toBeDisabled();
   });
 });
 

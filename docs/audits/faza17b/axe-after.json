@@ -1,0 +1,1308 @@
+{
+  "base": "http://127.0.0.1:3103",
+  "at": "2026-07-28T08:31:36.311Z",
+  "rows": [
+    {
+      "route": "/",
+      "id": "home",
+      "url": "http://127.0.0.1:3103/",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".focus-visible\\:ring-offset-\\[\\#101318\\].focus-visible\\:ring-orange-400\\/45[aria-label=\"Caută\"]"
+              ],
+              "html": "<button type=\"button\" class=\"h-7 shrink-0 rounded...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".xl\\:inline"
+              ],
+              "html": "<span class=\"hidden xl:inline\">+ Adaugă anunț</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".px-5"
+              ],
+              "html": "<button type=\"submit\" class=\"shrink-0 rounded-ful...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".md\\:min-w-\\[13rem\\] > .tabular-nums"
+              ],
+              "html": "<span class=\"tabular-nums\">242 anunțuri în catalog</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(52\\,211\\,153\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(52\\,211\\,153\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Exter",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(125\\,211\\,252\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(125\\,211\\,252\\,0\\.035\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Exter",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(251\\,146\\,60\\,0\\.11\\)\\,inset_-20px_0_40px_-36px_rgba\\(251\\,146\\,60\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Live<",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".md\\:mb-10 > .tracking-wider.text-\\[11px\\].text-zinc-500"
+              ],
+              "html": "<p class=\"text-[11px] font-medium uppercase tracking-wider text-zinc-500\">Catalog live</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.9 (foreground color: #71717a, background color: #0f1116, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 2
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "url": "http://127.0.0.1:3103/listings",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".h-7"
+              ],
+              "html": "<button type=\"button\" class=\"h-7 shrink-0 rounded...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".xl\\:inline"
+              ],
+              "html": "<span class=\"hidden xl:inline\">+ Adaugă anunț</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".grid-cols-1 > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".tracking-\\[0\\.2em\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "url": "http://127.0.0.1:3103/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".h-7"
+              ],
+              "html": "<button type=\"button\" class=\"h-7 shrink-0 rounded...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".xl\\:inline"
+              ],
+              "html": "<span class=\"hidden xl:inline\">+ Adaugă anunț</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".md\\:grid-cols-4 > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600.text-xs"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".tracking-\\[0\\.2em\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4.md\\:flex-row.text-neutral-500 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 2
+    },
+    {
+      "route": "/auth/login",
+      "id": "login",
+      "url": "http://127.0.0.1:3103/auth/login",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".grid > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-x-6 > button[type=\"button\"]"
+              ],
+              "html": "<button type=\"button\" class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\">Setări cookie</button>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/auth/register",
+      "id": "register",
+      "url": "http://127.0.0.1:3103/auth/register",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".md\\:grid-cols-4 > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100[type=\"button\"]"
+              ],
+              "html": "<button type=\"button\" class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\">Setări cookie</button>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "url": "http://127.0.0.1:3103/auth/login?next=%2Flistings%2Fnew",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".grid > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-x-6 > button[type=\"button\"]"
+              ],
+              "html": "<button type=\"button\" class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\">Setări cookie</button>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dashboard-listings",
+      "url": "http://127.0.0.1:3103/auth/login?redirect=/dashboard/listings",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".grid > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-x-6 > button[type=\"button\"]"
+              ],
+              "html": "<button type=\"button\" class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\">Setări cookie</button>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "url": "http://127.0.0.1:3103/auth/login?redirect=/messages",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".grid > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-x-6 > button[type=\"button\"]"
+              ],
+              "html": "<button type=\"button\" class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\">Setări cookie</button>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-moderation",
+      "url": "http://127.0.0.1:3103/",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".focus-visible\\:ring-offset-\\[\\#101318\\].focus-visible\\:ring-orange-400\\/45[aria-label=\"Caută\"]"
+              ],
+              "html": "<button type=\"button\" class=\"h-7 shrink-0 rounded...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".xl\\:inline"
+              ],
+              "html": "<span class=\"hidden xl:inline\">+ Adaugă anunț</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".px-5"
+              ],
+              "html": "<button type=\"submit\" class=\"shrink-0 rounded-ful...\" aria-label=\"Caută\">",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".md\\:min-w-\\[13rem\\] > .tabular-nums"
+              ],
+              "html": "<span class=\"tabular-nums\">242 anunțuri în catalog</span>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(52\\,211\\,153\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(52\\,211\\,153\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Exter",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(125\\,211\\,252\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(125\\,211\\,252\\,0\\.035\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Exter",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(251\\,146\\,60\\,0\\.11\\)\\,inset_-20px_0_40px_-36px_rgba\\(251\\,146\\,60\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]"
+              ],
+              "html": "<span class=\"rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]\">Live<",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.67 (foreground color: #5a5a62, background color: #141518, font size: 6.0pt (8px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".md\\:mb-10 > .tracking-wider.text-\\[11px\\].text-zinc-500"
+              ],
+              "html": "<p class=\"text-[11px] font-medium uppercase tracking-wider text-zinc-500\">Catalog live</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.9 (foreground color: #71717a, background color: #0f1116, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 2
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "id": "not-found",
+      "url": "http://127.0.0.1:3103/no-such-route-faza17b",
+      "violationCount": 1,
+      "violations": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/color-contrast?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".bg-\\[\\#ff5a00\\]"
+              ],
+              "html": "<a class=\"inline-flex h-11 items-center justify-center rounded-lg bg-[#ff5a00] px-5 text-sm font-semibold text-white transition hover:bg-[#e65200] focus-visible:outline-none focus-visible:ring-2 focus",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 3.12 (foreground color: #ffffff, background color: #ff5a00, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".grid > div:nth-child(1) > .text-neutral-500.mb-4"
+              ],
+              "html": "<p class=\"mb-4 text-sm text-neutral-500\">Platforma ta de încredere pentru toate tipurile de anunțuri.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-neutral-600"
+              ],
+              "html": "<li class=\"text-xs text-neutral-600\">Luni - Vineri: 09:00 - 18:00</li>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #525252, background color: #0a0a0a, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".text-\\[11px\\]"
+              ],
+              "html": "<p class=\"mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500\">Anunțuri populare după categorie și oraș</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-4 > div:nth-child(1) > p"
+              ],
+              "html": "<p>© 2026 ClickAnunț. Toate drepturile rezervate.</p>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/terms\">Termeni</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/privacy\">GDPR</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]"
+              ],
+              "html": "<a class=\"transition-colors duration-normal ease-premium hover:text-neutral-100\" href=\"/cookies\">Cookie-uri</a>",
+              "failureSummary": "Fix any of the following:\n  Element has insufficient color contrast of 4.17 (foreground color: #737373, background color: #0a0a0a, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ],
+      "incompleteCount": 1
+    }
+  ],
+  "flat": [
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".focus-visible\\:ring-offset-\\[\\#101318\\].focus-visible\\:ring-orange-400\\/45[aria-label=\"Caută\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".xl\\:inline",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".px-5",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:min-w-\\[13rem\\] > .tabular-nums",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(52\\,211\\,153\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(52\\,211\\,153\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(125\\,211\\,252\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(125\\,211\\,252\\,0\\.035\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(251\\,146\\,60\\,0\\.11\\)\\,inset_-20px_0_40px_-36px_rgba\\(251\\,146\\,60\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:mb-10 > .tracking-wider.text-\\[11px\\].text-zinc-500",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".h-7",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".xl\\:inline",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid-cols-1 > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".tracking-\\[0\\.2em\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".h-7",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".xl\\:inline",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:grid-cols-4 > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600.text-xs",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".tracking-\\[0\\.2em\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4.md\\:flex-row.text-neutral-500 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/login",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-x-6 > button[type=\"button\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:grid-cols-4 > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/auth/register",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100[type=\"button\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/listings/new",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-x-6 > button[type=\"button\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/dashboard/listings",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-x-6 > button[type=\"button\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/messages",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-x-6 > button[type=\"button\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".focus-visible\\:ring-offset-\\[\\#101318\\].focus-visible\\:ring-orange-400\\/45[aria-label=\"Caută\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".xl\\:inline",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".px-5",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:min-w-\\[13rem\\] > .tabular-nums",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(52\\,211\\,153\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(52\\,211\\,153\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(125\\,211\\,252\\,0\\.1\\)\\,inset_-20px_0_40px_-36px_rgba\\(125\\,211\\,252\\,0\\.035\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".\\[box-shadow\\:inset_0_1px_0_rgba\\(255\\,255\\,255\\,0\\.03\\)\\,inset_2\\.5px_0_0_rgba\\(251\\,146\\,60\\,0\\.11\\)\\,inset_-20px_0_40px_-36px_rgba\\(251\\,146\\,60\\,0\\.04\\)\\] > .py-0.flex-1.min-w-0 > .gap-y-px.md\\:gap-x-2.md\\:gap-y-0 > .rounded.tracking-\\[0\\.14em\\].md\\:rounded-\\[5px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/admin/moderation",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".md\\:mb-10 > .tracking-wider.text-\\[11px\\].text-zinc-500",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".bg-\\[\\#ff5a00\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".grid > div:nth-child(1) > .text-neutral-500.mb-4",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-neutral-600",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".text-\\[11px\\]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".gap-4 > div:nth-child(1) > p",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"terms\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"privacy\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "rule": "color-contrast",
+      "impact": "serious",
+      "selector": ".hover\\:text-neutral-100.duration-normal[href$=\"cookies\"]",
+      "help": "Elements must meet minimum color contrast ratio thresholds"
+    }
+  ]
+}

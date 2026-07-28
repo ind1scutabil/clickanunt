@@ -1,0 +1,6706 @@
+{
+  "startedAt": "2026-07-28T08:02:46.862Z",
+  "finishedAt": "2026-07-28T08:04:20.737Z",
+  "base": "http://127.0.0.1:3103",
+  "head": "0872c5c9b7889fb5a1bf398ce13e72c8e6cc09ff",
+  "listingId": "b010091f-d0c8-4de5-8edb-6b529d12dccd",
+  "matrixCount": 112,
+  "defects": [
+    {
+      "id": "TT-m390",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "390x844",
+      "observation": "Touch targets under 44px: Caută 53x34; Favorite 36x36; Mesaje 36x36; Adaugă anunț 36x36; Deschide/închide meniu 36x36",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 53,
+          "h": 34,
+          "right": 195,
+          "clipped": false
+        },
+        {
+          "name": "Favorite",
+          "w": 36,
+          "h": 36,
+          "right": 246,
+          "clipped": false
+        },
+        {
+          "name": "Mesaje",
+          "w": 36,
+          "h": 36,
+          "right": 290,
+          "clipped": false
+        },
+        {
+          "name": "Adaugă anunț",
+          "w": 36,
+          "h": 36,
+          "right": 334,
+          "clipped": false
+        },
+        {
+          "name": "Deschide/închide meniu",
+          "w": 36,
+          "h": 36,
+          "right": 378,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "TT-m320",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "320x568",
+      "observation": "Touch targets under 44px: Caută 53x34; Favorite 36x36; Mesaje 36x36; Adaugă anunț 36x36; Deschide/închide meniu 36x36",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 53,
+          "h": 34,
+          "right": 160,
+          "clipped": false
+        },
+        {
+          "name": "Favorite",
+          "w": 36,
+          "h": 36,
+          "right": 194,
+          "clipped": false
+        },
+        {
+          "name": "Mesaje",
+          "w": 36,
+          "h": 36,
+          "right": 232,
+          "clipped": false
+        },
+        {
+          "name": "Adaugă anunț",
+          "w": 36,
+          "h": 36,
+          "right": 270,
+          "clipped": false
+        },
+        {
+          "name": "Deschide/închide meniu",
+          "w": 36,
+          "h": 36,
+          "right": 308,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "SEARCH-NARROW-m320",
+      "severity": "P1",
+      "route": "/",
+      "viewport": "320x568",
+      "observation": "Mobile search input width 26px may be unusable",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 505
+        }
+      }
+    },
+    {
+      "id": "TT-m360",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "360x800",
+      "observation": "Touch targets under 44px: Caută 53x34; Favorite 36x36; Mesaje 36x36; Adaugă anunț 36x36; Deschide/închide meniu 36x36",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 53,
+          "h": 34,
+          "right": 187,
+          "clipped": false
+        },
+        {
+          "name": "Favorite",
+          "w": 36,
+          "h": 36,
+          "right": 234,
+          "clipped": false
+        },
+        {
+          "name": "Mesaje",
+          "w": 36,
+          "h": 36,
+          "right": 272,
+          "clipped": false
+        },
+        {
+          "name": "Adaugă anunț",
+          "w": 36,
+          "h": 36,
+          "right": 310,
+          "clipped": false
+        },
+        {
+          "name": "Deschide/închide meniu",
+          "w": 36,
+          "h": 36,
+          "right": 348,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "SEARCH-NARROW-m360",
+      "severity": "P1",
+      "route": "/",
+      "viewport": "360x800",
+      "observation": "Mobile search input width 53px may be unusable",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 737
+        }
+      }
+    },
+    {
+      "id": "TT-m393",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "393x852",
+      "observation": "Touch targets under 44px: Caută 53x34; Favorite 36x36; Mesaje 36x36; Adaugă anunț 36x36; Deschide/închide meniu 36x36",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 53,
+          "h": 34,
+          "right": 198,
+          "clipped": false
+        },
+        {
+          "name": "Favorite",
+          "w": 36,
+          "h": 36,
+          "right": 249,
+          "clipped": false
+        },
+        {
+          "name": "Mesaje",
+          "w": 36,
+          "h": 36,
+          "right": 293,
+          "clipped": false
+        },
+        {
+          "name": "Adaugă anunț",
+          "w": 36,
+          "h": 36,
+          "right": 337,
+          "clipped": false
+        },
+        {
+          "name": "Deschide/închide meniu",
+          "w": 36,
+          "h": 36,
+          "right": 381,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "TT-m430",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "430x932",
+      "observation": "Touch targets under 44px: Caută 53x34; Favorite 36x36; Mesaje 36x36; Adaugă anunț 36x36; Deschide/închide meniu 36x36",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 53,
+          "h": 34,
+          "right": 235,
+          "clipped": false
+        },
+        {
+          "name": "Favorite",
+          "w": 36,
+          "h": 36,
+          "right": 286,
+          "clipped": false
+        },
+        {
+          "name": "Mesaje",
+          "w": 36,
+          "h": 36,
+          "right": 330,
+          "clipped": false
+        },
+        {
+          "name": "Adaugă anunț",
+          "w": 36,
+          "h": 36,
+          "right": 374,
+          "clipped": false
+        },
+        {
+          "name": "Deschide/închide meniu",
+          "w": 36,
+          "h": 36,
+          "right": 418,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "TT-land844",
+      "severity": "P2",
+      "route": "/",
+      "viewport": "844x390",
+      "observation": "Touch targets under 44px: Caută 67x28",
+      "measures": [
+        {
+          "name": "Caută",
+          "w": 67,
+          "h": 28,
+          "right": 500,
+          "clipped": false
+        }
+      ]
+    },
+    {
+      "id": "SEARCH-NARROW-m320",
+      "severity": "P1",
+      "route": "/listings",
+      "viewport": "320x568",
+      "observation": "Mobile search input width 26px may be unusable",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m360",
+      "severity": "P1",
+      "route": "/listings",
+      "viewport": "360x800",
+      "observation": "Mobile search input width 53px may be unusable",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m320",
+      "severity": "P1",
+      "route": "/listings?q=bmw",
+      "viewport": "320x568",
+      "observation": "Mobile search input width 26px may be unusable",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m360",
+      "severity": "P1",
+      "route": "/listings?q=bmw",
+      "viewport": "360x800",
+      "observation": "Mobile search input width 53px may be unusable",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m320",
+      "severity": "P1",
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "viewport": "320x568",
+      "observation": "Mobile search input width 26px may be unusable",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 113,
+        "firstViewportUseful": {
+          "top": 176,
+          "visibleH": 392
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m360",
+      "severity": "P1",
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "viewport": "360x800",
+      "observation": "Mobile search input width 53px may be unusable",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 113,
+        "firstViewportUseful": {
+          "top": 176,
+          "visibleH": 624
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m320",
+      "severity": "P1",
+      "route": "/admin/moderation",
+      "viewport": "320x568",
+      "observation": "Mobile search input width 26px may be unusable",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 505
+        }
+      }
+    },
+    {
+      "id": "SEARCH-NARROW-m360",
+      "severity": "P1",
+      "route": "/admin/moderation",
+      "viewport": "360x800",
+      "observation": "Mobile search input width 53px may be unusable",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 737
+        }
+      }
+    }
+  ],
+  "matrix": [
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 779
+        }
+      }
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 505
+        }
+      }
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 737
+        }
+      }
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": 65,
+        "searchW": 60,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 198,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 249,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 293,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 337,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 381,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 787
+        }
+      }
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": 65,
+        "searchW": 97,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 235,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 286,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 330,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 374,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 418,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 867
+        }
+      }
+    },
+    {
+      "route": "/",
+      "id": "home",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/home-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": 61,
+        "searchW": 0,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 162,
+            "h": 40,
+            "right": 182,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 67,
+            "h": 28,
+            "right": 500,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 44,
+            "h": 44,
+            "right": 439,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 44,
+            "h": 44,
+            "right": 491,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 130,
+            "h": 44,
+            "right": 629,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 60,
+            "h": 44,
+            "right": 697,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 117,
+            "h": 44,
+            "right": 824,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 61,
+          "visibleH": 329
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": 65,
+        "searchW": 60,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 198,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 249,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 293,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 337,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 381,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": 65,
+        "searchW": 97,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 235,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 286,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 330,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 374,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 418,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/listings",
+      "id": "listings",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": 61,
+        "searchW": 0,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 162,
+            "h": 40,
+            "right": 182,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 67,
+            "h": 28,
+            "right": 500,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 44,
+            "h": 44,
+            "right": 439,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 44,
+            "h": 44,
+            "right": 491,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 130,
+            "h": 44,
+            "right": 629,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 60,
+            "h": 44,
+            "right": 697,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 117,
+            "h": 44,
+            "right": 824,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": 65,
+        "searchW": 60,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 198,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 249,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 293,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 337,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 381,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": 65,
+        "searchW": 97,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 235,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 286,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 330,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 374,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 418,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/listings?q=bmw",
+      "id": "listings-q",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-q-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": 61,
+        "searchW": 0,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 162,
+            "h": 40,
+            "right": 182,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 67,
+            "h": 28,
+            "right": 500,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 44,
+            "h": 44,
+            "right": 439,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 44,
+            "h": 44,
+            "right": 491,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 130,
+            "h": 44,
+            "right": 629,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 60,
+            "h": 44,
+            "right": 697,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 117,
+            "h": 44,
+            "right": 824,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/listings?q=zzzxnoresults999",
+      "id": "listings-empty",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-empty-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/listings?q=zzzxnoresults999",
+      "id": "listings-empty",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/listings-empty-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 89,
+        "firstViewportUseful": {
+          "top": 154,
+          "visibleH": 690
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 113,
+        "firstViewportUseful": {
+          "top": 176,
+          "visibleH": 392
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 113,
+        "firstViewportUseful": {
+          "top": 176,
+          "visibleH": 624
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": 65,
+        "searchW": 60,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 198,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 249,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 293,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 337,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 381,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 89,
+        "firstViewportUseful": {
+          "top": 154,
+          "visibleH": 698
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": 65,
+        "searchW": 97,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 235,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 286,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 330,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 374,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 418,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 89,
+        "firstViewportUseful": {
+          "top": 154,
+          "visibleH": 778
+        }
+      }
+    },
+    {
+      "route": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "id": "detail",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/detail-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": 61,
+        "searchW": 0,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 162,
+            "h": 40,
+            "right": 182,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 67,
+            "h": 28,
+            "right": 500,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 44,
+            "h": 44,
+            "right": 439,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 44,
+            "h": 44,
+            "right": 491,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 130,
+            "h": 44,
+            "right": 629,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 60,
+            "h": 44,
+            "right": 697,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 117,
+            "h": 44,
+            "right": 824,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 45,
+        "firstViewportUseful": {
+          "top": 106,
+          "visibleH": 284
+        }
+      }
+    },
+    {
+      "route": "/business",
+      "id": "business",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/business-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/business",
+      "id": "business",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/business-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 779
+        }
+      }
+    },
+    {
+      "route": "/contact",
+      "id": "contact",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/contact-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/contact",
+      "id": "contact",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/contact-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/gdpr",
+      "id": "gdpr",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/gdpr-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/gdpr",
+      "id": "gdpr",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/gdpr-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 20,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "id": "404",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 404,
+      "screenshot": "test-results/faza17b/404-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/no-such-route-faza17b",
+      "id": "404",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 404,
+      "screenshot": "test-results/faza17b/404-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 591
+        }
+      }
+    },
+    {
+      "route": "/auth/login",
+      "id": "login",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/login-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/auth/login",
+      "id": "login",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/login-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/auth/register",
+      "id": "register",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/register-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/auth/register",
+      "id": "register",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/register-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/auth/forgot-password",
+      "id": "forgot",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/forgot-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/auth/forgot-password",
+      "id": "forgot",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/forgot-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/auth/verify-email",
+      "id": "verify",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/verify-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/auth/verify-email",
+      "id": "verify",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/verify-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/listings/new",
+      "id": "publish",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/publish-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/favorites",
+      "id": "favorites",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/favorites-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/favorites",
+      "id": "favorites",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/favorites-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/dashboard",
+      "id": "dashboard",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dashboard-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/dashboard/listings",
+      "id": "dash-listings",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/dash-listings-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 568
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 800
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 852
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 932
+        }
+      }
+    },
+    {
+      "route": "/messages",
+      "id": "messages",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/messages-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 390
+        }
+      }
+    },
+    {
+      "route": "/admin/dashboard",
+      "id": "admin",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/admin/dashboard",
+      "id": "admin",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": null,
+        "searchW": null,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 0,
+          "visibleH": 844
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "d1440",
+      "size": "1440x900",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-d1440.png",
+      "measures": null
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "m390",
+      "size": "390x844",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-m390.png",
+      "measures": {
+        "vw": 390,
+        "headerH": 65,
+        "searchW": 57,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 195,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 246,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 290,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 334,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 378,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 779
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "d1920",
+      "size": "1920x1080",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-d1920.png",
+      "measures": null
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "d1280",
+      "size": "1280x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-d1280.png",
+      "measures": null
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "d1024",
+      "size": "1024x768",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-d1024.png",
+      "measures": null
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "m320",
+      "size": "320x568",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-m320.png",
+      "measures": {
+        "vw": 320,
+        "headerH": 63,
+        "searchW": 26,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 160,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 194,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 232,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 270,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 308,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 505
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "m360",
+      "size": "360x800",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-m360.png",
+      "measures": {
+        "vw": 360,
+        "headerH": 63,
+        "searchW": 53,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 187,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 234,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 272,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 310,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 348,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 63,
+          "visibleH": 737
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "m393",
+      "size": "393x852",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-m393.png",
+      "measures": {
+        "vw": 393,
+        "headerH": 65,
+        "searchW": 60,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 198,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 249,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 293,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 337,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 381,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 787
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "m430",
+      "size": "430x932",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-m430.png",
+      "measures": {
+        "vw": 430,
+        "headerH": 65,
+        "searchW": 97,
+        "searchVisible": true,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 36,
+            "h": 36,
+            "right": 48,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 53,
+            "h": 34,
+            "right": 235,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 36,
+            "h": 36,
+            "right": 286,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 36,
+            "h": 36,
+            "right": 330,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 36,
+            "h": 36,
+            "right": 374,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 36,
+            "h": 36,
+            "right": 418,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 60,
+        "firstViewportUseful": {
+          "top": 65,
+          "visibleH": 867
+        }
+      }
+    },
+    {
+      "route": "/admin/moderation",
+      "id": "admin-mod",
+      "viewport": "land844",
+      "size": "844x390",
+      "status": 200,
+      "screenshot": "test-results/faza17b/admin-mod-land844.png",
+      "measures": {
+        "vw": 844,
+        "headerH": 61,
+        "searchW": 0,
+        "searchVisible": false,
+        "overflowX": false,
+        "icons": [
+          {
+            "name": "ClickAnunț — pagina principală",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Adaugă anunț",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "Deschide/închide meniu",
+            "w": 0,
+            "h": 0,
+            "right": 0,
+            "clipped": false
+          },
+          {
+            "name": "📦ClickAnunțPiață din România",
+            "w": 162,
+            "h": 40,
+            "right": 182,
+            "clipped": false
+          },
+          {
+            "name": "Caută",
+            "w": 67,
+            "h": 28,
+            "right": 500,
+            "clipped": false
+          },
+          {
+            "name": "Favorite",
+            "w": 44,
+            "h": 44,
+            "right": 439,
+            "clipped": false
+          },
+          {
+            "name": "Mesaje",
+            "w": 44,
+            "h": 44,
+            "right": 491,
+            "clipped": false
+          },
+          {
+            "name": "Meniu categorii",
+            "w": 130,
+            "h": 44,
+            "right": 629,
+            "clipped": false
+          },
+          {
+            "name": "Meniu utilizator",
+            "w": 60,
+            "h": 44,
+            "right": 697,
+            "clipped": false
+          },
+          {
+            "name": "+ Adaugă anunț+ Adaugă",
+            "w": 117,
+            "h": 44,
+            "right": 824,
+            "clipped": false
+          }
+        ],
+        "bottomNavH": 0,
+        "firstViewportUseful": {
+          "top": 61,
+          "visibleH": 329
+        }
+      }
+    }
+  ],
+  "links": [
+    {
+      "href": "#main-content",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/favorites",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/messages",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/new",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/auth/login",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "https://www.carvertical.com/ro",
+      "status": null,
+      "ok": true,
+      "note": "external"
+    },
+    {
+      "href": "https://apps.rarom.ro/autopass-client",
+      "status": null,
+      "ok": true,
+      "note": "external"
+    },
+    {
+      "href": "/auto",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/electronice",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/locuri-de-munca",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/servicii",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/altele",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings?sort=newest",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/8cd01987-4f2b-4724-8c80-1b47f1bd7100",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/1f40e03f-2845-4836-9e78-fa25029e5dc8",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/71a82970-e493-449e-89a7-2bbc6c1fe9f0",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/176a6314-e62b-4733-9b81-629978b46685",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/d91056eb-07ff-4d44-8e23-1407f89963fe",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/87d8c2f7-ffa8-4216-827f-4788488d6ab2",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/88833530-a99b-472e-bd73-f1ffdd0f46c0",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings?sort=featured",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/40a14ca2-87a5-4e7e-9768-5576db57025b",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/1c267b7a-2e52-4a2f-b843-125b87e6ca1a",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/38c317a8-e28f-4777-a528-c4bc95a05049",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/4625487f-644f-469a-9eae-5f66544ef7ab",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings?category=Electronice%20%C8%99i%20electrocasnice&sort=featured",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/29c64a41-c140-46f9-b95e-b9bee43770af",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/a7dbd25b-ee7d-464e-8943-def2ee697414",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/f9bffd19-3395-4d1e-a69f-a8cd97112c45",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/66b2921e-3c7a-41ae-b195-06d3872cd1ff",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/286f306b-505c-41ce-9ef6-8d483685d5ea",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/74d0febc-b20a-4809-92a6-8a85cc44e551",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/business",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/contact",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/electronice/cluj-napoca",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/locuri-de-munca/cluj-napoca",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/servicii/cluj-napoca",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/harta-site",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/dashboard",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/security",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/terms",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/privacy",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/gdpr",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/cookies",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "https://consumer-redress.ec.europa.eu/",
+      "status": null,
+      "ok": true,
+      "note": "external"
+    },
+    {
+      "href": "mailto:support@clickanunt.ro",
+      "status": null,
+      "ok": true,
+      "note": "scheme"
+    },
+    {
+      "href": "mailto:contact@clickanunt.ro",
+      "status": null,
+      "ok": true,
+      "note": "scheme"
+    },
+    {
+      "href": "mailto:dpo@clickanunt.ro",
+      "status": null,
+      "ok": true,
+      "note": "scheme"
+    },
+    {
+      "href": "/altele/cluj-napoca",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/altele/bucuresti",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/altele/sectorul-1",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "https://www.dataprotection.ro",
+      "status": null,
+      "ok": true,
+      "note": "external"
+    },
+    {
+      "href": "/listings/1436ceff-c315-46e7-9632-183f198977c6",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/06530436-4d03-4e9f-925f-26083f15bbac",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/05e258b7-75f3-49a3-9ff9-5514456d23aa",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/477294c5-8ec6-4cb7-a29b-f39d206d77dd",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/9fbbfc8f-586e-4464-b0ae-cf722052db7d",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/5db65917-fc4c-4f73-9926-5ca6763e8e91",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/92e398a8-fd40-48a3-9858-5b7a0d65f4d3",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/listings/0be15632-5b39-496a-94c8-ded1f552b136",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "#plans",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "#contact",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "mailto:admin@clickanunt.ro",
+      "status": null,
+      "ok": true,
+      "note": "scheme"
+    },
+    {
+      "href": "mailto:billing@clickanunt.ro",
+      "status": null,
+      "ok": true,
+      "note": "scheme"
+    },
+    {
+      "href": "/listings?q=",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/auth/forgot-password",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    },
+    {
+      "href": "/auth/signup",
+      "status": 200,
+      "ok": true,
+      "note": ""
+    }
+  ]
+}

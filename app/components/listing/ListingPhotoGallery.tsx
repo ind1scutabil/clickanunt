@@ -660,26 +660,14 @@ export function ListingPhotoGallery({
 
         <div
           className="listing-gallery-stage group relative w-full min-w-0 cursor-pointer touch-manipulation overflow-hidden bg-zinc-950"
-          role="button"
-          tabIndex={0}
           aria-labelledby={labelId}
-          aria-haspopup="dialog"
           aria-busy={pending || undefined}
           data-testid="listing-gallery-stage"
-          onClick={(e) => openLightbox(e.currentTarget)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              openLightbox(e.currentTarget);
-            }
-            if (e.key === "ArrowLeft") {
-              e.preventDefault();
-              goPrev();
-            }
-            if (e.key === "ArrowRight") {
-              e.preventDefault();
-              goNext();
-            }
+          onClick={(e) => {
+            // Avoid nested-interactive: controls inside stay real <button>s; stage opens lightbox on background click only.
+            const t = e.target as HTMLElement | null;
+            if (t?.closest("button, a, input, textarea, select")) return;
+            openLightbox(e.currentTarget);
           }}
           onTouchStart={onSwipeStart}
           onTouchEnd={(e) => onSwipeEnd(e, "hero")}

@@ -153,14 +153,6 @@ export default function ListingsView({
 }: ListingsViewProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const hasActiveSearch = Boolean(
-    searchParams.get('q') ||
-      searchParams.get('search') ||
-      searchParams.get('category') ||
-      searchParams.get('subcategory') ||
-      searchParams.get('county') ||
-      searchParams.get('city')
-  );
   const initialPageResolved = (() => {
     const fromUrl = parseInt(searchParams.get("page") || "", 10);
     if (!Number.isNaN(fromUrl) && fromUrl > 0) return fromUrl;
@@ -174,7 +166,8 @@ export default function ListingsView({
   const [page, setPage] = useState(initialPageResolved);
   const [total, setTotal] = useState(initialTotal ?? 0);
   const [isFilterSticky, setIsFilterSticky] = useState(false);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
+  // Results-first: filters closed by default so mobile first viewport shows listings, not a long form.
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showFiltersApplied, setShowFiltersApplied] = useState(false);
   const [filters, setFilters] = useState<Filters>(() => {
     const q0 = searchParams.get("q") || searchParams.get("search") || undefined;
@@ -911,7 +904,7 @@ export default function ListingsView({
                     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className="flex h-10 items-center gap-1.5 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:h-11 sm:gap-2 sm:px-6"
+                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:gap-2 sm:px-6"
               >
               <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -920,7 +913,7 @@ export default function ListingsView({
             </button>
               <button
                 onClick={clearFilters}
-                className="flex h-10 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-4 text-sm font-semibold text-zinc-200 shadow-sm transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/10 sm:h-11 sm:gap-2 sm:px-6"
+                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-4 text-sm font-semibold text-zinc-200 shadow-sm transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/10 sm:gap-2 sm:px-6"
               >
               <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -936,7 +929,7 @@ export default function ListingsView({
           <button
             type="button"
             onClick={() => setIsFiltersOpen(true)}
-            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08]"
+            className="min-h-[44px] rounded-md border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08]"
           >
             Afișează filtre
           </button>

@@ -153,7 +153,7 @@ export default function ListingDetailPageClient({
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
   const [similarListings, setSimilarListings] = useState<any[]>([]);
-  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarLoading, setSimilarLoading] = useState(true);
 
   /** Frontend-only trust chips — labels derived strictly from listing/owner fields already on the payload. */
   const trustPills = useMemo(() => {
@@ -293,6 +293,7 @@ export default function ListingDetailPageClient({
     const loadSimilarListings = async () => {
       if (!listing?.id || !listing?.category) {
         setSimilarListings([]);
+        setSimilarLoading(false);
         return;
       }
 
@@ -395,7 +396,7 @@ export default function ListingDetailPageClient({
             ) : null}
             <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
               <div className="min-w-0 max-w-full space-y-4 lg:col-span-2">
-                <div className="skeleton aspect-video w-full rounded-2xl" />
+                <div className="skeleton listing-gallery-stage w-full rounded-2xl" />
                 <div className="skeleton h-40 w-full rounded-2xl" />
                 <div className="skeleton h-48 w-full rounded-2xl" />
               </div>
@@ -1048,11 +1049,29 @@ export default function ListingDetailPageClient({
             </div>
           </div>
 
-          {/* Similar Listings */}
-          <div className="mt-8 min-w-0 max-w-full">
+          {/* Similar Listings — reserved grid geometry while loading to avoid CLS */}
+          <div className="mt-8 min-h-[18rem] min-w-0 max-w-full md:min-h-[14rem]">
             <h2 className="mb-3 text-base font-semibold tracking-tight text-zinc-100">Anunțuri similare</h2>
             {similarLoading ? (
-              <div className="text-sm text-gray-500">Se încarcă anunțurile similare…</div>
+              <div
+                className="grid min-h-[16rem] grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
+                aria-busy="true"
+                aria-label="Se încarcă anunțurile similare"
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={`similar-skel-${i}`}
+                    className="overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10"
+                  >
+                    <div className="skeleton aspect-video w-full" />
+                    <div className="space-y-2 p-3">
+                      <div className="skeleton h-4 w-11/12 rounded" />
+                      <div className="skeleton h-4 w-1/3 rounded" />
+                      <div className="skeleton h-3 w-1/2 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : similarListings.length === 0 ? (
               <div
                 className="rounded-xl border border-gray-700/35 bg-gray-900/35 px-5 py-8 text-center text-sm text-gray-400"

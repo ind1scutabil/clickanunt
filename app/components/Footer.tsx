@@ -121,22 +121,22 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <h4 className="mb-4 font-semibold text-neutral-100">Informații Legale</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
+                <Link href="/terms" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-secondary-400 hover:underline">
                   Termeni și Condiții
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
+                <Link href="/privacy" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-secondary-400 hover:underline">
                   Politica de Confidențialitate
                 </Link>
               </li>
               <li>
-                <Link href="/gdpr" className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                <Link href="/gdpr" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-primary-400 hover:underline">
                   Drepturile GDPR
                 </Link>
               </li>
               <li>
-                <Link href="/cookies" className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                <Link href="/cookies" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-primary-400 hover:underline">
                   Politica de cookies
                 </Link>
               </li>
@@ -279,15 +279,15 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
         <div className="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-neutral-500">
           <p>
             🔐 Respectăm confidențialitatea ta. Datele personale sunt prelucrate conform{" "}
-            <Link href="/privacy" className="text-info-500 underline-offset-2 transition-colors hover:text-info-100 hover:underline">
+            <Link href="/privacy" className="text-info-500 underline underline-offset-2 transition-colors hover:text-info-100">
               GDPR (Regulamentul UE 2016/679)
             </Link>{" "}
             și{" "}
-            <Link href="/terms" className="text-primary-400 underline-offset-2 transition-colors hover:text-primary-200 hover:underline">
+            <Link href="/terms" className="text-primary-400 underline underline-offset-2 transition-colors hover:text-primary-200">
               Legii 190/2018
             </Link>
             . Pentru exercitarea drepturilor GDPR, contactați{" "}
-            <a href="mailto:dpo@clickanunt.ro" className="text-secondary-500 underline-offset-2 transition-colors hover:text-secondary-300 hover:underline">
+            <a href="mailto:dpo@clickanunt.ro" className="text-secondary-500 underline underline-offset-2 transition-colors hover:text-secondary-300">
               dpo@clickanunt.ro
             </a>
             .

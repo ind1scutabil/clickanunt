@@ -1168,12 +1168,14 @@ input:-webkit-autofill:focus {
   position: relative;
   z-index: 30;
 }
-/* Buton rotund mobil — compact pentru icoane (favorite, mesaje, +, meniu) */
+/* Buton rotund mobil — min 44×44 px (WCAG 2.5.5 / touch target) */
 .navbar-mobile-icon-btn {
   display: flex;
   box-sizing: border-box;
-  height: 2.25rem;
-  width: 2.25rem;
+  height: 2.75rem;
+  width: 2.75rem;
+  min-height: 44px;
+  min-width: 44px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;

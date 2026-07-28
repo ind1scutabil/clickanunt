@@ -375,7 +375,7 @@ export default function NavbarContent() {
 
   return (
     <div className="mx-auto max-w-7xl px-3 py-2 sm:px-4 md:px-5 md:py-2">
-          <div className="grid w-full max-w-full min-h-[2.875rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0 md:hidden min-[380px]:min-h-[3rem] min-[380px]:gap-x-3">
+          <div className="grid w-full max-w-full min-h-[3rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-1.5 gap-y-0 md:hidden min-[400px]:min-h-[3.25rem] min-[400px]:gap-x-2.5">
             <div className="navbar-mobile-logo-cell">
               <Link
                 href="/"
@@ -401,15 +401,15 @@ export default function NavbarContent() {
             </div>
 
             <div className="relative z-0 flex min-w-0 items-center self-center">
-              <div className="relative flex h-9 w-full min-w-0 items-stretch overflow-hidden rounded-full border border-white/[0.1] bg-[#1a1d24] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-[box-shadow,border-color] duration-200 focus-within:border-orange-500/35 focus-within:ring-1 focus-within:ring-orange-500/20 sm:h-[2.625rem]">
-                <span className="pointer-events-none flex shrink-0 items-center pl-2 text-zinc-500" aria-hidden>
+              <div className="relative flex h-11 min-h-[44px] w-full min-w-0 items-stretch overflow-hidden rounded-full border border-white/[0.1] bg-[#1a1d24] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-[box-shadow,border-color] duration-200 focus-within:border-orange-500/35 focus-within:ring-1 focus-within:ring-orange-500/20">
+                <span className="pointer-events-none flex shrink-0 items-center pl-2 text-zinc-500 max-[360px]:pl-1.5" aria-hidden>
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </span>
                 <input
                   type="text"
-                  placeholder="Caută în anunțuri..."
+                  placeholder="Caută…"
                   aria-label="Caută anunțuri mobile"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -419,23 +419,27 @@ export default function NavbarContent() {
                       handleSearch();
                     }
                   }}
-                  className="min-h-0 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-[13px] font-medium tracking-tight text-zinc-100 outline-none ring-0 placeholder:text-zinc-500"
+                  className="min-h-0 min-w-0 flex-1 border-0 bg-transparent px-1.5 text-[13px] font-medium tracking-tight text-zinc-100 outline-none ring-0 placeholder:text-zinc-500 max-[360px]:px-1"
                 />
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="mr-0.5 shrink-0 rounded-full border-l border-white/[0.08] bg-[#ff5a00] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#e65200] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/50 sm:px-3 sm:text-xs"
+                  aria-label="Caută"
+                  className="mr-0.5 flex min-h-[44px] shrink-0 items-center rounded-full border-l border-white/[0.08] bg-[#ff5a00] px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#e65200] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/50 max-[360px]:px-2 sm:px-3 sm:text-xs"
                 >
-                  Caută
+                  <span className="max-[340px]:sr-only">Caută</span>
+                  <svg className="hidden h-4 w-4 max-[340px]:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.25} aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                 </button>
               </div>
             </div>
 
-            <div className="navbar-mobile-trailing-cell flex min-w-0 shrink-0 flex-row flex-nowrap items-center justify-self-end gap-1 max-[360px]:gap-0.5 min-[380px]:gap-2">
+            <div className="navbar-mobile-trailing-cell flex min-w-0 shrink-0 flex-row flex-nowrap items-center justify-self-end gap-1 min-[480px]:gap-1.5">
               <Link
                 href="/favorites"
                 prefetch={false}
-                className={`navbar-mobile-icon-btn ${
+                className={`navbar-mobile-icon-btn max-[479px]:hidden ${
                   pathname.startsWith("/favorites")
                     ? "!border-orange-500/40 !bg-orange-500/15 ring-1 ring-orange-500/25"
                     : ""
@@ -449,7 +453,7 @@ export default function NavbarContent() {
               <Link
                 href="/messages"
                 prefetch={false}
-                className={`navbar-mobile-icon-btn relative ${
+                className={`navbar-mobile-icon-btn relative max-[479px]:hidden ${
                   pathname.startsWith("/messages")
                     ? "!border-orange-500/40 !bg-orange-500/15 ring-1 ring-orange-500/25"
                     : ""
@@ -465,7 +469,9 @@ export default function NavbarContent() {
                   </span>
                 )}
               </Link>
-              <AdminNavNotificationBell variant="mobile" />
+              <div className="max-[479px]:hidden">
+                <AdminNavNotificationBell variant="mobile" />
+              </div>
               <Link
                 href="/listings/new"
                 className="navbar-mobile-icon-btn"
@@ -505,7 +511,7 @@ export default function NavbarContent() {
               </div>
               <div className="hidden sm:block">
                 <div className="text-base font-semibold leading-tight text-zinc-50">ClickAnunț</div>
-                <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Piață din România</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-zinc-400">Piață din România</div>
               </div>
             </Link>
 

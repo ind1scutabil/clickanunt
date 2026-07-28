@@ -61,7 +61,7 @@ export default function LoginPage() {
           
           <Suspense
             fallback={
-              <div className="h-40 animate-pulse rounded-xl bg-zinc-800/40" aria-busy="true" />
+              <div className="min-h-[280px] animate-pulse rounded-xl bg-zinc-800/40" aria-busy="true" />
             }
           >
             <LoginForm />

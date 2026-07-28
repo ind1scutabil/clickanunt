@@ -131,7 +131,7 @@ export async function HomeEditorialSeoStrip() {
               ))}
             </ul>
             <p className="mt-5 text-sm text-neutral-500">
-              <Link href="/harta-site" className="text-primary-300 hover:text-primary-100 underline-offset-4 hover:underline">
+              <Link href="/harta-site" className="text-primary-300 underline underline-offset-4 hover:text-primary-100">
                 Harta site — index HTML
               </Link>{" "}
               cu legături către categorii și orașe.
