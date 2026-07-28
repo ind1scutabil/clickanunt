@@ -87,6 +87,35 @@ export function classifyAutoFirstSegment(segmentSlug: string): AutoFirstSegmentK
   return 'unknown';
 }
 
+/**
+ * Same classification, but also checks real DB cities beyond the static
+ * allowlist before giving up (see `resolveCityLabelForHub` in `hub-queries.ts`)
+ * — a city published outside the standard picker should still resolve to a
+ * hub instead of being misclassified as an unknown make.
+ *
+ * `resolveDbCity` is injectable so tests can bypass `unstable_cache`;
+ * production call sites always use the default (cached) resolver.
+ */
+export async function classifyAutoFirstSegmentAsync(
+  segmentSlug: string,
+  resolveDbCity?: (slug: string) => Promise<string | null>,
+): Promise<AutoFirstSegmentKind> {
+  const slug = segmentSlug.toLowerCase();
+  // Static city allowlist still wins over make, same precedence as the sync classifier.
+  if (resolveAutoCityFromSlug(slug)) return 'city';
+  if (resolveAutoMakeFromSlug(slug)) return 'make';
+  // Lazy import avoids a static prisma dependency for callers that only need the sync classifier.
+  const resolve =
+    resolveDbCity ??
+    (async (s: string) => {
+      const { resolveCityLabelForHub } = await import('@/lib/seo/hub-queries');
+      return resolveCityLabelForHub(s);
+    });
+  const city = await resolve(slug);
+  if (city) return 'city';
+  return 'unknown';
+}
+
 export function buildAutoMakeHubPath(make: string): string {
   return `/auto/${autoMakeSlug(make)}`;
 }

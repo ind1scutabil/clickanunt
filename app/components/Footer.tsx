@@ -12,17 +12,17 @@ const publicCompanyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 type FooterProps = {
   /** When provided (including empty), hub sections render only these links — empty hides the block. */
   categoryLinks?: FooterIndexableLink[];
-  cityHubLinks?: FooterIndexableLink[];
+  cityLinks?: FooterIndexableLink[];
 };
 
-export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}) {
+export default function Footer({ categoryLinks, cityLinks }: FooterProps = {}) {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
   const social = getVerifiedBrandSocialLinks();
-  const hubsProvided = categoryLinks !== undefined || cityHubLinks !== undefined;
+  const hubsProvided = categoryLinks !== undefined || cityLinks !== undefined;
   const categories = categoryLinks ?? [];
-  const cityHubs = cityHubLinks ?? [];
+  const cities = cityLinks ?? [];
   const showCategoryHubs = hubsProvided && categories.length > 0;
-  const showCityHubs = hubsProvided && cityHubs.length > 0;
+  const showCityHubs = hubsProvided && cities.length > 0;
   const showHubStrip = showCategoryHubs || showCityHubs;
 
   return (
@@ -222,7 +222,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     Orașe
                   </h4>
                   <ul className="flex flex-wrap gap-2">
-                    {cityHubs.map((link) => (
+                    {cities.map((link) => (
                       <li key={link.href}>
                         <Link
                           href={link.href}

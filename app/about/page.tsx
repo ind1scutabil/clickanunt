@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
+import { CompanyDetailsBox } from "@/app/components/legal/CompanyDetailsBox";
+import { getPlatformLaunchDateDisplay } from "@/lib/company-public";
 
 export const metadata: Metadata = {
   title: "Despre ClickAnunț — platformă de anunțuri gratuite",
@@ -9,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 export default function AboutPage() {
+  const launchDate = getPlatformLaunchDateDisplay();
+
   return (
     <div className="enterprise-page-bg enterprise-mesh min-h-screen text-white">
       <Navbar />
@@ -38,6 +42,18 @@ export default function AboutPage() {
               Punem accent pe transparență și siguranță: anunțurile trec prin verificări, iar utilizatorii au
               la dispoziție instrumente clare pentru raportare și suport.
             </p>
+          </div>
+        </section>
+
+        <section className="enterprise-card enterprise-card-hover mb-16 rounded-3xl p-8 md:p-12">
+          <h2 className="mb-6 text-2xl font-bold tracking-tight text-white md:text-3xl">Identitate companie</h2>
+          <div className="max-w-3xl space-y-5 text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
+            {launchDate ? (
+              <p>
+                <strong className="text-white">Lansat în:</strong> {launchDate}
+              </p>
+            ) : null}
+            <CompanyDetailsBox />
           </div>
         </section>
 
