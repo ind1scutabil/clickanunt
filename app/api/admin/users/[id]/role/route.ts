@@ -12,9 +12,19 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 
-const changeRoleSchema = z.object({
-  role: z.string().min(1, "Rolul este necesar"),
-});
+const changeRoleSchema = z
+  .object({
+    role: z.enum([
+      "user",
+      "dealer",
+      "moderator",
+      "admin",
+      "owner",
+      "support",
+      "finance",
+    ]),
+  })
+  .strict();
 
 export async function PUT(
   request: NextRequest,

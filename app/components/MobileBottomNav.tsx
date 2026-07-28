@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { CATEGORY_LABEL_BY_CANONICAL_SLUG } from "@/lib/seo/market-paths";
 import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import { CLICKANUNT_AUTH_SESSION_EVENT } from "@/lib/auth-session-events";
+import { validateServerAuthSession } from "@/lib/admin-fetch";
 
 function NavIconHome({ active }: { active: boolean }) {
   return (
@@ -81,31 +82,33 @@ export default function MobileBottomNav() {
   const pathname = usePathname() || "/";
   const [showAdminTab, setShowAdminTab] = useState(false);
 
-  const syncStaffFromStorage = useCallback(() => {
+  const syncStaffFromServer = useCallback(async () => {
     try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-      if (!raw) {
+      const session = await validateServerAuthSession();
+      if (!session.ok || !session.user) {
         setShowAdminTab(false);
         return;
       }
-      const u = JSON.parse(raw) as { role?: string };
-      setShowAdminTab(isAdminStaffRole(u?.role));
+      setShowAdminTab(isAdminStaffRole(session.user.role));
     } catch {
       setShowAdminTab(false);
     }
   }, []);
 
   useEffect(() => {
-    syncStaffFromStorage();
-    window.addEventListener("storage", syncStaffFromStorage);
-    window.addEventListener("focus", syncStaffFromStorage);
-    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncStaffFromStorage);
-    return () => {
-      window.removeEventListener("storage", syncStaffFromStorage);
-      window.removeEventListener("focus", syncStaffFromStorage);
-      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, syncStaffFromStorage);
+    void syncStaffFromServer();
+    const onAuth = () => {
+      void syncStaffFromServer();
     };
-  }, [syncStaffFromStorage]);
+    window.addEventListener("storage", onAuth);
+    window.addEventListener("focus", onAuth);
+    window.addEventListener(CLICKANUNT_AUTH_SESSION_EVENT, onAuth);
+    return () => {
+      window.removeEventListener("storage", onAuth);
+      window.removeEventListener("focus", onAuth);
+      window.removeEventListener(CLICKANUNT_AUTH_SESSION_EVENT, onAuth);
+    };
+  }, [syncStaffFromServer]);
 
   const firstSegment = pathname.split("/").filter(Boolean)[0] ?? "";
   const isPublishFlow =

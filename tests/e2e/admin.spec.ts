@@ -95,36 +95,36 @@ test.describe('Admin Dashboard', () => {
     );
   });
 
-  test('should view listings pending approval', async ({ page }) => {
+  test('legacy /admin/listings redirects to moderation pending', async ({ page }) => {
     await page.goto('/admin/listings');
-    
-    const pendingListings = page.locator('[data-testid="pending-listing"], .listing-pending').first();
-    const tableExists = await pendingListings.isVisible().catch(() => false);
-    
-    // Page should load
-    expect(page.url()).toContain('/admin/listings');
+    await page.waitForURL(/\/admin\/moderation/);
+    expect(page.url()).toContain('/admin/moderation');
+    expect(page.url()).toContain('tab=pending');
   });
 
-  test('should approve listing', async ({ page }) => {
+  test('legacy /admin/listings?status=pending redirects to pending tab', async ({ page }) => {
     await page.goto('/admin/listings?status=pending');
+    await page.waitForURL(/\/admin\/moderation\?tab=pending/);
+    expect(page.url()).toContain('tab=pending');
+  });
+
+  test('should approve listing from moderation queue when available', async ({ page }) => {
+    await page.goto('/admin/moderation?tab=pending');
     
     const approveButton = page.locator('button:has-text("Approve"), button:has-text("Aprobă")').first();
     if (await approveButton.isVisible()) {
       await approveButton.click();
       await page.waitForTimeout(1000);
-      
-      // Should show confirmation or refresh list
     }
   });
 
-  test('should reject listing', async ({ page }) => {
-    await page.goto('/admin/listings?status=pending');
+  test('should reject listing from moderation queue when available', async ({ page }) => {
+    await page.goto('/admin/moderation?tab=pending');
     
     const rejectButton = page.locator('button:has-text("Reject"), button:has-text("Respinge")').first();
     if (await rejectButton.isVisible()) {
       await rejectButton.click();
       
-      // May show reason modal
       const reasonInput = page.locator('textarea[name="reason"], input[placeholder*="reason"]');
       if (await reasonInput.isVisible()) {
         await reasonInput.fill('Violates community guidelines');
@@ -137,14 +137,13 @@ test.describe('Admin Dashboard', () => {
     }
   });
 
-  test('should delete listing', async ({ page }) => {
-    await page.goto('/admin/listings');
+  test('soft-delete from moderation listings when available', async ({ page }) => {
+    await page.goto('/admin/moderation?tab=approved');
     
     const deleteButton = page.locator('button:has-text("Delete"), button:has-text("Șterge")').first();
     if (await deleteButton.isVisible()) {
       await deleteButton.click();
       
-      // Confirm delete
       const confirmButton = page.locator('button[type="button"]:has-text("Confirm"), button[type="button"]:has-text("Da")');
       if (await confirmButton.isVisible()) {
         await confirmButton.click();
@@ -152,17 +151,14 @@ test.describe('Admin Dashboard', () => {
     }
   });
 
-  test('should view users', async ({ page }) => {
+  test('legacy /admin/users redirects to moderation users tab', async ({ page }) => {
     await page.goto('/admin/users');
-    
-    expect(page.url()).toContain('/admin/users');
-    
-    const userList = page.locator('[data-testid="user-row"], .user-card').first();
-    const hasUsers = await userList.isVisible().catch(() => false);
+    await page.waitForURL(/\/admin\/moderation/);
+    expect(page.url()).toContain('tab=users');
   });
 
-  test('should ban user', async ({ page }) => {
-    await page.goto('/admin/users');
+  test('should ban user when control available', async ({ page }) => {
+    await page.goto('/admin/moderation?tab=users');
     
     const banButton = page.locator('button:has-text("Ban"), button:has-text("Blocează")').first();
     if (await banButton.isVisible()) {
@@ -180,8 +176,8 @@ test.describe('Admin Dashboard', () => {
     }
   });
 
-  test('should unban user', async ({ page }) => {
-    await page.goto('/admin/users?status=banned');
+  test('should unban user when control available', async ({ page }) => {
+    await page.goto('/admin/moderation?tab=users');
     
     const unbanButton = page.locator('button:has-text("Unban"), button:has-text("Deblochează")').first();
     if (await unbanButton.isVisible()) {
@@ -196,13 +192,10 @@ test.describe('Admin Dashboard', () => {
     expect(page.url()).toContain('/admin/moderation');
   });
 
-  test('should view analytics', async ({ page }) => {
+  test('legacy /admin/analytics redirects to dashboard', async ({ page }) => {
     await page.goto('/admin/analytics');
-    
-    expect(page.url()).toContain('/admin/analytics');
-    
-    const statsCard = page.locator('[data-testid="stat-card"], .stat-box').first();
-    const hasStats = await statsCard.isVisible().catch(() => false);
+    await page.waitForURL(/\/admin\/dashboard/);
+    expect(page.url()).toContain('/admin/dashboard');
   });
 });
 
@@ -257,8 +250,84 @@ test.describe('Admin - Route Protection', () => {
   });
 });
 
-test.describe('Admin mobile bottom nav (stub session)', () => {
-  test('shows Moderare link for admin/owner in localStorage', async ({ page }) => {
+test.describe('Admin mobile bottom nav (authenticated)', () => {
+  test.use({ storageState: 'tests/e2e/.auth/admin.json' });
+
+  test.beforeAll(async ({ request, baseURL }) => {
+    try {
+      await fs.access(ADMIN_STORAGE_STATE);
+    } catch {
+      const csrfRes = await request.get('/api/csrf');
+      const csrfData = (await csrfRes.json()) as { csrfToken?: string };
+      const loginRes = await request.post('/api/auth/login', {
+        data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+        headers: { 'x-csrf-token': csrfData.csrfToken || '' },
+      });
+      if (loginRes.status() !== 200) {
+        throw new Error(`Admin login for mobile nav failed: ${loginRes.status()}`);
+      }
+      const loginData = await loginRes.json();
+      const storageState = await request.storageState();
+      const origin = new URL(baseURL || 'http://localhost:3000').origin;
+      storageState.origins = storageState.origins || [];
+      const existingOrigin = storageState.origins.find((o) => o.origin === origin);
+      const targetOrigin = existingOrigin || { origin, localStorage: [] as { name: string; value: string }[] };
+      if (loginData?.user) {
+        const idx = targetOrigin.localStorage.findIndex((i) => i.name === 'user');
+        const entry = { name: 'user', value: JSON.stringify(loginData.user) };
+        if (idx >= 0) targetOrigin.localStorage[idx] = entry;
+        else targetOrigin.localStorage.push(entry);
+      }
+      if (!existingOrigin) storageState.origins.push(targetOrigin);
+      await fs.mkdir(path.dirname(ADMIN_STORAGE_STATE), { recursive: true });
+      await fs.writeFile(ADMIN_STORAGE_STATE, JSON.stringify(storageState, null, 2), 'utf-8');
+    }
+  });
+
+  test('shows Moderare link for authenticated admin', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
+    const moderare = bottom.getByRole('link', { name: /moderare/i });
+    await expect(moderare).toBeVisible({ timeout: 15000 });
+    await expect(moderare).toHaveAttribute('href', '/admin/moderation');
+  });
+
+  test('hamburger: Deconectare visible (iPhone SE)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
+    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible({ timeout: 10000 });
+    await expect(sheet.getByRole('link', { name: /admin.*moderare|moderare/i })).toBeVisible();
+  });
+
+  test('hamburger: Deconectare visible (iPhone 14 Pro Max)', async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
+    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible({ timeout: 10000 });
+  });
+
+  test('hamburger: Deconectare visible (Android narrow)', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
+    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
+    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible({ timeout: 10000 });
+  });
+});
+
+test.describe('Admin mobile bottom nav (anonymous)', () => {
+  test('hides Moderare link without admin session', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
+    await expect(bottom.getByRole('link', { name: /^Moderare$/ })).toHaveCount(0);
+  });
+
+  test('localStorage admin stub alone does not unlock Moderare', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem(
         'user',
@@ -269,92 +338,10 @@ test.describe('Admin mobile bottom nav (stub session)', () => {
           name: 'E2E Stub',
         })
       );
-      localStorage.setItem('accessToken', 'stub-not-for-api');
-    });
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
-    const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
-    const moderare = bottom.getByRole('link', { name: /moderare/i });
-    await expect(moderare).toBeVisible();
-    await expect(moderare).toHaveAttribute('href', '/admin/moderation');
-  });
-
-  test('hides Moderare link for normal user', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          id: '00000000-0000-4000-8000-000000000088',
-          email: 'user-e2e-stub@clickanunt.ro',
-          role: 'user',
-          name: 'User Stub',
-        })
-      );
-      localStorage.setItem('accessToken', 'stub-not-for-api');
     });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     const bottom = page.getByRole('navigation', { name: 'Navigare rapidă' });
     await expect(bottom.getByRole('link', { name: /^Moderare$/ })).toHaveCount(0);
-  });
-
-  test('hamburger: Deconectare visible (iPhone SE)', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          id: '00000000-0000-4000-8000-000000000099',
-          email: 'admin-se@clickanunt.ro',
-          role: 'admin',
-          name: 'SE',
-        })
-      );
-      localStorage.setItem('accessToken', 'stub-not-for-api');
-    });
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/');
-    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
-    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
-    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible();
-    await expect(sheet.getByRole('link', { name: /admin.*moderare/i })).toBeVisible();
-  });
-
-  test('hamburger: Deconectare visible (iPhone 14 Pro Max)', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          id: '00000000-0000-4000-8000-000000000099',
-          email: 'admin-max@clickanunt.ro',
-          role: 'admin',
-          name: 'Max',
-        })
-      );
-      localStorage.setItem('accessToken', 'stub-not-for-api');
-    });
-    await page.setViewportSize({ width: 430, height: 932 });
-    await page.goto('/');
-    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
-    const sheet = page.getByRole('navigation', { name: 'Navigare mobilă' });
-    await expect(sheet.getByRole('button', { name: /deconectare/i })).toBeVisible();
-  });
-
-  test('hamburger: Deconectare visible (Android narrow)', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          id: '00000000-0000-4000-8000-000000000099',
-          email: 'admin-narrow@clickanunt.ro',
-          role: 'admin',
-          name: 'Narrow',
-        })
-      );
-      localStorage.setItem('accessToken', 'stub-not-for-api');
-    });
-    await page.setViewportSize({ width: 360, height: 800 });
-    await page.goto('/');
-    await page.getByRole('button', { name: /Deschide|închide meniu/i }).click();
-    await expect(page.getByRole('navigation', { name: 'Navigare mobilă' }).getByRole('button', { name: /deconectare/i })).toBeVisible();
   });
 });
