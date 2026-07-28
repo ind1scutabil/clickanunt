@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { LISTING_SITEMAP_CHUNK_SIZE } from "@/lib/seo/sitemap-constants";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
+import { canonicalizeSitemapImageUrl } from "@/lib/seo/sitemap-image-url";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,22 +64,14 @@ export async function GET(
     parts.push(`    <loc>${xmlEscape(pageUrl)}</loc>`);
     parts.push(`    <lastmod>${listing.updatedAt.toISOString().slice(0, 10)}</lastmod>`);
     for (const photo of photos.slice(0, 10)) {
-      let imageLoc = photo;
-      if (photo.startsWith("/")) imageLoc = `${base}${photo}`;
-      else if (!/^https?:\/\//i.test(photo)) imageLoc = `${base}/${photo}`;
-      // Only same-site or known serve path
-      try {
-        const u = new URL(imageLoc);
-        if (u.protocol !== "https:") continue;
-        parts.push(`    <image:image>`);
-        parts.push(`      <image:loc>${xmlEscape(imageLoc)}</image:loc>`);
-        if (listing.title) {
-          parts.push(`      <image:title>${xmlEscape(listing.title.slice(0, 120))}</image:title>`);
-        }
-        parts.push(`    </image:image>`);
-      } catch {
-        continue;
+      const imageLoc = canonicalizeSitemapImageUrl(photo, base);
+      if (!imageLoc) continue;
+      parts.push(`    <image:image>`);
+      parts.push(`      <image:loc>${xmlEscape(imageLoc)}</image:loc>`);
+      if (listing.title) {
+        parts.push(`      <image:title>${xmlEscape(listing.title.slice(0, 120))}</image:title>`);
       }
+      parts.push(`    </image:image>`);
     }
     parts.push(`  </url>`);
   }
