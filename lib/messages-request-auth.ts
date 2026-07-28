@@ -44,15 +44,14 @@ async function payloadIfActiveUser(
 }
 
 /**
- * Auth SSE: cookie httpOnly first, optional ?token= legacy, then Bearer.
+ * Auth SSE: cookie httpOnly first, then Bearer.
+ * Query `?token=` is intentionally unsupported (JWT must not appear in URLs/logs).
  */
 export async function getAuthUserIdFromRequest(request: NextRequest): Promise<string | null> {
-  const queryToken = request.nextUrl.searchParams.get("token")?.trim();
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  // Cookie before query token — prefer HttpOnly session over URL-leaked JWT.
-  for (const candidate of uniqMessagingTokens([cookieToken, headerToken, queryToken])) {
+  for (const candidate of uniqMessagingTokens([cookieToken, headerToken])) {
     const payload = await decodeAccessJwtPayload(candidate);
     const active = await payloadIfActiveUser(payload);
     if (active?.userId) return active.userId;

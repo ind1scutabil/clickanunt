@@ -11,15 +11,14 @@ import { prisma } from "@/lib/prisma";
 import { processAnalyticsQueueBatch } from "@/lib/analytics-queue-persist";
 import { rollupAnalyticsDailyForDate } from "@/lib/analytics-daily-rollup";
 import { runAdminNotificationRules } from "@/lib/admin-notification-rules";
+import { authorizeCronRequest } from "@/lib/cron-auth";
+import { logger } from "@/lib/observability";
 
 export async function GET(request: NextRequest) {
-  const secret =
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ||
-    request.headers.get("x-cron-secret");
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = authorizeCronRequest(request);
+  if (denied) return denied;
 
+  const startedAt = Date.now();
   const processed = await processAnalyticsQueueBatch(500);
 
   const y = new Date();
@@ -27,6 +26,12 @@ export async function GET(request: NextRequest) {
   await rollupAnalyticsDailyForDate(y);
 
   const rules = await runAdminNotificationRules(prisma);
+
+  logger.info("cron.analytics", {
+    queueProcessed: processed,
+    adminRulesCreated: rules.created,
+    durationMs: Date.now() - startedAt,
+  });
 
   return NextResponse.json({
     ok: true,

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔵 [BROADCAST API] Request received');
     const user = await getUserFromRequest(request);
-    console.log('🔵 [BROADCAST API] User:', user?.email, 'Role:', user?.role);
+    console.log('🔵 [BROADCAST API] User id:', user?.id, 'Role:', user?.role);
 
     if (!user) {
       console.log('❌ [BROADCAST API] No user found - not authenticated');
@@ -191,9 +191,11 @@ export async function POST(request: NextRequest) {
     if (channels?.email) {
       const emails = users.map((u: BroadcastUser) => u.email).filter((email): email is string => !!email);
       console.log('🔵 [BROADCAST API] Sending emails to:', emails.length, 'addresses');
-      console.log('🔵 [BROADCAST API] Sample emails:', emails.slice(0, 3));
       emailResult = await sendBulkEmail(emails, title, `<p>${message}</p>`);
-      console.log('🔵 [BROADCAST API] Email result:', emailResult);
+      console.log('🔵 [BROADCAST API] Email result:', {
+        sent: emailResult.sent,
+        skipped: emailResult.skipped,
+      });
     } else {
       console.log('⚠️ [BROADCAST API] Email channel disabled, skipping email sending');
     }

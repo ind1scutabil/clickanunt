@@ -4,13 +4,15 @@
  */
 
 import nodemailer from 'nodemailer';
+import { resolveSmtpPassword } from '@/lib/smtp-config';
 
 // Configurare SMTP transporter
 const createTransporter = () => {
   // Pentru development, folosim Ethereal (test email)
   // Pentru production, folosește SMTP real (Gmail, SendGrid, Mailgun, etc.)
+  const smtpPass = resolveSmtpPassword();
   
-  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && smtpPass) {
     // SMTP_FROM: dacă domeniul expeditor nu e validat / e suspendat la registrul DNS, folosește
     // același adresă ca SMTP_USER (ex. Gmail) sau un domeniu SPF/DKIM configurat.
     // Production SMTP
@@ -20,7 +22,7 @@ const createTransporter = () => {
       secure: process.env.SMTP_SECURE === 'true', // true pentru 465, false pentru 587
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        pass: smtpPass,
       },
     });
   }

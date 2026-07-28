@@ -9,14 +9,19 @@ import { logger } from "@/lib/observability";
 import { AdminNotificationSeverity } from "@prisma/client";
 import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
+import { authorizeCronRequest } from "@/lib/cron-auth";
 
 async function run() {
   if (process.env.USE_IN_MEMORY_DB === "true") {
     return NextResponse.json({ ok: true, skipped: true, reason: "in-memory-db" });
   }
 
+  const startedAt = Date.now();
   const { updated } = await expireAllExpiredPromotions(prisma);
-  logger.info("cron.expire-promotions", { updated });
+  logger.info("cron.expire-promotions", {
+    updated,
+    durationMs: Date.now() - startedAt,
+  });
 
   if (updated > 0) {
     void createAdminNotification({
@@ -31,20 +36,8 @@ async function run() {
   return NextResponse.json({ ok: true, updated });
 }
 
-function authorizeCron(request: NextRequest): NextResponse | null {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "CRON_SECRET nu este configurat" }, { status: 503 });
-  }
-  const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Neautorizat" }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: NextRequest) {
-  const denied = authorizeCron(request);
+  const denied = authorizeCronRequest(request);
   if (denied) return denied;
   try {
     return await run();
@@ -55,7 +48,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const denied = authorizeCron(request);
+  const denied = authorizeCronRequest(request);
   if (denied) return denied;
   try {
     return await run();

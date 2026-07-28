@@ -558,6 +558,20 @@ export const notificationsApi = {
     const data = await request<{ notifications?: NotificationItem[] }>('/api/notifications?limit=25&offset=0');
     return data.notifications ?? [];
   },
+  async markRead(id: string): Promise<void> {
+    const token = await ensureCsrfToken();
+    await request(`/api/notifications/${id}/read`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+    });
+  },
+  async markAllRead(): Promise<void> {
+    const token = await ensureCsrfToken();
+    await request('/api/notifications/mark-all-read', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+    });
+  },
   async registerPushToken(payload: { expoPushToken: string; platform: 'ios' | 'android' | 'web' }): Promise<void> {
     const token = await ensureCsrfToken();
     await request('/api/notifications/push-token', {

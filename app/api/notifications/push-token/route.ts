@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 
 const pushTokenSchema = z
@@ -14,7 +14,8 @@ const pushTokenSchema = z
 
 /**
  * POST /api/notifications/push-token
- * Persist device token for future push delivery (no external push calls in this phase).
+ * Persist device token only. No Expo/FCM send is implemented — delivery remains
+ * "persistat, dar nelivrat" until a real push provider is wired.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -31,22 +32,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const tokenPayload = await verifyToken(token);
-    if (!tokenPayload) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    const userId =
-      (tokenPayload as { userId?: string; sub?: string }).userId ||
-      (tokenPayload as { sub?: string }).sub;
-    if (!userId) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     const { expoPushToken, platform } = security.data as z.infer<typeof pushTokenSchema>;
@@ -54,18 +42,25 @@ export async function POST(req: NextRequest) {
     await prisma.pushDeviceToken.upsert({
       where: { token: expoPushToken },
       create: {
-        userId,
+        userId: user.id,
         token: expoPushToken,
         platform,
       },
       update: {
-        userId,
+        userId: user.id,
         platform,
         updatedAt: new Date(),
       },
     });
 
-    return NextResponse.json({ success: true, stored: true });
+    return NextResponse.json(
+      {
+        success: true,
+        stored: true,
+        delivery: "not_implemented",
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (e) {
     console.error("POST /api/notifications/push-token", e);
     return NextResponse.json({ error: "Failed to store push token" }, { status: 500 });

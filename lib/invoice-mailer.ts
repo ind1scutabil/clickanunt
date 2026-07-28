@@ -5,13 +5,14 @@
 import nodemailer from 'nodemailer';
 import { COMPANY_CONFIG } from './company-config';
 import { logger } from './observability';
+import { resolveSmtpPassword } from './smtp-config';
 
 function getMailerConfig() {
   return {
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : undefined,
     user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
+    pass: resolveSmtpPassword(),
     from: process.env.SMTP_FROM || COMPANY_CONFIG.emails.noreply,
   };
 }

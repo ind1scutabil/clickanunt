@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { notificationsApi } from '../api/client';
@@ -52,7 +52,18 @@ export function NotificationsScreen(): React.JSX.Element {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
-          <View style={[styles.card, !item.isRead && styles.unreadCard]}>
+          <Pressable
+            style={[styles.card, !item.isRead && styles.unreadCard]}
+            onPress={() => {
+              if (item.isRead) return;
+              setItems((prev) =>
+                prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+              );
+              void notificationsApi.markRead(item.id).catch(() => {
+                void load();
+              });
+            }}
+          >
             <View style={styles.topRow}>
               <Text style={styles.title}>{item.title || 'Notificare'}</Text>
               {!item.isRead ? <View style={styles.dot} /> : null}
@@ -61,7 +72,7 @@ export function NotificationsScreen(): React.JSX.Element {
               {item.message || 'Ai o notificare nouă.'}
             </Text>
             <Text style={styles.dateText}>{formatRelativeDate(item.createdAt)}</Text>
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={!refreshing ? <Text style={styles.empty}>Nu ai notificări.</Text> : null}
       />
