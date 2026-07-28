@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { existsSync } from "fs";
+import path from "path";
 import { prisma } from "@/lib/prisma";
 import { LISTING_SITEMAP_CHUNK_SIZE } from "@/lib/seo/sitemap-constants";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
-import { canonicalizeSitemapImageUrl } from "@/lib/seo/sitemap-image-url";
+import {
+  canonicalizeSitemapImageUrl,
+  isEligibleSitemapImageUrl,
+} from "@/lib/seo/sitemap-image-url";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,6 +21,33 @@ function xmlEscape(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
+
+const UPLOAD_ROOT = path.join(process.cwd(), "public", "uploads");
+
+/** True when the upload object exists on local disk (prod/release uploads symlink). */
+function localUploadExists(absoluteHttpsUrl: string): boolean {
+  try {
+    const u = new URL(absoluteHttpsUrl);
+    let rel: string | null = null;
+    if (u.pathname.startsWith("/api/uploads/serve")) {
+      const key = u.searchParams.get("key");
+      if (!key) return false;
+      rel = key;
+    } else if (u.pathname.startsWith("/uploads/")) {
+      rel = u.pathname.slice("/uploads/".length);
+    }
+    if (!rel) return false;
+    // prevent escaping uploads root
+    const resolved = path.resolve(UPLOAD_ROOT, rel);
+    if (!resolved.startsWith(UPLOAD_ROOT + path.sep) && resolved !== UPLOAD_ROOT) {
+      return false;
+    }
+    return existsSync(resolved);
+  } catch {
+    return false;
+  }
+}
+
 
 /**
  * Google image sitemap for public indexable listings only.
@@ -59,13 +91,24 @@ export async function GET(
       : [];
     if (photos.length === 0) continue;
 
+    const seen = new Set<string>();
+    const imageLocs: string[] = [];
+    for (const photo of photos) {
+      if (imageLocs.length >= 10) break;
+      const imageLoc = canonicalizeSitemapImageUrl(photo, base);
+      if (!imageLoc || !isEligibleSitemapImageUrl(imageLoc)) continue;
+      if (!localUploadExists(imageLoc)) continue;
+      if (seen.has(imageLoc)) continue;
+      seen.add(imageLoc);
+      imageLocs.push(imageLoc);
+    }
+    if (imageLocs.length === 0) continue;
+
     const pageUrl = `${base}/listings/${listing.id}`;
     parts.push(`  <url>`);
     parts.push(`    <loc>${xmlEscape(pageUrl)}</loc>`);
     parts.push(`    <lastmod>${listing.updatedAt.toISOString().slice(0, 10)}</lastmod>`);
-    for (const photo of photos.slice(0, 10)) {
-      const imageLoc = canonicalizeSitemapImageUrl(photo, base);
-      if (!imageLoc) continue;
+    for (const imageLoc of imageLocs) {
       parts.push(`    <image:image>`);
       parts.push(`      <image:loc>${xmlEscape(imageLoc)}</image:loc>`);
       if (listing.title) {

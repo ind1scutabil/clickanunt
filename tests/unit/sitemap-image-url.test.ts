@@ -1,5 +1,8 @@
 /** @jest-environment node */
-import { canonicalizeSitemapImageUrl } from "@/lib/seo/sitemap-image-url";
+import {
+  canonicalizeSitemapImageUrl,
+  isEligibleSitemapImageUrl,
+} from "@/lib/seo/sitemap-image-url";
 
 const BASE = "https://www.clickanunt.ro";
 
@@ -150,5 +153,33 @@ describe("canonicalizeSitemapImageUrl", () => {
       canonicalizeSitemapImageUrl("http://localhost:3000/uploads/a.jpg", BASE);
     }
     expect(performance.now() - before).toBeLessThan(500);
+  });
+});
+
+describe("isEligibleSitemapImageUrl", () => {
+  it("rejects e2e fixtures and temp upload paths", () => {
+    expect(
+      isEligibleSitemapImageUrl(
+        "https://www.clickanunt.ro/api/uploads/serve?key=listings%2Fe2e%2Foriginal%2F1.jpg",
+      ),
+    ).toBe(false);
+    expect(
+      isEligibleSitemapImageUrl(
+        "https://www.clickanunt.ro/uploads/listings/temp-abc/original/x.jpg",
+      ),
+    ).toBe(false);
+    expect(
+      isEligibleSitemapImageUrl(
+        "https://www.clickanunt.ro/uploads/listings/e2e-verification-sample/original/placeholder.jpg",
+      ),
+    ).toBe(false);
+  });
+
+  it("allows real listing upload keys", () => {
+    expect(
+      isEligibleSitemapImageUrl(
+        "https://www.clickanunt.ro/api/uploads/serve?key=listings%2F854f668b-8ec6-455d-9551-5dfb2d5461f1%2Foriginal%2F1.jpg",
+      ),
+    ).toBe(true);
   });
 });

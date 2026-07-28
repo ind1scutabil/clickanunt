@@ -146,3 +146,31 @@ export function canonicalizeSitemapImageUrl(photo: string, base: string): string
 
   return out.toString();
 }
+
+/**
+ * Extra eligibility after canonicalize: drop fixture / unfinished upload paths
+ * that must never appear in a public image sitemap.
+ */
+export function isEligibleSitemapImageUrl(absoluteHttpsUrl: string): boolean {
+  try {
+    const u = new URL(absoluteHttpsUrl);
+    const raw = `${u.pathname}${u.search}`.toLowerCase();
+    let decoded = raw;
+    try {
+      decoded = decodeURIComponent(raw).toLowerCase();
+    } catch {
+      /* keep raw */
+    }
+    for (const hay of [raw, decoded]) {
+      if (hay.includes("/e2e/") || hay.includes("e2e-verification") || hay.includes("placeholder")) {
+        return false;
+      }
+      if (hay.includes("/temp-") || hay.includes("listings/temp-")) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
