@@ -56,7 +56,9 @@ const AUTO_ONLY_ATTRIBUTE_KEYS = new Set([
   'horsepower',
   'co2Emissions',
   'cylinderCapacity',
+  'cylinder_capacity',
   'registrationDate',
+  'registration_date',
   'inspectionExpires',
   'bodyType',
   'body_type',
@@ -73,6 +75,24 @@ const AUTO_ONLY_ATTRIBUTE_KEYS = new Set([
   'priorDamage',
   'prior_damage',
   'accident',
+  'condition',
+  'stare',
+  'color',
+  'culoare',
+  'colour',
+  'upholstery',
+  'interior',
+  'owners',
+  'owner_count',
+  'numberOfOwners',
+  'chei',
+  'key_count',
+  'keyCount',
+  'key',
+  'doors',
+  'door_count',
+  'seats',
+  'seat_count',
   'serviceHistory',
   'service_history',
   'countryOfOrigin',
@@ -85,6 +105,8 @@ const AUTO_ONLY_ATTRIBUTE_KEYS = new Set([
   'inspectionValid',
   'inspection_valid',
   'itp',
+  'warranty',
+  'garantie',
   'avgFuelLPer100km',
   'consumption',
   'yearlyTaxRon',
@@ -132,14 +154,16 @@ export function formatConditionDisplay(condition: string): string {
   const map: Record<string, string> = {
     new: 'Nou',
     used: 'Folosit',
+    utilizat: 'Utilizat',
     refurbished: 'Recondiționat',
     for_parts: 'Pentru piese',
     Nou: 'Nou',
     Folosit: 'Folosit',
+    Utilizat: 'Utilizat',
     Recondiționat: 'Recondiționat',
     'Pentru piese': 'Pentru piese',
   };
-  return map[condition] ?? condition;
+  return map[condition] ?? map[condition.trim().toLowerCase()] ?? condition;
 }
 
 export function formatFuelDisplay(fuel: string): string {
@@ -162,6 +186,35 @@ export function formatTransmissionDisplay(transmission: string): string {
     automatic: 'Automată',
   };
   return map[key] ?? transmission;
+}
+
+export function formatBodyTypeDisplay(bodyType: string): string {
+  const key = bodyType.trim().toLowerCase().replace(/[_\s-]+/g, '');
+  const map: Record<string, string> = {
+    sedan: 'Berlina',
+    berlina: 'Berlina',
+    hatchback: 'Hatchback',
+    suv: 'SUV',
+    coupe: 'Coupe',
+    coupé: 'Coupe',
+    convertible: 'Cabriolet',
+    cabriolet: 'Cabriolet',
+    wagon: 'Break',
+    break: 'Break',
+    estate: 'Break',
+    van: 'Van',
+    pickup: 'Pick-up',
+    minivan: 'Monovolum',
+    monovolum: 'Monovolum',
+  };
+  return map[key] ?? bodyType.trim();
+}
+
+function formatAccidentHistoryDisplay(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  if (['no', 'nu', 'false', 'none', '0'].includes(key)) return 'Nu';
+  if (['yes', 'da', 'true', '1'].includes(key)) return 'Da';
+  return raw.trim();
 }
 
 function attrsRecord(listing: ListingSpecSource): Record<string, unknown> {
@@ -210,6 +263,17 @@ const ATTRIBUTE_ALIAS_GROUPS: Array<{ label: string; keys: string[] }> = [
   { label: 'Chei', keys: ['keys', 'chei', 'key_count', 'keyCount', 'key'] },
   { label: 'Uși', keys: ['doors', 'door_count', 'doorCount', 'usi'] },
   { label: 'Locuri', keys: ['seats', 'seat_count', 'seatCount', 'locuri'] },
+  { label: 'Stare', keys: ['condition', 'stare'] },
+  { label: 'Putere', keys: ['horsePower', 'horse_power', 'horsepower', 'hp'] },
+  {
+    label: 'Capacitate cilindrică',
+    keys: ['engineCapacity', 'engine_capacity', 'cylinderCapacity', 'cylinder_capacity', 'capacity'],
+  },
+  {
+    label: 'Prima înmatriculare',
+    keys: ['firstRegistration', 'first_registration', 'registrationDate', 'registration_date'],
+  },
+  { label: 'Accidente', keys: ['accidents', 'accident', 'priorDamage', 'prior_damage'] },
 ];
 
 function normalizeAttrKey(key: string): string {
@@ -277,14 +341,31 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
 
   pushRow(rows, 'Marcă', listing.make);
   pushRow(rows, 'Model', listing.model);
-  pushAttrRow(rows, 'Caroserie', ['bodyType', 'body_type'], attrs);
-  markAttrKeysUsed(usedKeys, ['bodyType', 'body_type']);
-  if (listing.condition) {
-    rows.push({ label: 'Stare', value: formatConditionDisplay(String(listing.condition)) });
+  const bodyRaw = attrFirst(attrs, ['bodyType', 'body_type']);
+  if (bodyRaw) {
+    rows.push({ label: 'Caroserie', value: formatBodyTypeDisplay(bodyRaw) });
   }
+  markAttrKeysUsed(usedKeys, ['bodyType', 'body_type']);
+  const conditionRaw =
+    (listing.condition && String(listing.condition).trim()) ||
+    (hasValue(attrs.condition) ? String(attrs.condition).trim() : '');
+  if (conditionRaw) {
+    rows.push({ label: 'Stare', value: formatConditionDisplay(conditionRaw) });
+  }
+  markAttrKeysUsed(usedKeys, ['condition', 'stare']);
   pushRow(rows, 'An fabricație', listing.year);
-  pushAttrRow(rows, 'Prima înmatriculare', ['firstRegistration', 'first_registration'], attrs);
-  markAttrKeysUsed(usedKeys, ['firstRegistration', 'first_registration']);
+  pushAttrRow(rows, 'Prima înmatriculare', [
+    'firstRegistration',
+    'first_registration',
+    'registrationDate',
+    'registration_date',
+  ], attrs);
+  markAttrKeysUsed(usedKeys, [
+    'firstRegistration',
+    'first_registration',
+    'registrationDate',
+    'registration_date',
+  ]);
   if (listing.mileage != null) {
     rows.push({ label: 'Kilometraj', value: `${formatScalar(listing.mileage)} km` });
   }
@@ -292,10 +373,22 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
   if (listing.fuel) {
     rows.push({ label: 'Combustibil', value: formatFuelDisplay(String(listing.fuel)) });
   }
-  pushAttrRow(rows, 'Putere', ['horsePower', 'horse_power', 'hp'], attrs);
-  markAttrKeysUsed(usedKeys, ['horsePower', 'horse_power', 'hp']);
-  pushAttrRow(rows, 'Capacitate cilindrică', ['engineCapacity', 'engine_capacity', 'capacity'], attrs);
-  markAttrKeysUsed(usedKeys, ['engineCapacity', 'engine_capacity', 'capacity']);
+  pushAttrRow(rows, 'Putere', ['horsePower', 'horse_power', 'horsepower', 'hp'], attrs);
+  markAttrKeysUsed(usedKeys, ['horsePower', 'horse_power', 'horsepower', 'hp']);
+  pushAttrRow(rows, 'Capacitate cilindrică', [
+    'engineCapacity',
+    'engine_capacity',
+    'cylinderCapacity',
+    'cylinder_capacity',
+    'capacity',
+  ], attrs);
+  markAttrKeysUsed(usedKeys, [
+    'engineCapacity',
+    'engine_capacity',
+    'cylinderCapacity',
+    'cylinder_capacity',
+    'capacity',
+  ]);
   if (listing.transmission) {
     rows.push({ label: 'Transmisie', value: formatTransmissionDisplay(String(listing.transmission)) });
   }
@@ -313,6 +406,11 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
   markAttrKeysUsed(usedKeys, ['owners', 'owner_count', 'numberOfOwners']);
   pushAttrRow(rows, 'Chei', ['keys', 'chei', 'key_count', 'keyCount'], attrs);
   markAttrKeysUsed(usedKeys, ['keys', 'chei', 'key_count', 'keyCount']);
+  const accidentRaw = attrFirst(attrs, ['accidents', 'accident', 'priorDamage', 'prior_damage']);
+  if (accidentRaw) {
+    rows.push({ label: 'Accidente', value: formatAccidentHistoryDisplay(accidentRaw) });
+  }
+  markAttrKeysUsed(usedKeys, ['accidents', 'accident', 'priorDamage', 'prior_damage']);
   pushAttrRow(rows, 'Istoric service', ['serviceHistory', 'service_history'], attrs);
   markAttrKeysUsed(usedKeys, ['serviceHistory', 'service_history']);
   pushAttrRow(rows, 'Normă poluare', ['environmentalClass', 'environmental_class', 'emission_standard'], attrs);
@@ -344,7 +442,8 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
   for (const field of REAL_ESTATE_ATTRIBUTE_FIELDS) {
     markAttrKeysUsed(usedKeys, field.keys);
   }
-  appendGenericAttributes(rows, attrs, usedKeys, false);
+  // Auto-only keys must not fall through as English humanized labels (Condition, Horsepower, …).
+  appendGenericAttributes(rows, attrs, usedKeys, true);
 }
 
 function appendLocationSpecs(rows: ListingSpecRow[], listing: ListingSpecSource): void {
@@ -352,10 +451,13 @@ function appendLocationSpecs(rows: ListingSpecRow[], listing: ListingSpecSource)
   pushRow(rows, 'Oraș', listing.city);
 }
 
-function appendCommonNonAuto(rows: ListingSpecRow[], listing: ListingSpecSource): void {
+function appendCommonNonAuto(rows: ListingSpecRow[], listing: ListingSpecSource, usedAttrKeys?: Set<string>): void {
   pushRow(rows, 'Subcategorie', listing.subcategory);
   if (listing.condition) {
     rows.push({ label: 'Stare', value: formatConditionDisplay(String(listing.condition)) });
+  }
+  if (usedAttrKeys) {
+    markAttrKeysUsed(usedAttrKeys, ['condition', 'stare']);
   }
 }
 
@@ -374,7 +476,7 @@ export function buildListingSpecRows(listing: ListingSpecSource): ListingSpecRow
   appendLocationSpecs(rows, listing);
 
   if (isRealEstateCategory(category)) {
-    appendCommonNonAuto(rows, listing);
+    appendCommonNonAuto(rows, listing, usedAttrKeys);
     for (const field of REAL_ESTATE_ATTRIBUTE_FIELDS) {
       pushAttrRow(rows, field.label, field.keys, attrs);
       field.keys.forEach((k) => usedAttrKeys.add(k));
@@ -384,7 +486,7 @@ export function buildListingSpecRows(listing: ListingSpecSource): ListingSpecRow
   }
 
   if (isHomeGardenCategory(category)) {
-    appendCommonNonAuto(rows, listing);
+    appendCommonNonAuto(rows, listing, usedAttrKeys);
     pushAttrRow(rows, 'Livrare', ['delivery', 'livrare', 'shipping'], attrs);
     pushAttrRow(rows, 'Ridicare', ['pickup', 'ridicare'], attrs);
     appendGenericAttributes(rows, attrs, usedAttrKeys, true);
@@ -392,7 +494,7 @@ export function buildListingSpecRows(listing: ListingSpecSource): ListingSpecRow
   }
 
   if (isElectronicsCategory(category)) {
-    appendCommonNonAuto(rows, listing);
+    appendCommonNonAuto(rows, listing, usedAttrKeys);
     pushAttrRow(rows, 'Brand', ['brand', 'marca'], attrs);
     pushAttrRow(rows, 'Model', ['model', 'deviceModel'], attrs);
     if (!attrFirst(attrs, ['model', 'deviceModel']) && listing.model) {
@@ -402,7 +504,7 @@ export function buildListingSpecRows(listing: ListingSpecSource): ListingSpecRow
     return rows;
   }
 
-  appendCommonNonAuto(rows, listing);
+  appendCommonNonAuto(rows, listing, usedAttrKeys);
   appendGenericAttributes(rows, attrs, usedAttrKeys, true);
   return rows;
 }

@@ -8,8 +8,9 @@ import { filterListingsWithReachablePrimaryPhoto } from "@/lib/listing-photo-rea
 type Row = {
   id: string;
   title: string;
-  priceAmount: number;
+  priceAmount: number | null;
   priceCurrency: string;
+  priceType?: string | null;
   photos: string[];
   category: string;
   isPromoted?: boolean;
@@ -33,6 +34,7 @@ function mapShelfRowToCard(l: Row): ListingCardListing {
     title: l.title,
     priceAmount: l.priceAmount,
     priceCurrency: l.priceCurrency,
+    priceType: l.priceType ?? null,
     category: l.category || "Anunț",
     photos: l.photos,
     createdAt: l.createdAt ?? new Date(0).toISOString(),

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ListingJsonLd } from "./ListingJsonLd";
 import { ListingBreadcrumbsNav } from "./ListingBreadcrumbsNav";
 import { ListingRelatedCrawlLinks } from "@/app/components/seo/ListingRelatedCrawlLinks";
-import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
+import { formatListingPublicPriceLine } from "@/lib/format-listing-price";
 import { prisma } from "@/lib/prisma";
 import { createPageMetadata } from "@/lib/seo";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -77,7 +77,7 @@ export async function generateMetadata({
   }
 
   const loc = listing.city || listing.county || "";
-  const priceFormatted = formatListingCommercialOrSalaryLine({
+  const priceLine = formatListingPublicPriceLine({
     category: listing.category,
     priceType: listing.priceType,
     priceAmount: listing.priceAmount,
@@ -94,9 +94,6 @@ export async function generateMetadata({
         ? String((listing.attributes as Record<string, unknown>).salary_range)
         : null,
   });
-  const priceLine = priceFormatted.suffix
-    ? `${priceFormatted.primary} · ${priceFormatted.suffix}`
-    : priceFormatted.primary;
   const ogImage = `/listings/${id}/opengraph-image`;
 
   const rawDesc = listing.description?.replace(/\s+/g, " ").trim() ?? "";

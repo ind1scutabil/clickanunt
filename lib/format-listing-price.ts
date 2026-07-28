@@ -38,6 +38,15 @@ export type ListingPriceDisplayInput = {
 };
 
 /**
+ * Canonical card/detail/dashboard/SEO price line (single string).
+ * Listing `priceAmount` is major currency units (not cents/bani).
+ */
+export function formatListingPublicPriceLine(input: ListingPriceDisplayInput): string {
+  const line = formatListingCommercialOrSalaryLine(input);
+  return line.suffix ? `${line.primary} · ${line.suffix}` : line.primary;
+}
+
+/**
  * Canonical card/detail/dashboard price line.
  */
 export function formatListingCommercialOrSalaryLine(

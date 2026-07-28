@@ -1,4 +1,4 @@
-import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
+import { formatListingPublicPriceLine } from "@/lib/format-listing-price";
 import { marketplaceOpenGraphImageResponse } from "@/lib/seo/marketplace-og";
 import { prisma } from "@/lib/prisma";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
@@ -51,7 +51,7 @@ export default async function Image({ params }: Props) {
   }
 
   const loc = listing.city || listing.county || "";
-  const line = formatListingCommercialOrSalaryLine({
+  const priceLine = formatListingPublicPriceLine({
     category: listing.category,
     priceType: listing.priceType,
     priceAmount: listing.priceAmount,
@@ -68,7 +68,6 @@ export default async function Image({ params }: Props) {
         ? String((listing.attributes as Record<string, unknown>).salary_range)
         : null,
   });
-  const priceLine = line.suffix ? `${line.primary} · ${line.suffix}` : line.primary;
 
   return marketplaceOpenGraphImageResponse({
     title: listing.title.slice(0, 100),
