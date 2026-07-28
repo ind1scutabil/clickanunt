@@ -45,9 +45,18 @@ test.describe("Publish auth — anonymous", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.goto("/listings/new", { waitUntil: "domcontentloaded" });
     await page.waitForURL(/\/auth\/login/, { timeout: 20000 });
+    // WebKit cancels overlapping history traversals ("Navigation canceled by policy
+    // check") if goForward runs while goBack is still in flight. Settle Back first.
     await page.goBack();
+    await page.waitForURL((url) => {
+      const p = url.pathname;
+      return p === "/" || p === "";
+    }, { timeout: 20000 });
+    await page.waitForLoadState("domcontentloaded");
     await page.goForward();
+    await page.waitForURL(/\/auth\/login/, { timeout: 20000 });
     await expect(page).toHaveURL(/\/auth\/login/);
+    expect(new URL(page.url()).origin).toMatch(/localhost|127\.0\.0\.1/);
   });
 });
 
