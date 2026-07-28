@@ -9,7 +9,7 @@ import {
   clearLegacyWebAuthStorage,
 } from "@/lib/auth/clear-legacy-web-auth-storage";
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 const devLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV === "development") console.log(...args);
@@ -24,107 +24,18 @@ export default function LoginForm() {
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [requiresTwoFA, setRequiresTwoFA] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   function postLoginPath(role: string | undefined): string {
-    const safeNext = sanitizeAuthReturnPath(searchParams.get("next"));
+    // Support next= (canonical), redirect=, and returnUrl= used across surfaces.
+    const rawReturn =
+      searchParams.get("next") ||
+      searchParams.get("redirect") ||
+      searchParams.get("returnUrl");
+    const safeNext = sanitizeAuthReturnPath(rawReturn);
     if (safeNext) return safeNext;
     if (isAdminStaffRole(role)) return "/admin/dashboard";
     return "/dashboard";
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-
-    // Dacă suntem în procesul de 2FA, verifica codul
-    if (requiresTwoFA && sessionToken) {
-      return handle2FASubmit();
-    }
-
-    devLog('[LOGIN] Starting login process...');
-
-    try {
-      // Cookie-first: strip any legacy JWT mirrors before login
-      clearLegacyWebAuthStorage({ broadcast: false });
-      devLog('[LOGIN] Cleared legacy localStorage auth');
-
-      devLog('[LOGIN] Making API call...');
-
-      const csrfToken = await getCsrfToken();
-      
-      devLog('[LOGIN] Sending login request');
-      
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "x-csrf-token": csrfToken,
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
-
-      devLog('[LOGIN] API response status:', res.status);
-
-      const data = await res.json();
-
-      devLog('[LOGIN] API response data:', data);
-
-      // Verifică dacă necesită 2FA
-      if (res.status === 206 && data.requiresTwoFactor) {
-        devLog('[LOGIN] 2FA required for admin user');
-        setRequiresTwoFA(true);
-        setSessionToken(data.sessionToken);
-        setMessageType("success");
-        const apiMessage = data?.error?.message ?? data?.error ?? data?.message;
-        if (apiMessage) {
-          setMessage(apiMessage);
-        }
-        setLoading(false);
-        return;
-      }
-
-      if (res.status !== 200) {
-        const apiMessage = data?.error?.message ?? data?.error ?? data?.message;
-        const statusMessages: Record<number, string> = {
-          401: "Email sau parolă incorectă",
-          403: "Acces interzis",
-          429: "Prea multe încercări. Încearcă mai târziu.",
-        };
-        const mapped = statusMessages[res.status];
-        const finalMessage = apiMessage || mapped || null;
-        if (finalMessage) {
-          setMessageType("error");
-          setMessage(finalMessage);
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Cookies HttpOnly are set by the API. Never mirror access/refresh into localStorage.
-      clearLegacyWebAuthStorage({ broadcast: false });
-      if (data.user && typeof data.user === "object") {
-        cacheWebUserProfile(data.user as { id?: string; email?: string; role?: string; name?: string | null });
-      }
-      broadcastAuthSessionChanged();
-
-      const dest = postLoginPath(data.user?.role);
-      devLog('[LOGIN] Redirecting to', dest);
-      router.push(dest);
-    } catch (err: unknown) {
-      console.error('[LOGIN] Error:', err);
-      if (err instanceof Error && err.message) {
-        setMessageType("error");
-        setMessage(err.message);
-      }
-      setLoading(false);
-    }
   }
 
   async function handle2FASubmit() {
@@ -134,7 +45,7 @@ export default function LoginForm() {
         return;
       }
 
-      devLog('[2FA] Verifying 2FA code...');
+      devLog("[2FA] Verifying 2FA code...");
 
       const csrfToken = await getCsrfToken();
       const res = await fetch("/api/auth/verify-2fa", {
@@ -169,19 +80,110 @@ export default function LoginForm() {
         return;
       }
 
-      // Cookies set by API — do not store JWTs in localStorage
       clearLegacyWebAuthStorage({ broadcast: false });
       if (data.user && typeof data.user === "object") {
-        cacheWebUserProfile(data.user as { id?: string; email?: string; role?: string; name?: string | null });
+        cacheWebUserProfile(
+          data.user as {
+            id?: string;
+            email?: string;
+            role?: string;
+            name?: string | null;
+          }
+        );
       }
 
       broadcastAuthSessionChanged();
 
       const dest = postLoginPath(data.user?.role);
-      devLog('[2FA] 2FA verification successful →', dest);
-      router.push(dest);
+      devLog("[2FA] 2FA verification successful →", dest);
+      window.location.assign(dest);
     } catch (err: unknown) {
-      console.error('[2FA] Error:', err);
+      console.error("[2FA] Error:", err);
+      if (err instanceof Error && err.message) {
+        setMessageType("error");
+        setMessage(err.message);
+      }
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    if (requiresTwoFA && sessionToken) {
+      return handle2FASubmit();
+    }
+
+    devLog("[LOGIN] Starting login process...");
+
+    try {
+      clearLegacyWebAuthStorage({ broadcast: false });
+      const csrfToken = await getCsrfToken();
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 206 && data.requiresTwoFactor) {
+        setRequiresTwoFA(true);
+        setSessionToken(data.sessionToken);
+        setMessageType("success");
+        const apiMessage = data?.error?.message ?? data?.error ?? data?.message;
+        if (apiMessage) {
+          setMessage(apiMessage);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (res.status !== 200) {
+        const apiMessage = data?.error?.message ?? data?.error ?? data?.message;
+        const statusMessages: Record<number, string> = {
+          401: "Email sau parolă incorectă",
+          403: "Acces interzis",
+          429: "Prea multe încercări. Încearcă mai târziu.",
+        };
+        const mapped = statusMessages[res.status];
+        const finalMessage = apiMessage || mapped || null;
+        if (finalMessage) {
+          setMessageType("error");
+          setMessage(finalMessage);
+        }
+        setLoading(false);
+        return;
+      }
+
+      clearLegacyWebAuthStorage({ broadcast: false });
+      if (data.user && typeof data.user === "object") {
+        cacheWebUserProfile(
+          data.user as {
+            id?: string;
+            email?: string;
+            role?: string;
+            name?: string | null;
+          }
+        );
+      }
+      broadcastAuthSessionChanged();
+
+      const dest = postLoginPath(data.user?.role);
+      // Hard navigation so HttpOnly cookies are present on the next document request.
+      window.location.assign(dest);
+    } catch (err: unknown) {
+      console.error("[LOGIN] Error:", err);
       if (err instanceof Error && err.message) {
         setMessageType("error");
         setMessage(err.message);
@@ -243,7 +245,9 @@ export default function LoginForm() {
           <input
             type="text"
             value={twoFACode}
-            onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) =>
+              setTwoFACode(e.target.value.replace(/\D/g, "").slice(0, 6))
+            }
             className="w-full px-4 py-3 h-11 bg-[#242A36] border border-[#3F4654] rounded-lg text-white placeholder-[#808B9A] focus:outline-none focus:ring-2 focus:ring-orange-500/70 focus:border-transparent transition-smooth text-center text-2xl tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="000000"
             maxLength={6}
@@ -271,7 +275,13 @@ export default function LoginForm() {
         disabled={loading}
         className="w-full h-11 rounded-lg bg-gradient-to-r from-orange-500 to-amber-600 font-bold text-white shadow-lg shadow-orange-950/30 transition-smooth hover:from-orange-400 hover:to-amber-500 hover:shadow-orange-900/35 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? (requiresTwoFA ? "Se verifică..." : "Se conectează...") : (requiresTwoFA ? "Verifică codul" : "Conectează-te")}
+        {loading
+          ? requiresTwoFA
+            ? "Se verifică..."
+            : "Se conectează..."
+          : requiresTwoFA
+            ? "Verifică codul"
+            : "Conectează-te"}
       </button>
 
       {requiresTwoFA && (

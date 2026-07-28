@@ -122,17 +122,22 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <ul className="space-y-2 text-sm">
               <li>
                 <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  📄 Termeni și Condiții
+                  Termeni și Condiții
                 </Link>
               </li>
               <li>
                 <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🔐 Politica de Confidențialitate (GDPR)
+                  Politica de Confidențialitate
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  ⚖️ Drepturile GDPR
+                <Link href="/gdpr" className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                  Drepturile GDPR
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="transition-colors duration-normal ease-premium hover:text-primary-400">
+                  Politica de cookies
                 </Link>
               </li>
               <li>
@@ -142,7 +147,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                   rel="noopener noreferrer"
                   className="transition-colors duration-normal ease-premium hover:text-primary-400"
                 >
-                  🇪🇺 Soluționarea alternativă a litigiilor în UE
+                  Soluționarea alternativă a litigiilor în UE
                 </a>
               </li>
             </ul>
@@ -153,28 +158,18 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <h4 className="mb-4 font-semibold text-neutral-100">Contact</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href={`mailto:${COMPANY_CONFIG.emails.admin}`} className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🛡️ {COMPANY_CONFIG.emails.admin}
-                </a>
-              </li>
-              <li>
                 <a href={`mailto:${COMPANY_CONFIG.emails.support}`} className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🆘 {COMPANY_CONFIG.emails.support}
-                </a>
-              </li>
-              <li>
-                <a href={`mailto:${COMPANY_CONFIG.emails.billing}`} className="transition-colors duration-normal ease-premium hover:text-warning-500">
-                  💳 {COMPANY_CONFIG.emails.billing}
+                  {COMPANY_CONFIG.emails.support}
                 </a>
               </li>
               <li>
                 <a href={`mailto:${COMPANY_CONFIG.emails.contact}`} className="transition-colors duration-normal ease-premium hover:text-success-500">
-                  📧 {COMPANY_CONFIG.emails.contact}
+                  {COMPANY_CONFIG.emails.contact}
                 </a>
               </li>
               <li>
                 <a href="mailto:dpo@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-info-500">
-                  🔐 dpo@clickanunt.ro (GDPR)
+                  dpo@clickanunt.ro (DPO)
                 </a>
               </li>
               {publicCompanyPhone ? (
@@ -183,7 +178,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     href={`tel:${publicCompanyPhone.replace(/\s/g, "")}`}
                     className="transition-colors duration-normal ease-premium hover:text-primary-400"
                   >
-                    📱 {publicCompanyPhone}
+                    {publicCompanyPhone}
                   </a>
                 </li>
               ) : null}

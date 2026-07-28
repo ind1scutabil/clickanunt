@@ -54,7 +54,7 @@ export default function FavoritesPage() {
       if (!session.ok) {
         if (!session.transient) {
           clearStaleBrowserAuth();
-          router.push("/auth/login?redirect=/favorites");
+          router.push("/auth/login?next=/favorites");
         }
         return;
       }
@@ -74,7 +74,7 @@ export default function FavoritesPage() {
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          router.push("/auth/login?redirect=/favorites");
+          router.push("/auth/login?next=/favorites");
           return;
         }
         let detail = "Nu am putut încărca favoritele.";
@@ -110,7 +110,7 @@ export default function FavoritesPage() {
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          router.push("/auth/login?redirect=/favorites");
+          router.push("/auth/login?next=/favorites");
         }
         return;
       }

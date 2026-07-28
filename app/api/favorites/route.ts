@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/auth';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 import { FAVORITES_LIST_MAX } from '@/lib/infra/production-limits';
@@ -41,18 +41,12 @@ export async function GET(req: NextRequest) {
       .split(",")[0]
       .trim();
     const origin = `${proto}://${host}`;
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const tokenPayload = await verifyToken(token);
-    if (!tokenPayload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
+    const userId = user.id;
 
     const favorites = await prisma.favorite.findMany({
       where: { userId },
@@ -181,18 +175,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const tokenPayload = await verifyToken(token);
-    if (!tokenPayload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
+    const userId = user.id;
     const { listingId } = security.data as any;
 
     const listing = await prisma.listing.findUnique({
@@ -266,18 +254,12 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const tokenPayload = await verifyToken(token);
-    if (!tokenPayload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const userId = (tokenPayload as any).userId || (tokenPayload as any).sub;
+    const userId = user.id;
     const { searchParams } = new URL(req.url);
     const listingId = searchParams.get('listingId');
 
