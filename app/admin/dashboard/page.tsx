@@ -612,6 +612,22 @@ export default function AdminDashboard() {
             </div>
 
             <Link
+              href="/admin/seo"
+              className="block rounded-xl border border-white/[0.09] border-t-2 border-t-cyan-500/40 bg-gradient-to-b from-cyan-500/[0.07] to-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-sm)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow] duration-200 ease-out hover:border-[var(--border-focus)] sm:p-4"
+            >
+              <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-2">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  SEO
+                </span>
+                <span className="rounded bg-cyan-500/18 px-1.5 py-px text-[9px] font-semibold text-cyan-200/95">
+                  Status
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Discovery &amp; sitemaps</p>
+              <p className="mt-1 text-[10px] font-medium text-[var(--accent-secondary)]/90">Deschide panoul SEO →</p>
+            </Link>
+
+            <Link
               href="/admin/moderation?tab=pending"
               className="block rounded-xl border border-white/[0.09] border-t-2 border-t-amber-500/50 bg-gradient-to-b from-amber-500/[0.07] to-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-sm)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow] duration-200 ease-out hover:border-[var(--border-focus)] sm:p-4"
             >

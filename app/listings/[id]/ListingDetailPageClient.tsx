@@ -25,6 +25,15 @@ import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnic
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
 import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
+import {
+  buildFacebookShareHref,
+  buildListingShareUrl,
+  buildWhatsAppShareHref,
+} from "@/lib/seo/share-url";
+import {
+  MARKETPLACE_GA4_EVENT,
+  trackMarketplaceGa4Event,
+} from "@/lib/seo/marketplace-ga4-events";
 
 async function trackListingEngagement(
   listingId: string,
@@ -375,39 +384,80 @@ export default function ListingDetailPageClient({
   };
 
   const shareOnFacebook = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'width=600,height=400');
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "facebook" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "facebook",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
+    window.open(buildFacebookShareHref(shareUrl), "_blank", "width=600,height=400");
   };
 
   const shareOnWhatsApp = () => {
-    if (id) void trackListingEngagement(id, "listing_whatsapp_click");
-    const text = encodeURIComponent(`${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}\n${window.location.href}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    if (!id) return;
+    void trackListingEngagement(id, "listing_whatsapp_click");
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "whatsapp" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "whatsapp",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
+    const priceLine = formatListingCommercialOrSalaryLine({
+      category: listing?.category,
+      priceType: (listing as { priceType?: string | null } | null)?.priceType,
+      priceAmount: listing?.priceAmount,
+      priceCurrency: listing?.priceCurrency,
+    }).primary;
+    window.open(
+      buildWhatsAppShareHref(shareUrl, `${listing?.title || "Anunț"} — ${priceLine}`),
+      "_blank"
+    );
   };
 
   const copyLink = async () => {
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "copy" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "copy",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       setShowCopySuccess(true);
       setTimeout(() => setShowCopySuccess(false), 2000);
-    } catch (err) {
-      alert('Link copiat: ' + window.location.href);
+    } catch {
+      alert("Link: " + shareUrl);
     }
   };
 
   const shareNative = async () => {
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "native" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "native",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
     if (navigator.share) {
       try {
+        const priceLine = formatListingCommercialOrSalaryLine({
+          category: listing?.category,
+          priceType: (listing as { priceType?: string | null } | null)?.priceType,
+          priceAmount: listing?.priceAmount,
+          priceCurrency: listing?.priceCurrency,
+        }).primary;
         await navigator.share({
-          title: listing.title,
-          text: `${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}`,
-          url: window.location.href,
+          title: listing?.title || "Anunț",
+          text: `${listing?.title || "Anunț"} — ${priceLine}`,
+          url: shareUrl,
         });
       } catch {
         /* user cancelled share sheet */
       }
     } else {
-      copyLink();
+      void copyLink();
     }
   };
 

@@ -88,6 +88,8 @@ const nextConfig: NextConfig = {
       { source: "/sitemap-listings.xml", destination: "/sitemap-serve/listings-index" },
       { source: "/sitemap-listings-:chunk.xml", destination: "/sitemap-serve/listings/:chunk" },
       { source: "/sitemap-auto-hubs.xml", destination: "/sitemap-serve/auto-hubs" },
+      { source: "/sitemap-images.xml", destination: "/sitemap-serve/images-index" },
+      { source: "/sitemap-images-:chunk.xml", destination: "/sitemap-serve/images/:chunk" },
     ];
   },
   
