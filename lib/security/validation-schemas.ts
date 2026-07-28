@@ -823,7 +823,8 @@ export const uploadBase64Schema = z.object({
   filename: z.string().optional(), // Optional - server generates safe filename anyway
   data: z.string().min(1, 'Base64 data required'),
   listingId: listingUploadIdSchema.optional(),
-  type: z.enum(['image', 'video']).optional(),
+  // Video rejected server-side: Listing has no video column; clients must not persist uploads.
+  type: z.enum(['image']).optional(),
 }).strict();
 
 export const imageDeleteSchema = z.object({

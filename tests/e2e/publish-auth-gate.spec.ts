@@ -37,7 +37,7 @@ test.describe("Publish auth — anonymous", () => {
     expect(u.pathname).toBe("/auth/login");
     expect(u.searchParams.get("next")).toBe("/listings/new");
     await expect(page.getByText("Publică anunțul GRATUIT")).toHaveCount(0);
-    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator('main input[type="email"], form input[type="email"]').first()).toBeVisible();
     expect(uploadPosts).toEqual([]);
   });
 

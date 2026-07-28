@@ -3,8 +3,10 @@
  * Targets #home-hero-search explicitly (not navbar). No waitForTimeout / retries.
  */
 import { test, expect } from "@playwright/test";
+import { seedCookieConsentAccepted } from "./helpers/cookie-consent";
 
 async function waitHeroReady(page: import("@playwright/test").Page) {
+  await seedCookieConsentAccepted(page);
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const input = page.locator("#home-hero-search");
   await expect(input).toBeVisible({ timeout: 15000 });

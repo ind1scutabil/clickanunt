@@ -7,6 +7,7 @@ import {
   USER_STORAGE_STATE,
   ensureUserAuthStorage,
 } from "./helpers/auth-storage";
+import { seedCookieConsentAccepted } from "./helpers/cookie-consent";
 
 async function csrfAndPhoto(page: import("@playwright/test").Page) {
   return page.evaluate(async () => {
@@ -243,6 +244,7 @@ test.describe("Price/salary wizard UI", () => {
   test.use({ storageState: USER_STORAGE_STATE });
 
   test("price preview updates for FREE / Jobs salary", async ({ page, isMobile }) => {
+    await seedCookieConsentAccepted(page);
     await page.goto("/listings/new", { waitUntil: "domcontentloaded" });
     const manual = page.getByRole("button", { name: /completează manual/i });
     if (await manual.isVisible().catch(() => false)) await manual.click();

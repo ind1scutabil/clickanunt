@@ -56,9 +56,41 @@ This document does **not** authorize buying servers, changing DNS, opening firew
 5. Backup → `prisma migrate deploy` on staging → deploy exact SHA → smoke.
 6. Only then consider production migrate/deploy in a separate approved phase.
 
+## FAZA 18 — staging deploy order (no execution from this doc)
+
+Use only against a **distinct** staging stack. Never treat production as staging.
+
+1. Staging host/DB/Redis/storage/email **test** are separate from production.
+2. Backup staging DB and verify restore readiness (`STAGING_BACKUP_VERIFIED=1`).
+3. Preflight: duplicate `Invoice.paymentId` check + `scripts/staging/preflight-deploy.mjs`.
+4. `npx prisma migrate status` on staging DB (expect pending: price/salary, invoice unique, sessionVersion, refresh tokens, email verification tokens — if not already applied).
+5. Apply expand migrations: `npx prisma migrate deploy` (forward-only).
+6. `npx prisma generate`
+7. Build **exact** approved SHA (local CI artifact or server build of that SHA).
+8. Deploy **exact** SHA (PM2 `clickanunt-staging`, port ≠ production).
+9. Health: `/api/health` 200 on staging domain.
+10. Smoke: `GET /api/listings` 200.
+11. Auth smoke (login/refresh/logout) — cookie web; no E2E bypass flags.
+12. Create/edit listing (FIXED + FREE + Job salary).
+13. Moderation transition smoke.
+14. Payment **sandbox** only (Stripe test); webhook signature required; no LIVE keys.
+15. Integrity SQL from `docs/PRICE_SALARY_MIGRATION_RUNBOOK.md` (read-only).
+16. Observe 4xx/5xx briefly.
+17. Rollback application **only** to a Prisma-compatible SHA (`ed22afed` / `3c924c72` / later with same expand).
+18. **Never** roll the app back to `ea6904b2` after price/salary migration (`priceAmount` null incompatible).
+
+### Interdicții
+
+- Production ≠ staging
+- No `E2E_DISABLE_RATE_LIMIT` / `CLICKANUNT_E2E_SERVER` on staging/prod PM2
+- No Stripe LIVE in staging
+- No claim that SMTP/push/cron VPS schedulers run unless configured and proven
+- Empty-DB `migrate deploy` from scratch historically fails at `20260327180000_enterprise_feed_boost_and_indexes` (`messages` table absent from earlier migrations) — staging must start from a schema that already includes messaging tables (evolved DB), not a blind empty migrate
+
 ## Confirmations
 
 - No production deploy from this scaffolding
 - No production DB URL
 - No Stripe LIVE
 - No DNS / paid resources created by agents without approval
+- PR CI: `.github/workflows/pr-ci.yml` (lint/type/unit/prisma/build; no deploy secrets)

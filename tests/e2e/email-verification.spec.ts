@@ -9,8 +9,8 @@ import { test, expect } from "@playwright/test";
  */
 
 const BASE =
-  process.env.E2E_BASE_URL ||
   process.env.PLAYWRIGHT_BASE_URL ||
+  process.env.E2E_BASE_URL ||
   "http://127.0.0.1:3098";
 
 test.describe("email verification flows", () => {

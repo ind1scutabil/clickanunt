@@ -1,10 +1,15 @@
 import { test, expect } from "@playwright/test";
+import { seedCookieConsentAccepted } from "./helpers/cookie-consent";
 
 /**
  * Public search / filter / visibility smoke (no auth required).
  * Runs against PLAYWRIGHT_BASE_URL (dedicated gate port).
  */
 test.describe("Marketplace search and filters", () => {
+  test.beforeEach(async ({ page }) => {
+    await seedCookieConsentAccepted(page);
+  });
+
   test("search query lands on /listings?q= and returns API-shaped results", async ({
     page,
     request,

@@ -18,12 +18,17 @@ Use only against a **real** staging host. Leave items unchecked while values are
 
 - [ ] Working tree clean; `STAGING_EXPECTED_SHA` = intended commit
 - [ ] `STAGING_BACKUP_VERIFIED=1` after successful staging DB backup
+- [ ] Preflight duplicate `Invoice.paymentId` (no conflicting rows)
 - [ ] `CONFIRM_STAGING_DEPLOY=1`
 - [ ] `node scripts/staging/preflight-deploy.mjs` PASS
-- [ ] Deploy exact SHA only
+- [ ] `npx prisma migrate status` understood
+- [ ] Expand migrations applied (`migrate deploy`) then `prisma generate`
+- [ ] Build + deploy **exact** SHA only
 - [ ] Health `200` on staging domain (not production)
-- [ ] Smoke: create / edit / draft listing (price + job salary)
+- [ ] `/api/listings` 200
+- [ ] Auth smoke; create / edit / moderation; payment **sandbox**
 - [ ] Integrity SQL from price/salary runbook
+- [ ] No E2E bypass / Stripe LIVE / prod DB URL
 
 ## Rollback (application)
 
