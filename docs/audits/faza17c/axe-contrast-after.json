@@ -1,0 +1,73 @@
+{
+  "phase": "after",
+  "base": "http://127.0.0.1:3104",
+  "at": "2026-07-28T09:12:45.084Z",
+  "totalContrastNodes": 0,
+  "rows": [
+    {
+      "id": "home",
+      "path": "/",
+      "url": "http://127.0.0.1:3104/",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "listings",
+      "path": "/listings",
+      "url": "http://127.0.0.1:3104/listings",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "detail",
+      "path": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "publish",
+      "path": "/listings/new",
+      "url": "http://127.0.0.1:3104/auth/login?next=%2Flistings%2Fnew",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "dashboard-listings",
+      "path": "/dashboard/listings",
+      "url": "http://127.0.0.1:3104/auth/login?redirect=/dashboard/listings",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "messages",
+      "path": "/messages",
+      "url": "http://127.0.0.1:3104/auth/login?redirect=/messages",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "admin-moderation",
+      "path": "/admin/moderation",
+      "url": "http://127.0.0.1:3104/",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    },
+    {
+      "id": "not-found",
+      "path": "/no-such-route-faza17c",
+      "url": "http://127.0.0.1:3104/no-such-route-faza17c",
+      "contrastCount": 0,
+      "otherViolations": [],
+      "nodes": []
+    }
+  ],
+  "flat": []
+}

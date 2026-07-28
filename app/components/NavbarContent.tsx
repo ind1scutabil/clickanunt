@@ -393,7 +393,7 @@ export default function NavbarContent() {
                   <div className="truncate text-[11px] font-semibold tracking-tight text-zinc-100 sm:text-xs">
                     ClickAnunț
                   </div>
-                  <div className="hidden truncate text-[7px] font-semibold uppercase tracking-[0.1em] text-zinc-500 sm:block sm:text-[7.5px]">
+                  <div className="hidden truncate text-[7px] font-semibold uppercase tracking-[0.1em] text-zinc-400 sm:block sm:text-[7.5px]">
                     Piață din România
                   </div>
                 </div>
@@ -425,7 +425,7 @@ export default function NavbarContent() {
                   type="button"
                   onClick={handleSearch}
                   aria-label="Caută"
-                  className="mr-0.5 flex min-h-[44px] shrink-0 items-center rounded-full border-l border-white/[0.08] bg-[#ff5a00] px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#e65200] focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/50 max-[360px]:px-2 sm:px-3 sm:text-xs"
+                  className="btn-action-solid mr-0.5 flex min-h-[44px] shrink-0 items-center rounded-full border-l border-white/[0.08] px-2.5 text-[11px] font-semibold transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/50 max-[360px]:px-2 sm:px-3 sm:text-xs"
                 >
                   <span className="max-[340px]:sr-only">Caută</span>
                   <svg className="hidden h-4 w-4 max-[340px]:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.25} aria-hidden>
@@ -540,7 +540,7 @@ export default function NavbarContent() {
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="h-7 shrink-0 rounded-full bg-[#ff5a00] px-4 text-xs font-semibold text-white transition-smooth hover:bg-[#e65200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#101318]"
+                  className="btn-action-solid h-7 shrink-0 rounded-full px-4 text-xs font-semibold transition-smooth focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#101318]"
                   aria-label="Caută"
                 >
                   Caută
@@ -669,7 +669,7 @@ export default function NavbarContent() {
                 )}
               </div>
 
-              <Link href="/listings/new" className="hit-target ml-0.5 flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-[#ff5a00] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm transition hover:bg-[#e65200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#101318]">
+              <Link href="/listings/new" className="btn-action-solid hit-target ml-0.5 flex items-center gap-1.5 rounded-md border border-orange-700/40 px-4 py-2 text-[11px] font-bold uppercase tracking-wide shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#101318]">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                 </svg>

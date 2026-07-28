@@ -130,7 +130,7 @@ export async function HomeEditorialSeoStrip() {
                 </li>
               ))}
             </ul>
-            <p className="mt-5 text-sm text-neutral-500">
+            <p className="mt-5 text-sm text-neutral-400">
               <Link href="/harta-site" className="text-primary-300 underline underline-offset-4 hover:text-primary-100">
                 Harta site — index HTML
               </Link>{" "}

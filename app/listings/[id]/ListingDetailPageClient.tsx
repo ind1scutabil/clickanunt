@@ -54,6 +54,10 @@ type ListingDetailPageClientProps = {
   /** SSR technical details block — shown on mobile (< md) only */
   mobileTechnicalDetails?: ReactNode;
   layoutDebug?: boolean;
+  /** SSR listing payload — skips full-page loading skeleton when present */
+  initialListing?: Record<string, unknown> | null;
+  /** SSR similar rows — avoids empty→grid CLS on first paint */
+  initialSimilarListings?: Record<string, unknown>[] | null;
 };
 
 type LayoutDebugInfo = {
@@ -131,13 +135,15 @@ export default function ListingDetailPageClient({
   id,
   mobileTechnicalDetails,
   layoutDebug = false,
+  initialListing = null,
+  initialSimilarListings = null,
 }: ListingDetailPageClientProps) {
   const router = useRouter();
   const [justCreated, setJustCreated] = useState(false);
   const [publishStateParam, setPublishStateParam] = useState<string | null>(null);
   
-  const [listing, setListing] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [listing, setListing] = useState<any>(initialListing);
+  const [loading, setLoading] = useState(!initialListing);
   const [showPhone, setShowPhone] = useState(false);
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
   const [revealedTelHref, setRevealedTelHref] = useState<string>("");
@@ -152,8 +158,12 @@ export default function ListingDetailPageClient({
   const [reportDescription, setReportDescription] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
-  const [similarListings, setSimilarListings] = useState<any[]>([]);
-  const [similarLoading, setSimilarLoading] = useState(true);
+  const [similarListings, setSimilarListings] = useState<any[]>(
+    Array.isArray(initialSimilarListings) ? initialSimilarListings : []
+  );
+  const [similarLoading, setSimilarLoading] = useState(
+    !(initialListing && initialSimilarListings != null)
+  );
 
   /** Frontend-only trust chips — labels derived strictly from listing/owner fields already on the payload. */
   const trustPills = useMemo(() => {
@@ -271,10 +281,12 @@ export default function ListingDetailPageClient({
       }
     };
 
-    if (id) {
+    if (id && !initialListing) {
       void loadListing().catch(() => {});
+    } else if (initialListing) {
+      setLoading(false);
     }
-  }, [id]);
+  }, [id, initialListing]);
 
   useEffect(() => {
     if (!listing?.id) return;
@@ -293,6 +305,16 @@ export default function ListingDetailPageClient({
     const loadSimilarListings = async () => {
       if (!listing?.id || !listing?.category) {
         setSimilarListings([]);
+        setSimilarLoading(false);
+        return;
+      }
+
+      // SSR already provided similar rows for this listing — do not refetch on first paint.
+      if (
+        initialListing &&
+        initialSimilarListings != null &&
+        listing.id === initialListing.id
+      ) {
         setSimilarLoading(false);
         return;
       }
@@ -330,7 +352,14 @@ export default function ListingDetailPageClient({
     };
 
     loadSimilarListings();
-  }, [listing?.id, listing?.category, listing?.make, listing?.model]);
+  }, [
+    listing?.id,
+    listing?.category,
+    listing?.make,
+    listing?.model,
+    initialListing,
+    initialSimilarListings,
+  ]);
 
   const toggleFavorite = () => {
     if (!id) return;

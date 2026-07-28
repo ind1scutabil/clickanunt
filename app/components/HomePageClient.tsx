@@ -164,7 +164,7 @@ export default function HomePageClient({
           verificationSlot={<HomeAutoVerificationPremium />}
           previewsSlot={
             <>
-              <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-zinc-400">
                 Recent în catalog
               </p>
               <HomeAboveFoldPreviews variant="premium" />
@@ -178,7 +178,7 @@ export default function HomePageClient({
         {shortcutCategories.length > 0 ? (
         <section className="border-b border-white/[0.05] bg-gradient-to-b from-[#14161c] via-[#12141a] to-[#101218] py-5 sm:py-6">
           <div className="mx-auto max-w-7xl px-4">
-            <p className="mb-3.5 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500/90 sm:mb-4">
+            <p className="mb-3.5 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400/90 sm:mb-4">
               Categorii populare
             </p>
             <div className="-mx-1 flex gap-3.5 overflow-x-auto scroll-pl-4 px-1 pb-1.5 pt-0.5 [scrollbar-width:thin] sm:flex-wrap sm:justify-center sm:gap-4 md:overflow-visible md:gap-4">
@@ -241,11 +241,11 @@ export default function HomePageClient({
         <section className="border-t border-white/[0.04] bg-gradient-to-b from-[#0e1015] via-[#0c0e13] to-[#0a0c10] py-8 md:py-11">
           <div className="mx-auto max-w-7xl px-4">
             <div className="mb-6 text-center md:mb-8">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500/85">Catalog complet</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400/85">Catalog complet</p>
               <h2 className="mt-1.5 text-xl font-semibold tracking-[-0.02em] text-zinc-50 md:text-2xl md:tracking-tight">
                 Toate categoriile
               </h2>
-              <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-zinc-500/80 md:text-sm">
+              <p className="mx-auto mt-2 max-w-2xl text-[13px] leading-relaxed text-zinc-400/80 md:text-sm">
                 Număr de anunțuri din catalog (live).
               </p>
             </div>
@@ -308,7 +308,7 @@ export default function HomePageClient({
                         <h3 className="line-clamp-2 min-h-[2.5rem] text-left text-[13px] font-semibold leading-[1.25] tracking-[-0.02em] text-zinc-50 sm:min-h-[2.65rem] sm:text-[0.9375rem] sm:leading-snug">
                           {categoryName}
                         </h3>
-                        <p className="mt-2 line-clamp-2 text-left text-[10.5px] leading-[1.45] text-zinc-500/75 sm:text-[11px] sm:leading-relaxed">
+                        <p className="mt-2 line-clamp-2 text-left text-[10.5px] leading-[1.45] text-zinc-400/80 sm:text-[11px] sm:leading-relaxed">
                           {meta.sub}
                         </p>
                         <div className="mt-2.5 flex flex-wrap gap-1 sm:gap-1.5">
@@ -322,7 +322,7 @@ export default function HomePageClient({
                           ))}
                         </div>
                         <div className="mt-auto flex items-center justify-between gap-2 border-t border-white/[0.055] pt-3 sm:pt-3.5">
-                          <span className="min-w-0 truncate text-[10.5px] font-medium tabular-nums tracking-tight text-zinc-500/70 sm:text-[11px]">
+                          <span className="min-w-0 truncate text-[10.5px] font-medium tabular-nums tracking-tight text-zinc-400/75 sm:text-[11px]">
                             {categoryCountsError ? "—" : `${formatRoInteger(count)} anunțuri`}
                           </span>
                           <span
@@ -352,7 +352,7 @@ export default function HomePageClient({
             <div className="rounded-lg border border-white/[0.08] bg-[#181b22] p-5 shadow-sm md:p-7">
               <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Business</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Business</p>
                   <h2 id="pro-partners-heading" className="mt-1 text-lg font-semibold text-zinc-50 md:text-xl">
                     Dealeri și magazine online
                   </h2>
@@ -384,7 +384,7 @@ export default function HomePageClient({
                 ].map((x) => (
                   <li key={x.t} className="rounded-md border border-white/[0.08] bg-[#141820] p-3.5">
                     <h3 className="text-sm font-semibold text-zinc-100">{x.t}</h3>
-                    <p className="mt-1.5 text-[13px] leading-snug text-zinc-500">{x.d}</p>
+                    <p className="mt-1.5 text-[13px] leading-snug text-zinc-400">{x.d}</p>
                   </li>
                 ))}
               </ul>
@@ -410,7 +410,7 @@ export default function HomePageClient({
             >
               <Card.Body>
                 <h3 className="mb-1.5 text-[14px] font-semibold text-zinc-100">Anunțuri verificate</h3>
-                <p className="text-[13px] leading-snug text-zinc-500">
+                <p className="text-[13px] leading-snug text-zinc-400">
                   Moderăm conținutul pentru a reduce spam-ul și escrocheriile evidente.
                 </p>
               </Card.Body>
@@ -423,7 +423,7 @@ export default function HomePageClient({
             >
               <Card.Body>
                 <h3 className="mb-1.5 text-[14px] font-semibold text-zinc-100">Raportează</h3>
-                <p className="text-[13px] leading-snug text-zinc-500">
+                <p className="text-[13px] leading-snug text-zinc-400">
                   Ceva nu se potrivește? Scrie-ne — verificăm.
                 </p>
                 <Link
@@ -442,7 +442,7 @@ export default function HomePageClient({
             >
               <Card.Body>
                 <h3 className="mb-1.5 text-[14px] font-semibold text-zinc-100">Contact în platformă</h3>
-                <p className="text-[13px] leading-snug text-zinc-500">
+                <p className="text-[13px] leading-snug text-zinc-400">
                   Păstrează conversația în canalul ClickAnunț.
                 </p>
               </Card.Body>

@@ -36,3 +36,8 @@ Critical suites Chromium + Mobile Chrome + WebKit: **273×2 passed** consecutive
 - Detail CLS lab still elevated
 - Autovit visual compare blocked by bot protection
 - Full route×viewport screenshot matrix not every cell (critical coverage + each route desktop+mobile)
+
+
+---
+
+See also FAZA 17C: `docs/audits/faza17c/PR-SECTION.md` (CLS ≤0.10 + zero axe color-contrast).

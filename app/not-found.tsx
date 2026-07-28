@@ -29,7 +29,7 @@ export default function NotFound() {
       <div className="relative mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center">
         <Link
           href="/"
-          className="inline-flex h-11 items-center justify-center rounded-lg bg-[#ff5a00] px-5 text-sm font-semibold text-white transition hover:bg-[#e65200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50"
+          className="inline-flex h-11 items-center justify-center rounded-lg bg-[#c2410c] px-5 text-sm font-semibold text-white transition hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50"
         >
           Acasă
         </Link>

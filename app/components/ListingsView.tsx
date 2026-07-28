@@ -904,7 +904,7 @@ export default function ListingsView({
                     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:gap-2 sm:px-6"
+                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-[#c2410c] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:gap-2 sm:px-6"
               >
               <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

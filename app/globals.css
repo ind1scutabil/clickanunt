@@ -17,8 +17,11 @@
   /* Text colors */
   --text-primary: #FFFFFF;
   --text-secondary: #C7CCD6;
-  --text-tertiary: #9AA3B2;
-  --text-muted: #6B7280;
+  --text-tertiary: #A1A1AA;
+  --text-muted: #A3A3A3;
+  /* Solid CTAs with white label — WCAG AA normal text (≥4.5:1 on #c2410c) */
+  --action-solid: #c2410c;
+  --action-solid-hover: #9a3412;
   
   /* Premium accent — blue + cool slate (enterprise, not rainbow) */
   --accent-primary: #2563eb;
@@ -79,11 +82,22 @@
 }
 
 /* When MobileBottomNav is hidden (publish/edit), drop reserved bottom padding. */
-html[data-hide-mobile-bottom-nav="1"] #main-content {
+html[data-hide-mobile-bottom-nav="1"] #main-content,
+body:has([data-publish-flow="1"]) #main-content {
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
 }
-html[data-hide-mobile-bottom-nav="1"] footer {
+html[data-hide-mobile-bottom-nav="1"] footer,
+body:has([data-publish-flow="1"]) footer {
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Primary solid actions — white on darker orange for axe color-contrast */
+.btn-action-solid {
+  background-color: var(--action-solid);
+  color: #ffffff;
+}
+.btn-action-solid:hover {
+  background-color: var(--action-solid-hover);
 }
 
 /*

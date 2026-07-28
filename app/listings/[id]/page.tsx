@@ -1,6 +1,10 @@
 import ListingDetailPageClient from '@/app/listings/[id]/ListingDetailPageClient';
 import ApexToWwwRedirect from '@/app/components/ApexToWwwRedirect';
 import { ListingTechnicalDetailsServer } from '@/app/components/listing/ListingTechnicalDetailsServer';
+import {
+  getPublicListingDetailForSsr,
+  getSimilarListingsForSsr,
+} from '@/lib/listings/public-listing-detail-ssr';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -12,6 +16,17 @@ export default async function ListingDetailPage({ params, searchParams }: PagePr
   const sp = await searchParams;
   const specDebug = sp.spec_debug === '1';
   const layoutDebug = sp.layout_debug === '1';
+
+  const initialListing = await getPublicListingDetailForSsr(id);
+  const initialSimilar =
+    initialListing && typeof initialListing.category === 'string'
+      ? await getSimilarListingsForSsr({
+          listingId: id,
+          category: initialListing.category,
+          make: typeof initialListing.make === 'string' ? initialListing.make : null,
+          model: typeof initialListing.model === 'string' ? initialListing.model : null,
+        })
+      : [];
 
   const mobileTechnicalDetails =
     process.env.USE_IN_MEMORY_DB === 'true'
@@ -25,6 +40,8 @@ export default async function ListingDetailPage({ params, searchParams }: PagePr
         id={id}
         mobileTechnicalDetails={mobileTechnicalDetails}
         layoutDebug={layoutDebug}
+        initialListing={initialListing}
+        initialSimilarListings={initialSimilar}
       />
     </>
   );

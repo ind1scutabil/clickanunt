@@ -1,0 +1,189 @@
+{
+  "phase": "after-final",
+  "base": "http://127.0.0.1:3104",
+  "listingId": "b010091f-d0c8-4de5-8edb-6b529d12dccd",
+  "viewport": "390x844",
+  "formFactor": "mobile",
+  "cache": "disabled",
+  "reducedMotion": true,
+  "cookieConsent": "pre-dismissed",
+  "at": "2026-07-28T09:12:45.639Z",
+  "routes": {
+    "publish": {
+      "path": "/listings/new",
+      "auth": true,
+      "runs": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "median": 0,
+      "runDetails": [
+        {
+          "run": 1,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/new",
+          "hideNav": "1",
+          "footerPb": "16px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-publish-run1.zip"
+        },
+        {
+          "run": 2,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/new",
+          "hideNav": "1",
+          "footerPb": "16px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-publish-run2.zip"
+        },
+        {
+          "run": 3,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/new",
+          "hideNav": "1",
+          "footerPb": "16px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-publish-run3.zip"
+        },
+        {
+          "run": 4,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/new",
+          "hideNav": "1",
+          "footerPb": "16px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-publish-run4.zip"
+        },
+        {
+          "run": 5,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/new",
+          "hideNav": "1",
+          "footerPb": "16px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-publish-run5.zip"
+        }
+      ],
+      "medianRun": 1,
+      "medianTrace": "test-results/faza17c/traces/after-final-publish-run1.zip",
+      "topContributorsMerged": []
+    },
+    "detail": {
+      "path": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "auth": false,
+      "runs": [
+        0.0038970373531591837,
+        0,
+        0,
+        0,
+        0
+      ],
+      "median": 0,
+      "runDetails": [
+        {
+          "run": 1,
+          "cls": 0.0038970373531591837,
+          "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+          "hideNav": "0",
+          "footerPb": "100px",
+          "topShifts": [
+            {
+              "value": 0.0038970373531591837,
+              "startTime": 101.59999999962747,
+              "sources": [
+                {
+                  "selector": ".listing-detail-page.min-h-screen.bg-gradient-to-b",
+                  "html": "<main class=\"listing-detail-page min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-0\"><div class=\"listing-detail-layout mx-auto max-w-7xl m",
+                  "previousRect": {
+                    "x": 0,
+                    "y": 150,
+                    "w": 390,
+                    "h": 694
+                  },
+                  "currentRect": {
+                    "x": 0,
+                    "y": 154,
+                    "w": 390,
+                    "h": 690
+                  }
+                }
+              ]
+            }
+          ],
+          "shiftCount": 1,
+          "trace": "test-results/faza17c/traces/after-final-detail-run1.zip"
+        },
+        {
+          "run": 2,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+          "hideNav": "0",
+          "footerPb": "100px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-detail-run2.zip"
+        },
+        {
+          "run": 3,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+          "hideNav": "0",
+          "footerPb": "100px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-detail-run3.zip"
+        },
+        {
+          "run": 4,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+          "hideNav": "0",
+          "footerPb": "100px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-detail-run4.zip"
+        },
+        {
+          "run": 5,
+          "cls": 0,
+          "url": "http://127.0.0.1:3104/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+          "hideNav": "0",
+          "footerPb": "100px",
+          "topShifts": [],
+          "shiftCount": 0,
+          "trace": "test-results/faza17c/traces/after-final-detail-run5.zip"
+        }
+      ],
+      "medianRun": 2,
+      "medianTrace": "test-results/faza17c/traces/after-final-detail-run2.zip",
+      "topContributorsMerged": [
+        {
+          "selector": ".listing-detail-page.min-h-screen.bg-gradient-to-b",
+          "html": "<main class=\"listing-detail-page min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 pb-12 pt-20 max-md:pb-0\"><div class=\"listing-detail-layout mx-auto max-w-7xl m",
+          "maxContribution": 0.0038970373531591837,
+          "samples": 1,
+          "previousRect": {
+            "x": 0,
+            "y": 150,
+            "w": 390,
+            "h": 694
+          },
+          "currentRect": {
+            "x": 0,
+            "y": 154,
+            "w": 390,
+            "h": 690
+          }
+        }
+      ]
+    }
+  }
+}
