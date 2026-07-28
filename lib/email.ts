@@ -30,9 +30,11 @@ const createTransporter = () => {
   return {
     sendMail: async (mailOptions: any) => {
       console.log('📧 MOCK EMAIL:', {
-        to: mailOptions.to,
+        toRedacted:
+          typeof mailOptions.to === 'string'
+            ? mailOptions.to.replace(/^(.{0,2}).*(@.*)$/, '$1***$2')
+            : '[redacted]',
         subject: mailOptions.subject,
-        html: mailOptions.html?.substring(0, 200) + '...'
       });
       return { 
         messageId: 'mock-' + Date.now(),
@@ -69,7 +71,8 @@ export async function sendEmail({
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('✅ Email trimis:', info.messageId);
+    // Do not log recipient body / verification links.
+    console.log('✅ Email trimis:', { messageId: info.messageId });
     return info;
   } catch (error) {
     console.error('❌ Eroare trimitere email:', error);
@@ -267,28 +270,30 @@ function getVerificationEmailTemplate(email: string, verificationLink: string, v
 /**
  * Trimite email de verificare
  */
+/**
+ * @deprecated Prefer `issueAndDispatchEmailVerification` from `@/lib/auth/email-verification`.
+ * Kept for legacy callers; builds link from allowlisted publicSiteOrigin only.
+ */
 export async function sendVerificationEmail(
   email: string,
   verificationToken: string,
-  verificationCode: string
+  verificationCode: string = ""
 ): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const verificationLink = `${baseUrl}/auth/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+    const { publicSiteOrigin } = await import("@/lib/public-site-url");
+    const verificationLink = `${publicSiteOrigin()}/auth/verify-email?token=${encodeURIComponent(verificationToken)}`;
 
     const mailOptions = {
       from: process.env.SMTP_FROM || '"ClickAnunț" <noreply@clickanunt.ro>',
       to: email,
-      subject: '✉️ Verifică-ți Adresa de Email - ClickAnunț',
+      subject: 'Verifică-ți Adresa de Email - ClickAnunț',
       html: getVerificationEmailTemplate(email, verificationLink, verificationCode),
       text: `
 Bună ziua,
 
 Îți mulțumim că te-ai înregistrat pe ClickAnunț!
 
-Pentru a-ți activa contul, introdu acest cod: ${verificationCode}
-
-Sau accesează acest link:
+Accesează acest link pentru a confirma emailul:
 ${verificationLink}
 
 Link-ul expiră în 24 de ore.
@@ -301,11 +306,9 @@ Echipa ClickAnunț
     };
 
     const info = await transporter.sendMail(mailOptions);
-    
+
     console.log('✅ Email de verificare trimis:', {
-      to: email,
       messageId: info.messageId,
-      response: info.response
     });
 
     return {

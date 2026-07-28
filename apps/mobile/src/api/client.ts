@@ -385,6 +385,21 @@ export const authApi = {
     return (data as { user?: User }).user ?? (data as User);
   },
 
+  async verifyEmail(token: string): Promise<{ success: boolean; alreadyVerified?: boolean; message?: string }> {
+    return request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token },
+      skipAuthRefresh: true,
+    });
+  },
+
+  async resendVerification(email?: string): Promise<{ success: boolean; message?: string }> {
+    return request('/api/auth/resend-verification', {
+      method: 'POST',
+      body: email ? { email } : {},
+    });
+  },
+
   /** Best-effort server logout (Bearer + CSRF). Local SecureStore clear is caller's job. */
   async logout(): Promise<void> {
     try {

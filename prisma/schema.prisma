@@ -232,21 +232,22 @@ model User {
   reports                     Report[]
   appeals                     Appeal[]
   auditLogs                   AuditLog[]
-  moderationActions           ModerationQueue[]     @relation("ModeratorActions")
+  moderationActions           ModerationQueue[]            @relation("ModeratorActions")
   staffNotes                  StaffNote[]
   payments                    Payment[]
   invoices                    Invoice[]
   verificationRequests        VerificationRequest[]
   notifications               UserNotification[]
   pushDeviceTokens            PushDeviceToken[]
-  createdBroadcasts           AdminBroadcast[]      @relation("BroadcastCreator")
-  sentMessages                Message[]             @relation("MessageSender")
-  receivedMessages            Message[]             @relation("MessageReceiver")
-  conversationsAsParticipant1 Conversation[]        @relation("ConversationParticipant1")
-  conversationsAsParticipant2 Conversation[]        @relation("ConversationParticipant2")
+  createdBroadcasts           AdminBroadcast[]             @relation("BroadcastCreator")
+  sentMessages                Message[]                    @relation("MessageSender")
+  receivedMessages            Message[]                    @relation("MessageReceiver")
+  conversationsAsParticipant1 Conversation[]               @relation("ConversationParticipant1")
+  conversationsAsParticipant2 Conversation[]               @relation("ConversationParticipant2")
   analyticsSessions           AnalyticsSession[]
   analyticsEvents             AnalyticsEvent[]
   authRefreshTokens           AuthRefreshToken[]
+  authEmailVerificationTokens AuthEmailVerificationToken[]
 
   @@index([email])
   @@index([role])
@@ -259,6 +260,31 @@ model User {
   @@index([moderationSuspendedUntil])
   @@index([deletedAt])
   @@map("users")
+}
+
+/// Single-use email verification / email-change tokens (hash only — never store raw token).
+/// Separate from password reset (User.resetPasswordToken) and KYC VerificationRequest.
+model AuthEmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  /// Normalized email the token is meant to verify (current or pending change target).
+  email     String
+  tokenHash String    @unique
+  /// email_verify | email_change
+  purpose   String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([userId, purpose])
+  @@index([userId, revokedAt, usedAt])
+  @@map("auth_email_verification_tokens")
 }
 
 /// Persistent single-use refresh tokens (hash only — never store raw JWT).

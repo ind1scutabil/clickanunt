@@ -7,6 +7,7 @@ import Footer from "@/app/components/Footer";
 import { useCallback, useEffect, useState } from "react";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 import { clearLegacyWebAuthStorage } from "@/lib/auth/clear-legacy-web-auth-storage";
+import EmailVerificationBanner from "@/app/components/EmailVerificationBanner";
 
 type Toast = { kind: "success" | "error" | "info"; text: string } | null;
 
@@ -16,6 +17,7 @@ type MeResponse = {
   name: string | null;
   phone: string | null;
   location?: string;
+  emailVerified?: boolean;
   subscriptionTier?: string;
   subscriptionExpiresAt?: string | null;
   freeBoostsRemaining?: number;
@@ -68,6 +70,9 @@ export default function SettingsPage() {
   const [logoutAllPwd, setLogoutAllPwd] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [changeEmailPwd, setChangeEmailPwd] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
 
   const showToast = useCallback((t: Toast) => {
     setToast(t);
@@ -242,6 +247,53 @@ export default function SettingsPage() {
     }
   };
 
+  const changeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail.trim() || !changeEmailPwd) {
+      showToast({ kind: "error", text: "Completează noul email și parola actuală." });
+      return;
+    }
+    setSavingEmail(true);
+    showToast({ kind: "info", text: "Se actualizează emailul…" });
+    try {
+      const csrf = await getCsrfToken();
+      if (!csrf) {
+        showToast({ kind: "error", text: "Nu s-a putut obține tokenul CSRF" });
+        return;
+      }
+      const res = await fetch("/api/auth/change-email", {
+        method: "POST",
+        credentials: "include",
+        headers: { ...(await authHeaders()), "x-csrf-token": csrf },
+        body: JSON.stringify({
+          newEmail: newEmail.trim(),
+          currentPassword: changeEmailPwd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast({
+          kind: "error",
+          text: data.error || "Eroare la schimbarea emailului.",
+        });
+        return;
+      }
+      setChangeEmailPwd("");
+      setNewEmail("");
+      showToast({
+        kind: "success",
+        text:
+          data.message ||
+          "Email actualizat. Verifică noul inbox pentru confirmare.",
+      });
+      await load({ silent: true });
+    } catch {
+      showToast({ kind: "error", text: "Eroare de rețea. Încearcă din nou." });
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
   const logoutAllDevices = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoggingOutAll(true);
@@ -367,6 +419,8 @@ export default function SettingsPage() {
           </p>
         </header>
 
+        <EmailVerificationBanner />
+
         {me && (
           <section className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 p-6 sm:p-8">
             <h2 className="text-lg font-semibold">Abonament</h2>
@@ -434,7 +488,10 @@ export default function SettingsPage() {
                 className="w-full cursor-not-allowed rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-sm text-[var(--text-tertiary)]"
               />
               <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                Schimbarea emailului se face prin suport.
+                Stare:{" "}
+                {me?.emailVerified ? "verificat" : "neverificat"}. Schimbarea
+                emailului necesită parola actuală; noul email rămâne neverificat
+                până la confirmare.
               </p>
             </div>
             <div>
@@ -474,6 +531,57 @@ export default function SettingsPage() {
               className="inline-flex min-h-[2.75rem] items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-medium text-[var(--text-secondary)] transition hover:border-white/20 hover:text-[var(--text-primary)]"
             >
               Renunță la modificări
+            </button>
+          </div>
+        </form>
+
+        <form
+          onSubmit={changeEmail}
+          className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-[var(--bg-elevated)]/90 p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm sm:p-8"
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-orange-500/25 to-transparent" aria-hidden />
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+            Schimbă emailul
+          </h2>
+          <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+            Emailul se actualizează imediat ca neverificat. Confirmă noul inbox.
+            Celelalte dispozitive vor fi deconectate.
+          </p>
+          <div className="mt-6 space-y-5">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                Email nou
+              </label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full rounded-xl border border-white/[0.1] bg-black/30 px-4 py-3 text-sm outline-none focus:border-orange-500/45"
+                autoComplete="email"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                Parola actuală
+              </label>
+              <input
+                type="password"
+                value={changeEmailPwd}
+                onChange={(e) => setChangeEmailPwd(e.target.value)}
+                className="w-full rounded-xl border border-white/[0.1] bg-black/30 px-4 py-3 text-sm outline-none focus:border-orange-500/45"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+          </div>
+          <div className="mt-8">
+            <button
+              type="submit"
+              disabled={savingEmail}
+              className="inline-flex min-h-[2.75rem] items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 text-sm font-semibold text-white shadow-md transition hover:from-orange-400 hover:to-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingEmail ? "Se actualizează…" : "Schimbă emailul"}
             </button>
           </div>
         </form>

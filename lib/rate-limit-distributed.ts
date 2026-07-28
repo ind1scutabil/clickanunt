@@ -189,7 +189,8 @@ export type SecureRateLimitPreset =
   | 'upload'
   | 'contact'
   | 'api'
-  | 'moderation';
+  | 'moderation'
+  | 'email_verification';
 
 /**
  * Peek-only secure rate limits (no increment). Used for listing_publish in middleware.
@@ -304,6 +305,12 @@ export async function resolveSecureRateLimit(
       return resolveRateLimit(`contact:${clientIp}`, {
         windowMs: 60 * 60 * 1000,
         maxRequests: 5,
+      });
+    case 'email_verification':
+      // Resend / verify attempts: tight per-IP; per-email hash applied in route.
+      return resolveRateLimit(`email_verify:ip:${clientIp}`, {
+        windowMs: 60 * 60 * 1000,
+        maxRequests: 10,
       });
     case 'api':
       return resolveRateLimit(`api:${clientIp}`, {

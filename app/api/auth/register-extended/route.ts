@@ -251,6 +251,20 @@ export async function POST(request: NextRequest) {
     // ============== GENEREZA TOKENS ==============
     const { accessToken, refreshToken } = await issueAuthTokenPair(user);
 
+    let emailDispatchAccepted = false;
+    try {
+      const { EMAIL_VERIFY_PURPOSE, issueAndDispatchEmailVerification } =
+        await import("@/lib/auth/email-verification");
+      const dispatched = await issueAndDispatchEmailVerification({
+        userId: user.id,
+        email: user.email,
+        purpose: EMAIL_VERIFY_PURPOSE,
+      });
+      emailDispatchAccepted = dispatched.accepted;
+    } catch (verifyErr) {
+      console.warn("email verification issue failed after register-extended:", verifyErr);
+    }
+
     // ============== AUDIT LOG ==============
     try {
       await auditActions.userCreated(
@@ -278,10 +292,12 @@ export async function POST(request: NextRequest) {
         success: true,
         user: userWithoutPassword,
         accountType,
-        message:
-          accountType === "business"
-            ? "Cont business creat cu succes! Verifică-ți emailul pentru activare..."
-            : "Cont creat cu succes! Verifică-ți emailul pentru activare...",
+        emailDispatchAccepted,
+        message: emailDispatchAccepted
+          ? accountType === "business"
+            ? "Cont business creat cu succes! Verifică-ți emailul pentru confirmare."
+            : "Cont creat cu succes! Verifică-ți emailul pentru confirmare."
+          : "Cont creat cu succes! Poți solicita mai târziu un email de verificare.",
         mode: db.isUsingInMemory() ? "development" : "production",
       },
       { status: 200 }

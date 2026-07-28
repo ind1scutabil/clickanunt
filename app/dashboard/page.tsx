@@ -40,6 +40,7 @@ import {
   shouldOfferBusinessDiscovery,
   subscriptionTierLabel,
 } from "@/lib/subscription-tier";
+import EmailVerificationBanner from "@/app/components/EmailVerificationBanner";
 
 /**
  * Design tokens — exclusiv /dashboard (nu afectează alte rute sau componente globale).
@@ -304,6 +305,8 @@ export default function DashboardPage() {
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-10 lg:px-8">
         <div className="mb-7 h-px w-full bg-gradient-to-r from-transparent via-orange-500/35 to-transparent md:mb-9" aria-hidden />
+
+        <EmailVerificationBanner />
 
         <header className="mb-8 md:mb-10">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Cont</p>

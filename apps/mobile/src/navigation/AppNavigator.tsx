@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useCallback } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
 import { MOBILE_CONFIG } from '../config';
@@ -56,7 +56,7 @@ function openSitePath(path: string): void {
 }
 
 function AccountTab(): React.JSX.Element {
-  const { user, logout } = useAuth();
+  const { user, logout, resendVerification } = useAuth();
   const roleNorm = (user?.role ?? '').trim().toLowerCase();
   const isAdmin = roleNorm === 'admin' || roleNorm === 'owner';
 
@@ -147,6 +147,52 @@ function AccountTab(): React.JSX.Element {
         <Text style={{ color: THEME.colors.textMuted, fontSize: 12, marginBottom: 16 }}>
           Aceleași rute ca pe site — se deschid în browser.
         </Text>
+
+        {user && user.emailVerified === false ? (
+          <View
+            style={{
+              marginBottom: 16,
+              borderRadius: THEME.radius.md,
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.45)',
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              padding: 14,
+              gap: 10,
+            }}
+          >
+            <Text style={{ color: THEME.colors.textPrimary, fontWeight: '700' }}>
+              Email neverificat
+            </Text>
+            <Text style={{ color: THEME.colors.textMuted, fontSize: 13 }}>
+              Poți folosi aplicația fără verificare. Confirmă emailul pentru mai multă încredere.
+            </Text>
+            <Pressable
+              onPress={() => {
+                void resendVerification()
+                  .then((r) => {
+                    Alert.alert('Verificare email', r.message || 'Cerere trimisă.');
+                  })
+                  .catch(() => {
+                    openSite('/auth/verify-email');
+                  });
+              }}
+              style={{
+                alignSelf: 'flex-start',
+                backgroundColor: THEME.colors.accent,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: THEME.radius.sm,
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Retrimite verificare</Text>
+            </Pressable>
+            <Pressable onPress={() => openSite('/auth/verify-email')}>
+              <Text style={{ color: THEME.colors.accent, fontWeight: '600' }}>
+                Deschide pagina web
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View
           style={{

@@ -14,6 +14,10 @@ import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-d
 import { AdminNotificationSeverity } from "@prisma/client";
 import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
+import {
+  EMAIL_VERIFY_PURPOSE,
+  issueAndDispatchEmailVerification,
+} from "@/lib/auth/email-verification";
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,6 +111,19 @@ export async function POST(request: NextRequest) {
       entityId: user.id,
     });
 
+    // Email verification (non-blocking for registration success)
+    let emailDispatchAccepted = false;
+    try {
+      const dispatched = await issueAndDispatchEmailVerification({
+        userId: user.id,
+        email: user.email,
+        purpose: EMAIL_VERIFY_PURPOSE,
+      });
+      emailDispatchAccepted = dispatched.accepted;
+    } catch (verifyErr) {
+      console.warn("email verification issue failed after register:", verifyErr);
+    }
+
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
 
@@ -115,7 +132,10 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         user: userWithoutPassword,
-        message: "Cont creat cu succes! Bine ai venit!",
+        emailDispatchAccepted,
+        message: emailDispatchAccepted
+          ? "Cont creat cu succes! Verifică-ți emailul pentru confirmare."
+          : "Cont creat cu succes! Poți solicita mai târziu un email de verificare.",
         mode: db.isUsingInMemory() ? 'development' : 'production',
       },
       { status: 200 }

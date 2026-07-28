@@ -50,6 +50,7 @@ export interface ValidationOptions {
     | 'api'
     | 'payment'
     | 'moderation'
+    | 'email_verification'
     | null;
   schema?: z.ZodSchema;
 }
@@ -177,6 +178,7 @@ export async function validateSecureRequest(
         case 'contact':
         case 'api':
         case 'moderation':
+        case 'email_verification':
           rateLimitResult = await resolveSecureRateLimit(
             rateLimit as SecureRateLimitPreset,
             clientIp,
