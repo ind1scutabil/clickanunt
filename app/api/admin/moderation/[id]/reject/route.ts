@@ -11,6 +11,7 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 export async function POST(
   request: NextRequest,
@@ -85,6 +86,13 @@ export async function POST(
     const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
     if (listing) {
       await auditActions.listingRejected(user, listing, reason);
+      // Listing may have been previously eligible (e.g. re-moderation) — refresh
+      // homepage count + affected hubs on the next request instead of waiting for ISR.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "reject",
+        category: listing.category,
+        city: listing.city,
+      });
     }
 
     // Update moderation queue from pending only

@@ -56,6 +56,7 @@ import {
   listingPublishExpiryFields,
 } from "@/lib/listing-expiry";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 import {
   buildAttributesContainmentObject,
   guardBrowsePriceBand,
@@ -1095,6 +1096,17 @@ export async function POST(request: Request) {
     const listing = await prisma.listing.create({
       data: presetListingId ? { id: presetListingId, ...data } : data,
     });
+
+    if (listing.status === "active") {
+      // Directly-eligible create (trusted user / auto-approve path) — refresh
+      // homepage count + affected hubs on the next request instead of waiting
+      // for the passive ISR window. Pending creates don't change public counts.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "create",
+        category: listing.category,
+        city: listing.city,
+      });
+    }
 
     await commitListingPublishRateLimit(userId, user.role);
 
