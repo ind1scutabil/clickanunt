@@ -18,6 +18,7 @@ import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
 import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
 import { resolveOwnerStatusTransition } from "@/lib/listing-lifecycle";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -386,6 +387,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const updated = await prisma.listing.update({ where: { id }, data: allowed });
 
+    if ("status" in allowed || "moderationStatus" in allowed) {
+      // Owner pause/republish or admin patch touched public eligibility fields —
+      // refresh homepage count + affected hubs on the next request instead of
+      // waiting for the passive ISR window.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "moderation",
+        category: updated.category,
+        city: updated.city,
+      });
+    }
+
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.listing_updated,
       userId: user.id,
@@ -500,13 +512,20 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       request,
     });
 
-    await prisma.listing.update({
+    const deleted = await prisma.listing.update({
       where: { id },
       data: {
         status: "deleted",
         deletedAt: new Date(),
       },
     });
+
+    revalidatePublicMarketplaceSurfaces({
+      reason: "soft_delete",
+      category: deleted.category,
+      city: deleted.city,
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

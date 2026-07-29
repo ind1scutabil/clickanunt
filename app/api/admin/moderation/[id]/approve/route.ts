@@ -12,6 +12,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import type { UserRole } from "@prisma/client";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 export async function POST(
   request: NextRequest,
@@ -98,6 +99,13 @@ export async function POST(
     const listing = await prisma.listing.findUnique({ where: { id: item.listingId } });
     if (listing) {
       await auditActions.listingApproved(user, listing);
+      // Public eligibility changed (pending/rejected/... → active+approved) — refresh
+      // homepage count + affected hubs on the next request instead of waiting for ISR.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "approve",
+        category: listing.category,
+        city: listing.city,
+      });
     }
 
     // Update moderation queue only from pending

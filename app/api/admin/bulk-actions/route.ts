@@ -12,6 +12,7 @@ import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 const bulkActionSchema = z.object({
   action: z.string().min(1),
@@ -111,6 +112,11 @@ export async function POST(request: NextRequest) {
           const listing = await prisma.listing.findUnique({ where: { id: listingId } });
           if (listing) {
             await auditActions.listingApproved(user, listing);
+            revalidatePublicMarketplaceSurfaces({
+              reason: "approve",
+              category: listing.category,
+              city: listing.city,
+            });
           }
           
           results.success++;
@@ -141,6 +147,11 @@ export async function POST(request: NextRequest) {
           const listing = await prisma.listing.findUnique({ where: { id: listingId } });
           if (listing) {
             await auditActions.listingRejected(user, listing, reason);
+            revalidatePublicMarketplaceSurfaces({
+              reason: "reject",
+              category: listing.category,
+              city: listing.city,
+            });
           }
 
           results.success++;
@@ -194,6 +205,11 @@ export async function POST(request: NextRequest) {
           }
 
           await auditActions.listingDeleted(user, listingId, listing);
+          revalidatePublicMarketplaceSurfaces({
+            reason: "soft_delete",
+            category: listing.category,
+            city: listing.city,
+          });
           results.success++;
         } catch (error: any) {
           results.errors.push(`Error deleting ${listingId}: ${error.message}`);
