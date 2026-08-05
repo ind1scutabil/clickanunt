@@ -14,6 +14,7 @@ import { createAuditLog } from "@/lib/audit";
 import { uuidSchema } from "@/lib/security/validation-schemas";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { applyListingPublishExpiryIfMissing } from "@/lib/listing-expiry";
+import { notifyListingIndexNowAfterSuccess } from "@/lib/seo/indexnow-listing-notify";
 
 const adminListingPatchSchema = z
   .object({
@@ -72,6 +73,7 @@ export async function PATCH(
         isFeatured: true,
         publishedAt: true,
         expiresAt: true,
+        deletedAt: true,
       },
     });
 
@@ -125,7 +127,15 @@ export async function PATCH(
         isFeatured: true,
         moderationNotes: true,
         ownerUserId: true,
+        deletedAt: true,
       },
+    });
+
+    notifyListingIndexNowAfterSuccess({
+      listingId: listing.id,
+      before: { status: existing.status, deletedAt: existing.deletedAt },
+      after: { status: listing.status, deletedAt: listing.deletedAt },
+      changedKeys: Object.keys(updateData),
     });
 
     if (data.status !== undefined) {

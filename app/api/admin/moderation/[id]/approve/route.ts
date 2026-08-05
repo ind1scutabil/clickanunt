@@ -13,6 +13,7 @@ import type { UserRole } from "@prisma/client";
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from "@/lib/analytics-events";
 import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
 import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
+import { notifyListingIndexNowAfterSuccess } from "@/lib/seo/indexnow-listing-notify";
 
 export async function POST(
   request: NextRequest,
@@ -105,6 +106,24 @@ export async function POST(
         reason: "approve",
         category: listing.category,
         city: listing.city,
+      });
+
+      // After confirmed write: notify only when we actually transitioned into active
+      // (or public fields changed). Idempotent approve on already-active → 0.
+      notifyListingIndexNowAfterSuccess({
+        listingId: listing.id,
+        before: {
+          status: existingListing.status,
+          deletedAt: existingListing.deletedAt,
+        },
+        after: {
+          status: listing.status,
+          deletedAt: listing.deletedAt,
+        },
+        changedKeys:
+          listingUpdated.count > 0
+            ? ["status", "moderationStatus"]
+            : ["moderationStatus", "moderatedAt", "moderatedBy"],
       });
     }
 

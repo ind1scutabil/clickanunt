@@ -19,8 +19,7 @@ import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
 import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
 import { resolveOwnerStatusTransition } from "@/lib/listing-lifecycle";
 import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
-import { enqueueIndexNowSafe } from "@/lib/seo/indexnow-client";
-import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
+import { notifyListingIndexNowAfterSuccess } from "@/lib/seo/indexnow-listing-notify";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -398,12 +397,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         category: updated.category,
         city: updated.city,
       });
-      if (updated.status === "active") {
-        // Republish (owner) or moderation approval (admin) — same reasoning as
-        // the create path: nudge IndexNow-participating engines to recrawl now.
-        enqueueIndexNowSafe([`${siteOriginForSeoFeeds()}/listings/${updated.id}`]);
-      }
     }
+
+    // After successful update only — shared IndexNow decision (active+public change).
+    notifyListingIndexNowAfterSuccess({
+      listingId: updated.id,
+      before: {
+        status: existingListing.status,
+        deletedAt: existingListing.deletedAt,
+      },
+      after: {
+        status: updated.status,
+        deletedAt: updated.deletedAt,
+      },
+      changedKeys: Object.keys(allowed),
+    });
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.listing_updated,

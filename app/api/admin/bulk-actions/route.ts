@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { UserRole } from "@prisma/client";
 import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
 import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
+import { notifyListingIndexNowAfterSuccess } from "@/lib/seo/indexnow-listing-notify";
 
 const bulkActionSchema = z.object({
   action: z.string().min(1),
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
         try {
           const existing = await prisma.listing.findUnique({
             where: { id: listingId },
-            select: { publishedAt: true, expiresAt: true, deletedAt: true },
+            select: { publishedAt: true, expiresAt: true, deletedAt: true, status: true },
           });
           if (!existing || existing.deletedAt) {
             results.errors.push(`Listing missing ${listingId}`);
@@ -116,6 +117,12 @@ export async function POST(request: NextRequest) {
               reason: "approve",
               category: listing.category,
               city: listing.city,
+            });
+            notifyListingIndexNowAfterSuccess({
+              listingId: listing.id,
+              before: { status: existing.status, deletedAt: existing.deletedAt },
+              after: { status: listing.status, deletedAt: listing.deletedAt },
+              changedKeys: ["status", "moderationStatus"],
             });
           }
           

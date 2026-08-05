@@ -57,8 +57,7 @@ import {
 } from "@/lib/listing-expiry";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
-import { enqueueIndexNowSafe } from "@/lib/seo/indexnow-client";
-import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
+import { notifyListingIndexNowAfterSuccess } from "@/lib/seo/indexnow-listing-notify";
 import {
   buildAttributesContainmentObject,
   guardBrowsePriceBand,
@@ -1108,11 +1107,15 @@ export async function POST(request: Request) {
         category: listing.category,
         city: listing.city,
       });
-      // Fire-and-forget: tells Bing/Yandex/other IndexNow-participating engines
-      // to (re)crawl this URL immediately instead of waiting for organic discovery.
-      // No-ops safely when INDEXNOW_KEY isn't configured.
-      enqueueIndexNowSafe([`${siteOriginForSeoFeeds()}/listings/${listing.id}`]);
     }
+
+    // After successful create only — IndexNow when the final row is publicly active.
+    notifyListingIndexNowAfterSuccess({
+      listingId: listing.id,
+      before: { status: "pending", deletedAt: null },
+      after: { status: listing.status, deletedAt: listing.deletedAt },
+      changedKeys: ["status"],
+    });
 
     await commitListingPublishRateLimit(userId, user.role);
 

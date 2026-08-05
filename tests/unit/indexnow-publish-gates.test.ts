@@ -1,66 +1,23 @@
 /** @jest-environment node */
 /**
- * Documents the publish/republish gates for IndexNow enqueue.
- * Full HTTP route handlers are integration-tested elsewhere; these guards
- * mirror the exact conditions in app/api/listings/route.ts and [id]/route.ts.
+ * Replaced by indexnow-listing-notify.test.ts + indexnow-route-hooks.test.ts.
+ * Keep a thin smoke that imports the shared helper API used by all routes.
  */
-import { enqueueIndexNowSafe } from "@/lib/seo/indexnow-client";
+import {
+  notifyListingIndexNowAfterSuccess,
+  shouldNotifyListingIndexNow,
+} from "@/lib/seo/indexnow-listing-notify";
 
-jest.mock("@/lib/seo/indexnow-client", () => {
-  const actual = jest.requireActual("@/lib/seo/indexnow-client");
-  return {
-    ...actual,
-    enqueueIndexNowSafe: jest.fn(),
-  };
-});
-
-const enqueue = enqueueIndexNowSafe as jest.MockedFunction<typeof enqueueIndexNowSafe>;
-
-function shouldEnqueueOnCreate(status: string): boolean {
-  return status === "active";
-}
-
-function shouldEnqueueOnPatch(opts: {
-  touchedStatusOrModeration: boolean;
-  updatedStatus: string;
-}): boolean {
-  return opts.touchedStatusOrModeration && opts.updatedStatus === "active";
-}
-
-describe("IndexNow publish/republish gates", () => {
-  beforeEach(() => {
-    enqueue.mockClear();
-  });
-
-  it("create: enqueues only for active (not draft/pending/rejected)", () => {
-    for (const status of ["draft", "pending", "rejected", "paused", "sold"]) {
-      expect(shouldEnqueueOnCreate(status)).toBe(false);
-    }
-    expect(shouldEnqueueOnCreate("active")).toBe(true);
-  });
-
-  it("patch: enqueues only when status/moderation fields change AND result is active", () => {
+describe("IndexNow publish gates (shared helper)", () => {
+  it("exports a single decision path used by owner and admin routes", () => {
+    expect(typeof shouldNotifyListingIndexNow).toBe("function");
+    expect(typeof notifyListingIndexNowAfterSuccess).toBe("function");
     expect(
-      shouldEnqueueOnPatch({ touchedStatusOrModeration: false, updatedStatus: "active" })
-    ).toBe(false);
-    expect(
-      shouldEnqueueOnPatch({ touchedStatusOrModeration: true, updatedStatus: "pending" })
-    ).toBe(false);
-    expect(
-      shouldEnqueueOnPatch({ touchedStatusOrModeration: true, updatedStatus: "rejected" })
-    ).toBe(false);
-    expect(
-      shouldEnqueueOnPatch({ touchedStatusOrModeration: true, updatedStatus: "active" })
+      shouldNotifyListingIndexNow({
+        before: { status: "pending", deletedAt: null },
+        after: { status: "active", deletedAt: null },
+        changedKeys: ["status"],
+      })
     ).toBe(true);
-  });
-
-  it("canonical URL shape used by routes is /listings/:id under SEO origin", () => {
-    const origin = "https://www.clickanunt.ro";
-    const id = "clxyz123";
-    const url = `${origin}/listings/${id}`;
-    expect(url).toBe("https://www.clickanunt.ro/listings/clxyz123");
-    enqueue([url]);
-    expect(enqueue).toHaveBeenCalledWith(["https://www.clickanunt.ro/listings/clxyz123"]);
-    expect(enqueue).toHaveBeenCalledTimes(1);
   });
 });
