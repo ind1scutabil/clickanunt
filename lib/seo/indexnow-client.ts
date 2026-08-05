@@ -2,6 +2,9 @@
  * IndexNow client (Bing / Yandex / participating engines).
  * Does NOT claim Google uses IndexNow.
  * Fail-closed when INDEXNOW_KEY is unset; never blocks listing publish.
+ *
+ * HTTP 202/200 from IndexNow means the engine *accepted* the URL list for
+ * processing — it is NOT proof that Bing (or anyone) has indexed the page.
  */
 import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
 
@@ -11,7 +14,8 @@ export type IndexNowStatus =
   | "rate_limited"
   | "failed"
   | "not_configured"
-  | "skipped_ineligible";
+  | "skipped_ineligible"
+  | "skipped_non_production";
 
 export type IndexNowResult = {
   status: IndexNowStatus;
@@ -27,6 +31,18 @@ const TIMEOUT_MS = 8_000;
 export function getIndexNowKey(): string | null {
   const key = process.env.INDEXNOW_KEY?.trim();
   return key && key.length >= 8 ? key : null;
+}
+
+/**
+ * Real IndexNow POSTs only in production app processes.
+ * Local/dev/test/E2E never hit api.indexnow.org unless explicitly forced
+ * with INDEXNOW_ALLOW_NON_PRODUCTION=1 (manual ops only).
+ */
+export function indexNowOutboundAllowed(): boolean {
+  if (process.env.INDEXNOW_ALLOW_NON_PRODUCTION === "1") return true;
+  if (process.env.CLICKANUNT_E2E_SERVER === "1") return false;
+  if (process.env.NODE_ENV !== "production") return false;
+  return true;
 }
 
 export function indexNowKeyLocationUrl(): string | null {
@@ -79,6 +95,14 @@ export async function submitIndexNow(urls: string[]): Promise<IndexNowResult> {
     return { status: "not_configured", urlCount: 0, detail: "INDEXNOW_KEY missing" };
   }
 
+  if (!indexNowOutboundAllowed()) {
+    return {
+      status: "skipped_non_production",
+      urlCount: 0,
+      detail: "Outbound IndexNow disabled outside production (set INDEXNOW_ALLOW_NON_PRODUCTION=1 to override)",
+    };
+  }
+
   const list = filterIndexNowUrls(urls).slice(0, MAX_BATCH);
   if (list.length === 0) {
     return { status: "skipped_ineligible", urlCount: 0, detail: "No eligible URLs" };
@@ -102,6 +126,7 @@ export async function submitIndexNow(urls: string[]): Promise<IndexNowResult> {
       }),
       signal: controller.signal,
     });
+    // 200/202 = accepted for processing, NOT proof of Bing indexing.
     if (res.status === 200 || res.status === 202) {
       return { status: "accepted", urlCount: list.length, httpStatus: res.status };
     }

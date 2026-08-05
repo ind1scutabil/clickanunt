@@ -108,7 +108,18 @@ async function main() {
     process.exit(1);
   }
 
+  // Never accidentally POST from a laptop pointing at localhost/staging without explicit override.
+  const host = new URL(SITE_ORIGIN).host;
+  const isCanonicalProdHost = host === "www.clickanunt.ro";
+  if (!isCanonicalProdHost && process.env.INDEXNOW_ALLOW_NON_PRODUCTION !== "1") {
+    console.error(
+      `❌ Refusing to submit for host=${host}. Use SITE_ORIGIN=https://www.clickanunt.ro or set INDEXNOW_ALLOW_NON_PRODUCTION=1 for a deliberate non-prod test.`
+    );
+    process.exit(1);
+  }
+
   console.log(`🔎 Colectez URL-uri publice din sitemap-urile de pe ${SITE_ORIGIN} ...`);
+  console.log("   (INDEXNOW_KEY is set; value is not printed)");
   const urls = await collectAllUrls();
   console.log(`   găsite: ${urls.length} URL-uri eligibile`);
 
@@ -118,7 +129,6 @@ async function main() {
   }
 
   const keyLocation = `${SITE_ORIGIN}/indexnow-key.txt`;
-  const host = new URL(SITE_ORIGIN).host;
 
   for (let i = 0; i < urls.length; i += MAX_BATCH) {
     const batch = urls.slice(i, i + MAX_BATCH);
@@ -136,8 +146,11 @@ async function main() {
       body: JSON.stringify({ host, key: KEY, keyLocation, urlList: batch }),
     });
 
+    // 200/202 = accepted for processing by IndexNow. NOT proof that Bing indexed the URLs.
     if (res.status === 200 || res.status === 202) {
-      console.log(`   ✅ acceptat (HTTP ${res.status})`);
+      console.log(
+        `   ✅ acceptat pentru procesare (HTTP ${res.status}) — nu înseamnă „indexat în Bing”`
+      );
     } else {
       const body = await res.text().catch(() => "");
       console.error(`   ❌ HTTP ${res.status} ${body.slice(0, 300)}`);

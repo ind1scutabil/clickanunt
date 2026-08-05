@@ -47,6 +47,7 @@ export const logger = pino({
       '*.secret',
       'DATABASE_URL',
       'NEXTAUTH_SECRET',
+      'INDEXNOW_KEY',
       'STRIPE_SECRET_KEY',
       'AWS_SECRET_ACCESS_KEY',
       'SMTP_PASSWORD',
