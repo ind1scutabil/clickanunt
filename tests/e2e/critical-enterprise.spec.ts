@@ -10,6 +10,13 @@ test.describe('Critical Enterprise Web Flows', () => {
   test('login page renders form controls', async ({ page }) => {
     await page.goto('/auth/login');
     await expect(page.getByRole('textbox').first()).toBeVisible();
-    await expect(page.getByRole('button')).toBeVisible();
+    // Scoped to the login form's own submit button: an unscoped
+    // getByRole('button') also matches the cookie-consent banner's buttons
+    // (Acceptă/Refuză/Preferințe/Setări cookie), which legitimately render on
+    // every page — that is not a form-controls regression, just a stale
+    // selector that predates the consent banner.
+    await expect(
+      page.getByRole('button', { name: 'Conectează-te' })
+    ).toBeVisible();
   });
 });

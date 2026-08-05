@@ -6,6 +6,8 @@ import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 import { execSync } from "child_process";
+import { seedCookieConsentAccepted } from "./helpers/cookie-consent";
+import { pickCategoryAndSubcategory } from "./helpers/category-picker";
 
 const email = process.env.E2E_EMAIL ?? "alice@example.com";
 const password = process.env.E2E_PASSWORD ?? "alice123";
@@ -63,7 +65,10 @@ async function uploadPhotos(page: Page, files: string[]) {
     }
   });
 
-  const fileInput = page.locator('input[type="file"][accept="image/*"]').first();
+  // Accept attribute is an implementation detail (currently a specific mime/extension
+  // allowlist, not the "image/*" wildcard) — match by type only to stay aligned with
+  // the real upload contract without weakening what this test actually verifies.
+  const fileInput = page.locator('input[type="file"]').first();
   await fileInput.setInputFiles(files);
 
   await expect(page.locator("text=/poză adăugată|poze adăugate/i")).toBeVisible({
@@ -87,7 +92,10 @@ async function fillStep1Basics(page: Page, title: string) {
   await stepCard
     .getByPlaceholder(/iPhone 14 Pro/i)
     .fill(title);
-  await stepCard.locator("select").first().selectOption({ label: "Altele" });
+
+  // "Altele" requires an explicit subcategory ("Diverse") per current app validation.
+  await pickCategoryAndSubcategory(page, stepCard, "Altele", "Diverse");
+
   await stepCard.locator('input[type="number"]').fill("150");
 
   await stepCard
@@ -142,7 +150,9 @@ async function publishListing(page: Page): Promise<string> {
     },
     { timeout: 60_000 }
   );
-  const listingId = page.url().split("/").filter(Boolean).pop()!;
+  // Post-publish redirect now carries query params (?justCreated=1&publishState=…),
+  // so extract the id from the pathname, not a naive split on the full URL.
+  const listingId = new URL(page.url()).pathname.split("/").filter(Boolean).pop()!;
   expect(listingId).toMatch(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   );
@@ -163,7 +173,7 @@ async function assertListingImagesVisible(page: Page) {
 async function testEditListingPhoto(page: Page, listingId: string) {
   await page.goto(`/listings/${listingId}/edit`);
   await expect(page).not.toHaveURL(/\/auth\/login/);
-  const editInput = page.locator('input[type="file"][accept="image/*"]').first();
+  const editInput = page.locator('input[type="file"]').first();
   if (!(await editInput.isVisible().catch(() => false))) {
     test.info().annotations.push({ type: "skip-edit", description: "Edit photo input not visible" });
     return;
@@ -184,6 +194,9 @@ test.describe("Listing photo upload — mobile pre-deploy", () => {
   for (const [key, vp] of Object.entries(VIEWPORTS)) {
     test(`full flow — ${vp.label}`, async ({ page, context }) => {
       await context.clearCookies();
+      // Pre-accept cookie consent so the fixed bottom banner cannot intercept
+      // pointer events aimed at the category-picker bottom sheet on small viewports.
+      await seedCookieConsentAccepted(page);
       await page.setViewportSize({ width: vp.width, height: vp.height });
       if (key === "messengerWebview") {
         await page.setExtraHTTPHeaders({

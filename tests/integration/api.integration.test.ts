@@ -169,8 +169,12 @@ describe("API integration (server required)", () => {
     });
     expect([200, 201, 400, 409, 429]).toContain(res.status);
     if (res.ok) {
-      const data = (await res.json()) as { email?: string; accessToken?: string };
-      expect(data.email || data.accessToken).toBeTruthy();
+      // Current contract returns { success, user: { email, ... } } with tokens set
+      // as httpOnly cookies (not in the body) — align to that instead of a legacy
+      // top-level email/accessToken shape.
+      const data = (await res.json()) as { success?: boolean; user?: { email?: string } };
+      expect(data.success).toBe(true);
+      expect(data.user?.email).toBeTruthy();
     }
   });
 });

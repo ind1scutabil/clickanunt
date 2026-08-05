@@ -53,6 +53,10 @@ test.describe("Real flow verification", () => {
         title: `E2E Verificare ${crypto.randomUUID()}`,
         description: "Descriere minimă zece caractere pentru test automat.",
         category: "Altele",
+        // Required since the category/price/salary model made subcategory
+        // mandatory for every category (see lib/taxonomy.ts — "Altele" has
+        // no catch-all default). "Diverse" is the generic subcategory.
+        subcategory: "Diverse",
         priceAmount: 100,
         priceCurrency: "RON",
         condition: "used",
