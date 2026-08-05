@@ -46,7 +46,8 @@ curent care le-a descoperit. Nu au fost investigate în profunzime — status: *
 
 ## 2. `/auth/login` — al doilea nod DOM `input[type="email"]`, doar client-side/post-hidratare
 
-- **Status:** neinvestigat, independent de branch-ul curent
+- **Status:** ✅ REZOLVAT (FAZA 21E, 2026-07-29) — vezi notă la finalul secțiunii.
+- **Status inițial (istoric, păstrat mai jos):** neinvestigat, independent de branch-ul curent
 - **Descoperit în:** aceeași verificare pre-deploy SEO, rulare Playwright pe build de producție local
 - **Descriere:** Testul `tests/e2e/predeploy-ui-smoke.spec.ts › login form renders` eșuează
   determinist (2/2 rulări) cu strict-mode violation: `locator('input[type="email"]')` găsește
@@ -73,3 +74,19 @@ curent care le-a descoperit. Nu au fost investigate în profunzime — status: *
   posibil un câmp anti-bot/honeypot injectat client-side (proiectul are istoric de lucru pe
   bot-protection/Turnstile, vezi `docs/auth/TURNSTILE_REMOVAL.md`), cu același placeholder ca
   input-ul real — de verificat.
+
+### Cauza confirmată și fix-ul aplicat
+
+`app/components/LoginForm.tsx` folosea `useSearchParams()` la nivel de render pentru a citi
+`next=`/`redirect=`/`returnUrl=`. Acel hook forțează componenta într-o graniță `<Suspense>`
+(`app/auth/login/page.tsx`), iar swap-ul de streaming SSR al React intra în cursă cu hidratarea,
+randând temporar două copii ale input-urilor formularului în DOM.
+
+Fix: valorile din query string sunt citite lazy, direct din `window.location.search`, în
+`postLoginPath()` — funcție apelată **doar** după submit-ul utilizatorului (deci mereu client-side,
+post-hidratare, unde `window` e mereu disponibil în siguranță), nu la render. `<Suspense>` din
+`app/auth/login/page.tsx` a fost eliminat, nemaifiind necesar.
+
+**Verificat:** `PLAYWRIGHT_SKIP_WEBSERVER=1 npx playwright test tests/e2e/predeploy-ui-smoke.spec.ts -g "login form renders" --project=chromium`
+pe build de producție (`npm run build && PORT=3101 npx next start -p 3101`) — trece (1/1), zero
+noduri DOM duplicate.

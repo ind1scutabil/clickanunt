@@ -9,7 +9,6 @@ import {
   clearLegacyWebAuthStorage,
 } from "@/lib/auth/clear-legacy-web-auth-storage";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 const devLog = (...args: unknown[]) => {
   if (process.env.NODE_ENV === "development") console.log(...args);
@@ -24,14 +23,19 @@ export default function LoginForm() {
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
   const [requiresTwoFA, setRequiresTwoFA] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const searchParams = useSearchParams();
 
   function postLoginPath(role: string | undefined): string {
+    // Read query params lazily (post-submit, client-only) instead of via
+    // useSearchParams(): that hook forces this render-time component into a
+    // <Suspense> boundary, which raced with React's streaming SSR swap and
+    // briefly rendered two copies of this form's inputs in the DOM (see
+    // docs/known-issues.md — "/auth/login duplicate DOM node"). This function
+    // only ever runs after user interaction (submit), well after hydration,
+    // so window.location is always safe to read here.
+    const params = new URLSearchParams(window.location.search);
     // Support next= (canonical), redirect=, and returnUrl= used across surfaces.
     const rawReturn =
-      searchParams.get("next") ||
-      searchParams.get("redirect") ||
-      searchParams.get("returnUrl");
+      params.get("next") || params.get("redirect") || params.get("returnUrl");
     const safeNext = sanitizeAuthReturnPath(rawReturn);
     if (safeNext) return safeNext;
     if (isAdminStaffRole(role)) return "/admin/dashboard";
