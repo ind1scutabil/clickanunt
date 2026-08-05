@@ -2,6 +2,7 @@
 import {
   buildCommercialOfferPriceFields,
   buildJobBaseSalaryJsonLd,
+  buildJobEmploymentType,
 } from "@/lib/seo/listing-offer-jsonld";
 import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
@@ -112,6 +113,23 @@ describe("JSON-LD JobPosting baseSalary", () => {
         unitText: "MONTH",
       },
     });
+  });
+});
+
+describe("JSON-LD JobPosting employmentType", () => {
+  it("maps every known taxonomy contract_type option to a schema.org enum", () => {
+    expect(buildJobEmploymentType("Full-time")).toBe("FULL_TIME");
+    expect(buildJobEmploymentType("Part-time")).toBe("PART_TIME");
+    expect(buildJobEmploymentType("Freelance")).toBe("CONTRACTOR");
+    expect(buildJobEmploymentType("Internship")).toBe("INTERN");
+    expect(buildJobEmploymentType("Temporar")).toBe("TEMPORARY");
+  });
+
+  it("returns null for unknown/missing contract_type (never invents a value)", () => {
+    expect(buildJobEmploymentType("Ceva necunoscut")).toBeNull();
+    expect(buildJobEmploymentType(undefined)).toBeNull();
+    expect(buildJobEmploymentType(null)).toBeNull();
+    expect(buildJobEmploymentType(42)).toBeNull();
   });
 });
 

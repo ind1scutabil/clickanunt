@@ -15,6 +15,7 @@ import { listingJsonLdKindForCategory } from "@/lib/seo/listing-jsonld-policy";
 import {
   buildCommercialOfferPriceFields,
   buildJobBaseSalaryJsonLd,
+  buildJobEmploymentType,
 } from "@/lib/seo/listing-offer-jsonld";
 import type { Condition } from "@prisma/client";
 import type { ReactNode } from "react";
@@ -183,6 +184,16 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     if (typeof attrs.work_mode === "string") {
       const mode = attrs.work_mode.toLowerCase();
       if (mode.includes("remote")) jobLd.jobLocationType = "TELECOMMUTE";
+    }
+    // Real, structured data only — never inferred:
+    // validThrough from the listing's actual expiry, employmentType from the
+    // taxonomy's `contract_type` attribute (Full-time/Part-time/Freelance/...).
+    if (listing.expiresAt) {
+      jobLd.validThrough = listing.expiresAt.toISOString();
+    }
+    const employmentType = buildJobEmploymentType(attrs.contract_type);
+    if (employmentType) {
+      jobLd.employmentType = employmentType;
     }
     if (jobBaseSalary) {
       jobLd.baseSalary = jobBaseSalary;

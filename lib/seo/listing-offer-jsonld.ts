@@ -89,3 +89,18 @@ export function buildJobBaseSalaryJsonLd(
 export function salaryPeriodUnitLabel(period: SalaryPeriodValue): string {
   return SALARY_PERIOD_LABEL_RO[period];
 }
+
+/** `contract_type` attribute (Locuri de muncă taxonomy) → schema.org JobPosting.employmentType enum. */
+const CONTRACT_TYPE_TO_EMPLOYMENT_TYPE: Record<string, string> = {
+  "Full-time": "FULL_TIME",
+  "Part-time": "PART_TIME",
+  Freelance: "CONTRACTOR",
+  Internship: "INTERN",
+  Temporar: "TEMPORARY",
+};
+
+/** Returns JobPosting.employmentType only for a real, known `contract_type` value — never inferred/invented. */
+export function buildJobEmploymentType(contractType: unknown): string | null {
+  if (typeof contractType !== "string") return null;
+  return CONTRACT_TYPE_TO_EMPLOYMENT_TYPE[contractType.trim()] ?? null;
+}
