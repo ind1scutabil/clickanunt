@@ -73,6 +73,14 @@ function mapPublicListingToCardProps(l: Listing) {
     views: l.views,
     city: l.city,
     county: l.county,
+    attributes: l.attributes ?? null,
+    condition: l.condition ?? null,
+    make: l.make ?? null,
+    model: l.model ?? null,
+    year: l.year ?? null,
+    mileage: l.mileage ?? null,
+    fuel: l.fuel ?? null,
+    transmission: l.transmission ?? null,
     priceType: "priceType" in l ? (l as { priceType?: string | null }).priceType ?? null : null,
     salaryMin: "salaryMin" in l ? (l as { salaryMin?: number | null }).salaryMin ?? null : null,
     salaryMax: "salaryMax" in l ? (l as { salaryMax?: number | null }).salaryMax ?? null : null,
@@ -999,7 +1007,7 @@ export default function ListingsView({
 
       {/* Loading - Skeleton Cards (only when no seeded/existing results) */}
       {loading && listings.length === 0 && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-3.5 sm:gap-4 md:mb-10 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
@@ -1007,7 +1015,7 @@ export default function ListingsView({
               role="status"
               aria-label="Catalog"
             >
-              <div className="aspect-[5/3] bg-zinc-800/70" />
+              <div className="aspect-[4/3] bg-zinc-800/70" />
               <div className="space-y-2 p-2.5 sm:p-3 md:p-3.5">
                 <div className="h-4 w-[88%] rounded-full bg-zinc-800/80" />
                 <div className="h-3 w-[42%] rounded-full bg-zinc-800/55" />
@@ -1025,7 +1033,7 @@ export default function ListingsView({
             Găsite <span className="font-bold tabular-nums text-zinc-100">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:gap-4 md:mb-10 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {listings.map((listing, index) => (
               <ListingCard
                 key={listing.id}
