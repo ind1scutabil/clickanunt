@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# Titlul "ONLY authorized production deployment method" e depasit: DEPLOY_DIR
+# fix /var/www/clickanunt nu mai e directorul din care ruleaza PM2 in
+# productie (acum /var/www/clickanunt-releases/<ts>-<sha> via symlink
+# `current`). Foloseste in schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+#
 # Production Deployment Script for ClickAnunț
 # Usage: ./scripts/deploy-production.sh
 # This is the ONLY authorized production deployment method.

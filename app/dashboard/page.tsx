@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
-import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
+import { cacheWebUserProfile } from "@/lib/auth/clear-legacy-web-auth-storage";
 import { Card, Badge, Button, Tabs, Avatar } from "@/app/components/ui";
 import { ListingCard } from "@/app/components/composite";
 const ViewsLast7DaysChart = dynamic(
@@ -28,7 +28,11 @@ const ViewsLast7DaysChart = dynamic(
     ),
   }
 );
-import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
 import {
   isPaidSubscriptionTier,
@@ -36,6 +40,7 @@ import {
   shouldOfferBusinessDiscovery,
   subscriptionTierLabel,
 } from "@/lib/subscription-tier";
+import EmailVerificationBanner from "@/app/components/EmailVerificationBanner";
 
 /**
  * Design tokens — exclusiv /dashboard (nu afectează alte rute sau componente globale).
@@ -85,21 +90,15 @@ export default function DashboardPage() {
   const [listingsLoading, setListingsLoading] = useState(true);
   const [listingsError, setListingsError] = useState<string | null>(null);
 
-  const refreshUser = async (token: string, fallbackUser?: any) => {
+  const refreshUser = async (fallbackUser?: any) => {
     try {
-      const response = await fetch('/api/users/me', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const response = await fetchWithAuthRefresh('/api/users/me');
       if (!response.ok) return;
 
       const data = await response.json();
       const mergedUser = { ...(fallbackUser || {}), ...data };
       setUser(mergedUser);
-      localStorage.setItem('user', JSON.stringify(mergedUser));
-      broadcastAuthSessionChanged();
+      cacheWebUserProfile(mergedUser);
     } catch (error) {
       console.error('Failed to refresh user:', error);
     }
@@ -109,14 +108,7 @@ export default function DashboardPage() {
   const fetchStats = async () => {
     try {
       setStatsLoading(true);
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("accessToken")
-          : null;
-      const response = await fetch("/api/dashboard/stats", {
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const response = await fetchWithAuthRefresh("/api/dashboard/stats");
       
       if (response.ok) {
         const data = await response.json();
@@ -223,36 +215,55 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!clientReady) return;
 
-    const token = localStorage.getItem('accessToken');
-    const userData = localStorage.getItem('user');
+    let cancelled = false;
 
-    if (!token || !userData) {
-      router.push('/auth/login?redirect=/dashboard');
-      setIsLoading(false);
-      return;
-    }
+    const init = async () => {
+      let fallbackUser: any = null;
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          fallbackUser = JSON.parse(userData);
+          setUser(fallbackUser);
+        } catch {
+          fallbackUser = null;
+        }
+      }
 
-    try {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+
+      if (!session.ok) {
+        if (session.transient && fallbackUser) {
+          setIsAuthenticated(true);
+          void fetchStats();
+          void fetchListings();
+          setIsLoading(false);
+          return;
+        }
+        clearStaleBrowserAuth();
+        router.push('/auth/login?redirect=/dashboard');
+        setIsLoading(false);
+        return;
+      }
+
+      const sessionUser = session.user
+        ? { ...(fallbackUser || {}), ...session.user }
+        : fallbackUser;
+      if (sessionUser) {
+        setUser(sessionUser);
+        cacheWebUserProfile(sessionUser);
+      }
       setIsAuthenticated(true);
+      void fetchStats();
+      void refreshUser(sessionUser ?? undefined);
+      void fetchListings();
+      setIsLoading(false);
+    };
 
-      // Fetch real stats
-      fetchStats();
-
-      // Refresh user details (benefits, credits, discounts)
-      refreshUser(token, parsedUser);
-
-      // Fetch user listings for dashboard
-      fetchListings();
-    } catch (e) {
-      console.error('Failed to parse user data:', e);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      router.push('/auth/login?redirect=/dashboard');
-    }
-
-    setIsLoading(false);
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, [clientReady, router]);
 
   if (!clientReady || isLoading) {
@@ -294,6 +305,8 @@ export default function DashboardPage() {
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 md:py-10 lg:px-8">
         <div className="mb-7 h-px w-full bg-gradient-to-r from-transparent via-orange-500/35 to-transparent md:mb-9" aria-hidden />
+
+        <EmailVerificationBanner />
 
         <header className="mb-8 md:mb-10">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">Cont</p>

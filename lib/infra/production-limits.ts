@@ -57,3 +57,10 @@ export const HEALTH_DISK_FREE_WARN_BYTES = 2 * 1024 * 1024 * 1024;
 
 /** Uploads directory total size warning (bytes) */
 export const HEALTH_UPLOADS_DIR_WARN_BYTES = 8 * 1024 * 1024 * 1024;
+
+/**
+ * GET /api/listings/[id]/contact-phone — public reveal rate limit (per IP / hour).
+ * Allows normal multi-listing browsing; blocks mass harvest without CAPTCHA.
+ */
+export const PHONE_REVEAL_MAX_PER_HOUR = 40;
+export const PHONE_REVEAL_WINDOW_MS = 60 * 60 * 1000;

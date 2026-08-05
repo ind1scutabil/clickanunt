@@ -15,6 +15,10 @@ import { applyUserPromotionDiscountToBaseBani } from '@/lib/promotion-pricing';
 import { logger } from '@/lib/observability';
 import { PaymentStatus } from '@prisma/client';
 import { verifyToken } from '@/lib/auth';
+import {
+  isListingPromotionEligible,
+  promotionIneligibleReason,
+} from '@/lib/listing-lifecycle';
 
 export const runtime = 'nodejs';
 
@@ -77,6 +81,9 @@ export async function POST(req: NextRequest) {
         id: true,
         title: true,
         status: true,
+        moderationStatus: true,
+        deletedAt: true,
+        expiresAt: true,
         ownerUserId: true,
       }
     });
@@ -85,10 +92,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    // Verify listing is active
-    if (listing.status !== 'active') {
+    if (!isListingPromotionEligible(listing)) {
       return NextResponse.json(
-        { error: 'Only active listings can be promoted' },
+        { error: promotionIneligibleReason(listing) || 'Only eligible listings can be promoted' },
         { status: 400 }
       );
     }
@@ -146,12 +152,39 @@ export async function POST(req: NextRequest) {
     const promotionUiPackageIdForMeta =
       uiPackageId || inferUiPackageIdFromStripeType(packageType) || '';
 
+    let durationDaysSnapshot: number | undefined;
+    if (promotionUiPackageIdForMeta) {
+      try {
+        const { getListingPromotionApplyFromUiPackage } = await import('@/lib/promotion-packages');
+        const apply = await getListingPromotionApplyFromUiPackage(
+          promotionUiPackageIdForMeta as import('@/lib/promotion-packages').PromotionUiId
+        );
+        if (
+          !Number.isInteger(apply.durationDays) ||
+          apply.durationDays < 1 ||
+          apply.durationDays > 365
+        ) {
+          return NextResponse.json(
+            { error: 'Durata pachetului de promovare este invalidă' },
+            { status: 400 }
+          );
+        }
+        durationDaysSnapshot = apply.durationDays;
+      } catch {
+        return NextResponse.json(
+          { error: 'Nu am putut determina durata pachetului de promovare' },
+          { status: 400 }
+        );
+      }
+    }
+
     logger.info('Promotion checkout amounts', {
       userId,
       baseAmount,
       finalAmount,
       discountApplied,
       promotionUiPackageId: promotionUiPackageIdForMeta || undefined,
+      durationDays: durationDaysSnapshot,
     });
 
     // Create PaymentIntent in Stripe with discounted price
@@ -167,6 +200,7 @@ export async function POST(req: NextRequest) {
         discountPercent: user?.promotionDiscountPercent?.toString() || '0',
         discountApplied: discountApplied.toString(),
         ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
+        ...(durationDaysSnapshot != null ? { durationDays: String(durationDaysSnapshot) } : {}),
       },
       // Override amount with discounted price
       amount: finalAmount,
@@ -191,6 +225,7 @@ export async function POST(req: NextRequest) {
           discountApplied,
           finalAmount,
           ...(promotionUiPackageIdForMeta ? { promotionUiPackageId: promotionUiPackageIdForMeta } : {}),
+          ...(durationDaysSnapshot != null ? { durationDays: durationDaysSnapshot } : {}),
         },
       },
     });

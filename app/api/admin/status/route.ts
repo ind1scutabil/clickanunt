@@ -1,37 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+export const runtime = "nodejs";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { Permission } from "@/lib/rbac";
+import { requireAdminApiPermission } from "@/lib/admin-api-auth";
 
 /**
  * GET /api/admin/status
- * Check if admin exists and return information
+ * Counts staff roles — no email enumeration without auth.
  */
 export async function GET(request: NextRequest) {
   try {
-    // Check if any admin exists
-    const adminCount = await prisma.user.count({
-      where: { role: 'admin' },
-    });
+    const gate = await requireAdminApiPermission(
+      request,
+      Permission.USERS_VIEW_ALL
+    );
+    if (!gate.ok) return gate.response;
 
-    const admins = await prisma.user.findMany({
-      where: { role: 'admin' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-      },
-    });
+    const [adminCount, ownerCount] = await Promise.all([
+      prisma.user.count({
+        where: { role: "admin", deletedAt: null },
+      }),
+      prisma.user.count({
+        where: { role: "owner", deletedAt: null },
+      }),
+    ]);
 
     return NextResponse.json({
-      adminExists: adminCount > 0,
+      adminExists: adminCount + ownerCount > 0,
       adminCount,
-      admins,
+      ownerCount,
     });
   } catch (error) {
-    logger.error({ error }, 'Error checking admin status');
+    logger.error({ error }, "Error checking admin status");
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

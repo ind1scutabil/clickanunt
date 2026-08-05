@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
+import {
+  fetchWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 
 interface Invoice {
   id: string;
@@ -23,28 +28,27 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        router.push('/auth/login');
-        return false;
-      }
-      return token;
-    };
-
     const fetchInvoices = async () => {
-      const token = checkAuth();
-      if (!token) return;
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        if (!session.transient) {
+          clearStaleBrowserAuth();
+          router.push('/auth/login?redirect=/dashboard/invoices');
+        }
+        setIsLoading(false);
+        return;
+      }
 
       try {
         setIsLoading(true);
-        const response = await fetch('/api/invoices', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        const response = await fetchWithAuthRefresh('/api/invoices');
 
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            clearStaleBrowserAuth();
+            router.push('/auth/login?redirect=/dashboard/invoices');
+            return;
+          }
           throw new Error('Failed to fetch invoices');
         }
 
@@ -58,7 +62,7 @@ export default function InvoicesPage() {
       }
     };
 
-    fetchInvoices();
+    void fetchInvoices();
   }, [router]);
 
   const formatDate = (dateString: string | null) => {

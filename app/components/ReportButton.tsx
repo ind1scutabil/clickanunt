@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * ORPHAN — not imported by any live page.
+ * Listing detail uses the inline report modal in ListingDetailPageClient
+ * (POST /api/reports). Keep this file only as a legacy reference; do not wire
+ * it without aligning reasons to the Report API enum.
+ */
 import { useState } from "react";
 import { getCsrfToken } from "@/lib/security/csrf-client";
 

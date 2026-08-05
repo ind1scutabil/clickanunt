@@ -3,15 +3,23 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import { useState, useEffect } from "react";
-import { fetchWithAuthRefresh } from "@/lib/admin-fetch";
+import {
+  fetchWithAuthRefresh,
+  jsonMutationWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
 import type { FavoriteWithListingDto } from "@clickanunt/api-contracts";
-import { formatListingPrice } from "@/lib/format-listing-price";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
-type Favorite = FavoriteWithListingDto;
+type Favorite = FavoriteWithListingDto & {
+  available?: boolean;
+  unavailableReason?: string | null;
+};
 
 /** Token-uri vizuale — doar această pagină. */
 const pageAmbient =
@@ -40,12 +48,20 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (!clientReady) return;
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      router.push("/auth/login?redirect=/favorites");
-      return;
-    }
-    void fetchFavorites();
+
+    const init = async () => {
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        if (!session.transient) {
+          clearStaleBrowserAuth();
+          router.push("/auth/login?next=/favorites");
+        }
+        return;
+      }
+      void fetchFavorites();
+    };
+
+    void init();
   }, [clientReady, router]);
 
   const fetchFavorites = async () => {
@@ -58,7 +74,7 @@ export default function FavoritesPage() {
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          router.push("/auth/login?redirect=/favorites");
+          router.push("/auth/login?next=/favorites");
           return;
         }
         let detail = "Nu am putut încărca favoritele.";
@@ -87,18 +103,14 @@ export default function FavoritesPage() {
     e.stopPropagation();
 
     try {
-      const res = await fetchWithAuthRefresh(
+      const res = await jsonMutationWithAuthRefresh(
         `/api/favorites?listingId=${encodeURIComponent(listingId)}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-          cache: "no-store",
-        }
+        "DELETE"
       );
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          router.push("/auth/login?redirect=/favorites");
+          router.push("/auth/login?next=/favorites");
         }
         return;
       }
@@ -337,11 +349,19 @@ export default function FavoritesPage() {
                       </svg>
                     </button>
 
-                    {listing.isFeatured && (
+                    {favorite.available === false ? (
+                      <div className="absolute left-4 top-4 z-[1] rounded-full border border-amber-500/40 bg-amber-950/85 px-3 py-1.5 text-xs font-semibold text-amber-100 shadow-lg">
+                        {favorite.unavailableReason === "expired"
+                          ? "Expirat"
+                          : favorite.unavailableReason === "deleted"
+                            ? "Retras"
+                            : "Indisponibil"}
+                      </div>
+                    ) : listing.isFeatured ? (
                       <div className="absolute left-4 top-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-900/40">
                         TOP ANUNȚ
                       </div>
-                    )}
+                    ) : null}
 
                     <div className="absolute bottom-4 left-4 flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/75 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
                       <svg
@@ -378,7 +398,23 @@ export default function FavoritesPage() {
 
                     <div className="mb-4">
                       <div className="bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-3xl font-semibold tabular-nums tracking-tight text-transparent">
-                        {formatListingPrice(listing.priceAmount, listing.priceCurrency)}
+                        {(() => {
+                          const line = formatListingCommercialOrSalaryLine({
+                            category: listing.category,
+                            priceType: (listing as { priceType?: string | null }).priceType,
+                            priceAmount: listing.priceAmount,
+                            priceCurrency: listing.priceCurrency,
+                            salaryMin: (listing as { salaryMin?: number | null }).salaryMin,
+                            salaryMax: (listing as { salaryMax?: number | null }).salaryMax,
+                            salaryCurrency: (listing as { salaryCurrency?: string | null })
+                              .salaryCurrency,
+                            salaryPeriod: (listing as { salaryPeriod?: string | null })
+                              .salaryPeriod,
+                          });
+                          return line.suffix
+                            ? `${line.primary} · ${line.suffix}`
+                            : line.primary;
+                        })()}
                       </div>
                     </div>
 

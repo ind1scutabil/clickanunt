@@ -1,0 +1,82 @@
+name: PR CI
+
+# Safe pull-request gate: no deploy, no production secrets, no Stripe LIVE.
+# Triggers on PRs into the special checkpoint base and on this feature branch.
+# Also workflow_dispatch so checks can run when GitHub base-branch filters skip.
+
+on:
+  pull_request:
+    branches:
+      - checkpoint/pre-category-price-salary
+      - main
+      - master
+  push:
+    branches:
+      - feat/category-price-and-salary-model
+  workflow_dispatch:
+
+concurrency:
+  group: pr-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint · types · unit · prisma · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Unit tests
+        run: npm test -- tests/unit --forceExit
+
+      - name: Prisma validate
+        run: npx prisma validate
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Migration SQL integrity (static)
+        run: |
+          npm test -- \
+            tests/unit/listing-price-salary-migration.test.ts \
+            tests/unit/staging-deploy-preflight.test.ts \
+            tests/unit/stripe-production-guard.test.ts \
+            tests/unit/cron-auth.test.ts \
+            tests/unit/messages-sse-no-query-token.test.ts \
+            tests/unit/upload-video-rejected.test.ts \
+            tests/unit/e2e-rate-limit-bypass.test.ts \
+            --forceExit
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          # Build must not require live secrets / DB
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci_unused
+          JWT_SECRET: ci_jwt_secret_placeholder_min_32_chars_xx
+          NEXTAUTH_SECRET: ci_nextauth_secret_placeholder_xx
+
+      - name: Diff whitespace check
+        run: git diff --check || true

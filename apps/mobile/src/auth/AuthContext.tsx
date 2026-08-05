@@ -19,6 +19,9 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  verifyEmailToken: (token: string) => Promise<{ success: boolean; message?: string }>;
+  resendVerification: () => Promise<{ success: boolean; message?: string }>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -97,9 +100,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         }
       },
       logout: async () => {
+        try {
+          await authApi.logout();
+        } catch {
+          // offline / network — local clear still required
+        }
         await clearStoredAuthTokens();
         setUser(null);
         addBreadcrumb('logout', 'auth');
+      },
+      refreshUser: async () => {
+        const me = await authApi.me();
+        setUser(me);
+      },
+      verifyEmailToken: async (token: string) => {
+        const result = await authApi.verifyEmail(token);
+        try {
+          const me = await authApi.me();
+          setUser(me);
+        } catch {
+          /* may be logged out */
+        }
+        return {
+          success: Boolean(result.success),
+          message: result.message,
+        };
+      },
+      resendVerification: async () => {
+        const result = await authApi.resendVerification();
+        return {
+          success: Boolean(result.success),
+          message: result.message,
+        };
       },
     }),
     [isLoading, user]

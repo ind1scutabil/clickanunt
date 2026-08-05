@@ -97,6 +97,7 @@ export async function PATCH(
       updateData.status = data.status;
       if (data.status === ListingStatus.active) {
         updateData.moderationStatus = ModerationStatus.approved;
+        updateData.deletedAt = null;
         Object.assign(
           updateData,
           applyListingPublishExpiryIfMissing({
@@ -108,6 +109,8 @@ export async function PATCH(
         updateData.moderationStatus = ModerationStatus.rejected;
       } else if (data.status === ListingStatus.pending) {
         updateData.moderationStatus = ModerationStatus.pending;
+      } else if (data.status === ListingStatus.deleted) {
+        updateData.deletedAt = new Date();
       }
     }
 
@@ -197,6 +200,11 @@ export async function DELETE(
     const security = await validateSecureRequest(request, {
       requireCSRF: true,
       rateLimit: "moderation",
+      schema: z
+        .object({
+          reason: z.string().trim().min(3).max(2000),
+        })
+        .strict(),
     });
 
     if (!security.success) {
@@ -204,29 +212,48 @@ export async function DELETE(
       return NextResponse.json({ error: security.error }, { status });
     }
 
-    const existing = await prisma.listing.findUnique({
-      where: { id },
-      select: { id: true, title: true, ownerUserId: true },
+    const { reason } = security.data as { reason: string };
+
+    const existing = await prisma.listing.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, title: true, ownerUserId: true, status: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Anunțul nu a fost găsit" }, { status: 404 });
     }
 
-    await prisma.listing.delete({ where: { id } });
+    // Soft-delete only — preserves Payment/Invoice (no FK), conversations, reports, moderation.
+    const updated = await prisma.listing.updateMany({
+      where: { id, deletedAt: null },
+      data: {
+        status: ListingStatus.deleted,
+        deletedAt: new Date(),
+        moderationNotes: reason,
+        moderatedAt: new Date(),
+        moderatedBy: adminUser.id,
+      },
+    });
+
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Anunțul este deja șters" }, { status: 409 });
+    }
 
     await createAuditLog({
       userId: adminUser.id,
-      action: "listing.admin_delete",
+      action: "listing.admin_soft_delete",
       resource: "listing",
       resourceId: id,
       details: {
         title: existing.title,
+        previousStatus: existing.status,
         targetOwnerId: existing.ownerUserId,
+        reason,
+        mode: "soft",
       },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, softDeleted: true });
   } catch (error) {
     console.error("Admin listing DELETE error:", error);
     return NextResponse.json({ error: "Eroare la ștergerea anunțului" }, { status: 500 });

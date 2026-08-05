@@ -1,0 +1,149 @@
+/**
+ * Non-FTS catalog id query with the same currency-aware price ORDER BY as FTS.
+ * Used when `sort=priceAsc|priceDesc` without text search (F12B-T1 / F12C).
+ */
+import { Prisma, type PrismaClient } from '@prisma/client';
+import {
+  ftsOrderBySql,
+  type ListingFeedSort,
+} from '@/lib/listing-feed-sort';
+import { sqlComparableCommercialPriceType } from '@/lib/listings/comparable-commercial-price';
+
+export type CatalogBrowseFilterParams = {
+  activeOnly?: boolean;
+  publicCatalogOnly?: boolean;
+  category?: string | null;
+  subcategory?: string | null;
+  county?: string | null;
+  city?: string | null;
+  year?: number | null;
+  yearMin?: number | null;
+  yearMax?: number | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  /** WHERE currency when a numeric price band is applied. */
+  priceCurrency?: string | null;
+  /**
+   * Currency for priceAsc/priceDesc ORDER BY comparable bucket.
+   * Does not remove other currencies from the result set (they sort last).
+   */
+  sortCurrency?: string | null;
+  make?: string | null;
+  model?: string | null;
+  fuel?: string | null;
+  transmission?: string | null;
+  condition?: string | null;
+  attributesContainmentJson?: string | null;
+  ownerUserId?: string | null;
+  sort: ListingFeedSort;
+};
+
+function buildCatalogWhereSql(filters: CatalogBrowseFilterParams): Prisma.Sql {
+  const categoryParam = filters.category ?? null;
+  const subcategoryParam = filters.subcategory ?? null;
+  const countyParam = filters.county ?? null;
+  const cityParam = filters.city ?? null;
+  const yearParam = typeof filters.year === 'number' ? filters.year : null;
+  const yearMinParam = typeof filters.yearMin === 'number' ? filters.yearMin : null;
+  const yearMaxParam = typeof filters.yearMax === 'number' ? filters.yearMax : null;
+  const minPriceParam = typeof filters.minPrice === 'number' ? filters.minPrice : null;
+  const maxPriceParam = typeof filters.maxPrice === 'number' ? filters.maxPrice : null;
+  const priceCurrencyParam = filters.priceCurrency ?? null;
+  const makeParam = filters.make ?? null;
+  const modelParam = filters.model ?? null;
+  const fuelParam = filters.fuel ?? null;
+  const transmissionParam = filters.transmission ?? null;
+  const conditionParam = filters.condition ?? null;
+  const attributesJsonParam = filters.attributesContainmentJson ?? null;
+  const ownerUserIdParam = filters.ownerUserId ?? null;
+  const activeOnly = filters.activeOnly !== false;
+  const publicCatalogOnly = filters.publicCatalogOnly === true;
+
+  return Prisma.sql`
+      (${activeOnly}::boolean = false OR status = 'active')
+      AND (
+        ${activeOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "expiresAt" IS NULL
+        OR "expiresAt" > NOW()
+      )
+      AND "deletedAt" IS NULL
+      AND (
+        ${publicCatalogOnly}::boolean = false
+        OR ${ownerUserIdParam}::text IS NOT NULL
+        OR "moderationStatus"::text = 'approved'
+      )
+      AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
+      AND (${categoryParam}::text IS NULL OR category = ${categoryParam})
+      AND (${subcategoryParam}::text IS NULL OR subcategory = ${subcategoryParam})
+      AND (${countyParam}::text IS NULL OR county = ${countyParam})
+      AND (${cityParam}::text IS NULL OR city = ${cityParam})
+      AND (${yearParam}::int IS NULL OR year = ${yearParam})
+      AND (${yearMinParam}::int IS NULL OR year >= ${yearMinParam})
+      AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
+      AND (${minPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ${sqlComparableCommercialPriceType()}
+        AND "priceAmount" >= ${minPriceParam}
+      ))
+      AND (${maxPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ${sqlComparableCommercialPriceType()}
+        AND "priceAmount" <= ${maxPriceParam}
+      ))
+      AND (
+        ${priceCurrencyParam}::text IS NULL
+        OR "priceCurrency" = ${priceCurrencyParam}
+      )
+      AND (${makeParam}::text IS NULL OR make = ${makeParam})
+      AND (${modelParam}::text IS NULL OR model = ${modelParam})
+      AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
+      AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
+      AND (${conditionParam}::text IS NULL OR condition::text = ${conditionParam})
+      AND (
+        ${attributesJsonParam}::text IS NULL
+        OR attributes @> ${attributesJsonParam}::jsonb
+      )
+  `;
+}
+
+/**
+ * Returns listing ids for non-FTS catalog browse with allowlisted ORDER BY.
+ * Price sorts use the same comparable-currency CASE as FTS (`ftsOrderBySql`).
+ */
+export async function browseListingIdsOrdered(
+  prisma: PrismaClient,
+  filters: CatalogBrowseFilterParams,
+  limit: number,
+  offset: number
+): Promise<{ ids: string[]; total: number }> {
+  const whereSql = buildCatalogWhereSql(filters);
+  // Rank unused for non-FTS; pass a constant so relevance/newest/featured/price share one builder.
+  const rankExpr = Prisma.sql`0::float`;
+  const orderBy = ftsOrderBySql(
+    filters.sort,
+    rankExpr,
+    filters.sortCurrency ?? filters.priceCurrency ?? null
+  );
+
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM listings
+    WHERE
+      ${whereSql}
+    ${orderBy}
+    LIMIT ${limit} OFFSET ${offset}
+  `;
+
+  const countResult = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT COUNT(*)::bigint as count
+    FROM listings
+    WHERE
+      ${whereSql}
+  `;
+
+  return {
+    ids: rows.map((r) => r.id),
+    total: Number(countResult[0]?.count ?? 0),
+  };
+}

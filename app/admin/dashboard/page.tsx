@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
-import { fetchWithAuthRefresh, postJsonWithAuthRefresh } from "@/lib/admin-fetch";
+import { fetchWithAuthRefresh, postJsonWithAuthRefresh, validateServerAuthSession } from "@/lib/admin-fetch";
+import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
 import AdminAlertCenter from "@/app/components/admin/AdminAlertCenter";
 import AdminCommandCenter from "@/app/components/admin/AdminCommandCenter";
 
@@ -125,6 +126,10 @@ export default function AdminDashboard() {
   const [liveAnalyticsEvents, setLiveAnalyticsEvents] = useState<LiveAnalyticsRow[]>([]);
   const [integrityBusy, setIntegrityBusy] = useState(false);
   const [integrityMessage, setIntegrityMessage] = useState<string | null>(null);
+  const [recentAuditLogs, setRecentAuditLogs] = useState<
+    Array<{ id: string; action: string; createdAt: string; resource?: string }>
+  >([]);
+  const [auditLogsError, setAuditLogsError] = useState<string | null>(null);
 
   // Broadcast confirmation modal
   const [showBroadcastConfirm, setShowBroadcastConfirm] = useState(false);
@@ -132,47 +137,41 @@ export default function AdminDashboard() {
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [broadcastSuccess, setBroadcastSuccess] = useState(false);
 
-  // SECURITY: Check authentication and authorization
+  // SECURITY: authority is /api/users/me (cookies), not localStorage role
   useEffect(() => {
+    let cancelled = false;
     const checkAuth = async () => {
       try {
         setIsLoading(true);
-        
-        // Check if user is authenticated
-        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-        if (!userStr) {
-          router.push('/auth/login?redirect=/admin/dashboard');
+        const session = await validateServerAuthSession();
+        if (cancelled) return;
+        if (!session.ok || !session.user) {
+          router.push("/auth/login?redirect=/admin/dashboard");
           return;
         }
-
-        const user = JSON.parse(userStr);
-        const roleNorm = String(user.role || '').trim().toLowerCase();
-
-        // CRITICAL: Only allow admin/owner role
-        if (roleNorm !== 'admin' && roleNorm !== 'owner') {
-          console.error('❌ SECURITY: Unauthorized admin access attempt!', {
-            email: user.email,
-            role: user.role,
-            timestamp: new Date().toISOString()
-          });
-          router.push('/');
+        if (!isAdminStaffRole(session.user.role)) {
+          router.push("/");
           return;
         }
-
-        setCurrentUser(user);
+        setCurrentUser({
+          id: session.user.id || "",
+          email: session.user.email || "",
+          role: String(session.user.role || ""),
+        });
         setIsAuthorized(true);
-        
-        // Load admin data
         await loadAdminData();
       } catch (error) {
-        console.error('Auth check error:', error);
-        router.push('/auth/login');
+        console.error("Auth check error:", error);
+        if (!cancelled) router.push("/auth/login");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    checkAuth();
+    void checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -292,6 +291,31 @@ export default function AdminDashboard() {
         setLiveAnalyticsEvents([]);
       } else {
         setControlCenter(ccPayload);
+      }
+
+      try {
+        const auditRes = await fetchWithAuthRefresh("/api/admin/audit-logs?limit=8");
+        if (auditRes.ok) {
+          const auditData = (await auditRes.json()) as {
+            logs?: Array<{
+              id: string;
+              action: string;
+              createdAt: string;
+              resource?: string;
+            }>;
+          };
+          setRecentAuditLogs(Array.isArray(auditData.logs) ? auditData.logs : []);
+          setAuditLogsError(null);
+        } else if (auditRes.status === 403) {
+          setRecentAuditLogs([]);
+          setAuditLogsError("Fără permisiune pentru jurnalul de audit.");
+        } else {
+          setRecentAuditLogs([]);
+          setAuditLogsError("Jurnalul de audit nu a putut fi încărcat.");
+        }
+      } catch {
+        setRecentAuditLogs([]);
+        setAuditLogsError("Jurnalul de audit nu a putut fi încărcat.");
       }
 
       setStats(nextStats);
@@ -586,6 +610,22 @@ export default function AdminDashboard() {
                 />
               </div>
             </div>
+
+            <Link
+              href="/admin/seo"
+              className="block rounded-xl border border-white/[0.09] border-t-2 border-t-cyan-500/40 bg-gradient-to-b from-cyan-500/[0.07] to-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-sm)] ring-1 ring-inset ring-white/[0.03] transition-[border-color,box-shadow] duration-200 ease-out hover:border-[var(--border-focus)] sm:p-4"
+            >
+              <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] pb-2">
+                <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  SEO
+                </span>
+                <span className="rounded bg-cyan-500/18 px-1.5 py-px text-[9px] font-semibold text-cyan-200/95">
+                  Status
+                </span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">Discovery &amp; sitemaps</p>
+              <p className="mt-1 text-[10px] font-medium text-[var(--accent-secondary)]/90">Deschide panoul SEO →</p>
+            </Link>
 
             <Link
               href="/admin/moderation?tab=pending"
@@ -1655,15 +1695,32 @@ export default function AdminDashboard() {
                   <div className="mt-3 divide-y divide-white/[0.06] rounded-lg border border-white/[0.06] bg-[var(--bg-elevated)]/40 text-[12px] text-[var(--text-tertiary)]">
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
                       <span>Rate limiting</span>
-                      <span className="font-medium text-emerald-400/95">activ</span>
+                      <span className="font-medium text-[var(--text-secondary)]">configurat în cod</span>
                     </div>
                     <div className="flex items-center justify-between gap-2 px-3 py-2">
                       <span>Validare & CSRF</span>
-                      <span className="font-medium text-emerald-400/95">activ</span>
+                      <span className="font-medium text-[var(--text-secondary)]">configurat în cod</span>
                     </div>
-                    <div className="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                      <span>Jurnal audit</span>
-                      <span className="font-mono text-[11px] font-medium text-emerald-400/95">GET /api/admin/audit-logs</span>
+                    <div className="px-3 py-2">
+                      <p className="mb-2 font-medium text-[var(--text-secondary)]">Jurnal audit (ultimele înregistrări)</p>
+                      {auditLogsError ? (
+                        <p className="text-[11px] text-amber-200/90">{auditLogsError}</p>
+                      ) : recentAuditLogs.length === 0 ? (
+                        <p className="text-[11px]">Nicio înregistrare încărcată.</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {recentAuditLogs.map((log) => (
+                            <li key={log.id} className="font-mono text-[11px] text-[var(--text-tertiary)]">
+                              <span className="text-[var(--text-secondary)]">{log.action}</span>
+                              {log.resource ? ` · ${log.resource}` : ""}
+                              {" · "}
+                              {log.createdAt
+                                ? new Date(log.createdAt).toLocaleString("ro-RO")
+                                : "—"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
                 </div>

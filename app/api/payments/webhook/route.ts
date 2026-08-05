@@ -14,7 +14,6 @@ import { createAuditLog } from '@/lib/audit';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
 import { formatUserInvoiceMetadata } from '@/lib/invoice-user-profile';
 import { PaymentStatus, PaymentMethod } from '@prisma/client';
-import { getRedisClient } from '@/lib/redis';
 import Stripe from 'stripe';
 import { AdminNotificationSeverity } from '@prisma/client';
 import { ADMIN_NOTIFICATION_TYPE } from '@/lib/admin-notification-types';
@@ -25,6 +24,10 @@ import {
   PROMOTION_UI_IDS,
   type PromotionUiId,
 } from '@/lib/promotion-packages';
+import {
+  isListingPromotionEligible,
+  promotionIneligibleReason,
+} from '@/lib/listing-lifecycle';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,23 +75,8 @@ export async function POST(req: NextRequest) {
 
     logStripeWebhookEvent(event, 'received');
 
-    // Idempotency guard: prevent duplicate processing on webhook retries.
-    // Stripe can deliver the same event multiple times; we treat each `event.id` as unique.
-    if (event.id) {
-      const redis = getRedisClient();
-      const dedupeKey = `stripe:webhook:event:${event.id}`;
-      const ttlSeconds = 60 * 60 * 24 * 7; // 7 days
-      try {
-        const res = await redis.set(dedupeKey, '1', 'EX', ttlSeconds, 'NX');
-        if (!res) {
-          logStripeWebhookEvent(event, 'duplicate');
-          return NextResponse.json({ received: true, duplicate: true });
-        }
-      } catch (e) {
-        // Fail open: if Redis is down, still process payment to avoid missing promotions.
-        logger.warn('Stripe webhook dedupe via Redis failed (processing anyway)', { error: e, eventId: event.id });
-      }
-    }
+    // Durable idempotency is payment.status / updateMany (and invoice-by-paymentId).
+    // Redis is an optional post-success soft cache only — never claim before side-effects.
 
     switch (event.type) {
       case 'payment_intent.succeeded':
@@ -158,6 +146,30 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     logger.info('Duplicate payment_intent.succeeded ignored (already succeeded)', {
       paymentIntentId: id,
       paymentId: payment.id,
+    });
+    return;
+  }
+
+  // Fail closed: Stripe amount/currency must match the pending Payment row created server-side.
+  const expectedCurrency = String(payment.currency || '').toLowerCase();
+  const actualCurrency = String(currency || '').toLowerCase();
+  if (payment.amount !== amount || expectedCurrency !== actualCurrency) {
+    logger.error('PaymentIntent amount/currency mismatch — refusing promotion/invoice side-effects', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+      expectedAmount: payment.amount,
+      actualAmount: amount,
+      expectedCurrency,
+      actualCurrency,
+    });
+    void createAdminNotification({
+      type: ADMIN_NOTIFICATION_TYPE.PAYMENT_SUCCEEDED,
+      severity: AdminNotificationSeverity.critical,
+      title: 'Plată Stripe — nepotrivire sumă/monedă',
+      message: `PaymentIntent ${id} nu corespunde înregistrării ${payment.id}; side-effects blocate.`,
+      entityType: 'payment',
+      entityId: payment.id,
+      metadata: { expectedAmount: payment.amount, actualAmount: amount },
     });
     return;
   }
@@ -360,10 +372,41 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
 
       if (uiId) {
         const apply = await getListingPromotionApplyFromUiPackage(uiId);
-        promotionTypeStr = apply.promotionType;
-        featured = apply.featured;
-        promotionEnd = new Date();
-        promotionEnd.setDate(promotionEnd.getDate() + apply.durationDays);
+        // Duration must come from Payment.metadata snapshot at intent creation.
+        // Never re-read FeatureFlag duration after payment (fail closed if missing/invalid).
+        const snapRaw = meta?.durationDays;
+        let snapDays: number | null = null;
+        if (typeof snapRaw === 'number' && Number.isInteger(snapRaw)) {
+          snapDays = snapRaw;
+        } else if (typeof snapRaw === 'string' && snapRaw.trim() !== '') {
+          const parsed = Number.parseInt(snapRaw, 10);
+          if (Number.isInteger(parsed) && String(parsed) === snapRaw.trim()) {
+            snapDays = parsed;
+          }
+        }
+        const MAX_PROMOTION_DURATION_DAYS = 365;
+        if (
+          snapDays == null ||
+          snapDays < 1 ||
+          snapDays > MAX_PROMOTION_DURATION_DAYS
+        ) {
+          logger.error(
+            'Listing promotion skipped: missing or invalid durationDays snapshot on Payment',
+            {
+              listingId,
+              paymentId: payment.id,
+              durationDays: snapRaw ?? null,
+            }
+          );
+          promotionTypeStr = '';
+          featured = false;
+          promotionEnd = new Date();
+        } else {
+          promotionTypeStr = apply.promotionType;
+          featured = apply.featured;
+          promotionEnd = new Date();
+          promotionEnd.setDate(promotionEnd.getDate() + snapDays);
+        }
       } else if (stripePackageType && STRIPE_ONLY_FALLBACK[stripePackageType]) {
         const fb = STRIPE_ONLY_FALLBACK[stripePackageType];
         promotionTypeStr = fb.type;
@@ -386,11 +429,54 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
           select: {
             title: true,
             ownerUserId: true,
+            status: true,
+            moderationStatus: true,
+            deletedAt: true,
+            expiresAt: true,
             isPromoted: true,
             promotionExpiresAt: true,
           },
         });
 
+        if (!listingBeforePromo) {
+          logger.error('Listing not found for promotion activation', { listingId, paymentId: payment.id });
+        } else if (listingBeforePromo.ownerUserId !== payment.userId) {
+          logger.error('Listing ownership mismatch — refusing promotion activation', {
+            listingId,
+            paymentId: payment.id,
+            paymentUserId: payment.userId,
+            listingOwnerId: listingBeforePromo.ownerUserId,
+          });
+          void createAdminNotification({
+            type: ADMIN_NOTIFICATION_TYPE.PROMOTION_ACTIVATED,
+            severity: AdminNotificationSeverity.critical,
+            title: 'Promovare blocată — ownership mismatch',
+            message: `Payment ${payment.id} vs listing ${listingId} owner mismatch.`,
+            entityType: 'payment',
+            entityId: payment.id,
+            metadata: { listingId },
+          });
+        } else if (!isListingPromotionEligible(listingBeforePromo)) {
+          const reason = promotionIneligibleReason(listingBeforePromo);
+          logger.warn('Listing not eligible — skipping promotion activation (payment kept)', {
+            listingId,
+            status: listingBeforePromo.status,
+            moderationStatus: listingBeforePromo.moderationStatus,
+            expiresAt: listingBeforePromo.expiresAt,
+            deletedAt: listingBeforePromo.deletedAt,
+            paymentId: payment.id,
+            reason,
+          });
+          void createAdminNotification({
+            type: ADMIN_NOTIFICATION_TYPE.PROMOTION_ACTIVATED,
+            severity: AdminNotificationSeverity.warning,
+            title: 'Promovare neaplicată — listing neeligibil',
+            message: `Payment ${payment.id} succeeded but listing ${listingId} is not eligible (${reason}).`,
+            entityType: 'payment',
+            entityId: payment.id,
+            metadata: { listingId, reason },
+          });
+        } else {
         await prisma.listing.update({
           where: { id: listingId },
           data: {
@@ -456,6 +542,7 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
           entityId: listingId,
           metadata: { paymentId: payment.id },
         });
+        }
       }
     } catch (error) {
       logger.error('Failed to update listing promotion', {
@@ -519,10 +606,24 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
 
+  // Terminal states must not be overwritten by a late failed event.
+  if (
+    payment.status === PaymentStatus.succeeded ||
+    payment.status === PaymentStatus.refunded ||
+    payment.status === PaymentStatus.cancelled
+  ) {
+    logger.warn('Ignoring payment_failed for terminal payment status', {
+      paymentIntentId: id,
+      paymentId: payment.id,
+      status: payment.status,
+    });
+    return;
+  }
+
   const updated = await prisma.payment.updateMany({
     where: {
       id: payment.id,
-      status: { not: PaymentStatus.failed },
+      status: PaymentStatus.pending,
     },
     data: {
       status: PaymentStatus.failed,
@@ -591,7 +692,7 @@ async function handlePaymentCanceled(paymentIntent: Stripe.PaymentIntent) {
   const updated = await prisma.payment.updateMany({
     where: {
       id: payment.id,
-      status: { not: PaymentStatus.cancelled },
+      status: PaymentStatus.pending,
     },
     data: { status: PaymentStatus.cancelled },
   });

@@ -178,6 +178,8 @@ describe("detail authorization matrix (unit / no DB writes)", () => {
     expect(pub).not.toHaveProperty("ownerUserId");
     expect(pub).not.toHaveProperty("moderationStatus");
     expect(pub).not.toHaveProperty("feedBoost");
+    expect(pub).not.toHaveProperty("contactPhone");
+    expect((pub as { hasContactPhone?: boolean }).hasContactPhone).toBe(true);
     expect((pub as { owner?: { email?: string } }).owner).not.toHaveProperty("email");
 
     const owner = sanitizeListingPayloadForViewer(baseListing, { isOwnerOrAdmin: true });

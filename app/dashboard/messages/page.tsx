@@ -7,6 +7,7 @@ import {
   fetchWithAuthRefresh,
   postJsonWithAuthRefresh,
   syncSessionFromCookies,
+  validateServerAuthSession,
 } from "@/lib/admin-fetch";
 import { notifyMessagingInboxSync } from "@/lib/messaging-broadcast-sync";
 import { connectMessageEventsSse } from "@/lib/message-events-sse-client";
@@ -29,6 +30,10 @@ interface Message {
   listing?: {
     id: string;
     title: string;
+    status?: string;
+    unavailableLabel?: string | null;
+    thumbnailUrl?: string | null;
+    publicHref?: string | null;
   };
   content: string;
   isRead: boolean;
@@ -48,6 +53,10 @@ interface Conversation {
   listing?: {
     id: string;
     title: string;
+    status?: string;
+    unavailableLabel?: string | null;
+    thumbnailUrl?: string | null;
+    publicHref?: string | null;
   };
   lastMessage: any;
   unreadCount: number;
@@ -138,38 +147,52 @@ export default function MessagesPage() {
   };
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      router.replace('/auth/login?redirect=/messages');
-      return;
-    }
+    let cancelled = false;
 
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr) as { id?: string; userId?: string };
-        const rawMe =
-          typeof user?.id === "string"
-            ? user.id
-            : typeof user?.userId === "string"
-              ? user.userId
-              : null;
-        setCurrentUserId(rawMe ? rawMe.trim().toLowerCase() : null);
-      } catch {
-        setCurrentUserId(null);
+    const bootstrap = async () => {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        try {
+          const user = JSON.parse(userStr) as { id?: string; userId?: string };
+          const rawMe =
+            typeof user?.id === "string"
+              ? user.id
+              : typeof user?.userId === "string"
+                ? user.userId
+                : null;
+          if (rawMe) {
+            setCurrentUserId(rawMe.trim().toLowerCase());
+          }
+        } catch {
+          /* ignore stale profile cache */
+        }
       }
-    }
 
-    sseWatchdogRef.current = window.setTimeout(() => {
-      if (!sseEverOpenedRef.current) {
-        ensurePollingIntervalsRef.current();
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (!session.ok) {
+        router.replace("/auth/login?redirect=/messages");
+        return;
       }
-    }, SSE_WATCHDOG_MS) as unknown as number;
 
-    void fetchConversations();
+      const sessionId = session.user?.id;
+      if (typeof sessionId === "string" && sessionId.trim()) {
+        setCurrentUserId(sessionId.trim().toLowerCase());
+      }
+
+      sseWatchdogRef.current = window.setTimeout(() => {
+        if (!sseEverOpenedRef.current) {
+          ensurePollingIntervalsRef.current();
+        }
+      }, SSE_WATCHDOG_MS) as unknown as number;
+
+      void fetchConversations();
+    };
+
+    void bootstrap();
 
     return () => {
+      cancelled = true;
       clearFallbackPolling();
     };
   }, [router]);
@@ -489,8 +512,6 @@ export default function MessagesPage() {
     fetchMessages(userId, listingId, conversationId, "manual");
 
   useEffect(() => {
-    if (!localStorage.getItem("accessToken")) return;
-
     const dispose = connectMessageEventsSse({
       onOpen: () => {
         if (sseWatchdogRef.current) {
@@ -572,7 +593,6 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const onFocus = () => {
-      if (!localStorage.getItem("accessToken")) return;
       void sseHandlerRef.current.fetchConversations();
       const sel = selectedConversationRef.current;
       if (sel) {
@@ -894,7 +914,8 @@ export default function MessagesPage() {
                         </div>
                         {conv.listing && (
                           <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-[var(--text-tertiary)]">
-                            <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
+                            <span className="text-[var(--text-muted)]">Re:</span>{" "}
+                            {conv.listing.unavailableLabel ?? conv.listing.title}
                           </p>
                         )}
                         {lastStr.length > 0 && (
@@ -918,8 +939,11 @@ export default function MessagesPage() {
                     <div className="hidden w-full min-w-0 flex-col md:flex">
                       {conv.listing && (
                         <p className="mb-1 truncate text-xs text-[var(--text-tertiary)]">
-                          <span className="text-[var(--text-muted)]">Re:</span> {conv.listing.title}
-                          <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
+                          <span className="text-[var(--text-muted)]">Re:</span>{" "}
+                          {conv.listing.unavailableLabel ?? conv.listing.title}
+                          {!conv.listing.unavailableLabel && (
+                            <span className="text-[var(--text-muted)]"> · #{conv.listing.id.slice(-6)}</span>
+                          )}
                         </p>
                       )}
                       {lastStr.length > 0 && (
@@ -981,12 +1005,31 @@ export default function MessagesPage() {
                       </p>
                       {selectedConversation.listing && (
                         <p className="line-clamp-1 text-[11px] text-[var(--text-tertiary)] md:text-xs">
-                          {selectedConversation.listing.title}{" "}
-                          <span className="text-[var(--text-muted)] max-md:hidden">· #{selectedConversation.listing.id.slice(-6)}</span>
+                          {selectedConversation.listing.unavailableLabel ??
+                            selectedConversation.listing.title}
+                          {!selectedConversation.listing.unavailableLabel && (
+                            <span className="text-[var(--text-muted)] max-md:hidden">
+                              {" "}
+                              · #{selectedConversation.listing.id.slice(-6)}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {selectedConversation.listing?.unavailableLabel && (
+                        <p className="mt-0.5 text-[10px] text-amber-300/90 md:text-[11px]">
+                          Istoricul conversației rămâne disponibil.
                         </p>
                       )}
                     </div>
                   </div>
+                  {selectedConversation.listing?.publicHref ? (
+                    <Link
+                      href={selectedConversation.listing.publicHref}
+                      className="shrink-0 rounded-lg border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] md:px-4 md:py-2 md:text-xs"
+                    >
+                      Anunț
+                    </Link>
+                  ) : null}
                   <Link
                     href={`/users/${selectedConversation.otherParticipant.id}/profile`}
                     className="shrink-0 rounded-lg border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] md:px-4 md:py-2 md:text-xs"
@@ -997,6 +1040,7 @@ export default function MessagesPage() {
 
                 <div
                   ref={messagesContainerRef}
+                  data-testid="message-thread"
                   className="min-h-0 flex-1 touch-pan-y space-y-2.5 overflow-y-auto overscroll-y-contain bg-[var(--bg-primary)]/40 px-3 py-3 [-webkit-overflow-scrolling:touch] max-md:pb-2 md:space-y-3 md:px-5 md:py-5"
                 >
                   {isLoadingThread && messages.length === 0 ? (

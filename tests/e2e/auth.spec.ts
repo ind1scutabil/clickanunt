@@ -7,16 +7,39 @@ async function fillRegisterForm(
   opts: { name: string; email: string; password: string; confirmPassword?: string }
 ) {
   const confirm = opts.confirmPassword ?? opts.password;
-  await page.fill('input[name="name"]', opts.name);
-  await page.fill('input[name="email"]', opts.email);
-  await page.fill('input[name="password"]', opts.password);
-  await page.fill('input[name="confirmPassword"]', confirm);
+  const form = page.locator('form').filter({ has: page.locator('button[type="submit"]') }).first();
+  await form.locator('input[name="name"]').fill(opts.name);
+  await form.locator('input[name="email"]').fill(opts.email);
+  await form.locator('input[name="password"]').fill(opts.password);
+  await form.locator('input[name="confirmPassword"]').fill(confirm);
+  // Ensure React controlled validators see the final values (esp. Mobile Chrome).
+  await form.locator('input[name="confirmPassword"]').blur();
+}
+
+async function loginWithVisibleForm(
+  page: import('@playwright/test').Page,
+  userEmail: string,
+  password: string,
+  opts?: { skipGoto?: boolean }
+) {
+  if (!opts?.skipGoto) {
+    await page.goto('/auth/login');
+  }
+  const loginForm = page
+    .locator('form')
+    .filter({ has: page.locator('button[type="submit"]') })
+    .first();
+  await loginForm.locator('input[type="email"]').fill(userEmail);
+  await loginForm.locator('input[type="password"]').fill(password);
+  await loginForm.locator('button[type="submit"]').click();
 }
 
 test.describe.serial('Authentication - Registration & session', () => {
-  const email = `serial-${Date.now()}@example.com`;
+  let email = '';
 
-  test('should register new user with valid credentials', async ({ page }) => {
+  test('should register new user with valid credentials', async ({ page }, testInfo) => {
+    email = `serial-${testInfo.project.name.replace(/\s+/g, '-')}-${Date.now()}-${testInfo.parallelIndex}-${Math.random().toString(36).slice(2, 7)}@example.com`;
+
     await page.goto('/auth/register');
 
     await fillRegisterForm(page, {
@@ -25,43 +48,69 @@ test.describe.serial('Authentication - Registration & session', () => {
       password: strongPassword,
     });
 
-    const submitButton = page.locator('button[type="submit"]');
-    await expect(submitButton).not.toBeDisabled();
+    // Accept terms if present (can keep submit disabled on mobile layouts).
+    const terms = page.locator('input[name="acceptTerms"], input[type="checkbox"]').first();
+    if (await terms.isVisible().catch(() => false)) {
+      await terms.check({ force: true }).catch(async () => {
+        await terms.click({ force: true });
+      });
+    }
+    const privacy = page.locator('input[name="acceptPrivacy"]').first();
+    if (await privacy.isVisible().catch(() => false)) {
+      await privacy.check({ force: true }).catch(async () => {
+        await privacy.click({ force: true });
+      });
+    }
+
+    const submitButton = page.locator('button[type="submit"]').first();
+    await expect(submitButton).not.toBeDisabled({ timeout: 10000 });
     await submitButton.click();
 
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
     expect(page.url()).toContain('/dashboard');
   });
 
-  test('should reject registration with duplicate email', async ({ page }) => {
+  test('should reject registration with duplicate email without confirming existence', async ({
+    page,
+  }) => {
     await page.goto('/auth/register');
     await fillRegisterForm(page, {
       name: 'Test User',
       email,
       password: strongPassword,
     });
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
 
-    await expect(
-      page.getByText(/există deja|already|exists/i).first()
-    ).toBeVisible({ timeout: 5000 });
+    // Anti-enumeration: generic failure, never "email already exists"
+    await expect(page.getByText(/există deja|already exists/i)).toHaveCount(0, {
+      timeout: 8000,
+    });
+    await expect(page).not.toHaveURL(/\/dashboard/, { timeout: 3000 });
   });
 
   test('signup → dashboard → logout → login → dashboard', async ({ page }) => {
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await loginWithVisibleForm(page, email, strongPassword);
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
 
-    await page.locator('header').getByRole('button', { name: 'Meniu utilizator' }).first().click();
-    await page.getByRole('button', { name: /^logout$/i }).click();
+    const acceptCookies = page.getByRole('button', { name: /^Acceptă$/i });
+    if (await acceptCookies.isVisible().catch(() => false)) {
+      await acceptCookies.click();
+    }
+
+    const userMenu = page.locator('header button[aria-label="Meniu utilizator"]');
+    if (await userMenu.isVisible().catch(() => false)) {
+      await userMenu.click();
+    } else {
+      const burger = page
+        .locator('header')
+        .getByRole('button', { name: /Deschide\/închide meniu/i });
+      await expect(burger).toBeVisible({ timeout: 10000 });
+      await burger.click();
+    }
+    await page.getByRole('button', { name: /deconectare|logout/i }).click();
     await page.waitForURL(/\/$/, { timeout: 10000 });
 
-    await page.goto('/auth/login');
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await loginWithVisibleForm(page, email, strongPassword);
     await page.waitForURL(/\/dashboard/, { timeout: 15000 });
   });
 });
@@ -134,10 +183,10 @@ test.describe('Authentication - Login', () => {
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/auth/login');
 
-  await page.fill('input[type="email"]', 'invalid@example.com');
-  await page.fill('input[type="password"]', 'WrongPassword123!');
+    await page.locator('input[type="email"]').first().fill('invalid@example.com');
+    await page.locator('input[type="password"]').first().fill('WrongPassword123!');
 
-    await page.locator('button[type="submit"]').click();
+    await page.locator('button[type="submit"]').first().click();
 
     await expect(
       page.getByText(/incorect|incorrect|invalid|negăsit|not found/i).first()
@@ -146,8 +195,8 @@ test.describe('Authentication - Login', () => {
 
   test('should stay on login when password is missing', async ({ page }) => {
     await page.goto('/auth/login');
-  await page.fill('input[type="email"]', 'any@example.com');
-    await page.click('button[type="submit"]');
+    await page.locator('input[type="email"]').first().fill('any@example.com');
+    await page.locator('button[type="submit"]').first().click();
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });
@@ -155,13 +204,41 @@ test.describe('Authentication - Login', () => {
 test.describe('Authentication - 2FA', () => {
   test('login page is ready for optional 2FA step after submit', async ({ page }) => {
     await page.goto('/auth/login');
-    await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
-  await page.fill('input[type="email"]', 'nonexistent-2fa-check@example.com');
-  await page.fill('input[type="password"]', strongPassword);
-    await page.locator('button[type="submit"]').click();
+    await expect(page.locator('input[type="email"]').first()).toBeVisible();
+    await expect(page.locator('input[type="password"]').first()).toBeVisible();
+    await page.locator('input[type="email"]').first().fill('nonexistent-2fa-check@example.com');
+    await page.locator('input[type="password"]').first().fill(strongPassword);
+    await page.locator('button[type="submit"]').first().click();
     await expect(
       page.getByText(/incorect|incorrect|invalid|negăsit|not found|parolă|password|email/i).first()
     ).toBeVisible({ timeout: 8000 });
+  });
+});
+
+test.describe('Authentication - post-login return', () => {
+  test('login?next=/favorites returns to favorites', async ({ page, request }) => {
+    const email = `ret-fav-${Date.now()}@example.com`;
+    const csrf = await request.get('/api/csrf');
+    const { csrfToken } = (await csrf.json()) as { csrfToken: string };
+    const reg = await request.post('/api/auth/register', {
+      headers: { 'x-csrf-token': csrfToken },
+      data: {
+        name: 'Return Fav',
+        email,
+        password: strongPassword,
+        confirmPassword: strongPassword,
+        acceptTerms: true,
+        acceptPrivacy: true,
+      },
+    });
+    expect(reg.ok(), await reg.text()).toBeTruthy();
+
+    await page.context().clearCookies();
+    await page.goto('/auth/login?next=%2Ffavorites');
+    await loginWithVisibleForm(page, email, strongPassword, { skipGoto: true });
+    await page.waitForURL(/\/favorites/, { timeout: 20000 });
+    await expect(page.getByText(/Niciun\s+anunț\s+favorit|favorite/i).first()).toBeVisible({
+      timeout: 15000,
+    });
   });
 });

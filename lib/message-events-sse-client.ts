@@ -1,14 +1,10 @@
 /**
- * Client SSE pentru /api/messages/events: EventSource folosește ?token= (fără Authorization).
- * JWT access expiră (15m); reconectarea nativă a browserului repetă același URL → 401 în buclă.
- * Oprim acea reconectare, citim token-ul curent din localStorage și reconectăm cu backoff.
- * La rotație de token (refresh), închidem fluxul și deschidem unul nou.
+ * Client SSE pentru /api/messages/events — cookie HttpOnly (same-origin EventSource).
+ * Nu mai pune JWT în query string / localStorage.
  */
 
-const TOKEN_WATCH_MS = 30_000;
 const INITIAL_BACKOFF_MS = 1500;
 const MAX_BACKOFF_MS = 45_000;
-/** SSE comment `: ping` nu trece prin `onmessage`; folosim `data:` heartbeat pentru stale detection */
 const SSE_STALE_MS = 85_000;
 const STALE_CHECK_MS = 20_000;
 
@@ -17,14 +13,9 @@ export type MessagingTelemetryKind = "sse_reconnect" | "sse_transport_ended";
 function fireMessagingTelemetry(kind: MessagingTelemetryKind): void {
   if (typeof window === "undefined" || typeof fetch === "undefined") return;
   try {
-    const token = localStorage.getItem("accessToken");
-    if (!token) return;
     void fetch("/api/messages/telemetry", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind }),
       credentials: "include",
       keepalive: true,
@@ -37,7 +28,6 @@ function fireMessagingTelemetry(kind: MessagingTelemetryKind): void {
 export interface ConnectMessageEventsSseHandlers {
   onOpen?: () => void;
   onMessage: (ev: MessageEvent) => void;
-  /** Apelat când legătura SSE cade după ce a fost deschisă (ex.: pentru polling fallback). */
   onTransportEnded?: () => void;
 }
 
@@ -56,11 +46,9 @@ export function connectMessageEventsSse(handlers: ConnectMessageEventsSseHandler
   let disposed = false;
   let es: EventSource | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  let tokenWatch: ReturnType<typeof setInterval> | null = null;
   let stalenessWatch: ReturnType<typeof setInterval> | null = null;
   let sawOpen = false;
   let lastInboundDataAt = Date.now();
-  let lastUrlToken: string | null = null;
   let backoffMs = INITIAL_BACKOFF_MS;
 
   const clearReconnect = () => {
@@ -90,20 +78,12 @@ export function connectMessageEventsSse(handlers: ConnectMessageEventsSseHandler
     clearReconnect();
     detachEventSource(es);
     es = null;
-
-    const token = typeof localStorage !== "undefined" ? localStorage.getItem("accessToken") : null;
-    if (!token) {
-      sawOpen = false;
-      handlers.onTransportEnded?.();
-      return;
-    }
-
-    lastUrlToken = token;
     sawOpen = false;
 
     let source: EventSource;
     try {
-      source = new EventSource(`/api/messages/events?token=${encodeURIComponent(token)}`);
+      // Same-origin EventSource sends cookies automatically — no ?token=
+      source = new EventSource("/api/messages/events");
     } catch {
       scheduleReconnect();
       return;
@@ -126,7 +106,6 @@ export function connectMessageEventsSse(handlers: ConnectMessageEventsSseHandler
 
     source.onerror = () => {
       if (disposed || es !== source) return;
-      // Înlocuim auto-reconnect-ul browserului (același ?token=)
       detachEventSource(es);
       es = null;
       const wasLive = sawOpen;
@@ -155,29 +134,12 @@ export function connectMessageEventsSse(handlers: ConnectMessageEventsSseHandler
     scheduleReconnect();
   }, STALE_CHECK_MS);
 
-  tokenWatch = setInterval(() => {
-    if (disposed) return;
-    const t = localStorage.getItem("accessToken");
-    if (!t || t === lastUrlToken) return;
-    lastUrlToken = t;
-    backoffMs = INITIAL_BACKOFF_MS;
-    clearReconnect();
-    detachEventSource(es);
-    es = null;
-    sawOpen = false;
-    openStream();
-  }, TOKEN_WATCH_MS);
-
   return () => {
     disposed = true;
     clearReconnect();
     if (stalenessWatch) {
       clearInterval(stalenessWatch);
       stalenessWatch = null;
-    }
-    if (tokenWatch) {
-      clearInterval(tokenWatch);
-      tokenWatch = null;
     }
     detachEventSource(es);
     es = null;

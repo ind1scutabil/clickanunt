@@ -132,38 +132,59 @@ export async function clearStoredAuthTokens(): Promise<void> {
   }
 }
 
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function tryMobileRefresh(): Promise<boolean> {
-  try {
-    const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    if (!rt) {
-      return false;
-    }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-    const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-request-id': getRequestId(),
-      },
-      body: JSON.stringify({ refreshToken: rt }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    let body: { accessToken?: string; error?: string } = {};
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+  refreshInFlight = (async () => {
     try {
-      body = (await response.json()) as typeof body;
+      const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      if (!rt) {
+        return false;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': getRequestId(),
+        },
+        body: JSON.stringify({ refreshToken: rt }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      let body: { accessToken?: string; refreshToken?: string; error?: string } = {};
+      try {
+        body = (await response.json()) as typeof body;
+      } catch {
+        body = {};
+      }
+      if (!response.ok || !body.accessToken) {
+        return false;
+      }
+      // Persist rotated refresh when present; if SecureStore write fails, clear both.
+      try {
+        setAccessToken(body.accessToken);
+        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
+        if (typeof body.refreshToken === 'string' && body.refreshToken.length > 0) {
+          await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, body.refreshToken);
+        }
+        return true;
+      } catch {
+        await clearStoredAuthTokens();
+        return false;
+      }
     } catch {
-      body = {};
-    }
-    if (!response.ok || !body.accessToken) {
       return false;
     }
-    setAccessToken(body.accessToken);
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
-    return true;
-  } catch {
-    return false;
+  })();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
   }
 }
 
@@ -363,6 +384,30 @@ export const authApi = {
     const data = await request<Record<string, unknown>>('/api/users/me');
     return (data as { user?: User }).user ?? (data as User);
   },
+
+  async verifyEmail(token: string): Promise<{ success: boolean; alreadyVerified?: boolean; message?: string }> {
+    return request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token },
+      skipAuthRefresh: true,
+    });
+  },
+
+  async resendVerification(email?: string): Promise<{ success: boolean; message?: string }> {
+    return request('/api/auth/resend-verification', {
+      method: 'POST',
+      body: email ? { email } : {},
+    });
+  },
+
+  /** Best-effort server logout (Bearer + CSRF). Local SecureStore clear is caller's job. */
+  async logout(): Promise<void> {
+    try {
+      await request('/api/auth/logout', { method: 'POST', body: '{}' });
+    } catch {
+      // offline / 401 — still proceed with local clear
+    }
+  },
 };
 
 export const listingsApi = {
@@ -380,6 +425,26 @@ export const listingsApi = {
   async getById(id: string): Promise<Listing> {
     return fetchWithCache(`listing.${id}`, () => request<PublicListingDto | OwnerAdminListingDto>(`/api/listings/${id}`));
   },
+
+  /**
+   * Public phone reveal — number is not in the listing DTO.
+   * Old app builds that read `contactPhone` from getById will show empty until updated.
+   */
+  async revealContactPhone(
+    id: string
+  ): Promise<{ phone: string; telHref: string }> {
+    const data = await request<{
+      phone?: string;
+      telHref?: string;
+      error?: string;
+      hasPhone?: boolean;
+    }>(`/api/listings/${id}/contact-phone`);
+    if (!data.phone || !data.telHref) {
+      throw new Error(data.error || 'Telefon indisponibil');
+    }
+    return { phone: data.phone, telHref: data.telHref };
+  },
+
   async my(): Promise<OwnerAdminListingDto[]> {
     const data = await request<{ listings?: OwnerAdminListingDto[]; data?: OwnerAdminListingDto[] }>(
       '/api/listings?userId=me&status=all'
@@ -492,6 +557,20 @@ export const notificationsApi = {
   async list(): Promise<NotificationItem[]> {
     const data = await request<{ notifications?: NotificationItem[] }>('/api/notifications?limit=25&offset=0');
     return data.notifications ?? [];
+  },
+  async markRead(id: string): Promise<void> {
+    const token = await ensureCsrfToken();
+    await request(`/api/notifications/${id}/read`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+    });
+  },
+  async markAllRead(): Promise<void> {
+    const token = await ensureCsrfToken();
+    await request('/api/notifications/mark-all-read', {
+      method: 'POST',
+      headers: { 'x-csrf-token': token },
+    });
   },
   async registerPushToken(payload: { expoPushToken: string; platform: 'ios' | 'android' | 'web' }): Promise<void> {
     const token = await ensureCsrfToken();

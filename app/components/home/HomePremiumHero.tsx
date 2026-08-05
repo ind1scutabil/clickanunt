@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Form from "next/form";
 import { HERO_DESKTOP_AVIF, HERO_DESKTOP_URL } from "@/lib/hero-asset-urls";
 
 type HomePremiumHeroProps = {
@@ -90,13 +91,15 @@ export function HomePremiumHero({
                 contact în platformă.
               </p>
 
-              <form
+              <Form
                 className="mt-3 w-full max-w-xl max-md:mt-2 max-md:max-w-[15rem] sm:max-md:max-w-[16.25rem] md:mt-4"
+                action="/listings"
+                role="search"
                 onSubmit={(e) => {
+                  // Soft-nav via shared builder so empty/whitespace → /listings (no empty q=).
                   e.preventDefault();
                   onSubmitSearch(heroSearch.trim());
                 }}
-                role="search"
               >
                 <label htmlFor="home-hero-search" className="sr-only">
                   Caută în anunțuri
@@ -114,6 +117,7 @@ export function HomePremiumHero({
                     </span>
                     <input
                       id="home-hero-search"
+                      name="q"
                       type="search"
                       value={heroSearch}
                       onChange={(e) => setHeroSearch(e.target.value)}
@@ -123,14 +127,14 @@ export function HomePremiumHero({
                     />
                     <button
                       type="submit"
-                      className="shrink-0 rounded-full bg-[#ff5a00] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#e65200] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/60 max-md:px-2 max-md:py-0.5 max-md:text-[10px] max-md:font-semibold"
+                      className="shrink-0 rounded-full bg-[#c2410c] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/60 max-md:px-2 max-md:py-0.5 max-md:text-[10px] max-md:font-semibold"
                       aria-label="Caută"
                     >
                       Caută
                     </button>
                   </div>
                 </div>
-              </form>
+              </Form>
               </div>
 
               {/* Mobile: elastic gap so BMW stays visible; CTAs sit just above tab bar zone */}
@@ -199,7 +203,7 @@ export function HomePremiumHero({
               <div className="hero-premium-mobile-cta mt-4 flex w-full max-w-xl shrink-0 flex-col gap-2.5 max-md:gap-2 max-md:border-t max-md:border-white/[0.08] max-md:pt-3 max-md:pb-1 md:mt-5 md:flex-row md:flex-wrap md:items-center">
                 <Link
                   href="/listings"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#ff5a00] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#e65200] max-md:h-9 max-md:px-4 max-md:text-xs md:w-auto md:min-w-[13rem]"
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[#c2410c] px-6 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9a3412] max-md:h-9 max-md:px-4 max-md:text-xs md:w-auto md:min-w-[13rem]"
                 >
                   <span className="tabular-nums">{listingsCta}</span>
                   <span className="ml-1" aria-hidden>

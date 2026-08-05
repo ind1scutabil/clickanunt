@@ -9,6 +9,7 @@ import {
   LISTING_PUBLISH_WINDOW_MS,
   listingPublishMaxForRole,
 } from '@/lib/listing-publish-rate-limit';
+import { isE2eRateLimitBypassEnabled } from '@/lib/e2e-rate-limit-bypass';
 
 /** Statuses that represent a real publish attempt (not draft/autosave). */
 export const LISTING_PUBLISH_QUOTA_STATUSES = ['active', 'pending'] as const;
@@ -46,6 +47,20 @@ export async function assertDailyPublishQuotaAllowed(
   route: string,
   source: string
 ): Promise<{ allowed: boolean; count: number; limit: number }> {
+  // Local E2E gate only — see isE2eRateLimitBypassEnabled().
+  if (isE2eRateLimitBypassEnabled()) {
+    const count = await countSuccessfulPublishesLast24h(userId);
+    logListingPublishQuotaDebug({
+      userId,
+      limiterKey: `listing:publish:${userId}`,
+      currentCount: count,
+      limit: Number.MAX_SAFE_INTEGER,
+      route,
+      source: `${source}:e2e_bypass`,
+    });
+    return { allowed: true, count, limit: Number.MAX_SAFE_INTEGER };
+  }
+
   const limit = listingPublishMaxForRole(role);
   const count = await countSuccessfulPublishesLast24h(userId);
   const limiterKey = `listing:publish:${userId}`;

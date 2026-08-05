@@ -1,42 +1,35 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { getUserFromRequest } from "@/lib/auth";
 
 /**
  * GET /api/notifications?limit=25&offset=0
- * In-app notifications (UserNotification rows).
+ * In-app notifications (UserNotification rows) for the authenticated caller only.
+ * Cookie-first via getUserFromRequest (Bearer still accepted for mobile).
  */
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const tokenPayload = await verifyToken(token);
-    if (!tokenPayload) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    const userId =
-      (tokenPayload as { userId?: string; sub?: string }).userId ||
-      (tokenPayload as { sub?: string }).sub;
-    if (!userId) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "25", 10), 1), 100);
     const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
-    const rows = await prisma.userNotification.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      skip: offset,
-    });
+    const [rows, unreadCount] = await Promise.all([
+      prisma.userNotification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.userNotification.count({
+        where: { userId: user.id, isRead: false },
+      }),
+    ]);
 
     const notifications = rows.map((n) => ({
       id: n.id,
@@ -50,7 +43,7 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json(
-      { notifications },
+      { notifications, unreadCount },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (e) {

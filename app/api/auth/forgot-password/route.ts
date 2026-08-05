@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { COMPANY_CONFIG } from '@/lib/company-config';
+import { validateSecureRequest } from '@/lib/security/middleware';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Email invalid'),
@@ -14,27 +15,26 @@ const forgotPasswordSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    
-    // Validare
-    const validation = forgotPasswordSchema.safeParse(body);
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: 'Email invalid' },
-        { status: 400 }
-      );
+    const security = await validateSecureRequest(request, {
+      requireCSRF: false,
+      rateLimit: 'login',
+      schema: forgotPasswordSchema,
+    });
+    if (!security.success) {
+      const status = security.rateLimitError ? 429 : 400;
+      return NextResponse.json({ error: security.error }, { status });
     }
 
-    const { email } = validation.data;
+    const { email } = security.data as { email: string };
     const normalizedEmail = email.toLowerCase().trim();
 
     // Caută user (ca la login: Gmail puncte + variante, nu doar findUnique exact)
     const user = await db.findUserByEmail(normalizedEmail);
 
     // IMPORTANT: Returnăm mereu success pentru a nu expune dacă email-ul există
-    // (best practice security)
-    if (!user) {
-      logger.info({ email: normalizedEmail }, 'Password reset requested for non-existent email');
+    // (best practice security). Banned/deleted treated the same.
+    if (!user || user.isBanned || ("deletedAt" in user && user.deletedAt)) {
+      logger.info({ email: normalizedEmail }, 'Password reset requested for non-eligible email');
       return NextResponse.json({
         success: true,
         message: 'Dacă adresa de email există în sistem, veți primi un link de resetare.',
@@ -152,11 +152,12 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Dacă adresa de email există în sistem, veți primi un link de resetare.',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({ error }, 'Error in forgot-password endpoint');
-    return NextResponse.json(
-      { error: 'A apărut o eroare. Vă rugăm încercați din nou.' },
-      { status: 500 }
-    );
+    // Anti-enumeration: same success shape on unexpected errors
+    return NextResponse.json({
+      success: true,
+      message: 'Dacă adresa de email există în sistem, veți primi un link de resetare.',
+    });
   }
 }

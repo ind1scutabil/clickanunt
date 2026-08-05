@@ -1,10 +1,17 @@
 import type { FuelType, Prisma, Transmission } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
-import { prismaOrderByForListingSort, parseListingFeedSort } from "@/lib/listing-feed-sort";
+import {
+  isPriceFeedSort,
+  parseListingFeedSort,
+  prismaOrderByForListingSort,
+} from "@/lib/listing-feed-sort";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOrigin } from "@/lib/site-url";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
+import { browseListingIdsOrdered } from "@/lib/listings/catalog-listing-ids";
+import type { BrowsePriceCurrency } from "@/lib/listings/browse-filter-guards";
+import { BROWSE_PRICE_CURRENCIES } from "@/lib/listings/browse-filter-guards";
 
 export type PublicBrowseFilters = {
   q?: string;
@@ -18,6 +25,8 @@ export type PublicBrowseFilters = {
   transmission?: string;
   sortBy?: string;
   sortOrder?: string;
+  /** Explicit currency for priceAsc/priceDesc SSR (no backend default). */
+  priceCurrency?: string;
 };
 
 export function publicBrowseListingWhere(now?: Date): Prisma.ListingWhereInput {
@@ -31,6 +40,7 @@ function filtersToSortKey(filters: PublicBrowseFilters): string {
     "price-asc": "priceAsc",
     "price-desc": "priceDesc",
     "featured-desc": "featured",
+    "relevance-desc": "relevance",
   };
   return sortMap[sortKey] ?? "newest";
 }
@@ -49,6 +59,14 @@ function applyBrowseFilters(
   if (filters.fuel) next.fuel = { equals: filters.fuel as FuelType };
   if (filters.transmission) next.transmission = { equals: filters.transmission as Transmission };
   return next;
+}
+
+function parseBrowseCurrency(raw: string | undefined): BrowsePriceCurrency | null {
+  if (!raw) return null;
+  const c = raw.trim().toUpperCase();
+  return (BROWSE_PRICE_CURRENCIES as readonly string[]).includes(c)
+    ? (c as BrowsePriceCurrency)
+    : null;
 }
 
 /** Server-side first page for /listings SSR (no FTS — matches default catalog browse). */
@@ -70,11 +88,63 @@ export async function getPublicBrowseListingsPage(opts: {
     return { listings: [], total: 0, page };
   }
 
-  const where = applyBrowseFilters(publicBrowseListingWhere(), filters);
   const sortMode = parseListingFeedSort(filtersToSortKey(filters));
   const skip = (page - 1) * limit;
-
   const origin = siteOrigin();
+
+  if (isPriceFeedSort(sortMode)) {
+    const currency = parseBrowseCurrency(filters.priceCurrency);
+    if (!currency) {
+      // Same contract as API: price sort without currency is invalid — empty SSR seed.
+      return { listings: [], total: 0, page };
+    }
+    const { ids, total } = await browseListingIdsOrdered(
+      prisma,
+      {
+        activeOnly: true,
+        publicCatalogOnly: true,
+        category: filters.category ?? null,
+        subcategory: filters.subcategory ?? null,
+        county: filters.county ?? null,
+        city: filters.city ?? null,
+        make: filters.make ?? null,
+        model: filters.model ?? null,
+        fuel: filters.fuel ?? null,
+        transmission: filters.transmission ?? null,
+        sort: sortMode,
+        sortCurrency: currency,
+      },
+      limit,
+      skip
+    );
+    const rows =
+      ids.length === 0
+        ? []
+        : await prisma.listing.findMany({
+            where: { id: { in: ids } },
+            include: {
+              owner: {
+                select: {
+                  id: true,
+                  email: true,
+                  role: true,
+                  createdAt: true,
+                  subscriptionTier: true,
+                  trustScore: true,
+                },
+              },
+            },
+          });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+    const listings = ordered.map((l) => ({
+      ...l,
+      photos: normalizeListingPhotosArray(l.photos, origin),
+    })) as unknown as ListingPublicDto[];
+    return { listings, total, page };
+  }
+
+  const where = applyBrowseFilters(publicBrowseListingWhere(), filters);
 
   const [total, rows] = await Promise.all([
     prisma.listing.count({ where }),
@@ -110,6 +180,22 @@ export function parsePublicBrowseFiltersFromSearchParams(
   sp: Record<string, string | string[] | undefined>
 ): PublicBrowseFilters {
   const pick = (k: string) => (typeof sp[k] === "string" ? sp[k] : undefined);
+  const sort = pick("sort");
+  const uiFromApi =
+    sort === "priceAsc"
+      ? { sortBy: "price", sortOrder: "asc" }
+      : sort === "priceDesc"
+        ? { sortBy: "price", sortOrder: "desc" }
+        : sort === "featured"
+          ? { sortBy: "featured", sortOrder: "desc" }
+          : sort === "relevance"
+            ? { sortBy: "relevance", sortOrder: "desc" }
+            : sort === "newest"
+              ? { sortBy: "createdAt", sortOrder: "desc" }
+              : {
+                  sortBy: pick("sortBy"),
+                  sortOrder: pick("sortOrder"),
+                };
   return {
     q: pick("q") ?? pick("search"),
     category: pick("category"),
@@ -120,14 +206,31 @@ export function parsePublicBrowseFiltersFromSearchParams(
     model: pick("model"),
     fuel: pick("fuel"),
     transmission: pick("transmission"),
-    sortBy: pick("sortBy") ?? "createdAt",
-    sortOrder: pick("sortOrder") ?? "desc",
+    sortBy: uiFromApi.sortBy,
+    sortOrder: uiFromApi.sortOrder,
+    priceCurrency: pick("priceCurrency"),
   };
 }
 
 export function publicBrowseFiltersSignature(
   filters: PublicBrowseFilters,
-  page: number
+  page?: number
 ): string {
-  return JSON.stringify({ page, filters });
+  return JSON.stringify({
+    page: page ?? 1,
+    filters: {
+      q: filters.q ?? "",
+      category: filters.category ?? "",
+      subcategory: filters.subcategory ?? "",
+      county: filters.county ?? "",
+      city: filters.city ?? "",
+      make: filters.make ?? "",
+      model: filters.model ?? "",
+      fuel: filters.fuel ?? "",
+      transmission: filters.transmission ?? "",
+      sortBy: filters.sortBy ?? "",
+      sortOrder: filters.sortOrder ?? "",
+      priceCurrency: filters.priceCurrency ?? "",
+    },
+  });
 }

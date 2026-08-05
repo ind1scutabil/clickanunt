@@ -12,17 +12,17 @@ const publicCompanyPhone = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
 type FooterProps = {
   /** When provided (including empty), hub sections render only these links — empty hides the block. */
   categoryLinks?: FooterIndexableLink[];
-  cityHubLinks?: FooterIndexableLink[];
+  cityLinks?: FooterIndexableLink[];
 };
 
-export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}) {
+export default function Footer({ categoryLinks, cityLinks }: FooterProps = {}) {
   const showCompanyLegal = isCompanyLegalDetailsPublic();
   const social = getVerifiedBrandSocialLinks();
-  const hubsProvided = categoryLinks !== undefined || cityHubLinks !== undefined;
+  const hubsProvided = categoryLinks !== undefined || cityLinks !== undefined;
   const categories = categoryLinks ?? [];
-  const cityHubs = cityHubLinks ?? [];
+  const cities = cityLinks ?? [];
   const showCategoryHubs = hubsProvided && categories.length > 0;
-  const showCityHubs = hubsProvided && cityHubs.length > 0;
+  const showCityHubs = hubsProvided && cities.length > 0;
   const showHubStrip = showCategoryHubs || showCityHubs;
 
   return (
@@ -54,7 +54,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <h3 className="mb-4 text-xl font-semibold tracking-tight text-white">
               ClickAnunț
             </h3>
-            <p className="mb-4 text-sm text-neutral-500">
+            <p className="mb-4 text-sm text-neutral-400">
               Platforma ta de încredere pentru toate tipurile de anunțuri.
             </p>
             {(social.facebook || social.instagram) && (
@@ -64,7 +64,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     href={social.facebook}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block text-neutral-500 transition-colors duration-normal ease-premium hover:text-primary-400"
+                    className="inline-block text-neutral-400 transition-colors duration-normal ease-premium hover:text-primary-400"
                     aria-label="Facebook ClickAnunț"
                   >
                     <svg className="h-5 w-5 max-h-[20px] max-w-[20px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -77,7 +77,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     href={social.instagram}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block text-neutral-500 transition-colors duration-normal ease-premium hover:text-secondary-400"
+                    className="inline-block text-neutral-400 transition-colors duration-normal ease-premium hover:text-secondary-400"
                     aria-label="Instagram ClickAnunț"
                   >
                     <svg className="h-5 w-5 max-h-[20px] max-w-[20px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -121,18 +121,23 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <h4 className="mb-4 font-semibold text-neutral-100">Informații Legale</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/terms" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  📄 Termeni și Condiții
+                <Link href="/terms" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-secondary-400 hover:underline">
+                  Termeni și Condiții
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🔐 Politica de Confidențialitate (GDPR)
+                <Link href="/privacy" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-secondary-400 hover:underline">
+                  Politica de Confidențialitate
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  ⚖️ Drepturile GDPR
+                <Link href="/gdpr" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-primary-400 hover:underline">
+                  Drepturile GDPR
+                </Link>
+              </li>
+              <li>
+                <Link href="/cookies" className="underline-offset-2 transition-colors duration-normal ease-premium hover:text-primary-400 hover:underline">
+                  Politica de cookies
                 </Link>
               </li>
               <li>
@@ -142,7 +147,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                   rel="noopener noreferrer"
                   className="transition-colors duration-normal ease-premium hover:text-primary-400"
                 >
-                  🇪🇺 Soluționarea alternativă a litigiilor în UE
+                  Soluționarea alternativă a litigiilor în UE
                 </a>
               </li>
             </ul>
@@ -153,28 +158,18 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
             <h4 className="mb-4 font-semibold text-neutral-100">Contact</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href={`mailto:${COMPANY_CONFIG.emails.admin}`} className="transition-colors duration-normal ease-premium hover:text-primary-400">
-                  🛡️ {COMPANY_CONFIG.emails.admin}
-                </a>
-              </li>
-              <li>
                 <a href={`mailto:${COMPANY_CONFIG.emails.support}`} className="transition-colors duration-normal ease-premium hover:text-secondary-400">
-                  🆘 {COMPANY_CONFIG.emails.support}
-                </a>
-              </li>
-              <li>
-                <a href={`mailto:${COMPANY_CONFIG.emails.billing}`} className="transition-colors duration-normal ease-premium hover:text-warning-500">
-                  💳 {COMPANY_CONFIG.emails.billing}
+                  {COMPANY_CONFIG.emails.support}
                 </a>
               </li>
               <li>
                 <a href={`mailto:${COMPANY_CONFIG.emails.contact}`} className="transition-colors duration-normal ease-premium hover:text-success-500">
-                  📧 {COMPANY_CONFIG.emails.contact}
+                  {COMPANY_CONFIG.emails.contact}
                 </a>
               </li>
               <li>
                 <a href="mailto:dpo@clickanunt.ro" className="transition-colors duration-normal ease-premium hover:text-info-500">
-                  🔐 dpo@clickanunt.ro (GDPR)
+                  dpo@clickanunt.ro (DPO)
                 </a>
               </li>
               {publicCompanyPhone ? (
@@ -183,11 +178,11 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     href={`tel:${publicCompanyPhone.replace(/\s/g, "")}`}
                     className="transition-colors duration-normal ease-premium hover:text-primary-400"
                   >
-                    📱 {publicCompanyPhone}
+                    {publicCompanyPhone}
                   </a>
                 </li>
               ) : null}
-              <li className="text-xs text-neutral-600">
+              <li className="text-xs text-neutral-400">
                 Luni - Vineri: 09:00 - 18:00
               </li>
             </ul>
@@ -198,7 +193,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
       {showHubStrip ? (
         <div className="border-t border-white/10 bg-neutral-950/80">
           <div className="mx-auto max-w-7xl px-4 py-8">
-            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500">
+            <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
               Anunțuri populare după categorie și oraș
             </p>
             <div className="flex flex-wrap gap-x-10 gap-y-8">
@@ -227,7 +222,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
                     Orașe
                   </h4>
                   <ul className="flex flex-wrap gap-2">
-                    {cityHubs.map((link) => (
+                    {cities.map((link) => (
                       <li key={link.href}>
                         <Link
                           href={link.href}
@@ -248,7 +243,7 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
       {/* Bottom Bar */}
       <div className="border-t border-white/10">
         <div className="mx-auto max-w-7xl px-4 py-6">
-          <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 md:flex-row">
+          <div className="flex flex-col items-center justify-between gap-4 text-sm text-neutral-400 md:flex-row">
             <div>
               <p>&copy; 2026 ClickAnunț. Toate drepturile rezervate.</p>
               {showCompanyLegal && (
@@ -281,18 +276,18 @@ export default function Footer({ categoryLinks, cityHubLinks }: FooterProps = {}
 
       {/* GDPR Notice */}
       <div className="border-t border-white/10 bg-neutral-900/40">
-        <div className="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-neutral-500">
+        <div className="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-neutral-400">
           <p>
             🔐 Respectăm confidențialitatea ta. Datele personale sunt prelucrate conform{" "}
-            <Link href="/privacy" className="text-info-500 underline-offset-2 transition-colors hover:text-info-100 hover:underline">
+            <Link href="/privacy" className="text-sky-300 underline underline-offset-2 transition-colors hover:text-sky-200">
               GDPR (Regulamentul UE 2016/679)
             </Link>{" "}
             și{" "}
-            <Link href="/terms" className="text-primary-400 underline-offset-2 transition-colors hover:text-primary-200 hover:underline">
+            <Link href="/terms" className="text-orange-300 underline underline-offset-2 transition-colors hover:text-orange-200">
               Legii 190/2018
             </Link>
             . Pentru exercitarea drepturilor GDPR, contactați{" "}
-            <a href="mailto:dpo@clickanunt.ro" className="text-secondary-500 underline-offset-2 transition-colors hover:text-secondary-300 hover:underline">
+            <a href="mailto:dpo@clickanunt.ro" className="text-violet-300 underline underline-offset-2 transition-colors hover:text-violet-200">
               dpo@clickanunt.ro
             </a>
             .

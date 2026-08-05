@@ -1,12 +1,31 @@
 /**
  * Allowlisted post-login return paths only (open-redirect safe).
- * Rejects absolute URLs, protocol-relative, encoded tricks, and any path
- * outside the fixed internal publish entry.
+ * Rejects absolute URLs, protocol-relative, encoded tricks, and path traversal.
  */
-const ALLOWED_RETURN_PATHS = new Set<string>(["/listings/new"]);
+const ALLOWED_EXACT = new Set<string>([
+  "/favorites",
+  "/messages",
+  "/dashboard",
+  "/listings/new",
+  "/admin",
+  "/admin/dashboard",
+  "/admin/moderation",
+  "/admin/promotions",
+  "/admin/invoices",
+  "/admin/messaging",
+]);
+
+function isAllowedReturnPath(pathOnly: string): boolean {
+  if (ALLOWED_EXACT.has(pathOnly)) return true;
+  if (pathOnly.startsWith("/dashboard/")) return true;
+  if (pathOnly.startsWith("/admin/")) return true;
+  // Listing thread: /listings/<id>/messages
+  if (/^\/listings\/[^/]+\/messages$/.test(pathOnly)) return true;
+  return false;
+}
 
 export function sanitizeAuthReturnPath(
-  raw: string | null | undefined,
+  raw: string | null | undefined
 ): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
@@ -20,7 +39,9 @@ export function sanitizeAuthReturnPath(
   }
   if (!decoded.startsWith("/") || decoded.startsWith("//")) return null;
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(decoded)) return null;
+  if (decoded.includes("..")) return null;
   const pathOnly = decoded.split(/[?#]/, 1)[0] ?? "";
-  if (!ALLOWED_RETURN_PATHS.has(pathOnly)) return null;
+  if (!pathOnly || pathOnly.includes("//")) return null;
+  if (!isAllowedReturnPath(pathOnly)) return null;
   return pathOnly;
 }

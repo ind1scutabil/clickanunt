@@ -26,10 +26,15 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
   const [offlineMode, setOfflineMode] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favBusy, setFavBusy] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setRevealedPhone(null);
+    setPhoneError(null);
     try {
       const data = await listingsApi.getById(listingId);
       setItem(data);
@@ -111,6 +116,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
 
   const photos = normalizeListingPhotosArray(item.photos);
   const inactiveListing = item.status && item.status !== 'active';
+  const ownerId = listingOwnerId(item);
 
   const attributes = item.attributes && typeof item.attributes === 'object'
     ? Object.entries(item.attributes).filter(([, value]) => value !== null && value !== undefined && String(value) !== '')
@@ -138,7 +144,7 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           </Text>
         ) : null}
         <Text style={styles.title}>{item.title}</Text>
-        {user && listingOwnerId(item) === user.id ? (
+        {user && ownerId === user.id ? (
           <Pressable
             style={({ pressed }) => [styles.editRow, pressed && styles.favRowPressed]}
             onPress={() => navigation.navigate('ListingEdit', { listingId: item.id })}
@@ -204,8 +210,54 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
         </View>
         <View style={styles.specRow}>
           <Text style={styles.specLabel}>Telefon</Text>
-          <Text style={styles.specValue}>{item.contactPhone || '—'}</Text>
+          <Text style={styles.specValue}>
+            {revealedPhone ||
+              (item.hasContactPhone || item.contactPhone ? 'Ascuns — apasă Afișează' : '—')}
+          </Text>
         </View>
+        {(item.hasContactPhone || !!item.contactPhone) && !revealedPhone && !inactiveListing ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.messageCta}
+            disabled={phoneBusy}
+            onPress={() => {
+              void (async () => {
+                setPhoneBusy(true);
+                setPhoneError(null);
+                try {
+                  const revealed = await listingsApi.revealContactPhone(item.id);
+                  setRevealedPhone(revealed.phone);
+                } catch (e) {
+                  setPhoneError(e instanceof Error ? e.message : 'Telefon indisponibil');
+                } finally {
+                  setPhoneBusy(false);
+                }
+              })();
+            }}
+          >
+            <Text style={styles.messageCtaText}>
+              {phoneBusy ? 'Se încarcă…' : 'Afișează telefon'}
+            </Text>
+          </Pressable>
+        ) : null}
+        {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
+        {ownerId && user?.id && ownerId.toLowerCase() !== String(user.id).toLowerCase() && !inactiveListing ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.messageCta}
+            onPress={() =>
+              navigation.navigate('Conversation', {
+                userId: ownerId,
+                listingId: item.id,
+                title: item.title || 'Conversație',
+              })
+            }
+          >
+            <Text style={styles.messageCtaText}>Trimite mesaj</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.specRow}>
           <Text style={styles.specLabel}>Status</Text>
           <Text style={styles.specValue}>{item.status || 'active'}</Text>
@@ -274,6 +326,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 90, 0, 0.08)',
   },
   editText: { color: THEME.colors.primary, fontWeight: '700', fontSize: 14 },
+  messageCta: {
+    marginTop: 12,
+    marginBottom: 4,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: THEME.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  messageCtaText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   favRow: {
     marginTop: 10,
     alignSelf: 'flex-start',

@@ -16,7 +16,6 @@ import {
   categorySlugToLabel,
   primarySlugForCategoryLabel,
   relatedCanonicalCategorySlugs,
-  resolveCityLabelFromSlug,
   siblingCitiesForMarketSeo,
   CATEGORY_LABEL_BY_CANONICAL_SLUG,
   SEO_NAV_CATEGORY_SLUGS,
@@ -27,6 +26,7 @@ import {
   getActiveListingCountForHub,
   getHubListingStats,
   getListingPreviewsForHub,
+  resolveCityLabelForHub,
 } from "@/lib/seo/hub-queries";
 import { categoryCityHubShouldNoindex } from "@/lib/seo/hub-index-policy";
 import { buildProgrammaticHubParagraphs } from "@/lib/seo/programmatic-hub-copy";
@@ -71,8 +71,8 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     return buildSubcategoryMetadata(primary, subResolved.category.label, subResolved.subcategory.label, citySlug, sp);
   }
 
-  // Fall through: city resolution (existing behavior)
-  const city = resolveCityLabelFromSlug(citySlug);
+  // Fall through: city resolution (static allowlist, then real DB cities)
+  const city = await resolveCityLabelForHub(citySlug);
   if (!city) {
     return createPageMetadata({
       title: "Pagină indisponibilă — ClickAnunț",
@@ -168,8 +168,8 @@ export default async function MarketCategoryCityOrSubcategoryPage({ params }: Om
     return renderSubcategoryPage(primary, label, subResolved.subcategory.label, citySlug);
   }
 
-  // Fall through: city resolution (existing behavior)
-  const city = resolveCityLabelFromSlug(citySlug);
+  // Fall through: city resolution (static allowlist, then real DB cities)
+  const city = await resolveCityLabelForHub(citySlug);
   if (!city) notFound();
 
   return renderCityPage(primary, label, city, citySlug);

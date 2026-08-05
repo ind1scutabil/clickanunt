@@ -31,35 +31,41 @@ export interface CreateInvoiceOptions {
 }
 
 /**
- * Generare număr factură secvențial
+ * Generare număr factură secvențial (atomic per an fiscal calendaristic).
  * Format: INV-YYYY-NNNNN (ex: INV-2026-00001)
+ * Folosește advisory lock PostgreSQL — nu inventează regim fiscal.
  */
 export async function generateInvoiceNumber(): Promise<string> {
   const year = new Date().getFullYear();
   const prefix = `INV-${year}-`;
+  // Stable lock key per year (avoid colliding with other advisory locks).
+  const lockKey = 4_200_000_000 + year;
 
-  // Găsește ultima factură din anul curent
-  const lastInvoice = await prisma.invoice.findFirst({
-    where: {
-      invoiceNumber: {
-        startsWith: prefix,
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+
+    const lastInvoice = await tx.invoice.findFirst({
+      where: {
+        invoiceNumber: {
+          startsWith: prefix,
+        },
       },
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
+      orderBy: {
+        invoiceNumber: 'desc',
+      },
+    });
+
+    let nextNumber = 1;
+    if (lastInvoice) {
+      const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
+      if (Number.isFinite(lastNumber) && lastNumber >= 1) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    const paddedNumber = nextNumber.toString().padStart(5, '0');
+    return `${prefix}${paddedNumber}`;
   });
-
-  let nextNumber = 1;
-  if (lastInvoice) {
-    // Extrage numărul din INV-2026-00123 -> 123
-    const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
-    nextNumber = lastNumber + 1;
-  }
-
-  // Format cu zero-padding (5 cifre)
-  const paddedNumber = nextNumber.toString().padStart(5, '0');
-  return `${prefix}${paddedNumber}`;
 }
 
 /**
@@ -93,8 +99,37 @@ export function calculateInvoiceTotal(items: InvoiceItem[]): {
   };
 }
 
+function isPrismaUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code: string }).code === 'P2002'
+  );
+}
+
+function invoiceFromRow(invoice: {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+}): {
+  id: string;
+  invoiceNumber: string;
+  total: number;
+  pdfUrl: string | null;
+} {
+  return {
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    total: invoice.amount,
+    pdfUrl: null,
+  };
+}
+
 /**
- * Creare factură automată
+ * Creare factură automată.
+ * paymentId is set on INSERT (not a later connect) so invoices_paymentId_key
+ * enforces at most one invoice per payment under concurrency.
  */
 export async function createInvoice(options: CreateInvoiceOptions): Promise<{
   id: string;
@@ -115,95 +150,138 @@ export async function createInvoice(options: CreateInvoiceOptions): Promise<{
     companyAddress,
   } = options;
 
-  try {
-    // Validare items
-    if (!items || items.length === 0) {
-      throw new Error('Invoice must have at least one item');
-    }
-
-    // Generare număr factură
-    const invoiceNumber = await generateInvoiceNumber();
-
-    // Calcul total
-    const { subtotal, vatAmount, total, vatRate } = calculateInvoiceTotal(items);
-
-    // Scadență (30 zile de la emitere)
-    const issuedAt = new Date();
-    const dueAt = new Date(issuedAt);
-    dueAt.setDate(dueAt.getDate() + 30);
-
-    // Creare factură în DB
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        userId,
-        status: InvoiceStatus.issued,
-        amount: total,
-        currency: 'RON',
-        items: items as any, // JSON field
-        metadata: {
-          // Informații furnizor (Compania)
-          companyName: companyName || COMPANY_CONFIG.name,
-          companyCui: companyCui || COMPANY_CONFIG.cui,
-          companyVatNumber: COMPANY_CONFIG.vatNumber,
-          companyRegistrationNumber: COMPANY_CONFIG.registrationNumber,
-          companyAddress: companyAddress || COMPANY_CONFIG.address,
-          companyIban: COMPANY_CONFIG.iban,
-          companyBank: COMPANY_CONFIG.bank,
-          
-          // Informații client
-          clientName,
-          clientEmail,
-          clientAddress,
-          clientCui,
-          
-          // Informații TVA
-          subtotal,
-          vatAmount,
-          vatRate,
-          isTaxPayer: COMPANY_CONFIG.isTaxPayer,
-        },
-        issuedAt,
-        dueAt,
-      },
-    });
-
-    // Link la payment dacă există
-    if (paymentId) {
-      await prisma.payment.update({
-        where: { id: paymentId },
-        data: { 
-          invoices: {
-            connect: { id: invoice.id }
-          }
-        },
-      });
-    }
-
-    logger.info('Invoice created', {
-      invoiceId: invoice.id,
-      invoiceNumber,
-      userId,
-      total,
-    });
-
-    // TODO: Generare PDF în viitor
-    // const pdfUrl = await generateInvoicePDF(invoice.id);
-    // await prisma.invoice.update({
-    //   where: { id: invoice.id },
-    //   data: { pdfUrl },
-    // });
-
-    return {
-      id: invoice.id,
-      invoiceNumber,
-      total,
-      pdfUrl: null, // PDF generation not implemented yet
-    };
-  } catch (error) {
-    logger.error('Failed to create invoice', { error, userId });
-    throw error;
+  if (!items || items.length === 0) {
+    throw new Error('Invoice must have at least one item');
   }
+
+  const { subtotal, vatAmount, total, vatRate } = calculateInvoiceTotal(items);
+  const issuedAt = new Date();
+  const dueAt = new Date(issuedAt);
+  dueAt.setDate(dueAt.getDate() + 30);
+  const metadata = {
+    companyName: companyName || COMPANY_CONFIG.name,
+    companyCui: companyCui || COMPANY_CONFIG.cui,
+    companyVatNumber: COMPANY_CONFIG.vatNumber,
+    companyRegistrationNumber: COMPANY_CONFIG.registrationNumber,
+    companyAddress: companyAddress || COMPANY_CONFIG.address,
+    companyIban: COMPANY_CONFIG.iban,
+    companyBank: COMPANY_CONFIG.bank,
+    clientName,
+    clientEmail,
+    clientAddress,
+    clientCui,
+    subtotal,
+    vatAmount,
+    vatRate,
+    isTaxPayer: COMPANY_CONFIG.isTaxPayer,
+  };
+
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        if (paymentId) {
+          const existing = await tx.invoice.findFirst({
+            where: { paymentId },
+            orderBy: { createdAt: 'asc' },
+          });
+          if (existing) {
+            return { invoice: existing, reused: true as const };
+          }
+        }
+
+        const year = new Date().getFullYear();
+        const prefix = `INV-${year}-`;
+        const lockKey = 4_200_000_000 + year;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`;
+
+        // Re-check under lock to close the TOCTOU window before INSERT.
+        if (paymentId) {
+          const existingLocked = await tx.invoice.findFirst({
+            where: { paymentId },
+            orderBy: { createdAt: 'asc' },
+          });
+          if (existingLocked) {
+            return { invoice: existingLocked, reused: true as const };
+          }
+        }
+
+        const lastInvoice = await tx.invoice.findFirst({
+          where: { invoiceNumber: { startsWith: prefix } },
+          orderBy: { invoiceNumber: 'desc' },
+        });
+        let nextNumber = 1;
+        if (lastInvoice) {
+          const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[2], 10);
+          if (Number.isFinite(lastNumber) && lastNumber >= 1) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+        const invoiceNumber = `${prefix}${nextNumber.toString().padStart(5, '0')}`;
+
+        const invoice = await tx.invoice.create({
+          data: {
+            invoiceNumber,
+            userId,
+            ...(paymentId ? { paymentId } : {}),
+            status: InvoiceStatus.issued,
+            amount: total,
+            currency: 'RON',
+            items: items as any,
+            metadata,
+            issuedAt,
+            dueAt,
+          },
+        });
+        return { invoice, reused: false as const };
+      });
+
+      if (created.reused) {
+        logger.info('Reusing existing invoice for payment', {
+          invoiceId: created.invoice.id,
+          invoiceNumber: created.invoice.invoiceNumber,
+          paymentId,
+        });
+      } else {
+        logger.info('Invoice created', {
+          invoiceId: created.invoice.id,
+          invoiceNumber: created.invoice.invoiceNumber,
+          userId,
+          total: created.invoice.amount,
+          paymentId: paymentId ?? null,
+          attempt,
+        });
+      }
+      return invoiceFromRow(created.invoice);
+    } catch (error) {
+      if (isPrismaUniqueViolation(error) && paymentId) {
+        const existing = await prisma.invoice.findFirst({
+          where: { paymentId },
+          orderBy: { createdAt: 'asc' },
+        });
+        if (existing) {
+          logger.info('Reusing invoice after paymentId unique conflict', {
+            invoiceId: existing.id,
+            invoiceNumber: existing.invoiceNumber,
+            paymentId,
+            attempt,
+          });
+          return invoiceFromRow(existing);
+        }
+      }
+      if (isPrismaUniqueViolation(error) && attempt < maxAttempts) {
+        logger.warn('Invoice unique conflict — retrying number allocation', {
+          attempt,
+          paymentId: paymentId ?? null,
+        });
+        continue;
+      }
+      logger.error('Failed to create invoice', { error, userId, attempt });
+      throw error;
+    }
+  }
+
+  throw new Error('Failed to create invoice after retries');
 }
 
 /**

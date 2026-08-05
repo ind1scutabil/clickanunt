@@ -2,6 +2,12 @@ import type { NextRequest } from "next/server";
 import type { TokenPayload } from "@/lib/auth";
 import { decodeAccessJwtPayload } from "@/lib/auth";
 import { normalizeJwtInput } from "@/lib/jwt-normalize";
+import { db } from "@/lib/db";
+import {
+  isSessionVersionMatch,
+  sessionVersionFromTokenPayload,
+  sessionVersionFromUser,
+} from "@/lib/auth/session-version";
 
 function uniqMessagingTokens(tokens: Array<string | null | undefined>): string[] {
   const out: string[] = [];
@@ -23,25 +29,39 @@ function bearerFromHeader(auth: string | null): string | null {
   return without || null;
 }
 
+async function payloadIfActiveUser(
+  payload: TokenPayload | null
+): Promise<TokenPayload | null> {
+  if (!payload?.userId) return null;
+  const user = await db.findUserById(payload.userId);
+  if (!user) return null;
+  if (user.isBanned) return null;
+  if ("deletedAt" in user && user.deletedAt) return null;
+  const tokenSv = sessionVersionFromTokenPayload(payload);
+  const userSv = sessionVersionFromUser(user);
+  if (!isSessionVersionMatch(tokenSv, userSv)) return null;
+  return payload;
+}
+
 /**
- * Auth SSE: ?token= (EventSource), cookie httpOnly, apoi Bearer / Authorization brut.
+ * Auth SSE: cookie httpOnly first, then Bearer.
+ * Query `?token=` is intentionally unsupported (JWT must not appear in URLs/logs).
  */
 export async function getAuthUserIdFromRequest(request: NextRequest): Promise<string | null> {
-  const queryToken = request.nextUrl.searchParams.get("token")?.trim();
   const headerToken = bearerFromHeader(request.headers.get("authorization"));
   const cookieToken = request.cookies.get("accessToken")?.value?.trim();
 
-  for (const candidate of uniqMessagingTokens([queryToken, cookieToken, headerToken])) {
+  for (const candidate of uniqMessagingTokens([cookieToken, headerToken])) {
     const payload = await decodeAccessJwtPayload(candidate);
-    if (payload?.userId) return payload.userId;
+    const active = await payloadIfActiveUser(payload);
+    if (active?.userId) return active.userId;
   }
   return null;
 }
 
 /**
  * GET/POST JSON mesaje: cookie httpOnly înainte de Bearer.
- * Pe live, `localStorage` poate rămâne cu access expirat în timp ce cookie-ul `.clickanunt.ro`
- * e încă valabil — ordinea veche (Bearer primul) ducea la 401 intermitent pe pagina anunțului.
+ * Banned / soft-deleted / revoked sessionVersion are rejected.
  */
 export async function getMessagingApiAuthPayload(
   request: NextRequest
@@ -51,7 +71,8 @@ export async function getMessagingApiAuthPayload(
 
   for (const candidate of uniqMessagingTokens([cookieToken, headerToken])) {
     const payload = await decodeAccessJwtPayload(candidate);
-    if (payload) return payload;
+    const active = await payloadIfActiveUser(payload);
+    if (active) return active;
   }
   return null;
 }

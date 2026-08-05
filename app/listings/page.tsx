@@ -59,6 +59,8 @@ export async function generateMetadata({
       description: `Rezultate pentru «${safe}» în anunțurile ClickAnunț din România. Filtrează după categorie și localitate, contactează vânzătorii gratuit.`,
       canonicalUrl,
       keywords: ["căutare anunțuri", q, "ClickAnunț"],
+      // Arbitrary search queries must not be indexed (filter/search spam).
+      noindex: true,
     });
   }
 

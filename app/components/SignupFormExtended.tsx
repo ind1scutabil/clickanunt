@@ -5,6 +5,10 @@ import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
 import { broadcastAuthSessionChanged } from "@/lib/auth-session-events";
 import {
+  cacheWebUserProfile,
+  clearLegacyWebAuthStorage,
+} from "@/lib/auth/clear-legacy-web-auth-storage";
+import {
   formatPasswordRuleFailures,
   getPasswordRuleFailures,
   meetsPasswordRules,
@@ -146,7 +150,7 @@ export default function SignupFormExtended() {
 
         const data: unknown = await res.json().catch(() => null);
 
-        if (res.status !== 200) {
+        if (res.status < 200 || res.status >= 300) {
           const finalMessage = readErrorMessage(data, res) ?? "Înregistrarea a eșuat. Încearcă din nou.";
           setMessageType("error");
           setMessage(finalMessage);
@@ -154,14 +158,9 @@ export default function SignupFormExtended() {
         }
 
         const ok = data as Record<string, unknown>;
-        if (typeof ok.accessToken === "string") {
-          localStorage.setItem("accessToken", ok.accessToken);
-        }
-        if (typeof ok.refreshToken === "string") {
-          localStorage.setItem("refreshToken", ok.refreshToken);
-        }
-        if (ok.user) {
-          localStorage.setItem("user", JSON.stringify(ok.user));
+        clearLegacyWebAuthStorage({ broadcast: false });
+        if (ok.user && typeof ok.user === "object") {
+          cacheWebUserProfile(ok.user as { id?: string; email?: string; role?: string; name?: string | null });
         }
         broadcastAuthSessionChanged();
 
@@ -198,14 +197,9 @@ export default function SignupFormExtended() {
       }
 
       const ok = data as Record<string, unknown>;
-      if (typeof ok.accessToken === "string") {
-        localStorage.setItem("accessToken", ok.accessToken);
-      }
-      if (typeof ok.refreshToken === "string") {
-        localStorage.setItem("refreshToken", ok.refreshToken);
-      }
-      if (ok.user) {
-        localStorage.setItem("user", JSON.stringify(ok.user));
+      clearLegacyWebAuthStorage({ broadcast: false });
+      if (ok.user && typeof ok.user === "object") {
+        cacheWebUserProfile(ok.user as { id?: string; email?: string; role?: string; name?: string | null });
       }
       broadcastAuthSessionChanged();
 

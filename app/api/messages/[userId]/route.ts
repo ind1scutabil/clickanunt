@@ -17,28 +17,21 @@ import {
   messagingStructuredLog,
 } from "@/lib/messaging-observability";
 import { promObserveHttpMessagePost } from "@/lib/messaging-prometheus";
+import { resolveListingConversationPeer } from "@/lib/messaging/listing-contact";
 
 const MESSAGE_DEDUPE_MS = 60_000;
 
+/** Participant projection for messaging APIs — no email/phone (peer PII minimization). */
+const messagingParticipantSelect = {
+  id: true,
+  name: true,
+  avatar: true,
+  role: true,
+} as const;
+
 const messagePostInclude = {
-  sender: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      role: true,
-    },
-  },
-  receiver: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      avatar: true,
-      role: true,
-    },
-  },
+  sender: { select: messagingParticipantSelect },
+  receiver: { select: messagingParticipantSelect },
 } as const;
 
 export const runtime = "nodejs";
@@ -167,16 +160,12 @@ export async function GET(
     }
 
     const participantMini = {
-      select: { id: true, name: true, avatar: true, email: true, role: true } as const,
+      select: messagingParticipantSelect,
     };
 
     const messageRowInclude = {
-      sender: {
-        select: { id: true, name: true, avatar: true, email: true, role: true },
-      },
-      receiver: {
-        select: { id: true, name: true, avatar: true, email: true, role: true },
-      },
+      sender: { select: messagingParticipantSelect },
+      receiver: { select: messagingParticipantSelect },
     } as const;
 
     let conversation = null;
@@ -559,6 +548,7 @@ export async function POST(
       ReturnType<typeof prisma.conversation.findUnique>
     > | null = null;
     let effectiveReceiverId: string;
+    let resolvedListingId: string | null = listingId ?? null;
 
     if (conversationId) {
       /** Ca la GET: id-ul thread-ului e sursa de adevăr; userId din URL poate fi desincronizat. */
@@ -587,18 +577,65 @@ export async function POST(
         });
       }
       conversation = byId;
-    } else {
-      effectiveReceiverId =
-        canonicalMessagingUserId(pathUserId) ?? pathUserId.trim().toLowerCase();
+      resolvedListingId = byId.listingId ?? resolvedListingId;
+    } else if (listingId) {
+      /** Seller derived from Listing — client path userId must match owner. */
+      const listing = await prisma.listing.findUnique({
+        where: { id: listingId },
+        select: {
+          id: true,
+          ownerUserId: true,
+          status: true,
+          moderationStatus: true,
+          deletedAt: true,
+          expiresAt: true,
+        },
+      });
+      if (!listing) {
+        return NextResponse.json({ error: "Anunțul nu există" }, { status: 404 });
+      }
+      const peerDecision = resolveListingConversationPeer({
+        listing,
+        senderId: senderCanon,
+        pathPeerUserId: pathUserId,
+      });
+      if (!peerDecision.ok) {
+        return NextResponse.json(
+          { error: peerDecision.error },
+          { status: peerDecision.status }
+        );
+      }
+      effectiveReceiverId = peerDecision.ownerUserId;
+      resolvedListingId = listing.id;
       const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
-      const listingExact = listingId
-        ? ({ listingId } as const)
-        : ({ listingId: null } as const);
       conversation = await prisma.conversation.findFirst({
         where: {
           participant1Id: slots.participant1Id,
           participant2Id: slots.participant2Id,
-          ...listingExact,
+          listingId: listing.id,
+        },
+      });
+      if (!conversation && !peerDecision.contactableForNew) {
+        return NextResponse.json(
+          { error: "Anunțul nu poate fi contactat" },
+          { status: 403 }
+        );
+      }
+    } else {
+      effectiveReceiverId =
+        canonicalMessagingUserId(pathUserId) ?? pathUserId.trim().toLowerCase();
+      if (messagingUserIdsEqual(senderCanon, effectiveReceiverId)) {
+        return NextResponse.json(
+          { error: "Nu poți trimite mesaj către propriul cont" },
+          { status: 400 }
+        );
+      }
+      const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
+      conversation = await prisma.conversation.findFirst({
+        where: {
+          participant1Id: slots.participant1Id,
+          participant2Id: slots.participant2Id,
+          listingId: null,
         },
       });
     }
@@ -628,14 +665,14 @@ export async function POST(
       );
     }
 
-    console.log("[MSG-POST] ✓ Receiver:", receiver.email);
+    console.log("[MSG-POST] ✓ Receiver id:", receiver.id);
 
     let justCreatedConversation = false;
     if (!conversation) {
       console.log('[MSG-POST] Creating new conversation...');
       const slots = conversationParticipantSlots(senderCanon, effectiveReceiverId);
-      const listingFilter = listingId
-        ? ({ listingId } as const)
+      const listingFilter = resolvedListingId
+        ? ({ listingId: resolvedListingId } as const)
         : ({ listingId: null } as const);
 
       try {
@@ -643,7 +680,7 @@ export async function POST(
           data: {
             participant1Id: slots.participant1Id,
             participant2Id: slots.participant2Id,
-            listingId: listingId || null,
+            listingId: resolvedListingId,
           },
         });
         justCreatedConversation = true;
@@ -727,11 +764,11 @@ export async function POST(
         type: ADMIN_NOTIFICATION_TYPE.CONVERSATION_NEW,
         severity: AdminNotificationSeverity.info,
         title: "Conversație nouă",
-        message: `Thread nou între utilizatori${listingId ? ` (anunț ${listingId})` : ""}.`,
+        message: `Thread nou între utilizatori${resolvedListingId ? ` (anunț ${resolvedListingId})` : ""}.`,
         entityType: "conversation",
         entityId: conversation.id,
         metadata: {
-          listingId: listingId || null,
+          listingId: resolvedListingId,
           senderId: senderCanon,
           receiverId: effectiveReceiverId,
         },
@@ -740,7 +777,7 @@ export async function POST(
 
     // Send email notification to recipient (async, don't wait)
     if (!recentDuplicate && receiver.email) {
-      const senderName = message.sender.name || message.sender.email || "Utilizator";
+      const senderName = message.sender.name || "Utilizator";
       sendMessageNotificationEmail(
         receiver.email,
         senderName,

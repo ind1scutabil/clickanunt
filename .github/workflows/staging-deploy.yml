@@ -1,0 +1,97 @@
+name: Staging deploy (manual)
+
+# Inert until repository secrets STAGING_* are configured.
+# Does NOT run on push. Does NOT touch production.
+# workflow_dispatch only — requires explicit human run + confirmation input.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_staging_deploy:
+        description: 'Must be exactly 1'
+        required: true
+        default: '0'
+      git_sha:
+        description: 'Exact commit SHA to deploy to staging'
+        required: true
+      confirm_backup_verified:
+        description: 'STAGING_BACKUP_VERIFIED — must be 1'
+        required: true
+        default: '0'
+
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Guard — confirm flags
+        run: |
+          test "${{ inputs.confirm_staging_deploy }}" = "1"
+          test "${{ inputs.confirm_backup_verified }}" = "1"
+          test "$(git rev-parse HEAD)" = "${{ inputs.git_sha }}"
+
+      - name: Guard — refuse production secrets shape
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_DOMAIN: ${{ secrets.STAGING_DOMAIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STAGING_HOST:-}" ] || [ -z "${STAGING_DATABASE_URL:-}" ] || [ -z "${STAGING_DOMAIN:-}" ]; then
+            echo "STAGING_HOST / STAGING_DATABASE_URL / STAGING_DOMAIN secrets are not configured."
+            echo "Workflow stops here by design until a real staging environment exists."
+            exit 1
+          fi
+          case "$STAGING_HOST" in
+            *46.225.69.155*|REQUIRED_STAGING_*|*staging.example.com*)
+              echo "Refusing production IP or placeholder STAGING_HOST"
+              exit 1
+              ;;
+          esac
+          case "$STAGING_DOMAIN" in
+            *://clickanunt.ro*|*://www.clickanunt.ro*|REQUIRED_STAGING_*|*staging.example.com*)
+              echo "Refusing production domain or placeholder STAGING_DOMAIN"
+              exit 1
+              ;;
+          esac
+          case "$STAGING_DATABASE_URL" in
+            *46.225.69.155*|*clickanunt.ro*|*/autoplat*|REQUIRED_STAGING_*)
+              echo "Refusing production DB patterns or placeholder DATABASE_URL"
+              exit 1
+              ;;
+          esac
+
+      - name: Unit preflight tests
+        run: npx jest tests/unit/staging-deploy-preflight.test.ts --runInBand
+
+      - name: Lint / type-check / unit (gate)
+        run: |
+          npm run lint
+          npm run type-check
+          npm test -- --runInBand
+
+      - name: Deploy step blocked until secrets + approval
+        run: |
+          echo "Preflight gates passed locally in CI."
+          echo "Remote SSH deploy is intentionally NOT executed from this workflow yet."
+          echo "Use scripts/deploy-staging-from-local.sh only after host/DB/domain are provisioned."
+          exit 0

@@ -16,6 +16,44 @@ import type { ListingPublicDto } from "@clickanunt/api-contracts";
 
 type Listing = ListingPublicDto;
 
+/** Maps ListingsView sort UI → API `sort` allowlist. */
+function mapUiSortToApi(
+  sortBy: string | undefined,
+  sortOrder: string | undefined,
+  q: string | undefined
+): string | undefined {
+  const key = `${sortBy || ""}-${sortOrder || ""}`;
+  if (key === "relevance-desc" || key === "relevance-") {
+    return q && q.trim().length >= 2 ? "relevance" : "newest";
+  }
+  const map: Record<string, string> = {
+    "createdAt-desc": "newest",
+    "price-asc": "priceAsc",
+    "price-desc": "priceDesc",
+    "featured-desc": "featured",
+  };
+  return map[key];
+}
+
+function mapApiSortToUi(sort: string | null, hasQ: boolean): { sortBy: string; sortOrder: string } {
+  switch (sort) {
+    case "relevance":
+      return { sortBy: "relevance", sortOrder: "desc" };
+    case "featured":
+      return { sortBy: "featured", sortOrder: "desc" };
+    case "priceAsc":
+      return { sortBy: "price", sortOrder: "asc" };
+    case "priceDesc":
+      return { sortBy: "price", sortOrder: "desc" };
+    case "newest":
+      return { sortBy: "createdAt", sortOrder: "desc" };
+    default:
+      return hasQ
+        ? { sortBy: "relevance", sortOrder: "desc" }
+        : { sortBy: "createdAt", sortOrder: "desc" };
+  }
+}
+
 function mapPublicListingToCardProps(l: Listing) {
   const owner = l.owner;
   const o =
@@ -25,8 +63,8 @@ function mapPublicListingToCardProps(l: Listing) {
   return {
     id: l.id,
     title: l.title,
-    priceAmount: l.priceAmount,
-    priceCurrency: l.priceCurrency,
+    priceAmount: l.priceAmount ?? null,
+    priceCurrency: l.priceCurrency ?? null,
     category: l.category,
     photos: l.photos,
     createdAt: l.createdAt,
@@ -35,6 +73,23 @@ function mapPublicListingToCardProps(l: Listing) {
     views: l.views,
     city: l.city,
     county: l.county,
+    attributes: l.attributes ?? null,
+    condition: l.condition ?? null,
+    make: l.make ?? null,
+    model: l.model ?? null,
+    year: l.year ?? null,
+    mileage: l.mileage ?? null,
+    fuel: l.fuel ?? null,
+    transmission: l.transmission ?? null,
+    priceType: "priceType" in l ? (l as { priceType?: string | null }).priceType ?? null : null,
+    salaryMin: "salaryMin" in l ? (l as { salaryMin?: number | null }).salaryMin ?? null : null,
+    salaryMax: "salaryMax" in l ? (l as { salaryMax?: number | null }).salaryMax ?? null : null,
+    salaryCurrency:
+      "salaryCurrency" in l
+        ? (l as { salaryCurrency?: string | null }).salaryCurrency ?? null
+        : null,
+    salaryPeriod:
+      "salaryPeriod" in l ? (l as { salaryPeriod?: string | null }).salaryPeriod ?? null : null,
     owner: o
       ? {
           id: o.id,
@@ -83,6 +138,8 @@ interface Filters {
   yearMax?: number;
   priceMin?: number;
   priceMax?: number;
+  /** Required by API with price bands; UI price inputs are labeled RON. */
+  priceCurrency?: 'RON' | 'EUR' | 'USD';
   sortBy?: string;
   sortOrder?: string;
   [key: `attr_${string}`]: string | undefined;
@@ -104,14 +161,6 @@ export default function ListingsView({
 }: ListingsViewProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const hasActiveSearch = Boolean(
-    searchParams.get('q') ||
-      searchParams.get('search') ||
-      searchParams.get('category') ||
-      searchParams.get('subcategory') ||
-      searchParams.get('county') ||
-      searchParams.get('city')
-  );
   const initialPageResolved = (() => {
     const fromUrl = parseInt(searchParams.get("page") || "", 10);
     if (!Number.isNaN(fromUrl) && fromUrl > 0) return fromUrl;
@@ -125,11 +174,17 @@ export default function ListingsView({
   const [page, setPage] = useState(initialPageResolved);
   const [total, setTotal] = useState(initialTotal ?? 0);
   const [isFilterSticky, setIsFilterSticky] = useState(false);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(!hasActiveSearch);
+  // Results-first: filters closed by default so mobile first viewport shows listings, not a long form.
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [showFiltersApplied, setShowFiltersApplied] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
+  const [filters, setFilters] = useState<Filters>(() => {
+    const q0 = searchParams.get("q") || searchParams.get("search") || undefined;
+    const hasQ = Boolean(q0 && q0.trim().length >= 2);
+    const fromUrl = mapApiSortToUi(searchParams.get("sort"), hasQ);
+    return {
+      sortBy: fromUrl.sortBy,
+      sortOrder: fromUrl.sortOrder,
+    };
   });
   const activeRequestRef = useRef(0);
   const ssrSeedConsumedRef = useRef(false);
@@ -144,6 +199,14 @@ export default function ListingsView({
           params.set(k, String(v));
         }
       });
+      const sortApi = mapUiSortToApi(nextFilters.sortBy, nextFilters.sortOrder, nextFilters.q);
+      if (sortApi) params.set("sort", sortApi);
+      if (
+        (sortApi === "priceAsc" || sortApi === "priceDesc" || nextFilters.priceMin != null || nextFilters.priceMax != null) &&
+        !params.get("priceCurrency")
+      ) {
+        params.set("priceCurrency", nextFilters.priceCurrency || "RON");
+      }
       if (nextPage > 1) {
         params.set("page", String(nextPage));
       }
@@ -184,10 +247,15 @@ export default function ListingsView({
     const subcategory = searchParams.get("subcategory");
     const county = searchParams.get("county");
     const city = searchParams.get("city");
+    const sortParam = searchParams.get("sort");
+    const priceCurrencyParam = searchParams.get("priceCurrency");
     const pageParam = parseInt(searchParams.get("page") || "1", 10);
 
     const hasListingQuery =
       Boolean(searchQuery) || Boolean(category) || Boolean(subcategory) || Boolean(county) || Boolean(city);
+
+    const hasQ = Boolean(searchQuery && searchQuery.trim().length >= 2);
+    const uiSort = mapApiSortToUi(sortParam, hasQ);
 
     if (
       !hasListingQuery &&
@@ -196,23 +264,36 @@ export default function ListingsView({
     ) {
       setFilters((prev) => ({
         ...prev,
+        ...uiSort,
         ...(initialCategory ? { category: initialCategory } : {}),
         ...(initialCounty ? { county: initialCounty } : {}),
         ...(initialCity ? { city: initialCity } : {}),
         ...(initialMake ? { make: initialMake } : {}),
         ...(initialModel ? { model: initialModel } : {}),
+        ...(priceCurrencyParam === "RON" || priceCurrencyParam === "EUR" || priceCurrencyParam === "USD"
+          ? { priceCurrency: priceCurrencyParam }
+          : {}),
       }));
       setIsFiltersOpen(false);
     } else if (hasListingQuery) {
       setFilters((prev) => ({
         ...prev,
+        ...uiSort,
         ...(searchQuery && { q: searchQuery }),
         ...(category && { category }),
         ...(subcategory && { subcategory }),
         ...(county && { county }),
         ...(city && { city }),
+        ...(priceCurrencyParam === "RON" || priceCurrencyParam === "EUR" || priceCurrencyParam === "USD"
+          ? { priceCurrency: priceCurrencyParam }
+          : {}),
       }));
       setIsFiltersOpen(false);
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        ...uiSort,
+      }));
     }
 
     if (!Number.isNaN(pageParam) && pageParam > 0) {
@@ -260,16 +341,19 @@ export default function ListingsView({
         params.set(key, value.toString());
       });
 
-      const sortKey = `${filters.sortBy}-${filters.sortOrder}`;
-      const sortMap: Record<string, string> = {
-        'createdAt-desc': 'newest',
-        'price-asc': 'priceAsc',
-        'price-desc': 'priceDesc',
-        'featured-desc': 'featured',
-      };
-      const sort = sortMap[sortKey];
+      if (
+        (filters.priceMin != null || filters.priceMax != null) &&
+        !params.get('priceCurrency')
+      ) {
+        params.set('priceCurrency', filters.priceCurrency || 'RON');
+      }
+
+      const sort = mapUiSortToApi(filters.sortBy, filters.sortOrder, filters.q);
       if (sort) {
         params.set('sort', sort);
+      }
+      if ((sort === 'priceAsc' || sort === 'priceDesc') && !params.get('priceCurrency')) {
+        params.set('priceCurrency', filters.priceCurrency || 'RON');
       }
 
       const res = await fetch(`/api/listings?${params}`, {
@@ -309,7 +393,24 @@ export default function ListingsView({
   }
 
   function handleFilterChange(key: keyof Filters, value: any) {
-    const newFilters = { ...filters, [key]: value };
+    const newFilters: Filters = { ...filters, [key]: value };
+    if (key === 'priceMin' || key === 'priceMax') {
+      if (newFilters.priceMin != null || newFilters.priceMax != null) {
+        newFilters.priceCurrency = newFilters.priceCurrency || 'RON';
+      } else if (
+        newFilters.sortBy !== 'price' &&
+        newFilters.priceMin == null &&
+        newFilters.priceMax == null
+      ) {
+        delete newFilters.priceCurrency;
+      }
+    }
+    if (key === 'sortBy' || key === 'sortOrder') {
+      const apiSort = mapUiSortToApi(newFilters.sortBy, newFilters.sortOrder, newFilters.q);
+      if (apiSort === 'priceAsc' || apiSort === 'priceDesc') {
+        newFilters.priceCurrency = newFilters.priceCurrency || 'RON';
+      }
+    }
     setFilters(newFilters);
     setPage(1);
 
@@ -318,10 +419,18 @@ export default function ListingsView({
     } else {
       const params = new URLSearchParams();
       Object.entries(newFilters).forEach(([k, v]) => {
-        if (v && k !== "sortBy" && k !== "sortOrder") {
-          params.set(k, v.toString());
+        if (v !== undefined && v !== "" && k !== "sortBy" && k !== "sortOrder") {
+          params.set(k, String(v));
         }
       });
+      const sortApi = mapUiSortToApi(newFilters.sortBy, newFilters.sortOrder, newFilters.q);
+      if (sortApi) params.set("sort", sortApi);
+      if (
+        (sortApi === "priceAsc" || sortApi === "priceDesc" || newFilters.priceMin != null || newFilters.priceMax != null) &&
+        !params.get("priceCurrency")
+      ) {
+        params.set("priceCurrency", newFilters.priceCurrency || "RON");
+      }
 
       router.push(`/listings${params.toString() ? "?" + params.toString() : ""}`, { scroll: false });
     }
@@ -745,16 +854,49 @@ export default function ListingsView({
               value={`${filters.sortBy}-${filters.sortOrder}`}
               onChange={(e) => {
                 const [sortBy, sortOrder] = e.target.value.split('-');
-                setFilters(prev => ({ ...prev, sortBy, sortOrder }));
+                handleFilterChange('sortBy', sortBy);
+                // sortOrder must update in same turn — apply both
+                const next: Filters = {
+                  ...filters,
+                  sortBy,
+                  sortOrder,
+                };
+                const apiSort = mapUiSortToApi(sortBy, sortOrder, filters.q);
+                if (apiSort === 'priceAsc' || apiSort === 'priceDesc') {
+                  next.priceCurrency = next.priceCurrency || 'RON';
+                }
+                setFilters(next);
+                setPage(1);
+                if (routeBase) {
+                  pushBrowsePath(next, 1);
+                } else {
+                  const params = new URLSearchParams();
+                  Object.entries(next).forEach(([k, v]) => {
+                    if (v !== undefined && v !== "" && k !== "sortBy" && k !== "sortOrder") {
+                      params.set(k, String(v));
+                    }
+                  });
+                  if (apiSort) params.set("sort", apiSort);
+                  if (
+                    (apiSort === "priceAsc" || apiSort === "priceDesc" || next.priceMin != null || next.priceMax != null) &&
+                    !params.get("priceCurrency")
+                  ) {
+                    params.set("priceCurrency", next.priceCurrency || "RON");
+                  }
+                  router.push(`/listings${params.toString() ? "?" + params.toString() : ""}`, {
+                    scroll: false,
+                  });
+                }
               }}
               className="w-full rounded-lg border border-white/[0.08] bg-[#1a1d24] px-3 py-2 text-sm text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-colors placeholder:text-zinc-500 focus:border-sky-500/35 focus:outline-none focus:ring-2 focus:ring-sky-500/15 sm:px-4 sm:py-3 md:w-80"
             >
+              {filters.q && filters.q.trim().length >= 2 ? (
+                <option value="relevance-desc">Relevanță</option>
+              ) : null}
               <option value="createdAt-desc">Cele mai noi</option>
-              <option value="createdAt-asc">Cele mai vechi</option>
-              <option value="price-asc">Preț crescător</option>
-              <option value="price-desc">Preț descrescător</option>
-              <option value="year-desc">An fabricație descrescător</option>
-              <option value="year-asc">An fabricație crescător</option>
+              <option value="featured-desc">Promovate</option>
+              <option value="price-asc">Preț crescător (RON)</option>
+              <option value="price-desc">Preț descrescător (RON)</option>
             </select>
           </div>
 
@@ -770,7 +912,7 @@ export default function ListingsView({
                     resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className="flex h-10 items-center gap-1.5 rounded-lg bg-orange-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:h-11 sm:gap-2 sm:px-6"
+                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-[#c2410c] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/40 sm:gap-2 sm:px-6"
               >
               <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -779,7 +921,7 @@ export default function ListingsView({
             </button>
               <button
                 onClick={clearFilters}
-                className="flex h-10 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-4 text-sm font-semibold text-zinc-200 shadow-sm transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/10 sm:h-11 sm:gap-2 sm:px-6"
+                className="flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.05] px-4 text-sm font-semibold text-zinc-200 shadow-sm transition-colors hover:border-white/[0.14] hover:bg-white/[0.08] hover:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/10 sm:gap-2 sm:px-6"
               >
               <svg className="h-4 w-4 shrink-0 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -795,7 +937,7 @@ export default function ListingsView({
           <button
             type="button"
             onClick={() => setIsFiltersOpen(true)}
-            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08]"
+            className="min-h-[44px] rounded-md border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/[0.14] hover:bg-white/[0.08]"
           >
             Afișează filtre
           </button>
@@ -865,7 +1007,7 @@ export default function ListingsView({
 
       {/* Loading - Skeleton Cards (only when no seeded/existing results) */}
       {loading && listings.length === 0 && (
-        <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-3.5 sm:gap-4 md:mb-10 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
@@ -873,7 +1015,7 @@ export default function ListingsView({
               role="status"
               aria-label="Catalog"
             >
-              <div className="aspect-[5/3] bg-zinc-800/70" />
+              <div className="aspect-[4/3] bg-zinc-800/70" />
               <div className="space-y-2 p-2.5 sm:p-3 md:p-3.5">
                 <div className="h-4 w-[88%] rounded-full bg-zinc-800/80" />
                 <div className="h-3 w-[42%] rounded-full bg-zinc-800/55" />
@@ -891,7 +1033,7 @@ export default function ListingsView({
             Găsite <span className="font-bold tabular-nums text-zinc-100">{total}</span> anunțuri{listings.length > 0 && ` (pagina ${page} din ${totalPages})`}
           </div>
 
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-10 md:grid-cols-2 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-3.5 sm:gap-4 md:mb-10 md:grid-cols-2 md:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {listings.map((listing, index) => (
               <ListingCard
                 key={listing.id}

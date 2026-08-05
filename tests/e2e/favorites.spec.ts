@@ -1,80 +1,115 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+
+const strongPassword = 'Password123!';
+
+async function csrf(request: APIRequestContext): Promise<string> {
+  const res = await request.get('/api/csrf');
+  expect(res.ok()).toBeTruthy();
+  const data = (await res.json()) as { csrfToken?: string };
+  expect(data.csrfToken).toBeTruthy();
+  return data.csrfToken!;
+}
+
+async function registerFreshUser(request: APIRequestContext): Promise<string> {
+  const email = `fav-empty-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const token = await csrf(request);
+  const res = await request.post('/api/auth/register', {
+    data: {
+      email,
+      password: strongPassword,
+      confirmPassword: strongPassword,
+      name: 'Fav Empty',
+      acceptTerms: true,
+      acceptPrivacy: true,
+    },
+    headers: { 'x-csrf-token': token },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return email;
+}
+
+async function loginToFavorites(
+  page: import('@playwright/test').Page,
+  email: string
+) {
+  await page.context().clearCookies();
+  await page.goto('/auth/login?next=%2Ffavorites');
+  const loginForm = page
+    .locator('form')
+    .filter({ has: page.locator('button[type="submit"]') })
+    .first();
+  await loginForm.locator('input[type="email"]').fill(email);
+  await loginForm.locator('input[type="password"]').fill(strongPassword);
+  await loginForm.locator('button[type="submit"]').click();
+  await page.waitForURL(/\/favorites/, { timeout: 30000 });
+}
 
 test.describe('Favorites', () => {
-  test.beforeEach(async ({ page }) => {
-    // Login
+  test('should add listing to favorites when a card control exists', async ({
+    page,
+    request,
+  }) => {
+    const email = await registerFreshUser(request);
+    await page.context().clearCookies();
     await page.goto('/auth/login');
-    await page.fill('input[type="email"]', 'user@example.com');
-    await page.fill('input[type="password"]', 'Password123!');
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/(dashboard|admin\/dashboard)/, {
+    const loginForm = page
+      .locator('form')
+      .filter({ has: page.locator('button[type="submit"]') })
+      .first();
+    await loginForm.locator('input[type="email"]').fill(email);
+    await loginForm.locator('input[type="password"]').fill(strongPassword);
+    await loginForm.locator('button[type="submit"]').click();
+    await page.waitForURL((u) => !u.pathname.startsWith('/auth/login'), {
       timeout: 30000,
     });
-  });
-
-  test('should add listing to favorites', async ({ page }) => {
     await page.goto('/listings');
-    
-    const favoriteButton = page.locator('button:has-text("♥"), button[aria-label*="favorite"], button[aria-label*="favorite"]').first();
-    if (await favoriteButton.isVisible()) {
-      const initialState = await favoriteButton.getAttribute('aria-pressed');
-      
-      await favoriteButton.click();
-      await page.waitForTimeout(500);
-      
-      const newState = await favoriteButton.getAttribute('aria-pressed');
-      expect(newState).not.toBe(initialState);
+    const favoriteButton = page
+      .locator(
+        'button[aria-label*="favorite" i], button[aria-label*="Favorite" i], button[aria-label*="favorit" i]'
+      )
+      .first();
+    if (!(await favoriteButton.isVisible().catch(() => false))) {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'No favorite control on first listing card in this DB',
+      });
+      return;
     }
+    const initialState = await favoriteButton.getAttribute('aria-pressed');
+    await favoriteButton.click();
+    await expect
+      .poll(async () => favoriteButton.getAttribute('aria-pressed'), {
+        timeout: 8000,
+      })
+      .not.toBe(initialState);
   });
 
-  test('should remove listing from favorites', async ({ page }) => {
-    await page.goto('/favorites');
-    
-    // Assume there's at least one favorite
-    const favoriteItem = page.locator('[data-testid="favorite-item"], .favorite-card').first();
-    
-    if (await favoriteItem.isVisible()) {
-      const removeButton = favoriteItem.locator('button:has-text("Remove"), button:has-text("Șterge")');
-      if (await removeButton.isVisible()) {
-        await removeButton.click();
-        await page.waitForTimeout(500);
-      }
-    }
+  test('should display empty state when no favorites', async ({ page, request }) => {
+    const email = await registerFreshUser(request);
+    await loginToFavorites(page, email);
+    await expect(page).toHaveURL(/\/favorites/);
+    await expect(page.getByText(/Se încarcă favorite/i)).toHaveCount(0, {
+      timeout: 15000,
+    });
+    await expect(page.getByText(/Niciun anunț favorit/i)).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByRole('link', { name: /Către anunțuri/i })).toBeVisible();
   });
 
-  test('should display empty state when no favorites', async ({ page }) => {
-    await page.goto('/favorites');
-    
-    // UI empty state (ro): "Niciun anunț favorit"
-    const emptyState = page.locator('text=/Niciun\\s+anunț\\s+favorit|no favorites|empty|explore/i');
-    const favoritesList = page.locator('[data-testid="favorite-item"], .favorite-card');
-    
-    const count = await favoritesList.count();
-    if (count === 0) {
-      await expect(emptyState).toBeVisible({ timeout: 10000 });
-    }
-  });
-
-  test('should persist favorites', async ({ page, context }) => {
-    // Add favorite
-    await page.goto('/listings');
-    const favoriteButton = page.locator('button[aria-label*="favorite"]').first();
-    if (await favoriteButton.isVisible()) {
-      await favoriteButton.click();
-      await page.waitForTimeout(500);
-    }
-    
-    // Reload page
+  test('empty state persists after reload', async ({ page, request }) => {
+    const email = await registerFreshUser(request);
+    await loginToFavorites(page, email);
+    await expect(page.getByText(/Niciun anunț favorit/i)).toBeVisible({
+      timeout: 15000,
+    });
     await page.reload();
-    await page.waitForTimeout(1000);
-    
-    // Check if favorite is still there
-    const favoriteItem = page.locator('[data-testid="favorite-item"], .favorite-card').first();
-    const isFavorited = await favoriteItem.isVisible().catch(() => false);
-    
-    // This test depends on page state
-    if (isFavorited) {
-      expect(isFavorited).toBeTruthy();
-    }
+    await expect(page).toHaveURL(/\/favorites/);
+    await expect(page.getByText(/Se încarcă favorite/i)).toHaveCount(0, {
+      timeout: 15000,
+    });
+    await expect(page.getByText(/Niciun anunț favorit/i)).toBeVisible({
+      timeout: 15000,
+    });
   });
 });

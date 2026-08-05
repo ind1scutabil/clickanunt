@@ -16,6 +16,9 @@ import { resolveListingGetRequestLimits, finalizeShouldCountListingView } from "
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
+import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
+import { resolveOwnerStatusTransition } from "@/lib/listing-lifecycle";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -184,11 +187,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       select: {
         ownerUserId: true,
         status: true,
+        moderationStatus: true,
+        deletedAt: true,
+        expiresAt: true,
         isPromoted: true,
         isFeatured: true,
         category: true,
         subcategory: true,
         attributes: true,
+        priceType: true,
+        priceAmount: true,
+        priceCurrency: true,
+        salaryMin: true,
+        salaryMax: true,
+        salaryCurrency: true,
+        salaryPeriod: true,
         make: true,
         model: true,
         vin: true,
@@ -199,7 +212,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    if (!existingListing) {
+    if (!existingListing || existingListing.deletedAt) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
@@ -236,6 +249,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       );
     }
 
+    const priceCheck = validateEffectivePriceSalaryPatch({
+      existing: {
+        category: existingListing.category,
+        subcategory: existingListing.subcategory,
+        priceType: existingListing.priceType,
+        priceAmount: existingListing.priceAmount,
+        priceCurrency: existingListing.priceCurrency,
+        salaryMin: existingListing.salaryMin,
+        salaryMax: existingListing.salaryMax,
+        salaryCurrency: existingListing.salaryCurrency,
+        salaryPeriod: existingListing.salaryPeriod,
+      },
+      patch: body,
+      effectiveCategory: taxonomyCheck.effectiveCategory,
+      effectiveSubcategory: taxonomyCheck.effectiveSubcategory,
+    });
+    if (!priceCheck.ok) {
+      return NextResponse.json(
+        { error: priceCheck.message, path: priceCheck.path },
+        { status: 400 }
+      );
+    }
+
     const allowed: Record<string, unknown> = {};
     const fields = [
       "title",
@@ -243,6 +279,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       "subcategory",
       "priceAmount",
       "priceCurrency",
+      "priceType",
+      "salaryMin",
+      "salaryMax",
+      "salaryCurrency",
+      "salaryPeriod",
       "condition",
       "status",
       "make",
@@ -277,6 +318,29 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       allowed.transmission = null;
     }
 
+    if (priceCheck.ok && priceCheck.next) {
+      const n = priceCheck.next;
+      const touchesPrice = [
+        "priceType",
+        "priceAmount",
+        "priceCurrency",
+        "salaryMin",
+        "salaryMax",
+        "salaryCurrency",
+        "salaryPeriod",
+        "category",
+      ].some((k) => k in body);
+      if (touchesPrice) {
+        allowed.priceType = n.priceType;
+        allowed.priceAmount = n.priceAmount;
+        allowed.priceCurrency = n.priceCurrency;
+        allowed.salaryMin = n.salaryMin;
+        allowed.salaryMax = n.salaryMax;
+        allowed.salaryCurrency = n.salaryCurrency;
+        allowed.salaryPeriod = n.salaryPeriod;
+      }
+    }
+
     if (allowed.isFeatured !== undefined && existingListing) {
       (allowed as Record<string, unknown>).feedBoost = computeFeedBoost(
         !!existingListing.isPromoted,
@@ -285,25 +349,54 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const currentStatus = String(existingListing.status || '').toLowerCase();
-    const canRepublishFromStatus = currentStatus === 'paused' || currentStatus === 'hidden' || currentStatus === 'rejected';
-    const requestedStatus = body.status !== undefined ? String(body.status || '').toLowerCase() : null;
-    const ownerRequestedRepublish = isOwner && requestedStatus === 'pending' && canRepublishFromStatus;
-    const ownerEditedSuspendedListing = isOwner && requestedStatus === null && canRepublishFromStatus;
+    const canRepublishFromStatus =
+      currentStatus === 'paused' || currentStatus === 'hidden' || currentStatus === 'rejected';
+    const requestedStatus =
+      body.status !== undefined ? String(body.status || '').toLowerCase() : null;
+    const ownerEditedSuspendedListing =
+      isOwner && requestedStatus === null && canRepublishFromStatus;
 
     if (isOwner && body.status !== undefined) {
-      // Owner cannot set arbitrary statuses.
-      if (!ownerRequestedRepublish) {
+      const decision = resolveOwnerStatusTransition(
+        {
+          status: existingListing.status,
+          moderationStatus: existingListing.moderationStatus,
+          deletedAt: existingListing.deletedAt,
+          expiresAt: existingListing.expiresAt,
+        },
+        String(body.status)
+      );
+      if (!decision.ok) {
         delete allowed.status;
+        return NextResponse.json({ error: decision.error }, { status: 400 });
+      }
+      allowed.status = decision.status;
+      if (decision.moderationStatus) {
+        allowed.moderationStatus = decision.moderationStatus;
+      }
+      if (decision.clearExpiresAt) {
+        allowed.expiresAt = null;
       }
     }
 
     // Any owner edit on a suspended/rejected listing sends it back to moderation queue.
-    if (ownerRequestedRepublish || ownerEditedSuspendedListing) {
+    if (ownerEditedSuspendedListing) {
       allowed.status = 'pending';
       allowed.moderationStatus = 'pending';
     }
 
     const updated = await prisma.listing.update({ where: { id }, data: allowed });
+
+    if ("status" in allowed || "moderationStatus" in allowed) {
+      // Owner pause/republish or admin patch touched public eligibility fields —
+      // refresh homepage count + affected hubs on the next request instead of
+      // waiting for the passive ISR window.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "moderation",
+        category: updated.category,
+        city: updated.city,
+      });
+    }
 
     void recordAnalyticsEvent({
       eventType: ANALYTICS_EVENT.listing_updated,
@@ -419,13 +512,20 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       request,
     });
 
-    await prisma.listing.update({
+    const deleted = await prisma.listing.update({
       where: { id },
       data: {
         status: "deleted",
         deletedAt: new Date(),
       },
     });
+
+    revalidatePublicMarketplaceSurfaces({
+      reason: "soft_delete",
+      category: deleted.category,
+      city: deleted.city,
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

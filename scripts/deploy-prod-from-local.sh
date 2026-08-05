@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 ###############################################################################
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# Presupune model de deploy "in-place" în /var/www/clickanunt. Producția reală
+# rulează dintr-un release imutabil (/var/www/clickanunt-releases/<ts>-<sha>)
+# cu symlink `current`; /var/www/clickanunt e director legacy, murdar, pe alt
+# branch. `pm2 reload ecosystem.config.js` rulat din acel director va repune
+# PM2 pe cwd=/var/www/clickanunt (vezi ecosystem.config.js din acel director),
+# abandonând release-ul live curent. Folosește în schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+###############################################################################
 # deploy:prod — de pe laptop: working tree trebuie CURAT (doar fișiere deja
 # versionate în commit); push, apoi SSH pe VPS: pull, npm ci, build,
 # prisma migrate deploy, PM2 reload.

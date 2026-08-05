@@ -26,6 +26,7 @@ import {
   type RateLimitResult,
 } from '@/lib/rateLimit';
 import { logger } from '@/lib/observability';
+import { isE2eRateLimitBypassEnabled } from '@/lib/e2e-rate-limit-bypass';
 
 export function isRedisRateLimitEnabled(): boolean {
   return process.env.USE_REDIS_RATE_LIMIT === '1';
@@ -86,7 +87,7 @@ export async function peekRateLimitDistributed(
   key: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+  if (isE2eRateLimitBypassEnabled()) {
     return { allowed: true, remaining: 999, resetTime: Date.now() + 60_000 };
   }
 
@@ -123,7 +124,7 @@ export async function resolveRateLimit(
   key: string,
   config: RateLimitConfig
 ): Promise<RateLimitResult> {
-  if (process.env.E2E_DISABLE_RATE_LIMIT === '1') {
+  if (isE2eRateLimitBypassEnabled()) {
     return { allowed: true, remaining: 999, resetTime: Date.now() + 60_000 };
   }
 
@@ -188,7 +189,8 @@ export type SecureRateLimitPreset =
   | 'upload'
   | 'contact'
   | 'api'
-  | 'moderation';
+  | 'moderation'
+  | 'email_verification';
 
 /**
  * Peek-only secure rate limits (no increment). Used for listing_publish in middleware.
@@ -303,6 +305,12 @@ export async function resolveSecureRateLimit(
       return resolveRateLimit(`contact:${clientIp}`, {
         windowMs: 60 * 60 * 1000,
         maxRequests: 5,
+      });
+    case 'email_verification':
+      // Resend / verify attempts: tight per-IP; per-email hash applied in route.
+      return resolveRateLimit(`email_verify:ip:${clientIp}`, {
+        windowMs: 60 * 60 * 1000,
+        maxRequests: 10,
       });
     case 'api':
       return resolveRateLimit(`api:${clientIp}`, {

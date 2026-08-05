@@ -6,8 +6,13 @@ import type { IsoDateTimeString } from './common';
 export type FavoriteListingSlimDto = {
   id: string;
   title: string;
-  priceAmount: number;
-  priceCurrency: string;
+  priceAmount: number | null;
+  priceCurrency: string | null;
+  priceType?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
   photos: string[];
   city: string | null;
   county: string | null;
@@ -41,6 +46,9 @@ export type FavoriteWithListingDto = {
   listingId: string;
   listing: FavoriteListingSlimDto;
   createdAt: IsoDateTimeString;
+  /** False when listing is soft-deleted, expired, or otherwise not publicly active. */
+  available?: boolean;
+  unavailableReason?: string | null;
 };
 
 export type FavoritesListResponseDto = {

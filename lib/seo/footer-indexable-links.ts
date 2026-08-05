@@ -1,13 +1,8 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { MIN_INDEXABLE_HUB_LISTINGS } from "@/lib/seo/hub-index-policy";
+import { TAXONOMY } from "@/lib/taxonomy";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
-import {
-  CATEGORY_LABEL_BY_CANONICAL_SLUG,
-  primarySlugForCategoryLabel,
-} from "@/lib/seo/market-paths";
-import { slugifyRo } from "@/lib/seo/slug";
 
 export type FooterIndexableLink = {
   slug: string;
@@ -17,15 +12,33 @@ export type FooterIndexableLink = {
 
 export type FooterIndexableLinks = {
   categories: FooterIndexableLink[];
-  cityHubs: FooterIndexableLink[];
+  cities: FooterIndexableLink[];
 };
 
-export const EMPTY_FOOTER_LINKS: FooterIndexableLinks = { categories: [], cityHubs: [] };
+export const EMPTY_FOOTER_LINKS: FooterIndexableLinks = { categories: [], cities: [] };
 
-function shortCategoryLabel(categoryLabel: string, slug: string): string {
-  const fromMap = CATEGORY_LABEL_BY_CANONICAL_SLUG[slug];
-  const source = fromMap ?? categoryLabel;
-  return source.split(",")[0]?.trim() || slug;
+/** Minimum sitewide listing count for a city to appear in the footer "Orașe" list. */
+const FOOTER_MIN_CITY_LISTINGS = 1;
+
+/** Max cities shown in the footer "Orașe" list. */
+const FOOTER_TOP_CITIES_LIMIT = 10;
+
+function shortCategoryLabel(categoryLabel: string): string {
+  return categoryLabel.split(",")[0]?.trim() || categoryLabel;
+}
+
+/**
+ * Full taxonomy — same source of truth used by the main navigation menu
+ * (`lib/carData.ts` → `ALL_CATEGORIES`) and `sitemap-categories.xml`
+ * (`lib/seo/sitemap-queries.ts`). Static, no DB query, always all categories
+ * regardless of current inventory (pillar pages render safely at 0 listings).
+ */
+export function buildFooterCategoryLinks(): FooterIndexableLink[] {
+  return TAXONOMY.map((cat) => ({
+    slug: cat.slug,
+    label: shortCategoryLabel(cat.label),
+    href: `/${cat.slug}`,
+  })).sort((a, b) => a.label.localeCompare(b.label, "ro"));
 }
 
 type PairCount = {
@@ -34,57 +47,33 @@ type PairCount = {
   _count: { _all: number };
 };
 
-/** Pure builder — used by DB loader and unit tests (threshold / no PII). */
+/**
+ * Pure builder — used by DB loader and unit tests (threshold / no PII).
+ * Categories come from the static taxonomy (see `buildFooterCategoryLinks`).
+ * Cities are the sitewide top-N by active listing count, aggregated in JS from
+ * the same category×city groupBy so only a single DB aggregation is needed.
+ */
 export function buildFooterIndexableLinksFromPairs(byPair: PairCount[]): FooterIndexableLinks {
-  const categoryTotals = new Map<string, number>();
+  const categories = buildFooterCategoryLinks();
+
+  const cityTotals = new Map<string, number>();
   for (const row of byPair) {
-    categoryTotals.set(
-      row.category,
-      (categoryTotals.get(row.category) ?? 0) + row._count._all,
-    );
+    const city = row.city?.trim();
+    if (!city) continue;
+    cityTotals.set(city, (cityTotals.get(city) ?? 0) + row._count._all);
   }
 
-  const categories: FooterIndexableLink[] = [...categoryTotals.entries()]
-    .filter(([, count]) => count >= MIN_INDEXABLE_HUB_LISTINGS)
-    .map(([category, count]) => {
-      const slug = primarySlugForCategoryLabel(category);
-      if (!slug) return null;
-      return {
-        slug,
-        label: shortCategoryLabel(category, slug),
-        href: `/${slug}`,
-        count,
-      };
-    })
-    .filter((x): x is FooterIndexableLink & { count: number } => x != null)
-    .sort((a, b) => b.count - a.count)
-    .map(({ slug, label, href }) => ({ slug, label, href }));
+  const cities: FooterIndexableLink[] = [...cityTotals.entries()]
+    .filter(([, count]) => count >= FOOTER_MIN_CITY_LISTINGS)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, FOOTER_TOP_CITIES_LIMIT)
+    .map(([city]) => ({
+      slug: city,
+      label: city,
+      href: `/listings?city=${encodeURIComponent(city)}`,
+    }));
 
-  const cityHubs: FooterIndexableLink[] = byPair
-    .filter(
-      (row) =>
-        row.city &&
-        String(row.city).trim().length > 0 &&
-        row._count._all >= MIN_INDEXABLE_HUB_LISTINGS,
-    )
-    .map((row) => {
-      const catSlug = primarySlugForCategoryLabel(row.category);
-      if (!catSlug || !row.city) return null;
-      const citySlug = slugifyRo(row.city);
-      const catShort = shortCategoryLabel(row.category, catSlug);
-      return {
-        slug: `${catSlug}/${citySlug}`,
-        label: `${catShort} · ${row.city}`,
-        href: `/${catSlug}/${citySlug}`,
-        count: row._count._all,
-      };
-    })
-    .filter((x): x is FooterIndexableLink & { count: number } => x != null)
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 12)
-    .map(({ slug, label, href }) => ({ slug, label, href }));
-
-  return { categories, cityHubs };
+  return { categories, cities };
 }
 
 /**
@@ -110,7 +99,7 @@ async function loadFooterIndexableLinksSafe(): Promise<FooterIndexableLinks> {
 
 const loadFooterIndexableLinksCached = unstable_cache(
   async (): Promise<FooterIndexableLinks> => loadFooterIndexableLinksSafe(),
-  ["footer-indexable-links-v2"],
+  ["footer-indexable-links-v3"],
   {
     // Public aggregate counts only — safe to cache across requests.
     // Failures return EMPTY (not thrown), so error responses are not cached as throws.
@@ -120,8 +109,9 @@ const loadFooterIndexableLinksCached = unstable_cache(
 );
 
 /**
- * Footer SEO hub links with enough indexable inventory (≥ MIN_INDEXABLE_HUB_LISTINGS).
- * Fail-soft: never throws — empty hubs on DB/memory/error so the page stays 200.
+ * Footer links: full category taxonomy + sitewide top cities by active
+ * listing count (≥1). Fail-soft: never throws — empty on DB/memory/error so
+ * the page stays 200.
  */
 export const getFooterIndexableLinks = cache(async (): Promise<FooterIndexableLinks> => {
   if (process.env.USE_IN_MEMORY_DB === "true") {

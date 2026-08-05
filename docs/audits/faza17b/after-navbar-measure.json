@@ -1,0 +1,104 @@
+{
+  "at": "2026-07-28T08:27:33.693Z",
+  "results": [
+    {
+      "vp": "m320",
+      "searchW": 97,
+      "searchH": 42,
+      "icons": [
+        {
+          "label": "Adaugă anunț",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Deschide/închide meniu",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        }
+      ],
+      "overflowX": false
+    },
+    {
+      "vp": "m360",
+      "searchW": 121,
+      "searchH": 42,
+      "icons": [
+        {
+          "label": "Adaugă anunț",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Deschide/închide meniu",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        }
+      ],
+      "overflowX": false
+    },
+    {
+      "vp": "m390",
+      "searchW": 145,
+      "searchH": 42,
+      "icons": [
+        {
+          "label": "Adaugă anunț",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Deschide/închide meniu",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        }
+      ],
+      "overflowX": false
+    },
+    {
+      "vp": "m430",
+      "searchW": 69,
+      "searchH": 42,
+      "icons": [
+        {
+          "label": "Favorite",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Mesaje",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Adaugă anunț",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        },
+        {
+          "label": "Deschide/închide meniu",
+          "w": 44,
+          "h": 44,
+          "visible": true
+        }
+      ],
+      "overflowX": false
+    },
+    {
+      "vp": "land844",
+      "searchW": 0,
+      "searchH": 0,
+      "icons": [],
+      "overflowX": false
+    }
+  ]
+}

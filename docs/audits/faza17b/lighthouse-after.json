@@ -1,0 +1,408 @@
+{
+  "label": "LOCAL LAB MEASUREMENT — NU DATE REALE DE PRODUCȚIE",
+  "base": "http://127.0.0.1:3103",
+  "formFactor": "mobile-390x844-simulated-throttling",
+  "at": "2026-07-28T08:31:17.570Z",
+  "phase": "after",
+  "routes": {
+    "home": {
+      "path": "/",
+      "runs": [
+        {
+          "performance": 84,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4571.190199999999,
+          "cls": 0.004396801509400059,
+          "tbtMs": 40.999999999999545,
+          "transferKb": 1110,
+          "requests": 98,
+          "jsKb": 226,
+          "imageKb": 593
+        },
+        {
+          "performance": 84,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4645.395100000001,
+          "cls": 0.004396801509400059,
+          "tbtMs": 10,
+          "transferKb": 1107,
+          "requests": 98,
+          "jsKb": 226,
+          "imageKb": 593
+        },
+        {
+          "performance": 87,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4023.9424499999996,
+          "cls": 0.004396801509400059,
+          "tbtMs": 8,
+          "transferKb": 1107,
+          "requests": 98,
+          "jsKb": 226,
+          "imageKb": 593
+        }
+      ],
+      "medians": {
+        "performance": 84,
+        "accessibility": 97,
+        "bestPractices": 96,
+        "seo": 100,
+        "lcpMs": 4571.190199999999,
+        "cls": 0.004396801509400059,
+        "tbtMs": 10,
+        "transferKb": 1107,
+        "requests": 98,
+        "jsKb": 226,
+        "imageKb": 593
+      }
+    },
+    "listings": {
+      "path": "/listings",
+      "runs": [
+        {
+          "performance": 91,
+          "accessibility": 95,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3472.959800000001,
+          "cls": 0.004396801509400059,
+          "tbtMs": 16.000000000000455,
+          "transferKb": 530,
+          "requests": 38,
+          "jsKb": 237,
+          "imageKb": 162
+        },
+        {
+          "performance": 92,
+          "accessibility": 95,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3314.0185999999994,
+          "cls": 0.006236843575402908,
+          "tbtMs": 5.999999999999545,
+          "transferKb": 530,
+          "requests": 38,
+          "jsKb": 237,
+          "imageKb": 162
+        },
+        {
+          "performance": 92,
+          "accessibility": 95,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3317.1591000000008,
+          "cls": 0.004396801509400059,
+          "tbtMs": 5.000000000000455,
+          "transferKb": 530,
+          "requests": 38,
+          "jsKb": 237,
+          "imageKb": 162
+        }
+      ],
+      "medians": {
+        "performance": 92,
+        "accessibility": 95,
+        "bestPractices": 96,
+        "seo": 100,
+        "lcpMs": 3317.1591000000008,
+        "cls": 0.004396801509400059,
+        "tbtMs": 5.999999999999545,
+        "transferKb": 530,
+        "requests": 38,
+        "jsKb": 237,
+        "imageKb": 162
+      }
+    },
+    "detail": {
+      "path": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "runs": [
+        {
+          "performance": 61,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3996.46575,
+          "cls": 0.0010643205539995818,
+          "tbtMs": 1597.137900000001,
+          "transferKb": 569,
+          "requests": 49,
+          "jsKb": 252,
+          "imageKb": 162
+        },
+        {
+          "performance": 57,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4070.5016249999994,
+          "cls": 0.11114452471003308,
+          "tbtMs": 1581.2664499999994,
+          "transferKb": 574,
+          "requests": 49,
+          "jsKb": 252,
+          "imageKb": 162
+        },
+        {
+          "performance": 37,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4072.8427500000007,
+          "cls": 0.8222748815165877,
+          "tbtMs": 1584.9543000000006,
+          "transferKb": 574,
+          "requests": 49,
+          "jsKb": 252,
+          "imageKb": 162
+        }
+      ],
+      "medians": {
+        "performance": 57,
+        "accessibility": 97,
+        "bestPractices": 96,
+        "seo": 100,
+        "lcpMs": 4070.5016249999994,
+        "cls": 0.11114452471003308,
+        "tbtMs": 1584.9543000000006,
+        "transferKb": 574,
+        "requests": 49,
+        "jsKb": 252,
+        "imageKb": 162
+      }
+    },
+    "publish": {
+      "path": "/listings/new",
+      "runs": [
+        {
+          "performance": 83,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 2935.9544000000005,
+          "cls": 0.2449307630107141,
+          "tbtMs": 10,
+          "transferKb": 555,
+          "requests": 61,
+          "jsKb": 243,
+          "imageKb": 162
+        },
+        {
+          "performance": 81,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3163.9449,
+          "cls": 0.2449307630107141,
+          "tbtMs": 8,
+          "transferKb": 565,
+          "requests": 65,
+          "jsKb": 243,
+          "imageKb": 162
+        },
+        {
+          "performance": 83,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 2934.0348500000005,
+          "cls": 0.2449307630107141,
+          "tbtMs": 7.999999999999545,
+          "transferKb": 573,
+          "requests": 67,
+          "jsKb": 243,
+          "imageKb": 162
+        }
+      ],
+      "medians": {
+        "performance": 83,
+        "accessibility": 96,
+        "bestPractices": 96,
+        "seo": 63,
+        "lcpMs": 2935.9544000000005,
+        "cls": 0.2449307630107141,
+        "tbtMs": 8,
+        "transferKb": 565,
+        "requests": 65,
+        "jsKb": 243,
+        "imageKb": 162
+      }
+    },
+    "dashboard-listings": {
+      "path": "/dashboard/listings",
+      "runs": [
+        {
+          "performance": 92,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3316.5648,
+          "cls": 0.004396801509400059,
+          "tbtMs": 0,
+          "transferKb": 556,
+          "requests": 54,
+          "jsKb": 256,
+          "imageKb": 162
+        },
+        {
+          "performance": 92,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3314.9232,
+          "cls": 0.004396801509400059,
+          "tbtMs": 8,
+          "transferKb": 557,
+          "requests": 54,
+          "jsKb": 256,
+          "imageKb": 162
+        },
+        {
+          "performance": 93,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3167.44875,
+          "cls": 0.004396801509400059,
+          "tbtMs": 10,
+          "transferKb": 557,
+          "requests": 54,
+          "jsKb": 256,
+          "imageKb": 162
+        }
+      ],
+      "medians": {
+        "performance": 92,
+        "accessibility": 96,
+        "bestPractices": 96,
+        "seo": 63,
+        "lcpMs": 3314.9232,
+        "cls": 0.004396801509400059,
+        "tbtMs": 8,
+        "transferKb": 557,
+        "requests": 54,
+        "jsKb": 256,
+        "imageKb": 162
+      }
+    },
+    "messages": {
+      "path": "/messages",
+      "runs": [
+        {
+          "performance": 95,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3012.4809999999998,
+          "cls": 0,
+          "tbtMs": 6,
+          "transferKb": 586,
+          "requests": 63,
+          "jsKb": 274,
+          "imageKb": 162
+        },
+        {
+          "performance": 93,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3163.489,
+          "cls": 0,
+          "tbtMs": 0,
+          "transferKb": 587,
+          "requests": 63,
+          "jsKb": 274,
+          "imageKb": 162
+        },
+        {
+          "performance": 94,
+          "accessibility": 96,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 3013.5879999999997,
+          "cls": 0,
+          "tbtMs": 5,
+          "transferKb": 586,
+          "requests": 63,
+          "jsKb": 274,
+          "imageKb": 162
+        }
+      ],
+      "medians": {
+        "performance": 94,
+        "accessibility": 96,
+        "bestPractices": 96,
+        "seo": 63,
+        "lcpMs": 3013.5879999999997,
+        "cls": 0,
+        "tbtMs": 5,
+        "transferKb": 586,
+        "requests": 63,
+        "jsKb": 274,
+        "imageKb": 162
+      }
+    },
+    "admin-moderation": {
+      "path": "/admin/moderation",
+      "runs": [
+        {
+          "performance": 85,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4432.433249999998,
+          "cls": 0.01280051586502826,
+          "tbtMs": 10,
+          "transferKb": 1168,
+          "requests": 115,
+          "jsKb": 262,
+          "imageKb": 593
+        },
+        {
+          "performance": 84,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4508.668749999997,
+          "cls": 0,
+          "tbtMs": 10.999999999999545,
+          "transferKb": 1168,
+          "requests": 115,
+          "jsKb": 262,
+          "imageKb": 593
+        },
+        {
+          "performance": 83,
+          "accessibility": 97,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 4736.373374999999,
+          "cls": 0,
+          "tbtMs": 11,
+          "transferKb": 1168,
+          "requests": 115,
+          "jsKb": 262,
+          "imageKb": 593
+        }
+      ],
+      "medians": {
+        "performance": 84,
+        "accessibility": 97,
+        "bestPractices": 96,
+        "seo": 100,
+        "lcpMs": 4508.668749999997,
+        "cls": 0,
+        "tbtMs": 10.999999999999545,
+        "transferKb": 1168,
+        "requests": 115,
+        "jsKb": 262,
+        "imageKb": 593
+      }
+    }
+  }
+}

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# rsync + restart --cwd /var/www/clickanunt: model in-place, incompatibil cu
+# topologia reala (release-uri imutabile sub /var/www/clickanunt-releases +
+# symlink `current`). Foloseste in schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+
 # ClickAnunț Production Deployment - No Passphrase Version
 # Assumes SSH key is already in agent or public key auth is set up
 

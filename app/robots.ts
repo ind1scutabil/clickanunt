@@ -17,12 +17,15 @@ export default function robots(): MetadataRoute.Robots {
     `${base}/sitemap-cities.xml`,
     `${base}/sitemap-listings.xml`,
     `${base}/sitemap-auto-hubs.xml`,
+    `${base}/sitemap-images.xml`,
   ];
 
   /**
    * Block non-HTML API routes only. HTML private pages use server-side `noindex` —
    * crawlers must be allowed to fetch them so Google sees the robots meta tag.
    * Do not block `/_next/` (JS/CSS/assets required for rendering).
+   * Dashboard/auth/admin/messages/favorites are protected by auth + noindex, not Disallow,
+   * so crawlers can observe robots meta when they request the URL.
    */
   const technicalDisallow = ["/api/", "/api"];
 

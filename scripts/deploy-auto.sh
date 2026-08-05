@@ -1,6 +1,14 @@
 #!/bin/bash
 
 ###############################################################################
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# Nesigur din multiple motive: `git add .` + auto-commit generic (poate stage
+# fișiere neintenționate), branch hardcodat "main" (proiectul lucrează pe
+# feat/category-price-and-salary-model), rsync cu --delete direct în
+# /var/www/clickanunt (model in-place, incompatibil cu releases/current),
+# și restart PM2 din acel director legacy. Folosește în schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+###############################################################################
 # Automatic Production Deployment Script with Git Integration
 # Deploys ClickAnunț to Hetzner VPS with full automation
 ###############################################################################

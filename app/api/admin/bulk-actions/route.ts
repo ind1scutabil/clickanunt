@@ -11,6 +11,8 @@ import { auditActions } from "@/lib/audit";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { z } from "zod";
 import type { UserRole } from "@prisma/client";
+import { applyListingPublishExpiryOnApprove } from "@/lib/listing-lifecycle";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
 
 const bulkActionSchema = z.object({
   action: z.string().min(1),
@@ -86,6 +88,16 @@ export async function POST(request: NextRequest) {
     else if (action === 'approve_listings' && entityType === 'listing') {
       for (const listingId of entityIds) {
         try {
+          const existing = await prisma.listing.findUnique({
+            where: { id: listingId },
+            select: { publishedAt: true, expiresAt: true, deletedAt: true },
+          });
+          if (!existing || existing.deletedAt) {
+            results.errors.push(`Listing missing ${listingId}`);
+            results.failed++;
+            continue;
+          }
+
           await prisma.listing.update({
             where: { id: listingId },
             data: {
@@ -93,12 +105,18 @@ export async function POST(request: NextRequest) {
               moderatedAt: new Date(),
               moderatedBy: user.id,
               status: 'active',
+              ...applyListingPublishExpiryOnApprove(existing),
             },
           });
 
           const listing = await prisma.listing.findUnique({ where: { id: listingId } });
           if (listing) {
             await auditActions.listingApproved(user, listing);
+            revalidatePublicMarketplaceSurfaces({
+              reason: "approve",
+              category: listing.category,
+              city: listing.city,
+            });
           }
           
           results.success++;
@@ -129,6 +147,11 @@ export async function POST(request: NextRequest) {
           const listing = await prisma.listing.findUnique({ where: { id: listingId } });
           if (listing) {
             await auditActions.listingRejected(user, listing, reason);
+            revalidatePublicMarketplaceSurfaces({
+              reason: "reject",
+              category: listing.category,
+              city: listing.city,
+            });
           }
 
           results.success++;
@@ -139,7 +162,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Bulk delete listings
+    // Bulk soft-delete listings (never hard-delete — preserves relations + Payment/Invoice)
     else if (action === 'delete_listings' && entityType === 'listing') {
       if (!hasPermission(user.role as UserRole, Permission.LISTINGS_DELETE_ANY)) {
         return NextResponse.json(
@@ -148,16 +171,45 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      const reason =
+        typeof data?.reason === 'string' && data.reason.trim().length >= 3
+          ? data.reason.trim().slice(0, 2000)
+          : 'Bulk soft-delete';
+
       for (const listingId of entityIds) {
         try {
-          const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-          
-          await prisma.listing.delete({ where: { id: listingId } });
-
-          if (listing) {
-            await auditActions.listingDeleted(user, listingId, listing);
+          const listing = await prisma.listing.findFirst({
+            where: { id: listingId, deletedAt: null },
+          });
+          if (!listing) {
+            results.errors.push(`Listing missing ${listingId}`);
+            results.failed++;
+            continue;
           }
 
+          const updated = await prisma.listing.updateMany({
+            where: { id: listingId, deletedAt: null },
+            data: {
+              status: 'deleted',
+              deletedAt: new Date(),
+              moderationNotes: reason,
+              moderatedAt: new Date(),
+              moderatedBy: user.id,
+            },
+          });
+
+          if (updated.count === 0) {
+            results.errors.push(`Already deleted ${listingId}`);
+            results.failed++;
+            continue;
+          }
+
+          await auditActions.listingDeleted(user, listingId, listing);
+          revalidatePublicMarketplaceSurfaces({
+            reason: "soft_delete",
+            category: listing.category,
+            city: listing.city,
+          });
           results.success++;
         } catch (error: any) {
           results.errors.push(`Error deleting ${listingId}: ${error.message}`);

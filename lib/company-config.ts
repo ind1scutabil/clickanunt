@@ -23,6 +23,12 @@ export const COMPANY_CONFIG = {
   city: 'Targu Jiu',
   county: 'Gorj',
   country: 'România',
+
+  // Data lansării publice a platformei (format YYYY-MM-DD), afișată pe /about.
+  // TODO: completați data reală de lansare — echipa non-tehnică poate seta direct
+  // această valoare (sau variabila de mediu NEXT_PUBLIC_PLATFORM_LAUNCH_DATE).
+  // Secțiunea "Lansat în ..." rămâne ascunsă automat până la completare.
+  platformLaunchDate: null as string | null,
   
   // Informații bancară
   bank: 'ING',

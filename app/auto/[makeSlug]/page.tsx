@@ -5,7 +5,7 @@ import MarketCategoryCityPage, {
 } from '@/app/[categorySlug]/[citySlug]/page';
 import { AutoHubShell } from '@/app/components/seo/AutoHubShell';
 import {
-  classifyAutoFirstSegment,
+  classifyAutoFirstSegmentAsync,
   resolveAutoMakeFromSlug,
   buildAutoMakeHubPath,
 } from '@/lib/seo/auto-hub-resolve';
@@ -32,7 +32,7 @@ type Props = {
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { makeSlug } = await params;
-  const kind = classifyAutoFirstSegment(makeSlug);
+  const kind = await classifyAutoFirstSegmentAsync(makeSlug);
   if (kind === 'city') {
     return generateCityHubMetadata({
       params: Promise.resolve({ categorySlug: 'auto', citySlug: makeSlug }),
@@ -55,7 +55,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
 export default async function AutoMakeOrCityPage({ params, searchParams }: Props) {
   const { makeSlug } = await params;
-  const kind = classifyAutoFirstSegment(makeSlug);
+  const kind = await classifyAutoFirstSegmentAsync(makeSlug);
 
   if (kind === 'city') {
     return MarketCategoryCityPage({

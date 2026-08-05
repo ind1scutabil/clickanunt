@@ -76,6 +76,7 @@
     "staging:isolation": "node scripts/staging/verify-production-isolation.mjs",
     "staging:metrics": "node scripts/staging/collect-runtime-metrics.mjs",
     "deploy:staging": "bash scripts/deploy-staging-from-local.sh",
+    "staging:preflight": "node scripts/staging/preflight-deploy.mjs",
     "staging:load-campaign": "bash scripts/staging/run-load-campaign.sh"
   },
   "prisma": {
@@ -125,6 +126,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",
@@ -141,6 +143,7 @@
     "eslint-config-next": "16.1.6",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
+    "lighthouse": "^13.4.1",
     "postcss": "^8.4.49",
     "prisma": "5.22.0",
     "tailwindcss": "^3.4.17",

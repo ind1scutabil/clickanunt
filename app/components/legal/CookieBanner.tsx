@@ -80,7 +80,7 @@ export function CookieBanner() {
               <button
                 type="button"
                 onClick={acceptAll}
-                className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-400"
+                className="rounded-lg bg-[#c2410c] px-3 py-2 text-sm font-semibold text-white hover:bg-[#9a3412]"
               >
                 Acceptă
               </button>
@@ -162,7 +162,7 @@ export function CookieBanner() {
               <button
                 type="button"
                 onClick={() => saveCustom(draftAnalytics, draftMarketing)}
-                className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-400"
+                className="rounded-lg bg-[#c2410c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#9a3412]"
               >
                 Salvează
               </button>

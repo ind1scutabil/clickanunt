@@ -8,7 +8,7 @@ const shell =
   `rounded-xl border border-white/[0.055] bg-[rgba(7,8,12,0.52)] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_12px_40px_-32px_rgba(0,0,0,0.85)] backdrop-blur-[14px] md:rounded-2xl ${transition}`;
 
 const badgeSoft =
-  "rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-500/75 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]";
+  "rounded border border-white/[0.06] bg-white/[0.025] px-1 py-px text-[7px] font-medium uppercase tracking-[0.14em] text-zinc-400/80 md:rounded-[5px] md:px-1.5 md:py-px md:text-[8px]";
 
 /**
  * Verificări auto — flat horizontal enterprise tiles (Porsche / Linear / premium marketplace).
@@ -23,7 +23,7 @@ export function HomeAutoVerificationPremium() {
         <span className={`${badgeSoft} border-white/[0.07] bg-white/[0.03] text-zinc-400/80`}>Recomandat</span>
       </div>
 
-      <p className="mb-1 text-[8px] leading-snug text-zinc-500/65 md:mb-2.5 md:text-[11px] md:leading-[1.45] md:text-zinc-500/60">
+      <p className="mb-1 text-[8px] leading-snug text-zinc-400 md:mb-2.5 md:text-[11px] md:leading-[1.45]">
         Istoric extern și registre oficiale — același standard de încredere ca la dealeri premium.
       </p>
 
@@ -150,13 +150,13 @@ function ServiceRow({
           <span className="text-[10.5px] font-semibold leading-[1.2] tracking-[-0.01em] text-white/92 md:text-[12.5px]">{title}</span>
           <span className={badgeSoft}>{badge}</span>
         </div>
-        <p className="mt-px text-[8px] leading-[1.25] text-zinc-500/62 md:mt-0.5 md:text-[10px] md:leading-snug md:text-zinc-500/58">
+        <p className="mt-px text-[8px] leading-[1.25] text-zinc-400 md:mt-0.5 md:text-[10px] md:leading-snug">
           {description}
         </p>
       </div>
       <div className="flex shrink-0 items-center self-center pl-0.5 md:pl-1">
         <span
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.02] text-zinc-500/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] group-hover:border-white/[0.09] group-hover:bg-white/[0.035] group-hover:text-zinc-400 md:h-7 md:w-7"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.02] text-zinc-400/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] group-hover:border-white/[0.09] group-hover:bg-white/[0.035] group-hover:text-zinc-400 md:h-7 md:w-7"
           aria-hidden
         >
           <svg

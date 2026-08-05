@@ -1,0 +1,91 @@
+{
+  "label": "LOCAL LAB MEASUREMENT — NU FIELD DATA DE PRODUCȚIE",
+  "base": "http://127.0.0.1:3104",
+  "formFactor": "mobile-390x844-simulated-throttling",
+  "at": "2026-07-28T09:12:46.767Z",
+  "phase": "after",
+  "routes": {
+    "publish": {
+      "path": "/listings/new",
+      "runs": [
+        {
+          "performance": 97,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 2610.60825,
+          "cls": 0.01992179378472505,
+          "tbtMs": 21
+        },
+        {
+          "performance": 95,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 2865.95125,
+          "cls": 0.01992179378472505,
+          "tbtMs": 6
+        },
+        {
+          "performance": 97,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 63,
+          "lcpMs": 2603.402,
+          "cls": 0,
+          "tbtMs": 14
+        }
+      ],
+      "medians": {
+        "performance": 97,
+        "accessibility": 100,
+        "bestPractices": 96,
+        "seo": 63,
+        "lcpMs": 2610.60825,
+        "cls": 0.01992179378472505,
+        "tbtMs": 14
+      }
+    },
+    "detail": {
+      "path": "/listings/b010091f-d0c8-4de5-8edb-6b529d12dccd",
+      "runs": [
+        {
+          "performance": 65,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3395.2215749999996,
+          "cls": 0,
+          "tbtMs": 1734.32335
+        },
+        {
+          "performance": 63,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3635.4435000000003,
+          "cls": 0,
+          "tbtMs": 1717.2742
+        },
+        {
+          "performance": 66,
+          "accessibility": 100,
+          "bestPractices": 96,
+          "seo": 100,
+          "lcpMs": 3253.39575,
+          "cls": 0,
+          "tbtMs": 1738.7208500000004
+        }
+      ],
+      "medians": {
+        "performance": 65,
+        "accessibility": 100,
+        "bestPractices": 96,
+        "seo": 100,
+        "lcpMs": 3395.2215749999996,
+        "cls": 0,
+        "tbtMs": 1734.32335
+      }
+    }
+  }
+}

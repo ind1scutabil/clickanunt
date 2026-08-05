@@ -1,0 +1,471 @@
+{
+  "at": "2026-07-28T08:29:57.484Z",
+  "base": "http://127.0.0.1:3103",
+  "results": [
+    {
+      "id": "user-_dashboard-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard-m320.png"
+    },
+    {
+      "id": "user-_dashboard_listings-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/listings",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_listings-m320.png"
+    },
+    {
+      "id": "user-_dashboard_settings-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/settings",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_settings-m320.png"
+    },
+    {
+      "id": "user-_dashboard_invoices-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/auth/login?redirect=/dashboard/invoices",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_invoices-m320.png"
+    },
+    {
+      "id": "user-_favorites-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/favorites",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_favorites-m320.png"
+    },
+    {
+      "id": "user-_messages-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/messages",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_messages-m320.png"
+    },
+    {
+      "id": "user-_listings_new-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new-m320.png"
+    },
+    {
+      "id": "user-_listings_new_step_category-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new?step=category",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new_step_category-m320.png"
+    },
+    {
+      "id": "user-_dashboard-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard-m390.png"
+    },
+    {
+      "id": "user-_dashboard_listings-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/listings",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_listings-m390.png"
+    },
+    {
+      "id": "user-_dashboard_settings-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/settings",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_settings-m390.png"
+    },
+    {
+      "id": "user-_dashboard_invoices-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/auth/login?redirect=/dashboard/invoices",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_invoices-m390.png"
+    },
+    {
+      "id": "user-_favorites-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/favorites",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_favorites-m390.png"
+    },
+    {
+      "id": "user-_messages-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/messages",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_messages-m390.png"
+    },
+    {
+      "id": "user-_listings_new-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new-m390.png"
+    },
+    {
+      "id": "user-_listings_new_step_category-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new?step=category",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new_step_category-m390.png"
+    },
+    {
+      "id": "user-_dashboard-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard-d1440.png"
+    },
+    {
+      "id": "user-_dashboard_listings-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/listings",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_listings-d1440.png"
+    },
+    {
+      "id": "user-_dashboard_settings-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/dashboard/settings",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_settings-d1440.png"
+    },
+    {
+      "id": "user-_dashboard_invoices-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/auth/login?redirect=/dashboard/invoices",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_dashboard_invoices-d1440.png"
+    },
+    {
+      "id": "user-_favorites-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/favorites",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_favorites-d1440.png"
+    },
+    {
+      "id": "user-_messages-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/messages",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_messages-d1440.png"
+    },
+    {
+      "id": "user-_listings_new-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new-d1440.png"
+    },
+    {
+      "id": "user-_listings_new_step_category-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/listings/new?step=category",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/user-_listings_new_step_category-d1440.png"
+    },
+    {
+      "id": "admin-_admin_dashboard-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_dashboard-m320.png"
+    },
+    {
+      "id": "admin-_admin_moderation-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_moderation-m320.png"
+    },
+    {
+      "id": "admin-_admin_promotions-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/promotions",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_promotions-m320.png"
+    },
+    {
+      "id": "admin-_admin_invoices-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/invoices",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_invoices-m320.png"
+    },
+    {
+      "id": "admin-_admin_messaging-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/messaging",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_messaging-m320.png"
+    },
+    {
+      "id": "admin-_admin_users-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=users",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_users-m320.png"
+    },
+    {
+      "id": "admin-_admin_listings-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=pending",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_listings-m320.png"
+    },
+    {
+      "id": "admin-_admin_analytics-m320",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": 97,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_analytics-m320.png"
+    },
+    {
+      "id": "admin-_admin_dashboard-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_dashboard-m390.png"
+    },
+    {
+      "id": "admin-_admin_moderation-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_moderation-m390.png"
+    },
+    {
+      "id": "admin-_admin_promotions-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/promotions",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_promotions-m390.png"
+    },
+    {
+      "id": "admin-_admin_invoices-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/invoices",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_invoices-m390.png"
+    },
+    {
+      "id": "admin-_admin_messaging-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/messaging",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_messaging-m390.png"
+    },
+    {
+      "id": "admin-_admin_users-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=users",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_users-m390.png"
+    },
+    {
+      "id": "admin-_admin_listings-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=pending",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_listings-m390.png"
+    },
+    {
+      "id": "admin-_admin_analytics-m390",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": 145,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_analytics-m390.png"
+    },
+    {
+      "id": "admin-_admin_dashboard-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_dashboard-d1024.png"
+    },
+    {
+      "id": "admin-_admin_moderation-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_moderation-d1024.png"
+    },
+    {
+      "id": "admin-_admin_promotions-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/promotions",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_promotions-d1024.png"
+    },
+    {
+      "id": "admin-_admin_invoices-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/invoices",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_invoices-d1024.png"
+    },
+    {
+      "id": "admin-_admin_messaging-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/messaging",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_messaging-d1024.png"
+    },
+    {
+      "id": "admin-_admin_users-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=users",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_users-d1024.png"
+    },
+    {
+      "id": "admin-_admin_listings-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=pending",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_listings-d1024.png"
+    },
+    {
+      "id": "admin-_admin_analytics-d1024",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_analytics-d1024.png"
+    },
+    {
+      "id": "admin-_admin_dashboard-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_dashboard-d1440.png"
+    },
+    {
+      "id": "admin-_admin_moderation-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_moderation-d1440.png"
+    },
+    {
+      "id": "admin-_admin_promotions-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/promotions",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_promotions-d1440.png"
+    },
+    {
+      "id": "admin-_admin_invoices-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/invoices",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_invoices-d1440.png"
+    },
+    {
+      "id": "admin-_admin_messaging-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/messaging",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_messaging-d1440.png"
+    },
+    {
+      "id": "admin-_admin_users-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=users",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_users-d1440.png"
+    },
+    {
+      "id": "admin-_admin_listings-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/moderation?tab=pending",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_listings-d1440.png"
+    },
+    {
+      "id": "admin-_admin_analytics-d1440",
+      "status": 200,
+      "url": "http://127.0.0.1:3103/admin/dashboard",
+      "overflowX": false,
+      "searchW": null,
+      "screenshot": "test-results/faza17b/auth/admin-_admin_analytics-d1440.png"
+    },
+    {
+      "id": "home-m320-measure",
+      "searchW": 97,
+      "iconCount": 2,
+      "iconSizes": [
+        {
+          "label": "Adaugă anunț",
+          "w": 44,
+          "h": 44
+        },
+        {
+          "label": "Deschide/închide meniu",
+          "w": 44,
+          "h": 44
+        }
+      ]
+    }
+  ]
+}

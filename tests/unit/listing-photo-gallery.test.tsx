@@ -220,9 +220,7 @@ describe("ListingPhotoGallery atomic transitions", () => {
     });
     await waitDisplayed("portrait-a.jpg");
 
-    fireEvent.keyDown(screen.getByTestId("listing-gallery-stage"), {
-      key: "ArrowRight",
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Poză următoare" }));
     expect(screen.getByTestId("listing-gallery-fg")).toHaveAttribute(
       "data-photo-id",
       "portrait-a.jpg",
@@ -371,12 +369,10 @@ describe("ListingPhotoGallery atomic transitions", () => {
     expectAtomicSync();
   });
 
-  it("12) keyboard navigation", async () => {
+  it("12) keyboard navigation via controls (stage is not a nested button)", async () => {
     render(<ListingPhotoGallery photos={portrait} title="Keys" />);
     await waitDisplayed("portrait-a.jpg");
-    const stage = screen.getByTestId("listing-gallery-stage");
-    stage.focus();
-    fireEvent.keyDown(stage, { key: "ArrowRight" });
+    fireEvent.click(screen.getByRole("button", { name: "Poză următoare" }));
     await waitDisplayed("portrait-b.jpg");
     expect(screen.queryByTestId("listing-gallery-lightbox")).not.toBeInTheDocument();
     expectAtomicSync();

@@ -8,8 +8,9 @@ import { filterListingsWithReachablePrimaryPhoto } from "@/lib/listing-photo-rea
 type Row = {
   id: string;
   title: string;
-  priceAmount: number;
+  priceAmount: number | null;
   priceCurrency: string;
+  priceType?: string | null;
   photos: string[];
   category: string;
   isPromoted?: boolean;
@@ -33,6 +34,7 @@ function mapShelfRowToCard(l: Row): ListingCardListing {
     title: l.title,
     priceAmount: l.priceAmount,
     priceCurrency: l.priceCurrency,
+    priceType: l.priceType ?? null,
     category: l.category || "Anunț",
     photos: l.photos,
     createdAt: l.createdAt ?? new Date(0).toISOString(),
@@ -235,7 +237,7 @@ export function HomeDiscoverShelf({ variant = "light" }: { variant?: "light" | "
       <div className="mx-auto max-w-7xl px-4">
         <div className="mb-8 text-center md:mb-10">
           <p
-            className={`text-[11px] font-medium uppercase tracking-wider ${premium ? "text-zinc-500" : "text-slate-500"}`}
+            className={`text-[11px] font-medium uppercase tracking-wider ${premium ? "text-zinc-400" : "text-slate-500"}`}
           >
             Catalog live
           </p>
@@ -245,7 +247,7 @@ export function HomeDiscoverShelf({ variant = "light" }: { variant?: "light" | "
           >
             Descoperă anunțuri
           </h2>
-          <p className={`mx-auto mt-1.5 max-w-2xl text-[13px] md:text-sm ${premium ? "text-zinc-500" : "text-slate-600"}`}>
+          <p className={`mx-auto mt-1.5 max-w-2xl text-[13px] md:text-sm ${premium ? "text-zinc-400" : "text-slate-600"}`}>
             Doar anunțuri aprobate, cu poză validă și titlu curat — la fel ca în catalogul principal.
           </p>
         </div>

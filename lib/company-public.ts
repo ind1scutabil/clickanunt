@@ -43,3 +43,17 @@ export function getPublicCompanyDetails(): PublicCompanyDetails {
     country: COMPANY_CONFIG.country,
   };
 }
+
+/**
+ * Platform launch date, formatted for display (e.g. "15 martie 2024").
+ * Not gated by `isCompanyLegalDetailsPublic()` — it's general "about us" copy,
+ * not sensitive legal data. Returns `null` (section hidden) until a real value
+ * is set in `COMPANY_CONFIG.platformLaunchDate` or `NEXT_PUBLIC_PLATFORM_LAUNCH_DATE`.
+ */
+export function getPlatformLaunchDateDisplay(): string | null {
+  const raw = trimEnv("NEXT_PUBLIC_PLATFORM_LAUNCH_DATE") ?? COMPANY_CONFIG.platformLaunchDate ?? undefined;
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("ro-RO", { day: "numeric", month: "long", year: "numeric" });
+}

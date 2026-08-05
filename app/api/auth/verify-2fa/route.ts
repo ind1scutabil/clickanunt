@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTOTPLogin, useBackupCode as consumeBackupCode } from '@/lib/2fa';
 import { getSession, deleteSession, RedisUnavailableError } from '@/lib/redis';
-import { generateAccessToken, generateRefreshToken } from '@/lib/auth';
+import { issueAuthTokenPair } from '@/lib/auth';
 import { validateSecureRequest } from '@/lib/security/middleware';
 import { verify2FASchema } from '@/lib/security/validation-schemas';
 import { ANALYTICS_EVENT, recordAnalyticsEvent } from '@/lib/analytics-events';
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const { db } = await import('@/lib/db');
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, name: true },
+      select: { id: true, email: true, role: true, name: true, sessionVersion: true },
     });
 
     if (!user) {
@@ -90,8 +90,12 @@ export async function POST(request: NextRequest) {
     }
 
     const role = typeof user.role === "string" && user.role ? user.role : "user";
-    const accessToken = await generateAccessToken(user.id, user.email, role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, role);
+    const { accessToken, refreshToken } = await issueAuthTokenPair({
+      id: user.id,
+      email: user.email,
+      role,
+      sessionVersion: user.sessionVersion,
+    });
     await deleteSession(sessionToken);
 
     void recordAnalyticsEvent({
@@ -103,9 +107,8 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json(
       {
+        success: true,
         user,
-        accessToken,
-        refreshToken,
         message: '2FA verification successful',
       },
       { status: 200 }

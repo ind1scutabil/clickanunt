@@ -1,6 +1,7 @@
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { isAdminStaffRole } from '@/lib/is-admin-staff-client';
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { isAdminStaffRole } from "@/lib/is-admin-staff-client";
+import { validateServerAuthSession } from "@/lib/admin-fetch";
 
 type User = {
   id: string;
@@ -8,6 +9,9 @@ type User = {
   role: string;
 };
 
+/**
+ * Admin UI gate — authority is `/api/users/me` (cookies), not localStorage role.
+ */
 export function useAdminAuth() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -15,56 +19,50 @@ export function useAdminAuth() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = () => {
+    let cancelled = false;
+
+    const checkAuth = async () => {
       try {
-        // Get user from localStorage
-        const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
-        
-        if (!userStr) {
-          // No user logged in
+        const session = await validateServerAuthSession();
+        if (cancelled) return;
+
+        if (!session.ok || !session.user) {
           setIsAuthorized(false);
           setIsLoading(false);
-          router.push('/auth/login?redirect=' + (typeof window !== 'undefined' ? window.location.pathname : ''));
+          const redirect =
+            typeof window !== "undefined" ? window.location.pathname : "/admin";
+          router.push(
+            "/auth/login?redirect=" + encodeURIComponent(redirect)
+          );
           return;
         }
 
-        const parsedUser = JSON.parse(userStr) as User;
-        if (!isAdminStaffRole(parsedUser.role)) {
-          console.error('❌ SECURITY: Unauthorized admin access attempt!', {
-            email: parsedUser.email,
-            role: parsedUser.role,
-            timestamp: new Date().toISOString(),
-            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
-          });
-          
-          // Log security incident
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem('lastSecurityIncident', JSON.stringify({
-              type: 'unauthorized_admin_access',
-              email: parsedUser.email,
-              role: parsedUser.role,
-              timestamp: new Date().toISOString()
-            }));
-          }
-
+        if (!isAdminStaffRole(session.user.role)) {
           setIsAuthorized(false);
           setIsLoading(false);
-          router.push('/');
+          router.push("/");
           return;
         }
 
-        setUser(parsedUser);
+        setUser({
+          id: session.user.id || "",
+          email: session.user.email || "",
+          role: String(session.user.role || ""),
+        });
         setIsAuthorized(true);
         setIsLoading(false);
-      } catch (error) {
-        console.error('Auth check error:', error);
+      } catch {
+        if (cancelled) return;
         setIsAuthorized(false);
         setIsLoading(false);
-        router.push('/auth/login');
+        router.push("/auth/login");
       }
     };
 
-    checkAuth();
+    void checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   return { user, isAuthorized, isLoading };

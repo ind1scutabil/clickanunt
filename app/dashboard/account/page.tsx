@@ -1,10 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getCsrfToken } from "@/lib/security/csrf-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/app/components/Navbar";
 import Footer from "@/app/components/Footer";
+import {
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+  postJsonWithAuthRefresh,
+  jsonMutationWithAuthRefresh,
+} from "@/lib/admin-fetch";
+import { cacheWebUserProfile } from "@/lib/auth/clear-legacy-web-auth-storage";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -27,22 +33,58 @@ export default function AccountPage() {
   });
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('accessToken');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
-      router.push('/auth/login?redirect=/dashboard/account');
-      return;
-    }
+    let cancelled = false;
 
-    const parsed = JSON.parse(userData);
-    setUser(parsed);
-    setProfileData({
-      name: parsed.name || "",
-      phone: parsed.phone || "",
-    });
-    setIsLoading(false);
+    const init = async () => {
+      let fallbackUser: any = null;
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          fallbackUser = JSON.parse(userData);
+        } catch {
+          fallbackUser = null;
+        }
+      }
+
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+
+      if (!session.ok) {
+        if (session.transient && fallbackUser) {
+          setUser(fallbackUser);
+          setProfileData({
+            name: fallbackUser.name || "",
+            phone: fallbackUser.phone || "",
+          });
+          setIsLoading(false);
+          return;
+        }
+        clearStaleBrowserAuth();
+        router.push('/auth/login?redirect=/dashboard/account');
+        return;
+      }
+
+      const resolved = session.user
+        ? { ...(fallbackUser || {}), ...session.user }
+        : fallbackUser;
+      if (!resolved) {
+        router.push('/auth/login?redirect=/dashboard/account');
+        return;
+      }
+
+      cacheWebUserProfile(resolved);
+      setUser(resolved);
+      setProfileData({
+        name: resolved.name || "",
+        phone: resolved.phone || "",
+      });
+      setIsLoading(false);
+    };
+
+    void init();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -50,22 +92,7 @@ export default function AccountPage() {
     setMessage(null);
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        setMessage({ type: 'error', text: 'CSRF token nu a putut fi obținut' });
-        return;
-      }
-      const response = await fetch('/api/users/me', {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify(profileData),
-      });
+      const response = await jsonMutationWithAuthRefresh('/api/users/me', 'PATCH', profileData);
 
       const data = await response.json();
 
@@ -76,7 +103,7 @@ export default function AccountPage() {
 
       // Update localStorage
       const updated = { ...user, ...profileData };
-      localStorage.setItem('user', JSON.stringify(updated));
+      cacheWebUserProfile(updated);
       setUser(updated);
       setMessage({ type: 'success', text: 'Profil actualizat cu succes!' });
     } catch (err) {
@@ -104,31 +131,10 @@ export default function AccountPage() {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) {
-        setMessage({ type: 'error', text: 'Nu ești autentificat' });
-        return;
-      }
-
-      const csrfToken = await getCsrfToken();
-      if (!csrfToken) {
-        setMessage({ type: 'error', text: 'CSRF token nu a putut fi obținut' });
-        return;
-      }
-
-      const response = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword,
-        }),
+      const response = await postJsonWithAuthRefresh('/api/auth/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword,
       });
 
       const data = await response.json();

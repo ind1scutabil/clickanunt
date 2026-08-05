@@ -4,10 +4,17 @@ import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
 /**
  * Lightweight core sitemap (static/browse). Listing + market URLs live in chunked sitemaps
  * reachable from `robots.ts` (`sitemap-listings.xml`, `sitemap-categories.xml`, …).
+ *
+ * lastmod: use SEO_STATIC_LASTMOD (YYYY-MM-DD) when set; otherwise omit to avoid
+ * regenerating a fake "today" on every request.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteOriginForSeoFeeds();
-  const now = new Date();
+  const staticLastmod = process.env.SEO_STATIC_LASTMOD?.trim();
+  const lastModified =
+    staticLastmod && /^\d{4}-\d{2}-\d{2}$/.test(staticLastmod)
+      ? new Date(`${staticLastmod}T00:00:00.000Z`)
+      : undefined;
 
   const paths = [
     { path: "/", changeFrequency: "daily" as const, priority: 1 },
@@ -29,7 +36,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return paths.map((p) => ({
     url: `${base}${p.path}`,
-    lastModified: now,
+    ...(lastModified ? { lastModified } : {}),
     changeFrequency: p.changeFrequency,
     priority: p.priority,
   }));

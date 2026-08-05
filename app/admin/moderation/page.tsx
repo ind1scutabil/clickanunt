@@ -12,7 +12,6 @@ import {
   putJsonWithAuthRefresh,
   syncSessionFromCookies,
 } from '@/lib/admin-fetch';
-import { clearCsrfTokenCache, getCsrfToken } from '@/lib/security/csrf-client';
 import UserModerationEnterprise, {
   type EnterpriseModerationUser as ModerationUser,
 } from '@/app/components/admin/UserModerationEnterprise';
@@ -469,17 +468,11 @@ function AdminModerationPageInner() {
     const silent = opts?.silent;
     try {
       if (!silent) setReportsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      // Add timeout to prevent hanging
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/admin/reports?status=pending', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetchWithAuthRefresh('/api/admin/reports?status=pending', {
         signal: controller.signal,
       });
 
@@ -507,17 +500,11 @@ function AdminModerationPageInner() {
     const silent = opts?.silent;
     try {
       if (!silent) setAppealsLoading(true);
-      const token = localStorage.getItem('accessToken');
-      
-      // Add timeout to prevent hanging
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch('/api/admin/appeals?status=pending', {
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetchWithAuthRefresh('/api/admin/appeals?status=pending', {
         signal: controller.signal,
       });
 
@@ -538,15 +525,9 @@ function AdminModerationPageInner() {
   };
   const resolveReport = async (reportId: string, resolution: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'resolved', resolution }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/reports/${reportId}/resolve`, {
+        status: 'resolved',
+        resolution,
       });
 
       if (!response.ok) throw new Error('Failed to resolve report');
@@ -565,15 +546,9 @@ function AdminModerationPageInner() {
 
   const dismissReport = async (reportId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/reports/${reportId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'dismissed', resolution: 'Dismissed by admin' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/reports/${reportId}/resolve`, {
+        status: 'dismissed',
+        resolution: 'Dismissed by admin',
       });
 
       if (!response.ok) throw new Error('Failed to dismiss report');
@@ -593,15 +568,9 @@ function AdminModerationPageInner() {
   // Appeal action handlers
   const approveAppeal = async (appealId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'approved', response: 'Apelul a fost aprobat' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/appeals/${appealId}/resolve`, {
+        status: 'approved',
+        response: 'Apelul a fost aprobat',
       });
 
       if (!response.ok) throw new Error('Failed to approve appeal');
@@ -620,15 +589,9 @@ function AdminModerationPageInner() {
 
   const rejectAppeal = async (appealId: string) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/admin/appeals/${appealId}/resolve`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'rejected', response: 'Apelul a fost respins' }),
+      const response = await postJsonWithAuthRefresh(`/api/admin/appeals/${appealId}/resolve`, {
+        status: 'rejected',
+        response: 'Apelul a fost respins',
       });
 
       if (!response.ok) throw new Error('Failed to reject appeal');
@@ -1113,9 +1076,21 @@ function AdminModerationPageInner() {
   };
 
   const deleteListing = async (listingId: string) => {
-    if (!confirm('Ștergi definitiv acest anunț din baza de date?')) return;
+    const reason = prompt('Motiv ștergere (obligatoriu, min. 3 caractere):');
+    if (reason === null) return;
+    if (reason.trim().length < 3) {
+      setNotificationMessage('❌ Motivul ștergerii este obligatoriu');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+    if (!confirm('Retragi anunțul din public (soft-delete)? Conversațiile, rapoartele și plățile rămân păstrate.')) {
+      return;
+    }
     try {
-      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'DELETE');
+      const res = await jsonMutationWithAuthRefresh(`/api/admin/listings/${listingId}`, 'DELETE', {
+        reason: reason.trim(),
+      });
       const text = await res.text();
       let payload: { error?: string } | null = null;
       try {
@@ -1126,7 +1101,7 @@ function AdminModerationPageInner() {
       if (!res.ok) {
         throw new Error(payload?.error || `Eroare API (${res.status})`);
       }
-      setNotificationMessage('✅ Anunț șters');
+      setNotificationMessage('✅ Anunț retras (soft-delete)');
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 2800);
       if (expandedUserId) {
@@ -1426,95 +1401,20 @@ function AdminModerationPageInner() {
     setIsSavingBenefits(true);
 
     try {
-      // Always refresh CSRF token before privileged writes (avoids stale cached token mismatch).
-      clearCsrfTokenCache();
-
-      // Avoid leaving the UI stuck if `/api/csrf` stalls.
-      const csrfToken = await Promise.race<string>([
-        getCsrfToken(),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
-        ),
-      ]);
-      let bearerToken = localStorage.getItem('accessToken');
-
-      // If backend stalls (DB/prisma issues), fail fast so `finally` resets loading.
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-      const doRequest = async (tokenToUse: string) => {
-        return fetch(`/api/admin/users/${selectedUser.id}/benefits`, {
-          method: 'POST',
-          credentials: 'include',
-          signal: controller.signal,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-csrf-token': tokenToUse,
-            ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-          },
-          body: JSON.stringify({
-            creditsBonus: credits,
-            globalDiscount: discount,
-            freePromotions,
-            promotionType: creditsForm.promotionType,
-            expiryDays,
-          }),
-        });
-      };
-
-      const fetchCsrfTokenFresh = async () => {
-        clearCsrfTokenCache();
-        return Promise.race<string>([
-          getCsrfToken(),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout: CSRF token fetch')), 5000)
-          ),
-        ]);
-      };
-
-      let response = await doRequest(csrfToken);
-      if (response.status === 403) {
-        // Read body once to decide if it's CSRF-related or auth-related.
-        const firstText = await response.text();
-        let firstPayload: any = null;
-        try {
-          firstPayload = firstText ? JSON.parse(firstText) : null;
-        } catch {
-          firstPayload = null;
-        }
-
-        // Refresh: body sau cookie httpOnly (localStorage poate să nu mai aibă refreshToken).
-        if (firstPayload?.error === 'Acces interzis') {
-          const rt = (localStorage.getItem('refreshToken') || '').trim();
-          const csrfForRefresh = await fetchCsrfTokenFresh();
-          const refreshResp = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-            signal: controller.signal,
-            headers: {
-              'Content-Type': 'application/json',
-              'x-csrf-token': csrfForRefresh,
-            },
-            body: JSON.stringify(rt ? { refreshToken: rt } : {}),
-          });
-
-          if (refreshResp.ok) {
-            const refreshJson: any = await refreshResp.json();
-            const newAccess = refreshJson?.accessToken as string | undefined;
-            if (newAccess) {
-              bearerToken = newAccess;
-              localStorage.setItem('accessToken', newAccess);
-            }
-            if (refreshJson?.user) {
-              localStorage.setItem('user', JSON.stringify(refreshJson.user));
-            }
-          }
-        }
-
-        // Retry once with freshly fetched CSRF (covers rotated cookies / stale token cache).
-        const freshCsrfToken = await fetchCsrfTokenFresh();
-        response = await doRequest(freshCsrfToken);
-      }
+      const response = await postJsonWithAuthRefresh(
+        `/api/admin/users/${selectedUser.id}/benefits`,
+        {
+          creditsBonus: credits,
+          globalDiscount: discount,
+          freePromotions,
+          promotionType: creditsForm.promotionType,
+          expiryDays,
+        },
+        { signal: controller.signal }
+      );
 
       clearTimeout(timeoutId);
 
@@ -1533,7 +1433,7 @@ function AdminModerationPageInner() {
         const msg = payload?.error || `Eroare API (${response.status})`;
         if (response.status === 403 && msg === 'Acces interzis') {
           throw new Error(
-            'Sesiune expirată sau lipsă refresh token. Deloghează-te și autentifică-te din nou, apoi reîncearcă.'
+            'Sesiune expirată. Deloghează-te și autentifică-te din nou, apoi reîncearcă.'
           );
         }
         throw new Error(msg);
@@ -2089,11 +1989,11 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț suspendat');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        const notes = prompt('Motiv suspendare (opțional):') ?? '';
+                        void runListingModeration(listing.id, {
+                          status: 'paused',
+                          moderationNotes: notes || undefined,
+                        });
                       }
                     }}
                     className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
@@ -2103,16 +2003,13 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
-                        setPendingListings(pendingListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț șters permanent');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
+                        void deleteListing(listing.id);
                       }
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    Șterge permanent
+                    Retrage anunț
                   </button>
                 </>
               )
@@ -2137,10 +2034,11 @@ function AdminModerationPageInner() {
                     type="button"
                     onClick={() => {
                       if (confirm('Ești sigur că vrei să suspezi acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț suspendat');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                        const notes = prompt('Motiv suspendare (opțional):') ?? '';
+                        void runListingModeration(listing.id, {
+                          status: 'paused',
+                          moderationNotes: notes || undefined,
+                        });
                       }
                     }}
                     className="w-full rounded-lg border border-amber-500/35 bg-amber-500/12 px-3 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/22"
@@ -2150,11 +2048,8 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
-                        setApprovedListings(approvedListings.filter(l => l.id !== listing.id));
-                        setNotificationMessage('Anunț șters permanent');
-                        setShowNotification(true);
-                        setTimeout(() => setShowNotification(false), 3000);
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
+                        void deleteListing(listing.id);
                       }
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
@@ -2176,7 +2071,7 @@ function AdminModerationPageInner() {
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Ești sigur că vrei să ștergi PERMANENT acest anunț?')) {
+                      if (confirm('Retragi anunțul din public (soft-delete)? Relațiile și plățile rămân.')) {
                         setRejectedListings(rejectedListings.filter(l => l.id !== listing.id));
                         setNotificationMessage('Anunț șters permanent');
                         setShowNotification(true);
@@ -2185,7 +2080,7 @@ function AdminModerationPageInner() {
                     }}
                     className="w-full rounded-lg border border-red-700/50 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-950/50"
                   >
-                    Șterge permanent
+                    Retrage anunț
                   </button>
                 </>
               )
@@ -2387,7 +2282,7 @@ function AdminModerationPageInner() {
                                             className={`rounded px-2 py-1 ${
                                               listing.status === 'pending'
                                                 ? 'bg-yellow-500/15 text-yellow-300'
-                                                : listing.status === 'approved' || listing.status === 'active'
+                                                : listing.status === 'active'
                                                   ? 'bg-emerald-500/15 text-emerald-300'
                                                   : listing.status === 'paused' || listing.status === 'draft'
                                                     ? 'bg-white/[0.06] text-[var(--text-tertiary)]'
@@ -2417,7 +2312,7 @@ function AdminModerationPageInner() {
                                         </a>
                                         {listing.queueId ? (
                                           <>
-                                            {listing.status !== 'approved' && (
+                                            {listing.status !== 'active' && (
                                               <button
                                                 type="button"
                                                 onClick={() => approveListing(listing.id)}

@@ -45,6 +45,7 @@ import { ADMIN_NOTIFICATION_TYPE } from "@/lib/admin-notification-types";
 import { createAdminNotification } from "@/lib/admin-notifications";
 import {
   feedBoostKeysetPaginationEnabled,
+  isPriceFeedSort,
   parseListingFeedSort,
   prismaOrderByForListingSort,
 } from "@/lib/listing-feed-sort";
@@ -55,6 +56,16 @@ import {
   listingPublishExpiryFields,
 } from "@/lib/listing-expiry";
 import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
+import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
+import {
+  buildAttributesContainmentObject,
+  guardBrowsePriceBand,
+  guardVehicleFiltersForCategory,
+  parseOptionalNonNegNumber,
+  BROWSE_PRICE_CURRENCIES,
+  type BrowsePriceCurrency,
+} from "@/lib/listings/browse-filter-guards";
+import { browseListingIdsOrdered } from "@/lib/listings/catalog-listing-ids";
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,7 +122,9 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const sortMode = parseListingFeedSort(query.sort);
+    const sortMode = parseListingFeedSort(query.sort, {
+      hasTextQuery: Boolean((query.q ?? q.get("q") ?? "").toString().trim().length >= 2),
+    });
     const { limit: limitFromQuery, cursor: cursorParam } = parsePaginationParams(q);
     const rawPage = Math.max(1, Math.min(parseInt(q.get("page") || "1", 10), 10_000));
     const limitNum = limitFromQuery || 20;
@@ -173,27 +186,91 @@ export async function GET(request: NextRequest) {
     if (query.county) where.county = { equals: query.county };
     if (query.city) where.city = { equals: query.city };
 
-    if (query.make) where.make = { equals: query.make };
-    if (query.model) where.model = { equals: query.model };
-    if (query.fuel) where.fuel = { equals: query.fuel };
-    if (query.transmission) where.transmission = { equals: query.transmission };
-
-    const minPrice = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
-    const maxPrice = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
-    if (minPrice || maxPrice) {
-      where.priceAmount = {};
-      if (minPrice) where.priceAmount.gte = Number(minPrice);
-      if (maxPrice) where.priceAmount.lte = Number(maxPrice);
-    }
-
     const year = query.year ?? q.get("year");
     const yearMin = query.yearMin ?? q.get("yearMin");
     const yearMax = query.yearMax ?? q.get("yearMax");
-    if (year || yearMin || yearMax) {
-      where.year = {};
-      if (year) where.year.equals = Number(year);
-      if (yearMin) where.year.gte = Number(yearMin);
-      if (yearMax) where.year.lte = Number(yearMax);
+    const yNum = year != null && year !== "" ? Number(year) : NaN;
+    const yMinNum = yearMin != null && yearMin !== "" ? Number(yearMin) : NaN;
+    const yMaxNum = yearMax != null && yearMax !== "" ? Number(yearMax) : NaN;
+
+    const vehicleGuard = guardVehicleFiltersForCategory({
+      category: query.category ?? null,
+      make: query.make ?? null,
+      model: query.model ?? null,
+      fuel: query.fuel ?? null,
+      transmission: query.transmission ?? null,
+      year: !Number.isNaN(yNum) ? yNum : null,
+      yearMin: !Number.isNaN(yMinNum) ? yMinNum : null,
+      yearMax: !Number.isNaN(yMaxNum) ? yMaxNum : null,
+    });
+    if (!vehicleGuard.ok) {
+      return NextResponse.json({ error: vehicleGuard.error }, { status: 400 });
+    }
+    if (vehicleGuard.apply) {
+      if (query.make) where.make = { equals: query.make };
+      if (query.model) where.model = { equals: query.model };
+      if (query.fuel) where.fuel = { equals: query.fuel };
+      if (query.transmission) where.transmission = { equals: query.transmission };
+      if (year || yearMin || yearMax) {
+        where.year = {};
+        if (!Number.isNaN(yNum)) where.year.equals = yNum;
+        if (!Number.isNaN(yMinNum)) where.year.gte = yMinNum;
+        if (!Number.isNaN(yMaxNum)) where.year.lte = yMaxNum;
+      }
+    }
+
+    const minPriceRaw = query.minPrice ?? query.priceMin ?? q.get("minPrice") ?? q.get("priceMin");
+    const maxPriceRaw = query.maxPrice ?? query.priceMax ?? q.get("maxPrice") ?? q.get("priceMax");
+    const priceCurrencyRaw =
+      query.priceCurrency ?? q.get("priceCurrency") ?? q.get("currency") ?? null;
+    const priceBand = guardBrowsePriceBand({
+      minPrice: parseOptionalNonNegNumber(minPriceRaw),
+      maxPrice: parseOptionalNonNegNumber(maxPriceRaw),
+      priceCurrency: typeof priceCurrencyRaw === "string" ? priceCurrencyRaw : null,
+    });
+    if (!priceBand.ok) {
+      return NextResponse.json({ error: priceBand.error }, { status: 400 });
+    }
+
+    // Price sorts require an explicit currency (no cross-currency amount compare).
+    let sortCurrency: BrowsePriceCurrency | null = priceBand.priceCurrency;
+    if (isPriceFeedSort(sortMode)) {
+      const rawSortCurrency =
+        typeof priceCurrencyRaw === "string" ? priceCurrencyRaw.trim().toUpperCase() : "";
+      if (!rawSortCurrency) {
+        return NextResponse.json(
+          {
+            error:
+              "priceCurrency este obligatoriu pentru sortarea după preț (RON, EUR sau USD).",
+          },
+          { status: 400 }
+        );
+      }
+      if (!(BROWSE_PRICE_CURRENCIES as readonly string[]).includes(rawSortCurrency)) {
+        return NextResponse.json(
+          { error: "priceCurrency invalid. Folosește RON, EUR sau USD." },
+          { status: 400 }
+        );
+      }
+      sortCurrency = rawSortCurrency as BrowsePriceCurrency;
+    }
+
+    if (priceBand.minPrice != null || priceBand.maxPrice != null) {
+      where.priceAmount = {};
+      if (priceBand.minPrice != null) where.priceAmount.gte = priceBand.minPrice;
+      if (priceBand.maxPrice != null) where.priceAmount.lte = priceBand.maxPrice;
+      // Numeric price bands only apply to types with a real amount + matching currency.
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            { priceType: null },
+            { priceType: { in: ["FIXED", "NEGOTIABLE", "FROM"] } },
+          ],
+        },
+        { priceAmount: { not: null } },
+        { priceCurrency: priceBand.priceCurrency },
+      ];
     }
 
     if (query.condition) where.condition = { equals: query.condition };
@@ -218,6 +295,13 @@ export async function GET(request: NextRequest) {
           : attrConditions;
     }
 
+    const attributesContainment = buildAttributesContainmentObject(
+      attrFilters.map((f) => ({ key: f.path[0], value: f.equals }))
+    );
+    const attributesContainmentJson = attributesContainment
+      ? JSON.stringify(attributesContainment)
+      : null;
+
     const rawQ = (query.q ?? q.get("q") ?? "").trim();
     const useFts = rawQ.length >= 2;
 
@@ -241,11 +325,6 @@ export async function GET(request: NextRequest) {
       }
 
       const offset = (rawPage - 1) * limitNum;
-      const y = year != null ? Number(year) : NaN;
-      const yMin = yearMin != null ? Number(yearMin) : NaN;
-      const yMax = yearMax != null ? Number(yearMax) : NaN;
-      const minP = minPrice != null && minPrice !== "" ? Number(minPrice) : null;
-      const maxP = maxPrice != null && maxPrice !== "" ? Number(maxPrice) : null;
 
       const { ids, total } = await ftsSearchListingIds(
         prisma,
@@ -257,15 +336,20 @@ export async function GET(request: NextRequest) {
           subcategory: query.subcategory ?? null,
           county: query.county ?? null,
           city: query.city ?? null,
-          year: !Number.isNaN(y) ? y : null,
-          yearMin: !Number.isNaN(yMin) ? yMin : null,
-          yearMax: !Number.isNaN(yMax) ? yMax : null,
-          minPrice: minP != null && !Number.isNaN(minP) ? minP : null,
-          maxPrice: maxP != null && !Number.isNaN(maxP) ? maxP : null,
-          make: query.make ?? null,
-          model: query.model ?? null,
-          fuel: query.fuel ?? null,
-          transmission: query.transmission ?? null,
+          year: vehicleGuard.apply && !Number.isNaN(yNum) ? yNum : null,
+          yearMin: vehicleGuard.apply && !Number.isNaN(yMinNum) ? yMinNum : null,
+          yearMax: vehicleGuard.apply && !Number.isNaN(yMaxNum) ? yMaxNum : null,
+          minPrice: priceBand.minPrice,
+          maxPrice: priceBand.maxPrice,
+          priceCurrency: priceBand.priceCurrency,
+          sortCurrency: isPriceFeedSort(sortMode) ? sortCurrency : null,
+          sort: sortMode,
+          make: vehicleGuard.apply ? (query.make ?? null) : null,
+          model: vehicleGuard.apply ? (query.model ?? null) : null,
+          fuel: vehicleGuard.apply ? (query.fuel ?? null) : null,
+          transmission: vehicleGuard.apply ? (query.transmission ?? null) : null,
+          condition: query.condition ?? null,
+          attributesContainmentJson,
           ownerUserId: resolvedOwnerForFts,
         },
         limitNum + 1,
@@ -333,6 +417,102 @@ export async function GET(request: NextRequest) {
     const cursorPayload = useKeyset ? decodeListingFeedCursor(cursorParam) : null;
     if (cursorParam && useKeyset && !cursorPayload) {
       return NextResponse.json({ error: "Cursor invalid sau expirat" }, { status: 400 });
+    }
+
+    // Currency-aware price sorts cannot be expressed safely via Prisma orderBy alone
+    // (would mix RON/EUR by raw amount). Use the same CASE ORDER BY as FTS.
+    if (isPriceFeedSort(sortMode)) {
+      if (!sortCurrency) {
+        return NextResponse.json(
+          {
+            error:
+              "priceCurrency este obligatoriu pentru sortarea după preț (RON, EUR sau USD).",
+          },
+          { status: 400 }
+        );
+      }
+
+      const offset = (rawPage - 1) * limitNum;
+      const { ids, total } = await browseListingIdsOrdered(
+        prisma,
+        {
+          activeOnly: statusParam !== "all",
+          publicCatalogOnly: !resolvedOwnerForFts && statusParam !== "all",
+          category: query.category ?? null,
+          subcategory: query.subcategory ?? null,
+          county: query.county ?? null,
+          city: query.city ?? null,
+          year: vehicleGuard.apply && !Number.isNaN(yNum) ? yNum : null,
+          yearMin: vehicleGuard.apply && !Number.isNaN(yMinNum) ? yMinNum : null,
+          yearMax: vehicleGuard.apply && !Number.isNaN(yMaxNum) ? yMaxNum : null,
+          minPrice: priceBand.minPrice,
+          maxPrice: priceBand.maxPrice,
+          priceCurrency: priceBand.priceCurrency,
+          sortCurrency,
+          sort: sortMode,
+          make: vehicleGuard.apply ? (query.make ?? null) : null,
+          model: vehicleGuard.apply ? (query.model ?? null) : null,
+          fuel: vehicleGuard.apply ? (query.fuel ?? null) : null,
+          transmission: vehicleGuard.apply ? (query.transmission ?? null) : null,
+          condition: query.condition ?? null,
+          attributesContainmentJson,
+          ownerUserId: resolvedOwnerForFts,
+        },
+        limitNum + 1,
+        offset
+      );
+
+      const hasMore = ids.length > limitNum;
+      const pageIds = hasMore ? ids.slice(0, limitNum) : ids;
+      const rows =
+        pageIds.length === 0
+          ? []
+          : await prisma.listing.findMany({
+              where: { id: { in: pageIds } },
+              include: {
+                owner: {
+                  select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                    subscriptionTier: true,
+                    trustScore: true,
+                  },
+                },
+              },
+            });
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered = pageIds.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+      const listingsWithPhotos = ordered.map((l) => {
+        const row = {
+          ...l,
+          photos: normalizeListingPhotosArray(l.photos, origin),
+        };
+        const isOwnerOrAdmin =
+          (!!tokenUserId && l.ownerUserId === tokenUserId) ||
+          tokenPayload?.role === "admin" ||
+          tokenPayload?.role === "owner";
+        return sanitizeListingPayloadForViewer(row as Record<string, unknown>, {
+          isOwnerOrAdmin: Boolean(userIdParam) && isOwnerOrAdmin,
+        }) as typeof row;
+      });
+      const pages = total > 0 ? Math.ceil(total / limitNum) : 0;
+      return NextResponse.json({
+        data: listingsWithPhotos,
+        pagination: {
+          hasMore,
+          nextCursor: null,
+          prevCursor: null,
+          count: listingsWithPhotos.length,
+          page: rawPage,
+          usedOffset: true,
+          total,
+          limit: limitNum,
+          pages,
+          totalPages: pages,
+        },
+      });
     }
 
     const finalWhere = buildListingFeedKeysetWhere(cursorPayload, where);
@@ -807,37 +987,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const data: any = {
-      owner: {
-        connect: { id: userId }
-      },
-      title: cleanBody.title,
-      category: cleanBody.category,
-      subcategory: cleanBody.subcategory,
-      priceAmount: cleanBody.priceAmount,
-      priceCurrency: cleanBody.priceCurrency ?? "RON",
-      condition: cleanBody.condition ?? "used",
-      status: moderationStatus === "approved" ? "active" : "pending",
-      description: cleanBody.description,
-      county: cleanBody.county,
-      city: cleanBody.city,
-      region: cleanBody.region,
-      photos: cleanBody.photos ?? [],
-      contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
-      // Client cannot grant featured via create payload (field not in schema; force false).
-      isFeatured: false,
-      feedBoost: computeFeedBoost(false, false),
-      
-      // Auto-specific fields — only persist for Auto category
-      make: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.make : null,
-      model: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.model : null,
-      year: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.year : null,
-      mileage: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.mileage : null,
-      fuel: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.fuel : null,
-      transmission: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.transmission : null,
-      vin: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.vin : null,
-
-      attributes: buildPersistedAttributes({
+    const persistedAttrs = buildPersistedAttributes({
         categoryLabel: String(cleanBody.category),
         subcategoryLabel: (cleanBody.subcategory as string | null | undefined) ?? null,
         attributes: cleanBody.attributes,
@@ -860,7 +1010,59 @@ export async function POST(request: Request) {
           upholstery: cleanBody.upholstery || null,
           cocPapers: cleanBody.cocPapers || false,
         },
-      }).attributes,
+      }).attributes;
+
+    // New structured salary replaces legacy attributes.salary_range text.
+    if (
+      cleanBody.salaryMin != null ||
+      cleanBody.salaryMax != null
+    ) {
+      if (
+        persistedAttrs &&
+        typeof persistedAttrs === "object" &&
+        !Array.isArray(persistedAttrs) &&
+        "salary_range" in persistedAttrs
+      ) {
+        delete (persistedAttrs as Record<string, unknown>).salary_range;
+      }
+    }
+
+    const data: any = {
+      owner: {
+        connect: { id: userId }
+      },
+      title: cleanBody.title,
+      category: cleanBody.category,
+      subcategory: cleanBody.subcategory,
+      priceType: cleanBody.priceType ?? null,
+      priceAmount: cleanBody.priceAmount ?? null,
+      priceCurrency: cleanBody.priceCurrency ?? (cleanBody.priceType ? "RON" : null),
+      salaryMin: cleanBody.salaryMin ?? null,
+      salaryMax: cleanBody.salaryMax ?? null,
+      salaryCurrency: cleanBody.salaryCurrency ?? null,
+      salaryPeriod: cleanBody.salaryPeriod ?? null,
+      condition: cleanBody.condition ?? "used",
+      status: moderationStatus === "approved" ? "active" : "pending",
+      description: cleanBody.description,
+      county: cleanBody.county,
+      city: cleanBody.city,
+      region: cleanBody.region,
+      photos: cleanBody.photos ?? [],
+      contactPhone: cleanBody.contactPhone ?? cleanBody.phone,
+      // Client cannot grant featured via create payload (field not in schema; force false).
+      isFeatured: false,
+      feedBoost: computeFeedBoost(false, false),
+      
+      // Auto-specific fields — only persist for Auto category
+      make: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.make : null,
+      model: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.model : null,
+      year: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.year : null,
+      mileage: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.mileage : null,
+      fuel: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.fuel : null,
+      transmission: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.transmission : null,
+      vin: isAutoCategoryLabel(String(cleanBody.category)) ? cleanBody.vin : null,
+
+      attributes: persistedAttrs,
 
       // Moderation fields
       moderationStatus,
@@ -894,6 +1096,17 @@ export async function POST(request: Request) {
     const listing = await prisma.listing.create({
       data: presetListingId ? { id: presetListingId, ...data } : data,
     });
+
+    if (listing.status === "active") {
+      // Directly-eligible create (trusted user / auto-approve path) — refresh
+      // homepage count + affected hubs on the next request instead of waiting
+      // for the passive ISR window. Pending creates don't change public counts.
+      revalidatePublicMarketplaceSurfaces({
+        reason: "create",
+        category: listing.category,
+        city: listing.city,
+      });
+    }
 
     await commitListingPublishRateLimit(userId, user.role);
 

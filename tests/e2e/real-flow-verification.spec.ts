@@ -22,16 +22,24 @@ test.describe("Real flow verification", () => {
 
     await page.waitForURL(/\/(dashboard|admin\/dashboard)/, { timeout: 25_000 });
 
-    const tokenAfterLogin = await page.evaluate(() => localStorage.getItem("accessToken"));
-    expect(tokenAfterLogin, "accessToken must be set in localStorage after login").toBeTruthy();
+    const lsAfterLogin = await page.evaluate(() => ({
+      accessToken: localStorage.getItem("accessToken"),
+      refreshToken: localStorage.getItem("refreshToken"),
+    }));
+    expect(lsAfterLogin.accessToken, "accessToken must not be in localStorage").toBeNull();
+    expect(lsAfterLogin.refreshToken, "refreshToken must not be in localStorage").toBeNull();
+
+    const cookiesAfterLogin = await context.cookies();
+    expect(
+      cookiesAfterLogin.some((c) => c.name === "accessToken" && c.httpOnly),
+      "HttpOnly accessToken cookie after login"
+    ).toBeTruthy();
 
     // Dev server keeps HMR / background requests open — networkidle can hang indefinitely.
     await page.reload({ waitUntil: "load" });
 
-    const tokenAfterReload = await page.evaluate(() => localStorage.getItem("accessToken"));
-    expect(tokenAfterReload, "accessToken must persist after full page reload").toBeTruthy();
-    expect(tokenAfterReload).toBe(tokenAfterLogin);
-
+    const lsAfterReload = await page.evaluate(() => localStorage.getItem("accessToken"));
+    expect(lsAfterReload).toBeNull();
     await expect(page).not.toHaveURL(/\/auth\/login/);
 
     const createStatus = await page.evaluate(async () => {
@@ -40,14 +48,15 @@ test.describe("Real flow verification", () => {
       const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string };
       if (!csrfToken) return { ok: false, step: "csrfBody" };
 
-      const bearer = localStorage.getItem("accessToken");
-      if (!bearer) return { ok: false, step: "noBearer" };
-
       // Avoid 13-digit runs in title — detectPersonalInfo treats them as Romanian CNP.
       const payload = {
         title: `E2E Verificare ${crypto.randomUUID()}`,
         description: "Descriere minimă zece caractere pentru test automat.",
         category: "Altele",
+        // Required since the category/price/salary model made subcategory
+        // mandatory for every category (see lib/taxonomy.ts — "Altele" has
+        // no catch-all default). "Diverse" is the generic subcategory.
+        subcategory: "Diverse",
         priceAmount: 100,
         priceCurrency: "RON",
         condition: "used",
@@ -66,7 +75,6 @@ test.describe("Real flow verification", () => {
         headers: {
           "Content-Type": "application/json",
           "x-csrf-token": csrfToken,
-          Authorization: `Bearer ${bearer}`,
         },
         body: JSON.stringify(payload),
       });

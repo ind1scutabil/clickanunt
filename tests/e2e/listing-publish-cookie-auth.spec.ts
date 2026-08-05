@@ -12,7 +12,7 @@ test("listings/new context: stale Bearer does not block publish (cookie-first)",
   await page.goto("/auth/login");
   await page.fill('input[type="email"]', email);
   await page.fill('input[type="password"]', password);
-  await page.locator('button[type="submit"]').click();
+  await page.getByRole("button", { name: /Conectează-te/i }).first().click();
   await page.waitForURL(/\/(dashboard|admin\/dashboard|listings)/, { timeout: 30_000 });
 
   await page.goto("/listings/new", { waitUntil: "load" });
@@ -50,6 +50,7 @@ test("listings/new context: stale Bearer does not block publish (cookie-first)",
       attributes: { brand: "Samsung", storage_gb: "128" },
     };
 
+    // Stale Bearer in LS must not be required; cookie session authorizes publish.
     const res = await fetch("/api/listings", {
       method: "POST",
       credentials: "include",
@@ -60,6 +61,9 @@ test("listings/new context: stale Bearer does not block publish (cookie-first)",
       },
       body: JSON.stringify(payload),
     });
+
+    // Cleanup legacy key after proving cookie-first still works with bad Bearer
+    localStorage.removeItem("accessToken");
 
     let body: Record<string, unknown> = {};
     try {

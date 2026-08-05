@@ -8,6 +8,12 @@ import {
   listingPrimaryPhotoSrc,
   LISTING_PHOTO_ONERROR_FALLBACK,
 } from "@/lib/listing-photo-url";
+import {
+  fetchWithAuthRefresh,
+  jsonMutationWithAuthRefresh,
+  validateServerAuthSession,
+  clearStaleBrowserAuth,
+} from "@/lib/admin-fetch";
 
 interface SavedListing {
   id: string;
@@ -49,25 +55,35 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (!clientReady) return;
-    const token = localStorage.getItem("accessToken");
-    if (!token) {
-      router.push("/auth/login?redirect=/dashboard/favorites");
-      return;
-    }
 
-    void fetchFavorites();
+    const init = async () => {
+      const session = await validateServerAuthSession();
+      if (!session.ok) {
+        if (!session.transient) {
+          clearStaleBrowserAuth();
+          router.push("/auth/login?redirect=/dashboard/favorites");
+        }
+        return;
+      }
+      void fetchFavorites();
+    };
+
+    void init();
   }, [clientReady, router]);
 
   const fetchFavorites = async () => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch("/api/favorites", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetchWithAuthRefresh("/api/favorites", {
+        credentials: "include",
+        cache: "no-store",
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          clearStaleBrowserAuth();
+          router.push("/auth/login?redirect=/dashboard/favorites");
+          return;
+        }
         throw new Error("Failed to fetch favorites");
       }
 
@@ -83,15 +99,12 @@ export default function FavoritesPage() {
 
   const handleRemoveFavorite = async (id: string) => {
     try {
-      const token = localStorage.getItem("accessToken");
-      const response = await fetch(`/api/favorites?listingId=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await jsonMutationWithAuthRefresh(
+        `/api/favorites?listingId=${encodeURIComponent(id)}`,
+        "DELETE"
+      );
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error("Failed to remove from favorites");
       }
 

@@ -8,14 +8,13 @@ import { hasPermission, Permission, canSetRole } from "@/lib/rbac";
 import type { UserRole } from "@prisma/client";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import {
-  sendVerificationEmail,
-  generateVerificationToken,
-  generateVerificationCode,
-} from "@/lib/email";
-import {
   resolveAdminUsersListLimit,
   resolveAdminUsersOffset,
 } from "@/lib/admin/users-query";
+import {
+  EMAIL_VERIFY_PURPOSE,
+  issueAndDispatchEmailVerification,
+} from "@/lib/auth/email-verification";
 
 const adminCreateUserSchema = z
   .object({
@@ -110,35 +109,34 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const verificationToken = generateVerificationToken();
-    const verificationCode = generateVerificationCode();
-    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
     const user = await db.createUser({
       email,
       password: hashedPassword,
       role: roleToAssign,
       emailVerified: false,
-      verificationToken,
-      verificationCode,
-      verificationTokenExpiry,
     });
 
-    void sendVerificationEmail(email, verificationToken, verificationCode).catch(() => {
+    let emailDispatchAccepted = false;
+    try {
+      const dispatched = await issueAndDispatchEmailVerification({
+        userId: (user as { id: string }).id,
+        email,
+        purpose: EMAIL_VERIFY_PURPOSE,
+      });
+      emailDispatchAccepted = dispatched.accepted;
+    } catch {
       /* non-blocking */
-    });
+    }
 
     const { password: _, ...userWithoutSensitiveData } = user as Record<string, unknown>;
-
-    const isDevelopment = !process.env.SMTP_HOST || !process.env.SMTP_USER;
 
     return NextResponse.json(
       {
         ...userWithoutSensitiveData,
-        message: "Cont creat cu succes! Verifică-ți emailul pentru a activa contul.",
-        ...(isDevelopment && {
-          devNote: "⚠️ DEVELOPMENT MODE: Check email for verification code.",
-        }),
+        emailDispatchAccepted,
+        message: emailDispatchAccepted
+          ? "Cont creat cu succes! Verifică-ți emailul pentru a confirma adresa."
+          : "Cont creat cu succes. Trimiterea emailului de verificare a eșuat temporar.",
       },
       { status: 201 }
     );

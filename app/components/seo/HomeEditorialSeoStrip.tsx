@@ -6,7 +6,7 @@ import { SEO_HIGHLIGHT_CITY_LABELS, SEO_NAV_CATEGORY_SLUGS, CATEGORY_LABEL_BY_CA
 import { slugifyRo } from "@/lib/seo/slug";
 import { getActiveListingCountForHub } from "@/lib/seo/hub-queries";
 import { isCategoryCityHubSeoIndexable } from "@/lib/seo/hub-index-policy";
-import { formatListingPrice } from "@/lib/format-listing-price";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 
 /** Discover-oriented strip: fresh listings + crawlable hubs (server HTML). */
 export async function HomeEditorialSeoStrip() {
@@ -16,7 +16,19 @@ export async function HomeEditorialSeoStrip() {
     where: hubWhereBase,
     orderBy: { createdAt: "desc" },
     take: 8,
-    select: { id: true, title: true, photos: true, priceCurrency: true, priceAmount: true },
+    select: {
+      id: true,
+      title: true,
+      photos: true,
+      category: true,
+      priceCurrency: true,
+      priceAmount: true,
+      priceType: true,
+      salaryMin: true,
+      salaryMax: true,
+      salaryCurrency: true,
+      salaryPeriod: true,
+    },
   });
 
   const hubCandidates = SEO_NAV_CATEGORY_SLUGS.flatMap((slug) => {
@@ -77,7 +89,21 @@ export async function HomeEditorialSeoStrip() {
                     {l.title}
                   </h3>
                   <p className="mt-1 text-sm text-white/50">
-                    {formatListingPrice(l.priceAmount, l.priceCurrency)}
+                    {(() => {
+                      const line = formatListingCommercialOrSalaryLine({
+                        category: l.category,
+                        priceType: l.priceType,
+                        priceAmount: l.priceAmount,
+                        priceCurrency: l.priceCurrency,
+                        salaryMin: l.salaryMin,
+                        salaryMax: l.salaryMax,
+                        salaryCurrency: l.salaryCurrency,
+                        salaryPeriod: l.salaryPeriod,
+                      });
+                      return line.suffix
+                        ? `${line.primary} · ${line.suffix}`
+                        : line.primary;
+                    })()}
                   </p>
                   <span className="mt-2 inline-block text-xs font-semibold text-primary-300/90">Vezi anunțul →</span>
                 </div>
@@ -104,8 +130,8 @@ export async function HomeEditorialSeoStrip() {
                 </li>
               ))}
             </ul>
-            <p className="mt-5 text-sm text-neutral-500">
-              <Link href="/harta-site" className="text-primary-300 hover:text-primary-100 underline-offset-4 hover:underline">
+            <p className="mt-5 text-sm text-neutral-400">
+              <Link href="/harta-site" className="text-primary-300 underline underline-offset-4 hover:text-primary-100">
                 Harta site — index HTML
               </Link>{" "}
               cu legături către categorii și orașe.

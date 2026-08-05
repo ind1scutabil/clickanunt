@@ -6,6 +6,7 @@ import {
   UPLOAD_RATE_LIMIT_AUTH_PER_HOUR,
   UPLOAD_RATE_LIMIT_IP_PER_HOUR,
 } from '@/lib/infra/production-limits';
+import { isE2eRateLimitBypassEnabled } from '@/lib/e2e-rate-limit-bypass';
 
 interface RateLimitStore {
   [key: string]: {
@@ -137,7 +138,7 @@ export const rateLimitPresets = {
    * 2) Plafon per IP + email (bruteforce pe un cont)
    */
   login: (ip: string, emailHint = "") => {
-    if (process.env.E2E_DISABLE_RATE_LIMIT === "1") return e2eUnlimited();
+    if (isE2eRateLimitBypassEnabled()) return e2eUnlimited();
 
     const suffix =
       typeof emailHint === "string"
@@ -159,7 +160,7 @@ export const rateLimitPresets = {
 
   // Register: 3 înregistrări per oră
   register: (ip: string) =>
-    process.env.E2E_DISABLE_RATE_LIMIT === "1"
+    isE2eRateLimitBypassEnabled()
       ? e2eUnlimited()
       : rateLimit(`register:${ip}`, {
           windowMs: 60 * 60 * 1000,

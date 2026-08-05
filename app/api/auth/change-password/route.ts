@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import bcrypt from "bcrypt";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { changePasswordSchema } from "@/lib/security/validation-schemas";
+import { bumpSessionVersion } from "@/lib/auth/session-version";
+import { createAuditLog } from "@/lib/audit";
+import { issueAuthTokenPair } from "@/lib/auth";
+import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,13 +65,51 @@ export async function POST(request: NextRequest) {
     // Hash parola nouă
     const newHash = await bcrypt.hash(newPassword, 10);
 
-    // Actualizează parola
+    // Actualizează parola + revocă toate sesiunile JWT existente
     await db.updateUser(user.id, { password: newHash });
+    const newSv = await bumpSessionVersion(user.id);
 
-    return NextResponse.json({
-      success: true,
-      message: "Parola schimbată cu succes",
+    await createAuditLog({
+      userId: user.id,
+      action: "user.password_changed",
+      resource: "user",
+      resourceId: user.id,
+      details: { sessionVersion: newSv },
     });
+
+    // Emit sesiune nouă pe dispozitivul curent; celelalte dispozitive rămân invalide.
+    const { accessToken, refreshToken } = await issueAuthTokenPair({
+      id: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      sessionVersion: newSv,
+    });
+
+    const response = NextResponse.json({
+      success: true,
+      message: "Parola schimbată cu succes. Celelalte dispozitive au fost deconectate.",
+    });
+
+    const cookieDomain = cookieDomainFromRequest(request);
+    const secureCookies = cookieSecureFromRequest(request);
+    response.cookies.set("accessToken", accessToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      domain: cookieDomain,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+    response.cookies.set("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: secureCookies,
+      domain: cookieDomain,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error('Change password error:', error);
     return NextResponse.json(

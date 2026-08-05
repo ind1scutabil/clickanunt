@@ -13,7 +13,6 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [tokenValid, setTokenValid] = useState(false);
-  const [email, setEmail] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -27,16 +26,15 @@ function ResetPasswordForm() {
       }
 
       try {
-        const response = await fetch(`/api/auth/reset-password?token=${token}`);
+        const response = await fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`);
         const data = await response.json();
 
         if (data.valid) {
           setTokenValid(true);
-          setEmail(data.email);
         } else {
           setError(data.error || 'Link-ul este invalid sau a expirat.');
         }
-      } catch (err) {
+      } catch {
         setError('Eroare la verificarea link-ului.');
       } finally {
         setVerifying(false);
@@ -132,7 +130,7 @@ function ResetPasswordForm() {
               Setare Parolă Nouă
             </h1>
             <p className="text-gray-600">
-              Pentru: <strong>{email}</strong>
+              Alege o parolă puternică pentru contul tău.
             </p>
           </div>
 

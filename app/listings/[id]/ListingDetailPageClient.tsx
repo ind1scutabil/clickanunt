@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Navbar from "@/app/components/Navbar";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,25 @@ import {
 } from "@/lib/listing-image-variants";
 import { phoneToTelHref, formatPhoneDisplay } from "@/lib/phone-display";
 import { getCsrfToken } from "@/lib/security/csrf-client";
+import { postJsonWithAuthRefresh, validateServerAuthSession } from "@/lib/admin-fetch";
+import { cacheWebUserProfile } from "@/lib/auth/clear-legacy-web-auth-storage";
 import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
 import { slugifyRo } from "@/lib/seo/slug";
 import { pushRecentListingSnapshot } from "@/lib/recent-listings-storage";
+import { isFavoriteLocal, toggleFavoriteListing } from "@/lib/favorites-client";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
-import { formatCategoryAwarePriceLine } from "@/lib/listing-price-semantics";
+import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
+import {
+  buildFacebookShareHref,
+  buildListingShareUrl,
+  buildWhatsAppShareHref,
+} from "@/lib/seo/share-url";
+import {
+  MARKETPLACE_GA4_EVENT,
+  trackMarketplaceGa4Event,
+} from "@/lib/seo/marketplace-ga4-events";
 
 async function trackListingEngagement(
   listingId: string,
@@ -51,6 +63,10 @@ type ListingDetailPageClientProps = {
   /** SSR technical details block — shown on mobile (< md) only */
   mobileTechnicalDetails?: ReactNode;
   layoutDebug?: boolean;
+  /** SSR listing payload — skips full-page loading skeleton when present */
+  initialListing?: Record<string, unknown> | null;
+  /** SSR similar rows — avoids empty→grid CLS on first paint */
+  initialSimilarListings?: Record<string, unknown>[] | null;
 };
 
 type LayoutDebugInfo = {
@@ -128,14 +144,21 @@ export default function ListingDetailPageClient({
   id,
   mobileTechnicalDetails,
   layoutDebug = false,
+  initialListing = null,
+  initialSimilarListings = null,
 }: ListingDetailPageClientProps) {
   const router = useRouter();
   const [justCreated, setJustCreated] = useState(false);
   const [publishStateParam, setPublishStateParam] = useState<string | null>(null);
   
-  const [listing, setListing] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [listing, setListing] = useState<any>(initialListing);
+  const [loading, setLoading] = useState(!initialListing);
   const [showPhone, setShowPhone] = useState(false);
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [revealedTelHref, setRevealedTelHref] = useState<string>("");
+  const [phoneRevealLoading, setPhoneRevealLoading] = useState(false);
+  const [phoneRevealError, setPhoneRevealError] = useState<string | null>(null);
+  const phoneRevealInFlightRef = useRef(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCopySuccess, setShowCopySuccess] = useState(false);
@@ -144,8 +167,12 @@ export default function ListingDetailPageClient({
   const [reportDescription, setReportDescription] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportFeedback, setReportFeedback] = useState<string | null>(null);
-  const [similarListings, setSimilarListings] = useState<any[]>([]);
-  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarListings, setSimilarListings] = useState<any[]>(
+    Array.isArray(initialSimilarListings) ? initialSimilarListings : []
+  );
+  const [similarLoading, setSimilarLoading] = useState(
+    !(initialListing && initialSimilarListings != null)
+  );
 
   /** Frontend-only trust chips — labels derived strictly from listing/owner fields already on the payload. */
   const trustPills = useMemo(() => {
@@ -181,6 +208,11 @@ export default function ListingDetailPageClient({
 
   useEffect(() => {
     setShowPhone(false);
+    setRevealedPhone(null);
+    setRevealedTelHref("");
+    setPhoneRevealError(null);
+    setPhoneRevealLoading(false);
+    phoneRevealInFlightRef.current = false;
   }, [id]);
 
   useEffect(() => {
@@ -202,20 +234,38 @@ export default function ListingDetailPageClient({
   // Check if listing is in favorites
   useEffect(() => {
     if (id) {
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      setIsFavorite(favorites.includes(id));
+      setIsFavorite(isFavoriteLocal(id));
     }
   }, [id]);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        setCurrentUser(JSON.parse(userStr));
-      } catch {
-        setCurrentUser(null);
+    let cancelled = false;
+
+    const loadUser = async () => {
+      const userStr = localStorage.getItem('user');
+      let cached: any = null;
+      if (userStr) {
+        try {
+          cached = JSON.parse(userStr);
+          if (!cancelled) setCurrentUser(cached);
+        } catch {
+          cached = null;
+        }
       }
-    }
+
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (session.ok && session.user) {
+        const merged = { ...(cached || {}), ...session.user };
+        cacheWebUserProfile(merged);
+        setCurrentUser(merged);
+      }
+    };
+
+    void loadUser();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -240,10 +290,12 @@ export default function ListingDetailPageClient({
       }
     };
 
-    if (id) {
+    if (id && !initialListing) {
       void loadListing().catch(() => {});
+    } else if (initialListing) {
+      setLoading(false);
     }
-  }, [id]);
+  }, [id, initialListing]);
 
   useEffect(() => {
     if (!listing?.id) return;
@@ -262,6 +314,17 @@ export default function ListingDetailPageClient({
     const loadSimilarListings = async () => {
       if (!listing?.id || !listing?.category) {
         setSimilarListings([]);
+        setSimilarLoading(false);
+        return;
+      }
+
+      // SSR already provided similar rows for this listing — do not refetch on first paint.
+      if (
+        initialListing &&
+        initialSimilarListings != null &&
+        listing.id === initialListing.id
+      ) {
+        setSimilarLoading(false);
         return;
       }
 
@@ -298,57 +361,103 @@ export default function ListingDetailPageClient({
     };
 
     loadSimilarListings();
-  }, [listing?.id, listing?.category, listing?.make, listing?.model]);
+  }, [
+    listing?.id,
+    listing?.category,
+    listing?.make,
+    listing?.model,
+    initialListing,
+    initialSimilarListings,
+  ]);
 
   const toggleFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    if (isFavorite) {
-      // Remove from favorites
-      const updated = favorites.filter((fav: string) => fav !== id);
-      localStorage.setItem('favorites', JSON.stringify(updated));
-      setIsFavorite(false);
-    } else {
-      // Add to favorites
-      favorites.push(id);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      setIsFavorite(true);
-    }
+    if (!id) return;
+    const prev = isFavorite;
+    setIsFavorite(!prev);
+    void toggleFavoriteListing(id).then((result) => {
+      if (result.error && !result.needsAuth) {
+        setIsFavorite(prev);
+        return;
+      }
+      setIsFavorite(result.saved);
+    });
   };
 
   const shareOnFacebook = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'width=600,height=400');
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "facebook" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "facebook",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
+    window.open(buildFacebookShareHref(shareUrl), "_blank", "width=600,height=400");
   };
 
   const shareOnWhatsApp = () => {
-    if (id) void trackListingEngagement(id, "listing_whatsapp_click");
-    const text = encodeURIComponent(`${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}\n${window.location.href}`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+    if (!id) return;
+    void trackListingEngagement(id, "listing_whatsapp_click");
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "whatsapp" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "whatsapp",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
+    const priceLine = formatListingCommercialOrSalaryLine({
+      category: listing?.category,
+      priceType: (listing as { priceType?: string | null } | null)?.priceType,
+      priceAmount: listing?.priceAmount,
+      priceCurrency: listing?.priceCurrency,
+    }).primary;
+    window.open(
+      buildWhatsAppShareHref(shareUrl, `${listing?.title || "Anunț"} — ${priceLine}`),
+      "_blank"
+    );
   };
 
   const copyLink = async () => {
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "copy" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "copy",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      await navigator.clipboard.writeText(shareUrl);
       setShowCopySuccess(true);
       setTimeout(() => setShowCopySuccess(false), 2000);
-    } catch (err) {
-      alert('Link copiat: ' + window.location.href);
+    } catch {
+      alert("Link: " + shareUrl);
     }
   };
 
   const shareNative = async () => {
+    if (!id) return;
+    const shareUrl = buildListingShareUrl({ listingId: id, channel: "native" });
+    trackMarketplaceGa4Event(MARKETPLACE_GA4_EVENT.share_clicked, {
+      channel: "native",
+      listing_category: listing?.category || "",
+      authenticated: Boolean(currentUser?.id),
+    });
     if (navigator.share) {
       try {
+        const priceLine = formatListingCommercialOrSalaryLine({
+          category: listing?.category,
+          priceType: (listing as { priceType?: string | null } | null)?.priceType,
+          priceAmount: listing?.priceAmount,
+          priceCurrency: listing?.priceCurrency,
+        }).primary;
         await navigator.share({
-          title: listing.title,
-          text: `${listing.title} - ${listing.priceAmount} ${listing.priceCurrency}`,
-          url: window.location.href,
+          title: listing?.title || "Anunț",
+          text: `${listing?.title || "Anunț"} — ${priceLine}`,
+          url: shareUrl,
         });
       } catch {
         /* user cancelled share sheet */
       }
     } else {
-      copyLink();
+      void copyLink();
     }
   };
 
@@ -366,7 +475,7 @@ export default function ListingDetailPageClient({
             ) : null}
             <div className="listing-detail-grid grid min-w-0 grid-cols-1 gap-6 max-md:gap-3 lg:grid-cols-3">
               <div className="min-w-0 max-w-full space-y-4 lg:col-span-2">
-                <div className="skeleton aspect-video w-full rounded-2xl" />
+                <div className="skeleton listing-gallery-stage w-full rounded-2xl" />
                 <div className="skeleton h-40 w-full rounded-2xl" />
                 <div className="skeleton h-48 w-full rounded-2xl" />
               </div>
@@ -431,13 +540,64 @@ export default function ListingDetailPageClient({
     listing.owner?.businessName?.trim() ||
     'Vânzător verificat';
   const sellerInitial = sellerDisplayName.charAt(0).toUpperCase();
-  const sellerPhone = (
-    listing.contactPhone ||
-    listing.owner?.phone ||
-    listing.owner?.businessPhone ||
-    ""
+  // Owner/admin payloads may include contactPhone; public payloads only hasContactPhone.
+  const ownerDirectPhone = (
+    isOwner || isPrivileged
+      ? listing.contactPhone || listing.owner?.phone || listing.owner?.businessPhone || ""
+      : ""
   ).trim();
-  const phoneTelHref = sellerPhone ? phoneToTelHref(sellerPhone) : "";
+  const hasContactPhone =
+    Boolean(listing.hasContactPhone) ||
+    Boolean(ownerDirectPhone) ||
+    Boolean(revealedPhone);
+  const sellerPhone = (revealedPhone || ownerDirectPhone).trim();
+  const phoneTelHref = sellerPhone
+    ? revealedTelHref || phoneToTelHref(sellerPhone)
+    : "";
+
+  const revealSellerPhone = async () => {
+    if (!id || phoneRevealInFlightRef.current || phoneRevealLoading) return;
+    if (ownerDirectPhone) {
+      setRevealedPhone(ownerDirectPhone);
+      setRevealedTelHref(phoneToTelHref(ownerDirectPhone));
+      setShowPhone(true);
+      setPhoneRevealError(null);
+      return;
+    }
+    phoneRevealInFlightRef.current = true;
+    setPhoneRevealLoading(true);
+    setPhoneRevealError(null);
+    try {
+      const res = await fetch(`/api/listings/${id}/contact-phone`, {
+        credentials: "include",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        phone?: string;
+        telHref?: string;
+        error?: string;
+        hasPhone?: boolean;
+      };
+      if (res.status === 429) {
+        setPhoneRevealError(data.error || "Prea multe solicitări. Încearcă mai târziu.");
+        return;
+      }
+      if (!res.ok || !data.phone || !data.telHref) {
+        setPhoneRevealError(data.error || "Telefon indisponibil");
+        return;
+      }
+      setRevealedPhone(data.phone);
+      setRevealedTelHref(data.telHref);
+      setShowPhone(true);
+      void trackListingEngagement(id, "listing_contact_click");
+    } catch {
+      setPhoneRevealError("Nu am putut afișa telefonul. Reîncearcă.");
+    } finally {
+      setPhoneRevealLoading(false);
+      phoneRevealInFlightRef.current = false;
+    }
+  };
 
   const openMessages = () => {
     if (!currentUser?.id) {
@@ -478,21 +638,10 @@ export default function ListingDetailPageClient({
     setReportLoading(true);
     setReportFeedback(null);
     try {
-      const csrfToken = await getCsrfToken();
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-      const res = await fetch("/api/reports", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          listingId: id,
-          reason: reportReason,
-          description: reportDescription.trim(),
-        }),
+      const res = await postJsonWithAuthRefresh('/api/reports', {
+        listingId: id,
+        reason: reportReason,
+        description: reportDescription.trim(),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -583,15 +732,27 @@ export default function ListingDetailPageClient({
                   <div className="flex items-center justify-between border-t border-zinc-700/45 pt-3 md:pt-4">
                     <div className="min-w-0">
                       {(() => {
-                        const line = formatCategoryAwarePriceLine({
-                          categoryLabel: listing.category,
+                        const line = formatListingCommercialOrSalaryLine({
+                          category: listing.category,
+                          priceType: (listing as { priceType?: string | null }).priceType,
                           priceAmount: listing.priceAmount,
                           priceCurrency: listing.priceCurrency,
-                          attributes:
+                          salaryMin: (listing as { salaryMin?: number | null }).salaryMin,
+                          salaryMax: (listing as { salaryMax?: number | null }).salaryMax,
+                          salaryCurrency: (listing as { salaryCurrency?: string | null })
+                            .salaryCurrency,
+                          salaryPeriod: (listing as { salaryPeriod?: string | null })
+                            .salaryPeriod,
+                          legacySalaryRange:
                             listing.attributes &&
                             typeof listing.attributes === "object" &&
-                            !Array.isArray(listing.attributes)
-                              ? (listing.attributes as Record<string, unknown>)
+                            !Array.isArray(listing.attributes) &&
+                            typeof (listing.attributes as Record<string, unknown>)
+                              .salary_range === "string"
+                              ? String(
+                                  (listing.attributes as Record<string, unknown>)
+                                    .salary_range
+                                )
                               : null,
                         });
                         return (
@@ -743,8 +904,8 @@ export default function ListingDetailPageClient({
                           <span>💬</span>
                           <span>Trimite mesaj</span>
                         </button>
-                        {sellerPhone ? (
-                          showPhone ? (
+                        {hasContactPhone ? (
+                          showPhone && sellerPhone ? (
                             <a
                               href={`tel:${phoneTelHref}`}
                               onClick={() => id && void trackListingEngagement(id, "listing_phone_click")}
@@ -756,14 +917,15 @@ export default function ListingDetailPageClient({
                           ) : (
                             <button
                               type="button"
+                              disabled={phoneRevealLoading}
+                              aria-busy={phoneRevealLoading}
                               onClick={() => {
-                                if (id) void trackListingEngagement(id, "listing_contact_click");
-                                setShowPhone(true);
+                                void revealSellerPhone();
                               }}
-                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 md:py-2.5 md:text-sm"
+                              className="listing-sidebar-btn flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/40 bg-zinc-900/80 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/10 disabled:cursor-wait disabled:opacity-70 md:py-2.5 md:text-sm"
                             >
                               <span>📞</span>
-                              <span>Afișează telefon</span>
+                              <span>{phoneRevealLoading ? "Se încarcă…" : "Afișează telefon"}</span>
                             </button>
                           )
                         ) : (
@@ -771,6 +933,11 @@ export default function ListingDetailPageClient({
                             Vânzătorul nu a afișat telefon — folosește mesajul.
                           </p>
                         )}
+                        {phoneRevealError ? (
+                          <p className="text-center text-xs text-amber-300/90" role="status">
+                            {phoneRevealError}
+                          </p>
+                        ) : null}
                       </>
                     )}
 
@@ -961,11 +1128,29 @@ export default function ListingDetailPageClient({
             </div>
           </div>
 
-          {/* Similar Listings */}
-          <div className="mt-8 min-w-0 max-w-full">
+          {/* Similar Listings — reserved grid geometry while loading to avoid CLS */}
+          <div className="mt-8 min-h-[18rem] min-w-0 max-w-full md:min-h-[14rem]">
             <h2 className="mb-3 text-base font-semibold tracking-tight text-zinc-100">Anunțuri similare</h2>
             {similarLoading ? (
-              <div className="text-sm text-gray-500">Se încarcă anunțurile similare…</div>
+              <div
+                className="grid min-h-[16rem] grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
+                aria-busy="true"
+                aria-label="Se încarcă anunțurile similare"
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={`similar-skel-${i}`}
+                    className="overflow-hidden rounded-md bg-white/5 ring-1 ring-white/10"
+                  >
+                    <div className="skeleton aspect-video w-full" />
+                    <div className="space-y-2 p-3">
+                      <div className="skeleton h-4 w-11/12 rounded" />
+                      <div className="skeleton h-4 w-1/3 rounded" />
+                      <div className="skeleton h-3 w-1/2 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : similarListings.length === 0 ? (
               <div
                 className="rounded-xl border border-gray-700/35 bg-gray-900/35 px-5 py-8 text-center text-sm text-gray-400"

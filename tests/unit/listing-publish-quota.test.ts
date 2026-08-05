@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from 'fs';
+import path from 'path';
 import {
   LISTING_PUBLISH_MAX_AUTHENTICATED,
   LISTING_PUBLISH_MAX_PRIVILEGED,
@@ -23,5 +25,15 @@ describe('listing-publish-quota', () => {
   it('privileged cap is 500 per 24h', () => {
     expect(listingPublishMaxForRole('admin')).toBe(LISTING_PUBLISH_MAX_PRIVILEGED);
     expect(LISTING_PUBLISH_MAX_PRIVILEGED).toBe(500);
+  });
+
+  it('quota bypass uses shared isE2eRateLimitBypassEnabled helper', () => {
+    const src = readFileSync(
+      path.join(__dirname, '../../lib/listing-publish-quota.ts'),
+      'utf8'
+    );
+    expect(src).toContain('isE2eRateLimitBypassEnabled');
+    expect(src).toContain('e2e_bypass');
+    expect(src).not.toMatch(/E2E_DISABLE_RATE_LIMIT\s*===\s*['"]1['"]/);
   });
 });

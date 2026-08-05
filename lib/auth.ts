@@ -4,11 +4,24 @@
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { randomUUID } from 'crypto';
 import { normalizeJwtInput } from './jwt-normalize';
 import { verifyJwtHs256AccessFlexible } from '@/lib/security/tokens';
 import { db } from './db';
 import bcrypt from 'bcrypt';
 import { NextRequest } from 'next/server';
+import {
+  isSessionVersionMatch,
+  sessionVersionFromTokenPayload,
+  sessionVersionFromUser,
+} from '@/lib/auth/session-version';
+import {
+  auditRefreshReplay,
+  lazyCleanupRefreshTokens,
+  persistIssuedRefreshToken,
+  RefreshRotateError,
+  rotateRefreshTokenRecord,
+} from '@/lib/auth/refresh-token-store';
 
 // Secret pentru JWT (din .env)
 const JWT_SECRET_RAW = process.env.JWT_SECRET;
@@ -27,6 +40,8 @@ export interface TokenPayload extends JWTPayload {
   email: string;
   role: string;
   type: 'access' | 'refresh';
+  /** Session version — must match User.sessionVersion */
+  sv?: number;
 }
 
 export interface AuthResult {
@@ -42,12 +57,18 @@ export interface AuthResult {
 /**
  * Generare Access Token JWT
  */
-export async function generateAccessToken(userId: string, email: string, role: string): Promise<string> {
+export async function generateAccessToken(
+  userId: string,
+  email: string,
+  role: string,
+  sessionVersion: number = 0
+): Promise<string> {
   const token = await new SignJWT({
     userId,
     email,
     role,
     type: 'access',
+    sv: sessionVersion,
   })
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
@@ -62,12 +83,19 @@ export async function generateAccessToken(userId: string, email: string, role: s
 /**
  * Generare Refresh Token JWT
  */
-export async function generateRefreshToken(userId: string, email: string, role: string): Promise<string> {
+export async function generateRefreshToken(
+  userId: string,
+  email: string,
+  role: string,
+  sessionVersion: number = 0
+): Promise<string> {
   const token = await new SignJWT({
     userId,
     email,
     role,
     type: 'refresh',
+    sv: sessionVersion,
+    jti: randomUUID(),
   })
     .setProtectedHeader({ alg: JWT_ALGORITHM })
     .setIssuedAt()
@@ -77,6 +105,25 @@ export async function generateRefreshToken(userId: string, email: string, role: 
     .sign(JWT_SECRET);
 
   return token;
+}
+
+/**
+ * Issue access + refresh and persist refresh hash (new device session family).
+ */
+export async function issueAuthTokenPair(user: {
+  id: string;
+  email: string;
+  role: string;
+  sessionVersion?: number | null;
+}): Promise<{ accessToken: string; refreshToken: string; familyId: string }> {
+  const sv = sessionVersionFromUser(user);
+  const accessToken = await generateAccessToken(user.id, user.email, user.role, sv);
+  const refreshToken = await generateRefreshToken(user.id, user.email, user.role, sv);
+  const { familyId } = await persistIssuedRefreshToken({
+    userId: user.id,
+    rawToken: refreshToken,
+  });
+  return { accessToken, refreshToken, familyId };
 }
 
 export { normalizeJwtInput };
@@ -199,7 +246,14 @@ export async function getUserFromRequest(request: NextRequest) {
     const payload = await decodeAccessJwtPayload(token);
     if (!payload?.userId) continue;
     const user = await db.findUserById(payload.userId);
-    if (user) return user;
+    if (!user) continue;
+    // Ban / soft-delete must revoke effective auth even if JWT is still unexpired.
+    if (user.isBanned) continue;
+    if ("deletedAt" in user && user.deletedAt) continue;
+    const tokenSv = sessionVersionFromTokenPayload(payload);
+    const userSv = sessionVersionFromUser(user);
+    if (!isSessionVersionMatch(tokenSv, userSv)) continue;
+    return user;
   }
 
   return null;
@@ -241,7 +295,7 @@ export async function authenticateUser(
     if (user.isBanned) {
       return {
         success: false,
-        error: `Contul este banat. Motiv: ${user.banReason || 'Necunoscut'}`,
+        error: 'Contul este suspendat. Contactează suportul dacă ai nevoie de ajutor.',
       };
     }
 
@@ -312,9 +366,8 @@ export async function authenticateUser(
       lastLoginIp: ip || null,
     });
 
-    // Generate tokens
-    const accessToken = await generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
+    // Generate tokens bound to current sessionVersion + persist refresh hash
+    const tokens = await issueAuthTokenPair(user);
 
     // Remove password from user object
     const { password: userPassword, ...userWithoutPassword } = user;
@@ -322,8 +375,8 @@ export async function authenticateUser(
     return {
       success: true,
       user: userWithoutPassword,
-      accessToken,
-      refreshToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
     };
   } catch (error: unknown) {
     console.error('Authentication error:', error);
@@ -335,7 +388,7 @@ export async function authenticateUser(
 }
 
 /**
- * Refresh access token folosind refresh token
+ * Refresh access (+ rotate refresh) using a single-use refresh token.
  */
 export async function refreshAccessToken(refreshToken: string): Promise<AuthResult> {
   try {
@@ -365,8 +418,56 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       };
     }
 
-    // Generează token nou
-    const newAccessToken = await generateAccessToken(user.id, user.email, user.role);
+    if ("deletedAt" in user && user.deletedAt) {
+      return {
+        success: false,
+        error: 'Contul nu mai este disponibil',
+      };
+    }
+
+    const tokenSv = sessionVersionFromTokenPayload(payload);
+    const userSv = sessionVersionFromUser(user);
+    if (!isSessionVersionMatch(tokenSv, userSv)) {
+      return {
+        success: false,
+        error: 'Sesiune revocată',
+      };
+    }
+
+    const nextRefreshToken = await generateRefreshToken(
+      user.id,
+      user.email,
+      user.role,
+      userSv
+    );
+
+    try {
+      await rotateRefreshTokenRecord({
+        userId: user.id,
+        presentedRawToken: refreshToken,
+        nextRawToken: nextRefreshToken,
+      });
+    } catch (err) {
+      if (err instanceof RefreshRotateError) {
+        if (err.reason === 'replay') {
+          void auditRefreshReplay(user.id, err.familyId || 'unknown');
+        }
+        return {
+          success: false,
+          error: 'Sesiune revocată',
+        };
+      }
+      throw err;
+    }
+
+    void lazyCleanupRefreshTokens(25);
+
+    const newAccessToken = await generateAccessToken(
+      user.id,
+      user.email,
+      user.role,
+      userSv
+    );
 
     const { password: _password, ...userWithoutPassword } = user;
 
@@ -374,6 +475,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResu
       success: true,
       user: userWithoutPassword,
       accessToken: newAccessToken,
+      refreshToken: nextRefreshToken,
     };
   } catch (_error: unknown) {
     return {

@@ -236,15 +236,12 @@ export default function PromotePage() {
       router.push(
         `/listings/${id}/promote/payment/card?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
       );
-    } else if (selectedPaymentMethod === 'paypal') {
-      router.push(
-        `/listings/${id}/promote/payment/paypal?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
-      );
-    } else if (selectedPaymentMethod === 'transfer') {
-      router.push(
-        `/listings/${id}/promote/payment/transfer?package=${selectedPackage}&price=${priceParam}&amountBani=${amountBani}`
-      );
+      return;
     }
+
+    alert(
+      'Doar plata cu cardul (Stripe) activează promovarea automat. PayPal și transferul bancar nu sunt disponibile pentru activare automată.'
+    );
   };
 
   if (loading) {
@@ -398,55 +395,45 @@ export default function PromotePage() {
                     </div>
                   </button>
 
-                  {/* PayPal */}
-                  <button
-                    onClick={() => setSelectedPaymentMethod('paypal')}
-                    className={`w-full p-3 rounded-lg border-2 transition-all transform hover:scale-[1.01] ${
-                      selectedPaymentMethod === 'paypal'
-                        ? 'border-[#0070BA] bg-[#0070BA]/10 shadow-lg shadow-[#0070BA]/30'
-                        : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'
-                    }`}
+                  {/* PayPal — disabled: previously activated promotions without provider confirmation */}
+                  <div
+                    className="w-full p-3 rounded-lg border-2 border-gray-800 bg-gray-900/50 opacity-60 cursor-not-allowed"
+                    aria-disabled="true"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-[#0070BA] rounded-lg flex items-center justify-center">
-                          <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8.32 21.97a.546.546 0 01-.26-.32c-.03-.15-.01-.89.62-4.09.03-.16.06-.32.08-.47.18-.98.28-1.49.97-1.49h1.46c2.92 0 5.17-1.07 6.16-2.94.77-1.44.9-3.12.38-4.87-.03-.11-.07-.21-.11-.32.64.23 1.22.53 1.72.91 1.93 1.46 2.45 3.8 1.55 6.99-.98 3.45-3.82 5.6-7.25 5.6h-5.32z" />
-                            <path d="M11.85 6h-4.61c-.42 0-.79.31-.85.73l-1.88 12.06a.546.546 0 00.54.64h3.29c.42 0 .79-.31.85-.73l.49-3.18c.06-.42.43-.73.85-.73h1.97c4.07 0 6.42-2.01 7.03-5.99.29-1.82.01-3.25-.85-4.28C17.8 2.85 15.93 2 13.42 2h-4.61c-.42 0-.79.31-.85.73L6.08 9.68c-.06.42.24.77.66.77h3.29c.42 0 .79-.31.85-.73l.49-3.18c.06-.42.43-.54.48-.54z" />
-                          </svg>
+                        <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
+                          <span className="text-xs text-gray-300 font-bold">PP</span>
                         </div>
                         <div className="text-left">
                           <p className="text-white font-bold text-sm">PayPal</p>
-                          <p className="text-gray-400 text-xs">Plată rapidă și securizată</p>
+                          <p className="text-amber-400/90 text-xs">
+                            Indisponibil — promovarea se activează doar după plată Stripe confirmată
+                          </p>
                         </div>
                       </div>
-                      <img src="https://www.paypalobjects.com/webstatic/mktg/logo/pp_cc_mark_37x23.jpg" alt="PayPal" className="h-6" />
                     </div>
-                  </button>
+                  </div>
 
-                  {/* Transfer Bancar */}
-                  <button
-                    onClick={() => setSelectedPaymentMethod('transfer')}
-                    className={`w-full p-3 rounded-lg border-2 transition-all transform hover:scale-[1.01] ${
-                      selectedPaymentMethod === 'transfer'
-                        ? 'border-green-500 bg-green-500/10 shadow-lg shadow-green-500/30'
-                        : 'border-gray-700/50 bg-gray-800/30 hover:border-gray-600'
-                    }`}
+                  {/* Transfer — disabled for the same reason */}
+                  <div
+                    className="w-full p-3 rounded-lg border-2 border-gray-800 bg-gray-900/50 opacity-60 cursor-not-allowed"
+                    aria-disabled="true"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
-                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                          </svg>
+                        <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
+                          <span className="text-xs text-gray-300 font-bold">TB</span>
                         </div>
                         <div className="text-left">
-                          <p className="text-white font-bold text-sm">Transfer Bancar</p>
-                          <p className="text-gray-400 text-xs">Plată prin transfer bancar direct</p>
+                          <p className="text-white font-bold text-sm">Transfer bancar</p>
+                          <p className="text-amber-400/90 text-xs">
+                            Indisponibil pentru activare automată — folosește cardul
+                          </p>
                         </div>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 </div>
               </div>
 

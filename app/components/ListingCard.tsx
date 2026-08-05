@@ -5,19 +5,34 @@ import Link from 'next/link';
 import { normalizeListingPhotosArray } from '@/lib/listing-photo-url';
 import {
   applyListingImageFallback,
+  getListingImageUrl,
   listingPrimaryPhotoSrcForVariant,
 } from '@/lib/listing-image-variants';
 import { resolveClientApiUrl } from '@/lib/client-canonical-www';
 import { TrustBadgeCompact } from '@/app/components/TrustBadge';
 import PromotedBadge from '@/app/components/PromotedBadge';
 import { ListingCategoryPhotoFallback } from '@/app/components/listing/ListingCategoryPhotoFallback';
-import { isListingSaved, toggleSavedListingId } from '@/lib/recent-listings-storage';
-import { formatCategoryAwarePriceLine } from '@/lib/listing-price-semantics';
+import { formatListingCommercialOrSalaryLine } from '@/lib/format-listing-price';
+import { isFavoriteLocal, toggleFavoriteListing } from '@/lib/favorites-client';
+import { buildListingSpecRows } from '@/lib/listing-category-specs';
+
+/** Card teaser: only these spec labels (in priority order), never location/brand/VIN — title already covers those. */
+const CARD_SPEC_LABEL_PRIORITY = [
+  'An fabricație',
+  'Kilometraj',
+  'Combustibil',
+  'Transmisie',
+  'Camere',
+  'Suprafață',
+  'Etaj',
+  'Brand',
+  'Stare',
+];
 
 const motionEase = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 const pillBase =
-  'inline-flex items-center gap-0.5 rounded-full border border-white/[0.07] bg-white/[0.07] px-1.5 py-0.5 text-[6.5px] font-semibold uppercase tracking-[0.16em] text-zinc-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md sm:px-2 sm:text-[7px]';
+  'inline-flex items-center gap-1 rounded-full border border-white/[0.07] bg-white/[0.07] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-zinc-200/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-md sm:px-2.5 sm:py-1 sm:text-[10px]';
 
 const cardShellInk =
   'group/card relative flex h-full max-w-full flex-col overflow-hidden rounded-2xl border border-white/[0.055] bg-gradient-to-b from-white/[0.045] to-[rgb(14,16,22)] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_18px_48px_-32px_rgba(0,0,0,0.85)] transition-[transform,box-shadow,border-color] duration-300 motion-reduce:transition-none';
@@ -34,17 +49,30 @@ const cardHoverPaper =
 export interface ListingCardListing {
   id: string;
   title: string;
-  priceAmount: number;
-  priceCurrency: string;
+  priceAmount: number | null;
+  priceCurrency: string | null;
   category: string;
   photos: string[];
   createdAt: string;
   status: string;
   isPromoted: boolean;
+  promotionExpiresAt?: string | null;
   views: number;
   city?: string | null;
   county?: string | null;
   attributes?: Record<string, unknown> | null;
+  condition?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+  mileage?: number | null;
+  fuel?: string | null;
+  transmission?: string | null;
+  priceType?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: string | null;
   owner?: {
     id: string;
     businessName?: string;
@@ -84,6 +112,7 @@ export function ListingCard({
   const [isNew, setIsNew] = useState(false);
   const [saved, setSaved] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -107,11 +136,12 @@ export function ListingCard({
   }, [listing.createdAt]);
 
   useEffect(() => {
-    setSaved(isListingSaved(listing.id));
+    setSaved(isFavoriteLocal(listing.id));
   }, [listing.id]);
 
   useEffect(() => {
     setImgLoaded(false);
+    setActiveImageIndex(0);
     const el = imgRef.current;
     // FIX: cached images may not fire onLoad — bypass opacity-0 fade for already-complete imgs
     if (el?.complete && el.naturalWidth > 0) {
@@ -122,19 +152,57 @@ export function ListingCard({
   const handleFav = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setSaved(toggleSavedListingId(listing.id));
+    const prev = saved;
+    setSaved(!prev);
+    void toggleFavoriteListing(listing.id).then((result) => {
+      if (result.error && !result.needsAuth) {
+        setSaved(prev);
+        return;
+      }
+      setSaved(result.saved);
+    });
   };
+
+  const promotedLive =
+    Boolean(listing.isPromoted) &&
+    (listing.promotionExpiresAt == null ||
+      listing.promotionExpiresAt === '' ||
+      new Date(listing.promotionExpiresAt).getTime() > Date.now());
 
   // Price formatting: lib/format-listing-price (single currency code).
 
+  const specChips = compact
+    ? []
+    : buildListingSpecRows(listing)
+        .filter((row) => CARD_SPEC_LABEL_PRIORITY.includes(row.label))
+        .map((row) =>
+          // Shared formatter adds thousand-separators to every number, incl. years (2009 → "2.009") — undo just for the card.
+          row.label === 'An fabricație' ? { ...row, value: String(listing.year ?? row.value) } : row
+        )
+        .sort(
+          (a, b) => CARD_SPEC_LABEL_PRIORITY.indexOf(a.label) - CARD_SPEC_LABEL_PRIORITY.indexOf(b.label)
+        )
+        .slice(0, 2);
+
   const photos = normalizeListingPhotosArray(listing.photos);
   const hasRealPhoto = photos.length > 0;
+  const showCarousel = !compact && photos.length > 1;
+  const safeIndex = hasRealPhoto ? Math.min(activeImageIndex, photos.length - 1) : 0;
   const mainPhoto = hasRealPhoto
-    ? listingPrimaryPhotoSrcForVariant(listing.photos, 'medium')
+    ? showCarousel
+      ? getListingImageUrl(photos[safeIndex], 'medium')
+      : listingPrimaryPhotoSrcForVariant(listing.photos, 'medium')
     : '';
-  const mainPhotoRaw = photos[0] ?? '';
+  const mainPhotoRaw = photos[safeIndex] ?? '';
   const displayPhoto =
     mainPhoto && mainPhoto.startsWith('/api/') ? resolveClientApiUrl(mainPhoto) : mainPhoto;
+
+  const goToImage = (e: MouseEvent, direction: -1 | 1) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImgLoaded(false);
+    setActiveImageIndex((i) => (i + direction + photos.length) % photos.length);
+  };
   const locationLabel = [listing.city, listing.county].filter(Boolean).join(' · ');
   const verifiedSeller =
     typeof listing.owner?.trustScore === 'number' && listing.owner.trustScore >= 70;
@@ -142,18 +210,18 @@ export function ListingCard({
   const href = `/listings/${listing.id}`;
   const ink = appearance === 'ink';
 
-  const bodyPad = compact ? 'p-2 sm:p-2.5' : 'p-2.5 sm:p-3 md:p-3.5';
+  const bodyPad = compact ? 'p-2.5 sm:p-3' : 'p-3 sm:p-3.5 md:p-4';
   const titleClass = ink
-    ? `line-clamp-2 font-semibold tracking-[-0.02em] text-zinc-50 ${compact ? 'text-[11px] leading-snug sm:text-[12px]' : 'text-[12px] leading-snug sm:text-[13px] md:text-[14px]'}`
-    : `line-clamp-2 font-semibold tracking-tight text-slate-900 ${compact ? 'text-[11px] leading-snug sm:text-[12px]' : 'text-[12px] sm:text-[13px] md:text-[14px]'}`;
+    ? `line-clamp-2 font-semibold tracking-[-0.02em] text-zinc-50 ${compact ? 'text-[12px] leading-snug sm:text-[13px]' : 'text-sm leading-snug sm:text-[15px] md:text-base'}`
+    : `line-clamp-2 font-semibold tracking-tight text-slate-900 ${compact ? 'text-[12px] leading-snug sm:text-[13px]' : 'text-sm leading-snug sm:text-[15px] md:text-base'}`;
 
   const locationClass = ink
-    ? `line-clamp-1 ${compact ? 'mt-0.5 text-[9px] text-zinc-500/75 sm:text-[10px]' : 'mt-1 text-[10px] text-zinc-500/70 sm:text-[11px]'}`
-    : `line-clamp-1 ${compact ? 'mt-0.5 text-[9px] text-slate-500 sm:text-[10px]' : 'mt-1 text-[10px] text-slate-600 sm:text-[11px]'}`;
+    ? `line-clamp-1 ${compact ? 'mt-0.5 text-[10px] text-zinc-500/75 sm:text-[11px]' : 'mt-1 text-[11px] text-zinc-500/70 sm:text-xs'}`
+    : `line-clamp-1 ${compact ? 'mt-0.5 text-[10px] text-slate-500 sm:text-[11px]' : 'mt-1 text-[11px] text-slate-600 sm:text-xs'}`;
 
   const priceClass = ink
-    ? `font-semibold tabular-nums tracking-tight text-white ${compact ? 'mt-1.5 text-[13px] sm:text-sm' : 'mt-2 text-[0.9375rem] sm:text-[1.0625rem]'}`
-    : `font-semibold tabular-nums tracking-tight text-slate-900 ${compact ? 'mt-1.5 text-[13px] sm:text-sm' : 'mt-2 text-base sm:text-[1.0625rem]'}`;
+    ? `font-semibold tabular-nums tracking-tight text-white ${compact ? 'mt-1.5 text-sm sm:text-base' : 'mt-2 text-base sm:text-lg'}`
+    : `font-semibold tabular-nums tracking-tight text-slate-900 ${compact ? 'mt-1.5 text-sm sm:text-base' : 'mt-2 text-base sm:text-lg'}`;
 
   const imageAreaBg = ink
     ? 'bg-[#22262f] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]'
@@ -168,7 +236,7 @@ export function ListingCard({
       className={ink ? `${cardShellInk} ${cardHoverInk}` : `${cardShellPaper} ${cardHoverPaper}`}
       style={{ transitionTimingFunction: motionEase }}
     >
-      <div className={`relative aspect-[5/3] w-full overflow-hidden ${imageAreaBg}`}>
+      <div className={`relative ${compact ? 'aspect-[5/3]' : 'aspect-[4/3]'} w-full overflow-hidden ${imageAreaBg}`}>
         <Link
           href={href}
           className={`relative block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset ${
@@ -204,6 +272,44 @@ export function ListingCard({
 
         <div className={scrimClass} aria-hidden />
 
+        {showCarousel ? (
+          <>
+            <button
+              type="button"
+              aria-label="Poza anterioară"
+              onClick={(e) => goToImage(e, -1)}
+              className="absolute left-1.5 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.12] bg-black/40 text-white opacity-100 backdrop-blur-md transition-opacity duration-200 hover:bg-black/60 md:opacity-0 md:group-hover/card:opacity-100"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Poza următoare"
+              onClick={(e) => goToImage(e, 1)}
+              className="absolute right-1.5 top-1/2 z-[3] flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.12] bg-black/40 text-white opacity-100 backdrop-blur-md transition-opacity duration-200 hover:bg-black/60 md:opacity-0 md:group-hover/card:opacity-100"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {photos.length <= 8 ? (
+              <div className="pointer-events-none absolute bottom-2 left-1/2 z-[2] flex -translate-x-1/2 items-center gap-1 sm:bottom-2.5">
+                {photos.map((_, i) => (
+                  <span
+                    key={i}
+                    className={`h-1 rounded-full transition-[width,background-color] duration-200 ${
+                      i === safeIndex ? 'w-3 bg-white' : 'w-1 bg-white/45'
+                    }`}
+                    aria-hidden
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
         <div className="pointer-events-none absolute left-2 top-2 z-[2] flex max-w-[calc(100%-5.5rem)] flex-wrap items-center gap-1 sm:left-2.5 sm:top-2.5 sm:max-w-[calc(100%-6rem)]">
           {hotToday ? (
             <span className={pillBase}>
@@ -238,7 +344,7 @@ export function ListingCard({
         </div>
 
         <div className="absolute right-2 top-2 z-[3] flex items-center gap-1.5 sm:right-2.5 sm:top-2.5">
-          {listing.isPromoted ? <PromotedBadge size="xs" tone="glassDark" /> : null}
+          {promotedLive ? <PromotedBadge size="xs" tone="glassDark" /> : null}
           {showFavorite ? (
             <button
               type="button"
@@ -272,7 +378,7 @@ export function ListingCard({
 
         <div className="pointer-events-none absolute bottom-2 left-2 z-[2] max-w-[min(100%-4.5rem,11rem)] sm:bottom-2.5 sm:left-2.5 sm:max-w-[min(100%-5rem,13rem)]">
           <span
-            className={`line-clamp-1 rounded-full border px-2 py-0.5 text-[8px] font-medium tracking-tight backdrop-blur-md sm:text-[9px] ${
+            className={`line-clamp-1 rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-tight backdrop-blur-md sm:text-[11px] ${
               ink
                 ? 'border-white/[0.08] bg-black/35 text-zinc-100/90'
                 : 'border-slate-200/80 bg-white/85 text-slate-800'
@@ -285,7 +391,7 @@ export function ListingCard({
         {photos.length > 1 ? (
           <div className="pointer-events-none absolute bottom-2 right-2 z-[2] sm:bottom-2.5 sm:right-2.5">
             <span
-              className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[8px] font-medium tabular-nums backdrop-blur-md sm:gap-1 sm:px-2 sm:text-[9px] ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium tabular-nums backdrop-blur-md sm:text-[11px] ${
                 ink
                   ? 'border-white/[0.08] bg-black/35 text-zinc-100'
                   : 'border-slate-200/80 bg-white/90 text-slate-700'
@@ -315,19 +421,42 @@ export function ListingCard({
 
         {locationLabel ? <p className={locationClass}>{locationLabel}</p> : null}
 
+        {specChips.length > 0 ? (
+          <div
+            className={`mt-1.5 flex flex-wrap items-center gap-1 text-[10px] font-medium sm:text-[11px] ${
+              ink ? 'text-zinc-400/85' : 'text-slate-600'
+            }`}
+          >
+            {specChips.map((chip, i) => (
+              <span key={chip.label} className="inline-flex items-center gap-1">
+                {i > 0 ? <span className="opacity-40" aria-hidden>·</span> : null}
+                {chip.value}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
           {(() => {
-            const line = formatCategoryAwarePriceLine({
-              categoryLabel: listing.category,
+            const line = formatListingCommercialOrSalaryLine({
+              category: listing.category,
+              priceType: listing.priceType,
               priceAmount: listing.priceAmount,
               priceCurrency: listing.priceCurrency,
-              attributes: listing.attributes,
+              salaryMin: listing.salaryMin,
+              salaryMax: listing.salaryMax,
+              salaryCurrency: listing.salaryCurrency,
+              salaryPeriod: listing.salaryPeriod,
+              legacySalaryRange:
+                typeof listing.attributes?.salary_range === 'string'
+                  ? listing.attributes.salary_range
+                  : null,
             });
             return (
               <>
                 <span className={priceClass}>{line.primary}</span>
                 {line.suffix ? (
-                  <span className="text-[10px] font-medium opacity-70 sm:text-xs">{line.suffix}</span>
+                  <span className="text-xs font-medium opacity-70 sm:text-sm">{line.suffix}</span>
                 ) : null}
               </>
             );
@@ -341,7 +470,7 @@ export function ListingCard({
             }`}
           >
             <div
-              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 sm:px-2 sm:py-1 ${
+              className={`flex items-center gap-1 rounded-full border px-2 py-1 ${
                 ink
                   ? 'border-white/[0.06] bg-white/[0.03] text-zinc-500/80'
                   : 'border-slate-200 bg-slate-50 text-slate-500'
@@ -350,10 +479,10 @@ export function ListingCard({
               <svg className="h-2.5 w-2.5 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              <span className="text-[9px] font-medium sm:text-[10px]">{formattedDate}</span>
+              <span className="text-[10px] font-medium sm:text-[11px]">{formattedDate}</span>
             </div>
             <div
-              className={`flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 sm:px-2 sm:py-1 ${
+              className={`flex items-center gap-1 rounded-full border px-2 py-1 ${
                 ink
                   ? 'border-white/[0.06] bg-white/[0.03] text-zinc-500/80'
                   : 'border-slate-200 bg-slate-50 text-slate-500'
@@ -363,7 +492,7 @@ export function ListingCard({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
-              <span className="text-[9px] font-medium tabular-nums sm:text-[10px]">{listing.views}</span>
+              <span className="text-[10px] font-medium tabular-nums sm:text-[11px]">{listing.views}</span>
               <span className="sr-only">vizualizări</span>
             </div>
           </div>

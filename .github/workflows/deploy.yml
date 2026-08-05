@@ -1,3 +1,10 @@
+# Aliniat la topologia reală de producție (FAZA 21E, 2026-07-28): release-uri
+# imutabile sub /var/www/clickanunt-releases/<ts>-<sha> cu symlink `current`,
+# comutate prin scripts/deploy-production-release.sh (SHA verificat pe remote,
+# lock anti-concurență, live-SHA confirmat înainte de orice schimbare, build +
+# migrații Prisma pe VPS, health-check cu rollback automat la orice eșec).
+# Acest job NU rulează build-ul de deploy — doar declanșează scriptul pe VPS
+# via SSH; buildul/migrațiile/pornirea PM2 se întâmplă acolo, sub lock.
 name: Deploy to Production
 
 on:
@@ -5,6 +12,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      approve_migrations:
+        description: "Aprobă rularea migrațiilor Prisma în așteptare (altfel deploy-ul refuză și se oprește dacă există migrații nerulate)"
+        type: boolean
+        default: false
 
 concurrency:
   group: production-deployment
@@ -39,7 +51,7 @@ jobs:
       - name: Run tests
         run: npm run test
 
-      - name: Build application
+      - name: Build application (pre-flight gate — VPS rebuilds independently)
         run: npm run build
         env:
           NODE_ENV: production
@@ -51,76 +63,52 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to server
+      - name: Deploy release on server
         run: |
-          echo "🚀 Starting deployment to ${{ secrets.HOST }}..."
+          echo "🚀 Deploying $GITHUB_SHA to ${{ secrets.HOST }} via deploy-production-release.sh..."
 
-          # Test SSH connection
-          ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa \
-            -p ${{ secrets.PORT }} \
-            ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
-            "echo '✅ SSH connection successful'"
-
-          # Execute deployment commands
           ssh -o StrictHostKeyChecking=yes -i ~/.ssh/id_rsa \
             -p ${{ secrets.PORT }} \
             ${{ secrets.USERNAME }}@${{ secrets.HOST }} \
             "
               set -e
 
-              echo '📁 Navigating to application directory...'
-              cd ${{ secrets.APP_DIR }}
+              RELEASES_ROOT=/var/www/clickanunt-releases
+              CURRENT_LINK=\"\$RELEASES_ROOT/current\"
 
-              echo '🔄 Fetching latest changes...'
-              git fetch origin main
-              git reset --hard origin/main
+              echo '🔎 Citesc SHA-ul live curent (asumat de acest deploy)...'
+              CURRENT_TARGET=\"\$(readlink -f \"\$CURRENT_LINK\")\"
+              EXPECTED_LIVE_SHA=\"\$(git -C \"\$CURRENT_TARGET\" rev-parse HEAD)\"
+              echo \"   live curent: \$EXPECTED_LIVE_SHA\"
 
-              echo '📦 Installing dependencies...'
-              npm ci
+              echo '📦 Rulez deploy-production-release.sh (validare SHA pe remote, lock, build, health-check, rollback automat la eșec)...'
+              bash \"\$CURRENT_TARGET/scripts/deploy-production-release.sh\" \
+                --sha ${{ github.sha }} \
+                --expected-live-sha \"\$EXPECTED_LIVE_SHA\" \
+                ${{ (github.event_name == 'workflow_dispatch' && inputs.approve_migrations) && '--approve-migrations' || '' }}
 
-              echo '🔨 Generating Prisma Client...'
-              npx prisma generate
-
-              echo '🗃️ Applying Prisma migrations...'
-              npx prisma migrate deploy
-
-              echo '🔨 Building application...'
-              npm run build
-
-              echo '🔄 Restarting application with PM2...'
-              pm2 restart ${{ secrets.PM2_APP_NAME }} --update-env || \
-              pm2 start npm --name ${{ secrets.PM2_APP_NAME }} -- start --cwd ${{ secrets.APP_DIR }}
-
-              echo '📊 Checking application status...'
-              pm2 status ${{ secrets.PM2_APP_NAME }}
-
-              echo '✅ Deployment completed successfully!'
+              echo '✅ deploy-production-release.sh a raportat succes (health-check intern deja trecut).'
             "
 
-      - name: Health check
+      - name: External health check (confirmare secundară, non-autoritativă)
         run: |
-          echo "🔍 Performing health check..."
-          sleep 10
-
-          # Try health check up to 3 times
+          echo "🔍 Confirmare externă — rollback-ul, dacă e nevoie, s-a întâmplat deja pe server, în interiorul scriptului."
           for i in {1..3}; do
             if curl -f -s https://www.clickanunt.ro/api/health > /dev/null; then
-              echo "✅ Health check passed"
+              echo "✅ Health check extern OK"
               exit 0
             fi
-            echo "⚠️  Health check attempt $i failed, retrying..."
+            echo "⚠️  Health check extern încercarea $i eșuată, reîncerc..."
             sleep 5
           done
-
-          echo "❌ Health check failed after 3 attempts"
+          echo "❌ Health check extern eșuat după 3 încercări — verifică manual, scriptul a raportat succes intern dar situl nu răspunde public (posibil nginx/DNS, nu neapărat aplicația)."
           exit 1
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          echo "Check the logs above for details."
-          echo "You may need to:"
-          echo "1. Check server logs: ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'pm2 logs ${{ secrets.PM2_APP_NAME }} --lines 50'"
-          echo "2. Manually restart: ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'cd ${{ secrets.APP_DIR }} && pm2 restart ${{ secrets.PM2_APP_NAME }}'"
-          echo "3. Check application status: ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'pm2 status'"
+          echo "Scriptul de deploy face rollback automat la orice eșec (symlink 'current' + PM2 revin la release-ul anterior) — verifică totuși manual:"
+          echo "1. Log-uri: ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'pm2 logs clickanunt --lines 80'"
+          echo "2. Status: ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} 'pm2 status && readlink -f /var/www/clickanunt-releases/current'"
+          echo "3. Rollback manual la un release anterior specific: scripts/rollback-production-release.sh --release <timestamp>-<shortsha>"

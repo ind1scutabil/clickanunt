@@ -9,11 +9,27 @@ export type IsoDateTimeString = string;
 export type IsoDateString = string;
 
 /**
- * Standard money fields on listings (DB: Int + currency code).
+ * Standard money / salary fields on listings.
+ * Commercial: priceType + optional amount. Jobs: salary* (optional).
  */
+export type PriceTypeDto =
+  | 'FIXED'
+  | 'NEGOTIABLE'
+  | 'FREE'
+  | 'ON_REQUEST'
+  | 'FROM';
+
+export type SalaryPeriodDto = 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+
 export type PriceFields = {
-  priceAmount: number;
-  priceCurrency: string;
+  priceType?: PriceTypeDto | null;
+  /** Major units; null for FREE / ON_REQUEST / Jobs without product price. */
+  priceAmount?: number | null;
+  priceCurrency?: string | null;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  salaryCurrency?: string | null;
+  salaryPeriod?: SalaryPeriodDto | null;
 };
 
 /**

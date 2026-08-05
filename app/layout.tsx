@@ -80,11 +80,11 @@ export default async function RootLayout({
   warnIfProductionSiteUrlMissing();
 
   let categoryLinks: Awaited<ReturnType<typeof getFooterIndexableLinks>>["categories"] = [];
-  let cityHubLinks: Awaited<ReturnType<typeof getFooterIndexableLinks>>["cityHubs"] = [];
+  let cityLinks: Awaited<ReturnType<typeof getFooterIndexableLinks>>["cities"] = [];
   try {
     const footerLinks = await getFooterIndexableLinks();
     categoryLinks = footerLinks.categories;
-    cityHubLinks = footerLinks.cityHubs;
+    cityLinks = footerLinks.cities;
   } catch {
     // Hide hub blocks on fetch failure rather than linking empty hubs.
   }
@@ -107,7 +107,7 @@ export default async function RootLayout({
             {children}
           </div>
           <MobileBottomNav />
-          <Footer categoryLinks={categoryLinks} cityHubLinks={cityHubLinks} />
+          <Footer categoryLinks={categoryLinks} cityLinks={cityLinks} />
         </CookieConsentProvider>
       </body>
     </html>

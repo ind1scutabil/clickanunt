@@ -2,7 +2,12 @@
  * Shared PostgreSQL full-text search for listings (`search_vector`, Romanian config).
  * Used by GET /api/listings?q= and GET /api/search (legacy slim response).
  */
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
+import {
+  ftsOrderBySql,
+  type ListingFeedSort,
+} from '@/lib/listing-feed-sort';
+import { sqlComparableCommercialPriceType } from '@/lib/listings/comparable-commercial-price';
 
 export function buildRomanianTsQuery(q: string): string | null {
   const words = q
@@ -28,11 +33,29 @@ export type ListingFtsFilterParams = {
   yearMax?: number | null;
   minPrice?: number | null;
   maxPrice?: number | null;
+  /** WHEN set with min/max — WHERE filter (no cross-currency band). */
+  priceCurrency?: string | null;
+  /**
+   * Currency for priceAsc/priceDesc ORDER BY comparable bucket only.
+   * Does not filter rows out of the result set (wrong-currency sorts last).
+   */
+  sortCurrency?: string | null;
   make?: string | null;
   model?: string | null;
   fuel?: string | null;
   transmission?: string | null;
+  condition?: string | null;
+  /**
+   * Equality containment on `attributes` JSONB (`attributes @> jsonb`).
+   * Pass a JSON object string, e.g. `{"brand":"Samsung"}`.
+   */
+  attributesContainmentJson?: string | null;
   ownerUserId?: string | null;
+  /**
+   * Allowlisted feed sort. Default `relevance` (FTS rank).
+   * Price sorts require `priceCurrency` from the caller.
+   */
+  sort?: ListingFeedSort;
 };
 
 type FtsRow = {
@@ -40,17 +63,10 @@ type FtsRow = {
   rank: number;
 };
 
-/**
- * Returns listing ids ordered by FTS rank (same intent as legacy GET /api/search).
- * `ranks[i]` matches `ids[i]` (for slim search responses).
- */
-export async function ftsSearchListingIds(
-  prisma: PrismaClient,
-  searchQuery: string,
-  filters: ListingFtsFilterParams,
-  limit: number,
-  offset: number
-): Promise<{ ids: string[]; ranks: number[]; total: number }> {
+function buildFtsWhereFragments(filters: ListingFtsFilterParams, searchQuery: string): {
+  whereSql: Prisma.Sql;
+  rankExpr: Prisma.Sql;
+} {
   const categoryParam = filters.category ?? null;
   const subcategoryParam = filters.subcategory ?? null;
   const countyParam = filters.county ?? null;
@@ -60,21 +76,20 @@ export async function ftsSearchListingIds(
   const yearMaxParam = typeof filters.yearMax === 'number' ? filters.yearMax : null;
   const minPriceParam = typeof filters.minPrice === 'number' ? filters.minPrice : null;
   const maxPriceParam = typeof filters.maxPrice === 'number' ? filters.maxPrice : null;
+  const priceCurrencyParam = filters.priceCurrency ?? null;
   const makeParam = filters.make ?? null;
   const modelParam = filters.model ?? null;
   const fuelParam = filters.fuel ?? null;
   const transmissionParam = filters.transmission ?? null;
+  const conditionParam = filters.condition ?? null;
+  const attributesJsonParam = filters.attributesContainmentJson ?? null;
   const ownerUserIdParam = filters.ownerUserId ?? null;
   const activeOnly = filters.activeOnly !== false;
-  /** Public catalog/search — approved only; owner/admin scoped queries skip this. */
   const publicCatalogOnly = filters.publicCatalogOnly === true;
 
-  const rows = await prisma.$queryRaw<FtsRow[]>`
-    SELECT 
-      id,
-      ts_rank("search_vector", to_tsquery('romanian', ${searchQuery})) AS rank
-    FROM listings
-    WHERE 
+  const rankExpr = Prisma.sql`ts_rank("search_vector", to_tsquery('romanian', ${searchQuery}))`;
+
+  const whereSql = Prisma.sql`
       (${activeOnly}::boolean = false OR status = 'active')
       AND (
         ${activeOnly}::boolean = false
@@ -97,13 +112,61 @@ export async function ftsSearchListingIds(
       AND (${yearParam}::int IS NULL OR year = ${yearParam})
       AND (${yearMinParam}::int IS NULL OR year >= ${yearMinParam})
       AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
-      AND (${minPriceParam}::int IS NULL OR "priceAmount" >= ${minPriceParam})
-      AND (${maxPriceParam}::int IS NULL OR "priceAmount" <= ${maxPriceParam})
+      AND (${minPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ${sqlComparableCommercialPriceType()}
+        AND "priceAmount" >= ${minPriceParam}
+      ))
+      AND (${maxPriceParam}::int IS NULL OR (
+        "priceAmount" IS NOT NULL
+        AND ${sqlComparableCommercialPriceType()}
+        AND "priceAmount" <= ${maxPriceParam}
+      ))
+      AND (
+        ${priceCurrencyParam}::text IS NULL
+        OR "priceCurrency" = ${priceCurrencyParam}
+      )
       AND (${makeParam}::text IS NULL OR make = ${makeParam})
       AND (${modelParam}::text IS NULL OR model = ${modelParam})
       AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
       AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
-    ORDER BY rank DESC, "isPromoted" DESC, "createdAt" DESC
+      AND (${conditionParam}::text IS NULL OR condition::text = ${conditionParam})
+      AND (
+        ${attributesJsonParam}::text IS NULL
+        OR attributes @> ${attributesJsonParam}::jsonb
+      )
+  `;
+
+  return { whereSql, rankExpr };
+}
+
+/**
+ * Returns listing ids ordered by allowlisted sort (default: FTS relevance).
+ * `ranks[i]` matches `ids[i]` (for slim search responses).
+ */
+export async function ftsSearchListingIds(
+  prisma: PrismaClient,
+  searchQuery: string,
+  filters: ListingFtsFilterParams,
+  limit: number,
+  offset: number
+): Promise<{ ids: string[]; ranks: number[]; total: number }> {
+  const { whereSql, rankExpr } = buildFtsWhereFragments(filters, searchQuery);
+  const sort: ListingFeedSort = filters.sort ?? 'relevance';
+  const orderBy = ftsOrderBySql(
+    sort,
+    rankExpr,
+    filters.sortCurrency ?? filters.priceCurrency ?? null
+  );
+
+  const rows = await prisma.$queryRaw<FtsRow[]>`
+    SELECT
+      id,
+      ${rankExpr} AS rank
+    FROM listings
+    WHERE
+      ${whereSql}
+    ${orderBy}
     LIMIT ${limit} OFFSET ${offset}
   `;
 
@@ -111,34 +174,7 @@ export async function ftsSearchListingIds(
     SELECT COUNT(*)::bigint as count
     FROM listings
     WHERE 
-      (${activeOnly}::boolean = false OR status = 'active')
-      AND (
-        ${activeOnly}::boolean = false
-        OR ${ownerUserIdParam}::text IS NOT NULL
-        OR "expiresAt" IS NULL
-        OR "expiresAt" > NOW()
-      )
-      AND "deletedAt" IS NULL
-      AND (
-        ${publicCatalogOnly}::boolean = false
-        OR ${ownerUserIdParam}::text IS NOT NULL
-        OR "moderationStatus"::text = 'approved'
-      )
-      AND "search_vector" @@ to_tsquery('romanian', ${searchQuery})
-      AND (${ownerUserIdParam}::text IS NULL OR "ownerUserId" = ${ownerUserIdParam})
-      AND (${categoryParam}::text IS NULL OR category = ${categoryParam})
-      AND (${subcategoryParam}::text IS NULL OR subcategory = ${subcategoryParam})
-      AND (${countyParam}::text IS NULL OR county = ${countyParam})
-      AND (${cityParam}::text IS NULL OR city = ${cityParam})
-      AND (${yearParam}::int IS NULL OR year = ${yearParam})
-      AND (${yearMinParam}::int IS NULL OR year >= ${yearMinParam})
-      AND (${yearMaxParam}::int IS NULL OR year <= ${yearMaxParam})
-      AND (${minPriceParam}::int IS NULL OR "priceAmount" >= ${minPriceParam})
-      AND (${maxPriceParam}::int IS NULL OR "priceAmount" <= ${maxPriceParam})
-      AND (${makeParam}::text IS NULL OR make = ${makeParam})
-      AND (${modelParam}::text IS NULL OR model = ${modelParam})
-      AND (${fuelParam}::text IS NULL OR fuel::text = ${fuelParam})
-      AND (${transmissionParam}::text IS NULL OR transmission::text = ${transmissionParam})
+      ${whereSql}
   `;
 
   const total = Number(countResult[0]?.count ?? 0);

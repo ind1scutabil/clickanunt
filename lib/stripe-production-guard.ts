@@ -1,6 +1,9 @@
 /**
- * Production guard: refuse to boot with Stripe test credentials when NODE_ENV=production.
- * Does not alter payment processing — validation only.
+ * Production guard: refuse to boot with Stripe test credentials when NODE_ENV=production,
+ * unless an explicit non-production runtime is proven (E2E gate or staging site) and
+ * known production host/DB fingerprints are absent.
+ *
+ * STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 alone is NEVER sufficient.
  */
 
 import {
@@ -15,6 +18,11 @@ import {
 
 export const STRIPE_PRODUCTION_FATAL_MESSAGE =
   'Refusing to start production with Stripe TEST credentials';
+
+export const PROD_STRIPE_GUARD_FINGERPRINTS = [
+  /46\.225\.69\.155/,
+  /clickanunt\.ro/i,
+] as const;
 
 const PLACEHOLDER_WEBHOOK_SECRETS = new Set([
   'whsec_REPLACE_ME',
@@ -49,16 +57,49 @@ export function isStripeTestWebhookSecret(
   return false;
 }
 
+/** True when env looks like known production host/DB/domain. */
+export function hasProductionStripeGuardFingerprint(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  const haystacks = [
+    env.DATABASE_URL,
+    env.NEXT_PUBLIC_SITE_URL,
+    env.STAGING_DEPLOY_SERVER,
+    env.DEPLOY_SERVER,
+    env.HOST,
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return PROD_STRIPE_GUARD_FINGERPRINTS.some((re) => re.test(haystacks));
+}
+
+/**
+ * Test keys in NODE_ENV=production are allowed only for:
+ * - local E2E production build: STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 + CLICKANUNT_E2E_SERVER=1
+ * - staging site: STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION=1 + STAGING_SITE=1
+ * and never when production fingerprints are present.
+ */
+export function isStripeTestKeysBypassAllowed(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  if (env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION !== '1') {
+    return false;
+  }
+  if (hasProductionStripeGuardFingerprint(env)) {
+    return false;
+  }
+  const e2e =
+    env.CLICKANUNT_E2E_SERVER === '1' && env.E2E_DISABLE_RATE_LIMIT === '1';
+  const staging = env.STAGING_SITE === '1';
+  return e2e || staging;
+}
+
 export function validateStripeProductionCredentials(
   env: NodeJS.ProcessEnv = process.env
 ): StripeProductionValidationResult {
   const errors: string[] = [];
 
   if (env.NODE_ENV !== 'production') {
-    return { ok: true, errors: [] };
-  }
-
-  if (env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1') {
     return { ok: true, errors: [] };
   }
 
@@ -71,6 +112,25 @@ export function validateStripeProductionCredentials(
     ''
   ).trim();
 
+  const usingTestSecret = Boolean(sk && isStripeTestSecretKey(sk));
+  const usingTestPk = Boolean(pk && isTestPublishableKey(pk));
+
+  if ((usingTestSecret || usingTestPk) && isStripeTestKeysBypassAllowed(env)) {
+    return { ok: true, errors: [] };
+  }
+
+  if (env.STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION === '1' && (usingTestSecret || usingTestPk)) {
+    if (hasProductionStripeGuardFingerprint(env)) {
+      errors.push(
+        'STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION is set but production host/DB fingerprints were detected'
+      );
+    } else if (env.CLICKANUNT_E2E_SERVER !== '1' && env.STAGING_SITE !== '1') {
+      errors.push(
+        'STRIPE_ALLOW_TEST_KEYS_IN_PRODUCTION requires CLICKANUNT_E2E_SERVER=1 (with E2E_DISABLE_RATE_LIMIT=1) or STAGING_SITE=1'
+      );
+    }
+  }
+
   if (sk && isStripeTestSecretKey(sk)) {
     errors.push('STRIPE_SECRET_KEY uses test prefix (sk_test_/rk_test_)');
   }
@@ -79,6 +139,12 @@ export function validateStripeProductionCredentials(
     errors.push(
       'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY or STRIPE_PUBLISHABLE_KEY uses test prefix (pk_test_)'
     );
+  }
+
+  if (!sk) {
+    errors.push('STRIPE_SECRET_KEY is missing');
+  } else if (!isStripeLiveSecretKey(sk) && !isStripeTestSecretKey(sk)) {
+    errors.push('STRIPE_SECRET_KEY has an invalid prefix (expected sk_live_/sk_test_/rk_*)');
   }
 
   if (sk && isStripeLiveSecretKey(sk)) {

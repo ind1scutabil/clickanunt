@@ -3,6 +3,8 @@
  */
 import { test, expect, type Page } from "@playwright/test";
 import path from "path";
+import { seedCookieConsentAccepted } from "./helpers/cookie-consent";
+import { pickCategoryAndSubcategory } from "./helpers/category-picker";
 
 const email = process.env.E2E_EMAIL ?? "alice@example.com";
 const password = process.env.E2E_PASSWORD ?? "alice123";
@@ -26,12 +28,18 @@ async function goToManualStep1(page: Page) {
   await expect(page.getByText("Informații esențiale")).toBeVisible({ timeout: 15_000 });
 }
 
+/** "Auto, moto și ambarcațiuni" has subcategories, so one is mandatory to select. */
+async function pickAutoCategory(page: Page, stepCard: ReturnType<Page["locator"]>) {
+  await pickCategoryAndSubcategory(page, stepCard, "Auto, moto și ambarcațiuni", "Autoturisme");
+}
+
 test.describe("Auto listing — country select + publish", () => {
   test.describe.configure({ timeout: 180_000 });
 
   test("desktop — select Spania, publish, no client exception", async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (e) => pageErrors.push(e.message));
+    await seedCookieConsentAccepted(page);
 
     await login(page);
     await goToManualStep1(page);
@@ -39,7 +47,7 @@ test.describe("Auto listing — country select + publish", () => {
     const stepCard = page.locator(".card").filter({ hasText: "Titlu anunț" });
     const title = `E2E Auto Country ${Date.now().toString(36)}`;
     await stepCard.getByPlaceholder(/iPhone 14 Pro/i).fill(title);
-    await stepCard.locator("select").first().selectOption({ label: "Auto, moto și ambarcațiuni" });
+    await pickAutoCategory(page, stepCard);
     await stepCard.locator('input[type="number"]').fill("15000");
     await stepCard
       .locator("select")
@@ -50,7 +58,7 @@ test.describe("Auto listing — country select + publish", () => {
       .filter({ has: page.locator('option:has-text("Sectorul 1")') })
       .selectOption({ label: "Sectorul 1" });
 
-    await stepCard.locator('input[type="file"][accept="image/*"]').setInputFiles(FIXTURE);
+    await stepCard.locator('input[type="file"]').setInputFiles(FIXTURE);
     await expect(page.locator("text=/poză adăugată|poze adăugate/i")).toBeVisible({ timeout: 90_000 });
 
     await stepCard.getByRole("button", { name: /Continuă →/ }).click();
@@ -88,6 +96,7 @@ test.describe("Auto listing — country select + publish", () => {
   test("Messenger WebView — country step renders and publish", async ({ page, context }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (e) => pageErrors.push(e.message));
+    await seedCookieConsentAccepted(page);
 
     await context.setExtraHTTPHeaders({
       "User-Agent":
@@ -100,7 +109,7 @@ test.describe("Auto listing — country select + publish", () => {
 
     const stepCard = page.locator(".card").filter({ hasText: "Titlu anunț" });
     await stepCard.getByPlaceholder(/iPhone 14 Pro/i).fill(`E2E FB Auto ${Date.now().toString(36)}`);
-    await stepCard.locator("select").first().selectOption({ label: "Auto, moto și ambarcațiuni" });
+    await pickAutoCategory(page, stepCard);
     await stepCard.locator('input[type="number"]').fill("9900");
     await stepCard
       .locator("select")
@@ -110,7 +119,7 @@ test.describe("Auto listing — country select + publish", () => {
       .locator("select")
       .filter({ has: page.locator('option:has-text("Sectorul 1")') })
       .selectOption({ label: "Sectorul 1" });
-    await stepCard.locator('input[type="file"][accept="image/*"]').setInputFiles(FIXTURE);
+    await stepCard.locator('input[type="file"]').setInputFiles(FIXTURE);
     await expect(page.locator("text=/poză adăugată|poze adăugate/i")).toBeVisible({ timeout: 90_000 });
 
     await stepCard.getByRole("button", { name: /Continuă →/ }).click();

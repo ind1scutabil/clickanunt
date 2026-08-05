@@ -1,5 +1,7 @@
 /**
- * API Route: Refresh Access Token
+ * API Route: Refresh Access Token (cookie-first web).
+ * Rotates refresh single-use; sets new access + refresh HttpOnly cookies.
+ * JSON body never includes tokens.
  */
 
 export const runtime = "nodejs";
@@ -7,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { refreshAccessToken } from "@/lib/auth";
 import { validateSecureRequest } from "@/lib/security/middleware";
 import { cookieDomainFromRequest, cookieSecureFromRequest } from "@/lib/cookie-domain";
+import { clearAuthCookies } from "@/lib/auth/clear-auth-cookies";
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,22 +52,23 @@ export async function POST(request: NextRequest) {
     const result = await refreshAccessToken(refreshToken);
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
+      const response = NextResponse.json(
+        { error: result.error || 'Sesiune revocată' },
         { status: 401 }
       );
+      clearAuthCookies(response, request);
+      return response;
     }
 
     const json = NextResponse.json({
       success: true,
-      accessToken: result.accessToken,
       user: result.user,
     });
 
-    /** Aliniază cookie httpOnly cu access-ul din JSON — altfel SPA rămâne proaspăt, cookie-ul rămâne expirat. */
+    const cookieDomain = cookieDomainFromRequest(request);
+    const secureCookies = cookieSecureFromRequest(request);
+
     if (result.accessToken) {
-      const cookieDomain = cookieDomainFromRequest(request);
-      const secureCookies = cookieSecureFromRequest(request);
       json.cookies.set("accessToken", result.accessToken, {
         httpOnly: true,
         secure: secureCookies,
@@ -75,6 +79,20 @@ export async function POST(request: NextRequest) {
         priority: "high",
       });
     }
+
+    if (result.refreshToken) {
+      json.cookies.set("refreshToken", result.refreshToken, {
+        httpOnly: true,
+        secure: secureCookies,
+        domain: cookieDomain,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30,
+        path: "/",
+        priority: "high",
+      });
+    }
+
+    json.headers.set("Cache-Control", "no-store");
 
     return json;
   } catch (error) {

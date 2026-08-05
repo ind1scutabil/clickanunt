@@ -6,6 +6,7 @@ import {
   fetchWithAuthRefresh,
   postJsonWithAuthRefresh,
   syncSessionFromCookies,
+  validateServerAuthSession,
 } from '@/lib/admin-fetch';
 import { connectMessageEventsSse } from '@/lib/message-events-sse-client';
 import { listingPrimaryPhotoSrc } from '@/lib/listing-photo-url';
@@ -59,7 +60,7 @@ export default function ListingMessagesPage() {
   /** Blochează dubluri Enter/click înainte ca setState(sendingMessage) să se aplică în același tick. */
   const listingOutboundInFlightRef = useRef(false);
   const fetchMessagesRef = useRef<
-    (ownerId: string, _token: string | null, listingId?: string) => Promise<void>
+    (ownerId: string, listingId?: string) => Promise<void>
   >(async () => {});
   const listingThreadRef = useRef<{
     listingId?: string;
@@ -91,57 +92,78 @@ export default function ListingMessagesPage() {
   }, [messages]);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const userStr = localStorage.getItem('user');
-    
-    if (!token || !userStr) {
-      router.push('/auth/login');
-      return;
-    }
+    let cancelled = false;
 
-    const parsed = JSON.parse(userStr) as CurrentUser & { userId?: string };
-    const resolvedUserId = parsed.id ?? parsed.userId;
-    if (!resolvedUserId) {
-      router.push('/auth/login');
-      return;
-    }
-    const meId =
-      typeof resolvedUserId === 'string' ? resolvedUserId.trim().toLowerCase() : resolvedUserId;
-    setCurrentUser({ ...parsed, id: meId });
+    const bootstrap = async () => {
+      await syncSessionFromCookies();
+      if (cancelled) return;
 
-    if (!id) {
-      setLoading(false);
-      return;
-    }
+      let cachedUser: (CurrentUser & { userId?: string }) | null = null;
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          cachedUser = JSON.parse(userStr) as CurrentUser & { userId?: string };
+        } catch {
+          cachedUser = null;
+        }
+      }
 
-    // Fetch listing
-    const fetchListing = async () => {
+      const session = await validateServerAuthSession();
+      if (cancelled) return;
+      if (!session.ok) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const resolvedUserId =
+        session.user?.id ??
+        cachedUser?.id ??
+        cachedUser?.userId;
+      if (!resolvedUserId) {
+        router.push('/auth/login');
+        return;
+      }
+      const meId =
+        typeof resolvedUserId === 'string'
+          ? resolvedUserId.trim().toLowerCase()
+          : resolvedUserId;
+      setCurrentUser({
+        id: meId,
+        email: session.user?.email ?? cachedUser?.email ?? '',
+        name: session.user?.name ?? cachedUser?.name,
+      });
+
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        await syncSessionFromCookies();
         const res = await fetch(`/api/listings/${id}`);
         if (!res.ok) throw new Error('Failed to fetch listing');
         const data = await res.json();
+        if (cancelled) return;
         setListing(data);
 
-        const accessAfterSync = localStorage.getItem('accessToken') || token;
-
         const ownerPeerId = data.owner?.id ?? ('ownerUserId' in data ? data.ownerUserId : null);
-        // Once we have the listing owner, fetch messages (folosește meId = id canonic ca în restul mesageriei)
         if (ownerPeerId && !messagingUserIdsEqual(ownerPeerId, meId)) {
-          fetchMessages(ownerPeerId, accessAfterSync, data.id);
+          fetchMessages(ownerPeerId, data.id);
         }
       } catch (err) {
         console.error('Error fetching listing:', err);
-        setError('Nu am putut încărca anunțul');
+        if (!cancelled) setError('Nu am putut încărca anunțul');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchListing();
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [id, router]);
 
-  const fetchMessages = async (ownerId: string, _token: string | null, listingId?: string) => {
+  const fetchMessages = async (ownerId: string, listingId?: string) => {
     try {
       /** conversationId din răspunsul anterior — evită findFirst greșit dacă există mai multe firuri între aceiași useri */
       const params = new URLSearchParams();
@@ -201,10 +223,9 @@ export default function ListingMessagesPage() {
     };
   }, [listing?.id, messagingPeerId, currentUser?.id]);
 
-  // SSE: mesaje noi pentru acest anunț (+ reconectare cu token proaspăt)
+  // SSE: mesaje noi pentru acest anunț (cookie HttpOnly — fără ?token=)
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token || !listing?.id || !messagingPeerId || !currentUser?.id) {
+    if (!listing?.id || !messagingPeerId || !currentUser?.id) {
       return;
     }
     if (isOwnListing) {
@@ -277,11 +298,7 @@ export default function ListingMessagesPage() {
         }
 
         notifyMessagingInboxSync();
-        void fetchMessagesRef.current(
-          ownerId,
-          localStorage.getItem("accessToken"),
-          listingId
-        );
+        void fetchMessagesRef.current(ownerId, listingId);
       },
     });
 
@@ -307,9 +324,8 @@ export default function ListingMessagesPage() {
       /** Nu oprim polling când SSE e „online” — evenimentele se pot pierde; reconciliere periodică garantează thread-ul în DB. */
       if (listingPollInFlightRef.current) return;
       listingPollInFlightRef.current = true;
-      const t = localStorage.getItem("accessToken");
       try {
-        await fetchMessages(messagingPeerId, t, listing.id);
+        await fetchMessages(messagingPeerId, listing.id);
         const ts = Date.now();
         if (ts - listingInboxNotifyAtRef.current >= 700) {
           listingInboxNotifyAtRef.current = ts;
@@ -353,9 +369,8 @@ export default function ListingMessagesPage() {
       }
       if (listingPollInFlightRef.current) return;
       listingPollInFlightRef.current = true;
-      const t = localStorage.getItem("accessToken");
       try {
-        await fetchMessagesRef.current(messagingPeerId, t, listing.id);
+        await fetchMessagesRef.current(messagingPeerId, listing.id);
         const ts = Date.now();
         if (ts - listingInboxNotifyAtRef.current >= 550) {
           listingInboxNotifyAtRef.current = ts;
@@ -383,8 +398,7 @@ export default function ListingMessagesPage() {
     const onVisibility = () => {
       if (typeof document === 'undefined' || document.visibilityState !== 'visible') return;
       if (!listing?.id || !messagingPeerId || isOwnListing) return;
-      const t = localStorage.getItem('accessToken');
-      void fetchMessagesRef.current(messagingPeerId, t, listing.id);
+      void fetchMessagesRef.current(messagingPeerId, listing.id);
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -393,8 +407,7 @@ export default function ListingMessagesPage() {
   useEffect(() => {
     const onFocus = () => {
       if (!listing?.id || !messagingPeerId || isOwnListing) return;
-      const t = localStorage.getItem('accessToken');
-      void fetchMessagesRef.current(messagingPeerId, t, listing.id);
+      void fetchMessagesRef.current(messagingPeerId, listing.id);
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -425,7 +438,6 @@ export default function ListingMessagesPage() {
 
     try {
       await syncSessionFromCookies();
-      const token = localStorage.getItem('accessToken');
       const pinned = listingThreadRef.current.conversationId;
       const res = await postJsonWithAuthRefresh(`/api/messages/${peerId}`, {
         content: messageText.trim(),
@@ -470,7 +482,7 @@ export default function ListingMessagesPage() {
       }
 
       // Refresh conversation messages for the same listing immediately
-      await fetchMessages(peerId, token, listing.id);
+      await fetchMessages(peerId, listing.id);
       
       setMessageText('');
     } catch (err: any) {

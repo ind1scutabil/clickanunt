@@ -250,7 +250,7 @@ export default function AccountMenuPanel({
           <Link
             href="/listings/new"
             onClick={onNavigate}
-            className="flex items-center justify-center gap-2 rounded-lg border border-orange-600/40 bg-orange-600 px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50"
+            className="flex items-center justify-center gap-2 rounded-lg border border-orange-600/40 bg-[#c2410c] px-4 py-3.5 text-[15px] font-semibold text-white shadow-sm transition hover:bg-[#9a3412] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50"
           >
             <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

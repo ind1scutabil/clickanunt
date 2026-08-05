@@ -3,8 +3,10 @@ import { getMessagingApiAuthPayload } from "@/lib/messages-request-auth";
 import { prisma } from "@/lib/prisma";
 import { canonicalMessagingUserId, messagingUserIdsEqual } from "@/lib/messaging-user-id";
 import { resolveConversationsTake } from "@/lib/messaging/conversations-limit";
+import { listingUnavailableLabel } from "@/lib/messaging/listing-contact";
 import { stagingServerTimingHeader } from "@/lib/observability/route-timing-header";
 import { logger } from "@/lib/observability";
+import { listingPrimaryPhotoSrc } from "@/lib/listing-photo-url";
 
 /**
  * GET /api/messages/conversations
@@ -45,13 +47,20 @@ export async function GET(request: NextRequest) {
       },
       include: {
         participant1: {
-          select: { id: true, name: true, avatar: true, email: true, role: true },
+          select: { id: true, name: true, avatar: true, role: true },
         },
         participant2: {
-          select: { id: true, name: true, avatar: true, email: true, role: true },
+          select: { id: true, name: true, avatar: true, role: true },
         },
         listing: {
-          select: { id: true, title: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            deletedAt: true,
+            expiresAt: true,
+            photos: true,
+          },
         },
         messages: {
           orderBy: { createdAt: "desc" },
@@ -89,10 +98,25 @@ export async function GET(request: NextRequest) {
       const otherParticipant =
         viewerIsP1 ? conv.participant2 : viewerIsP2 ? conv.participant1 : conv.participant2;
 
+      const unavailable = listingUnavailableLabel(conv.listing);
+      const listingDto = conv.listing
+        ? {
+            id: conv.listing.id,
+            title: conv.listing.title,
+            status: conv.listing.status,
+            unavailableLabel: unavailable,
+            thumbnailUrl:
+              Array.isArray(conv.listing.photos) && conv.listing.photos.length > 0
+                ? listingPrimaryPhotoSrc(conv.listing.photos)
+                : null,
+            publicHref: unavailable ? null : `/listings/${conv.listing.id}`,
+          }
+        : null;
+
       return {
         id: conv.id,
         otherParticipant,
-        listing: conv.listing,
+        listing: listingDto,
         lastMessage: conv.messages[0] || null,
         lastMessageAt: conv.lastMessageAt,
         unreadCount: conv._count.messages,

@@ -6,7 +6,7 @@
 export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { hashPassword, generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { hashPassword, issueAuthTokenPair } from "@/lib/auth";
 import { sanitizeEmail } from "@/lib/sanitize";
 import { auditActions } from "@/lib/audit";
 import { prisma } from "@/lib/prisma";
@@ -119,8 +119,11 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Un cont cu acest email există deja" },
-        { status: 409 }
+        {
+          error:
+            "Nu am putut crea contul. Verifică datele sau încearcă din nou mai târziu.",
+        },
+        { status: 400 }
       );
     }
 
@@ -246,8 +249,21 @@ export async function POST(request: NextRequest) {
     }
 
     // ============== GENEREZA TOKENS ==============
-    const accessToken = await generateAccessToken(user.id, user.email, user.role);
-    const refreshToken = await generateRefreshToken(user.id, user.email, user.role);
+    const { accessToken, refreshToken } = await issueAuthTokenPair(user);
+
+    let emailDispatchAccepted = false;
+    try {
+      const { EMAIL_VERIFY_PURPOSE, issueAndDispatchEmailVerification } =
+        await import("@/lib/auth/email-verification");
+      const dispatched = await issueAndDispatchEmailVerification({
+        userId: user.id,
+        email: user.email,
+        purpose: EMAIL_VERIFY_PURPOSE,
+      });
+      emailDispatchAccepted = dispatched.accepted;
+    } catch (verifyErr) {
+      console.warn("email verification issue failed after register-extended:", verifyErr);
+    }
 
     // ============== AUDIT LOG ==============
     try {
@@ -275,13 +291,13 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         user: userWithoutPassword,
-        accessToken,
-        refreshToken,
         accountType,
-        message:
-          accountType === "business"
-            ? "Cont business creat cu succes! Verifică-ți emailul pentru activare..."
-            : "Cont creat cu succes! Verifică-ți emailul pentru activare...",
+        emailDispatchAccepted,
+        message: emailDispatchAccepted
+          ? accountType === "business"
+            ? "Cont business creat cu succes! Verifică-ți emailul pentru confirmare."
+            : "Cont creat cu succes! Verifică-ți emailul pentru confirmare."
+          : "Cont creat cu succes! Poți solicita mai târziu un email de verificare.",
         mode: db.isUsingInMemory() ? "development" : "production",
       },
       { status: 200 }
@@ -321,11 +337,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle duplicate key error
+    // Handle duplicate key error — anti-enumeration (same copy as pre-check)
     if (err.code === "P2002") {
       return NextResponse.json(
-        { error: "Un cont cu acest email există deja" },
-        { status: 409 }
+        {
+          error:
+            "Nu am putut crea contul. Verifică datele sau încearcă din nou mai târziu.",
+        },
+        { status: 400 }
       );
     }
 

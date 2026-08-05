@@ -1,6 +1,6 @@
 /**
  * Build Playwright storageState for a normal user via API (one login, no UI spam).
- * Writes localStorage accessToken/user to match the app's client session.
+ * Writes localStorage `user` only; auth cookies come from storageState cookies.
  */
 import { request as playwrightRequest } from "@playwright/test";
 import fs from "fs/promises";
@@ -53,8 +53,6 @@ async function writeAuthStorage(opts: {
   };
 
   if (loginData.user) setItem("user", JSON.stringify(loginData.user));
-  setItem("accessToken", loginData.accessToken);
-  setItem("refreshToken", loginData.refreshToken);
 
   await fs.mkdir(path.dirname(opts.outPath), { recursive: true });
   await fs.writeFile(opts.outPath, JSON.stringify(storageState, null, 2), "utf-8");
