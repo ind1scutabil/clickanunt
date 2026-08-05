@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# rsync + restart --cwd /var/www/clickanunt: model in-place, incompatibil cu
+# topologia reala de productie (release-uri imutabile + symlink `current`).
+# Foloseste in schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+
 # Interactive Production Deployment Script
 # Handles SSH key passphrase and deploys to Hetzner
 

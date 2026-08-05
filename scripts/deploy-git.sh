@@ -1,6 +1,12 @@
 #!/bin/bash
 
 ###############################################################################
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# Presupune git bare-repo push in-place peste DEPLOY_DIR=/var/www/clickanunt,
+# incompatibil cu topologia reala (release-uri imutabile + symlink `current`
+# sub /var/www/clickanunt-releases). Foloseste in schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+###############################################################################
 # ClickAnunț Production Deployment - GIT-BASED
 # 
 # CRITICAL REQUIREMENTS:

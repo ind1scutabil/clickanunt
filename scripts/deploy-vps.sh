@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# LEGACY — DO NOT USE (FAZA 21E, 2026-07-28)
+# Presupune rulare in-place dintr-un checkout Git persistent (git pull + pm2
+# reload ecosystem.config.js din propriul cwd). Producția reală rulează din
+# release-uri imutabile sub /var/www/clickanunt-releases cu symlink `current`;
+# rularea acestui script (npm run deploy-prod) ar repune PM2 pe cwd-ul vechi
+# /var/www/clickanunt (dirty, alt branch). Folosește în schimb:
+#   scripts/deploy-production-release.sh --sha <SHA> [--dry-run]
+#
 # Producție VPS — Git pull, deps, build, migrații Prisma, PM2.
 # Imagini utilizator: nu rula niciodată „git clean -fd” fără excluderi — folosește scripts/vps-safe-git-clean.sh
 set -euo pipefail
