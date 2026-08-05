@@ -19,6 +19,8 @@ import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
 import { validateEffectivePriceSalaryPatch } from "@/lib/listing-patch-price-salary";
 import { resolveOwnerStatusTransition } from "@/lib/listing-lifecycle";
 import { revalidatePublicMarketplaceSurfaces } from "@/lib/cache/revalidate-marketplace";
+import { enqueueIndexNowSafe } from "@/lib/seo/indexnow-client";
+import { siteOriginForSeoFeeds } from "@/lib/seo/site-url-guard";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -396,6 +398,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         category: updated.category,
         city: updated.city,
       });
+      if (updated.status === "active") {
+        // Republish (owner) or moderation approval (admin) — same reasoning as
+        // the create path: nudge IndexNow-participating engines to recrawl now.
+        enqueueIndexNowSafe([`${siteOriginForSeoFeeds()}/listings/${updated.id}`]);
+      }
     }
 
     void recordAnalyticsEvent({
