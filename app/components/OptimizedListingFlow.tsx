@@ -30,6 +30,11 @@ import {
 } from "@/lib/draft-upload-session";
 import { listingPrimaryPhotoSrc, LISTING_PHOTO_ONERROR_FALLBACK } from "@/lib/listing-photo-url";
 import { appendAutoFieldsToListingPayload } from "@/lib/listing-auto-create-payload";
+import {
+  LISTING_CONTACT_PHONE_OPTIONAL_HINT,
+  mapListingPublishPhoneApiError,
+  validateListingContactPhoneInput,
+} from "@/lib/listing-contact-phone";
 import CountryOfOriginSelect from "@/app/components/listing/CountryOfOriginSelect";
 import CategoryPicker from "@/app/components/listing/CategoryPicker";
 import { getListingTitleFeedback } from "@/lib/listing-title-feedback";
@@ -161,9 +166,13 @@ export default function OptimizedListingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const publishInFlightRef = useRef(false);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const publishPhoneAlertRef = useRef<HTMLDivElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [forceNewDraft, setForceNewDraft] = useState(false);
   const [uploadSessionId, setUploadSessionId] = useState(() => getOrCreateDraftUploadSessionId());
+  /** Visible near the publish CTA when phone validation fails (field may be above the fold). */
+  const [publishPhoneAlert, setPublishPhoneAlert] = useState<string | null>(null);
 
   const resetUploadSessionId = useCallback(() => {
     clearDraftUploadSessionId();
@@ -417,14 +426,33 @@ export default function OptimizedListingFlow() {
     }
 
     if (step === 3) {
-      if (!draft.phone.trim() || draft.phone.length < 10) {
-        newErrors.phone = "Numărul de telefon este invalid";
+      // contactPhone is optional server-side (phoneOptionalSchema). Empty is OK;
+      // only reject non-empty invalid values — matching listingCreateSchema.
+      const phoneCheck = validateListingContactPhoneInput(draft.phone);
+      if (!phoneCheck.ok) {
+        newErrors.phone = phoneCheck.message;
       }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [draft]);
+
+  const focusPublishPhoneField = useCallback(() => {
+    const input = phoneInputRef.current;
+    if (input) {
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Defer focus slightly so scroll can settle on mobile browsers.
+      window.setTimeout(() => {
+        try {
+          input.focus({ preventScroll: true });
+        } catch {
+          input.focus();
+        }
+      }, 120);
+    }
+    publishPhoneAlertRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
 
   // Handle quick input (Step 0)
   const handleQuickSubmit = () => {
@@ -650,11 +678,29 @@ export default function OptimizedListingFlow() {
 
   // Submit listing
   const handleSubmit = async () => {
-    if (!validateStep(3)) return;
     if (publishInFlightRef.current || loading) return;
+
+    const phoneCheck = validateListingContactPhoneInput(draft.phone);
+    if (!phoneCheck.ok) {
+      setErrors((prev) => ({ ...prev, phone: phoneCheck.message }));
+      setPublishPhoneAlert(phoneCheck.message);
+      setTouched((prev) => ({ ...prev, phone: true }));
+      // Do not set loading — button must not stick in "Se publică…"
+      requestAnimationFrame(() => focusPublishPhoneField());
+      return;
+    }
+    if (!validateStep(3)) {
+      const phoneAgain = validateListingContactPhoneInput(draft.phone);
+      if (!phoneAgain.ok) {
+        setPublishPhoneAlert(phoneAgain.message);
+        requestAnimationFrame(() => focusPublishPhoneField());
+      }
+      return;
+    }
 
     publishInFlightRef.current = true;
     setLoading(true);
+    setPublishPhoneAlert(null);
     const startTime = Date.now();
 
     try {
@@ -667,7 +713,8 @@ export default function OptimizedListingFlow() {
         county: draft.county,
         city: draft.city,
         photos: draft.photos,
-        contactPhone: draft.phone,
+        // Omit empty phone — matches optional server schema / no accidental "".
+        ...(phoneCheck.value ? { contactPhone: phoneCheck.value } : {}),
         uploadSessionId,
         ...(Object.keys(draft.attributes).length > 0 ? { attributes: draft.attributes } : {}),
       };
@@ -840,10 +887,19 @@ export default function OptimizedListingFlow() {
     } catch (error: any) {
       console.error('❌ EROARE FINALĂ:', error);
       const errorMessage = error?.message || "Eroare la publicare. Te rugăm să încerci din nou.";
+      const phoneMapped = mapListingPublishPhoneApiError(errorMessage);
 
       // Keep draft + uploadSessionId so retry / idempotent replay can succeed.
-      setErrors({ general: errorMessage });
-      setShowGeneralError(true);
+      if (phoneMapped) {
+        setErrors({ phone: phoneMapped });
+        setPublishPhoneAlert(phoneMapped);
+        setShowGeneralError(false);
+        requestAnimationFrame(() => focusPublishPhoneField());
+      } else {
+        setErrors({ general: errorMessage });
+        setShowGeneralError(true);
+        setPublishPhoneAlert(null);
+      }
     } finally {
       publishInFlightRef.current = false;
       setLoading(false);
@@ -884,6 +940,9 @@ export default function OptimizedListingFlow() {
     // Clear error on change
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: "" }));
+    }
+    if (field === "phone" && publishPhoneAlert) {
+      setPublishPhoneAlert(null);
     }
   };
 
@@ -2054,19 +2113,41 @@ export default function OptimizedListingFlow() {
               <h3 className="text-xl font-bold text-white">Date de contact</h3>
 
               <div>
-                <label className="block text-white font-semibold mb-2">
-                  Telefon <span className="text-red-500">*</span>
+                <label htmlFor="listing-contact-phone" className="block text-white font-semibold mb-2">
+                  Telefon{" "}
+                  <span className="font-normal text-gray-400">(opțional)</span>
                 </label>
                 <input
+                  ref={phoneInputRef}
+                  id="listing-contact-phone"
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   value={draft.phone}
                   onChange={(e) => updateField("phone", e.target.value)}
                   placeholder="0712345678"
+                  aria-invalid={Boolean(errors.phone) || undefined}
+                  aria-describedby={
+                    errors.phone
+                      ? "listing-contact-phone-error listing-contact-phone-hint"
+                      : "listing-contact-phone-hint"
+                  }
                   className={`w-full px-4 py-3 rounded-xl bg-[var(--bg-secondary)] border-2 ${
                     errors.phone ? "border-red-500" : "border-gray-800"
                   } focus:border-[var(--accent-primary)] text-white outline-none transition`}
                 />
-                {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+                <p id="listing-contact-phone-hint" className="mt-1 text-sm text-gray-400">
+                  {LISTING_CONTACT_PHONE_OPTIONAL_HINT}
+                </p>
+                {errors.phone ? (
+                  <p
+                    id="listing-contact-phone-error"
+                    role="alert"
+                    className="mt-2 text-sm font-medium text-red-400"
+                  >
+                    {errors.phone}
+                  </p>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-3">
@@ -2134,9 +2215,27 @@ export default function OptimizedListingFlow() {
                   </a>
                 </p>
               )}
+              {publishPhoneAlert ? (
+                <div
+                  ref={publishPhoneAlertRef}
+                  role="alert"
+                  className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100"
+                >
+                  <p className="font-semibold">{publishPhoneAlert}</p>
+                  <button
+                    type="button"
+                    className="mt-2 font-semibold underline underline-offset-2"
+                    onClick={() => focusPublishPhoneField()}
+                  >
+                    Completează numărul
+                  </button>
+                </div>
+              ) : null}
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={loading || serverSessionOk === false || serverSessionOk === null}
+                aria-busy={loading || undefined}
                 className="btn btn-primary w-full text-xl py-4 disabled:opacity-50"
               >
                 {serverSessionOk === null
