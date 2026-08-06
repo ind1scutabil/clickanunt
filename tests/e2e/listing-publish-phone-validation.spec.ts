@@ -143,6 +143,75 @@ test.describe("Listing publish — phone validation UX", () => {
     await context.close();
   });
 
+  test("double-click Publică → un singur POST și un singur anunț", async ({ page }) => {
+    const posts: string[] = [];
+    page.on("request", (req) => {
+      if (req.url().includes("/api/listings") && req.method() === "POST") {
+        posts.push(req.url());
+      }
+    });
+
+    const title = `E2E Phone Dbl ${Date.now().toString(36)}`;
+    await login(page);
+    await openSeededContactStep(page, { title, phone: "0712345678" });
+
+    const publishBtn = page.getByRole("button", { name: /Publică anunțul/i });
+    await expect(publishBtn).toBeEnabled({ timeout: 20_000 });
+
+    const createRes = page.waitForResponse(
+      (res) => res.url().includes("/api/listings") && res.request().method() === "POST",
+      { timeout: 90_000 }
+    );
+    // Two rapid clicks — publishInFlightRef / loading must collapse to one create.
+    await Promise.all([publishBtn.click(), publishBtn.click()]);
+    const res = await createRes;
+    expect(res.status()).toBeGreaterThanOrEqual(200);
+    expect(res.status()).toBeLessThan(300);
+    await expect(page).toHaveURL(/\/listings\/[a-z0-9-]+/i, { timeout: 30_000 });
+    expect(posts.length).toBe(1);
+
+    const body = await res.json();
+    const listingId = body?.listing?.id || body?.id;
+    expect(listingId).toBeTruthy();
+    await expect(page).toHaveURL(new RegExp(`/listings/${listingId}`));
+  });
+
+  test("invalid phone: zero POST, alert, focus CTA, draft+photo preserved; button not stuck", async ({
+    page,
+  }) => {
+    let sawPost = false;
+    page.on("request", (req) => {
+      if (req.url().includes("/api/listings") && req.method() === "POST") sawPost = true;
+    });
+
+    const title = `E2E Phone Keep ${Date.now().toString(36)}`;
+    await login(page);
+    await openSeededContactStep(page, { title, phone: "12", photos: [PHOTO] });
+
+    const publishBtn = page.getByRole("button", { name: /Publică anunțul/i });
+    await publishBtn.click();
+    await publishBtn.click(); // second click must not POST either
+
+    const fieldAlert = page.locator("#listing-contact-phone-error");
+    const ctaAlert = page
+      .locator('[role="alert"]')
+      .filter({ has: page.getByRole("button", { name: /Completează numărul/i }) });
+    await expect(fieldAlert).toBeVisible();
+    await expect(fieldAlert).toHaveAttribute("role", "alert");
+    await expect(ctaAlert).toBeVisible();
+    await expect(publishBtn).not.toHaveText(/Se publică/i);
+    await expect(publishBtn).toBeEnabled();
+    await expect.poll(() => sawPost, { timeout: 2000 }).toBe(false);
+
+    await page.getByRole("button", { name: /Completează numărul/i }).click();
+    await expect(page.locator("#listing-contact-phone")).toBeFocused({ timeout: 5_000 });
+
+    await expect(page.getByText(title).first()).toBeVisible();
+    // Preview still shows the seeded photo (draft not wiped).
+    await expect(page.locator('img[src*="listings/"]').first()).toBeVisible();
+    await expect(page.getByText(/500\s*RON/i).first()).toBeVisible();
+  });
+
   test("keyboard: Completează numărul focuses phone with ARIA", async ({ page }) => {
     await login(page);
     await openSeededContactStep(page, {
