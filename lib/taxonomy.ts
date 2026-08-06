@@ -71,6 +71,11 @@ export const TAXONOMY: CategoryDef[] = [
     slug: 'auto',
     sharedAttributes: [
       { key: 'condition', label: 'Stare', type: 'select', options: ['Nou', 'Utilizat', 'Avariat', 'Dezmembrat'] },
+      // Collected by the Auto listing form (OptimizedListingFlow "Ultima țară de
+      // înmatriculare") and stored in `attributes` — countryOfOrigin has its own
+      // top-level column, but this one doesn't, so it must be an allowed
+      // attribute key or listingCreateSchema strips it and rejects publish.
+      { key: 'lastRegistrationCountry', label: 'Ultima țară de înmatriculare', type: 'text' },
     ],
     subcategories: [
       { label: 'Autoturisme', slug: 'autoturisme' },

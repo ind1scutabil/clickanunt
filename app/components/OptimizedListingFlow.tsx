@@ -146,6 +146,14 @@ const INITIAL_DRAFT: DraftListing = {
 
 const DRAFT_VERSION = "5"; // v5: priceType + salary fields
 
+// Keys with their own bespoke field further down this form (e.g. the
+// CountryOfOriginSelect "Ultima țară de înmatriculare" below) must stay
+// valid server-side attribute keys (lib/taxonomy.ts), but must NOT also show
+// up in the generic category-attributes renderer — that would duplicate the
+// same field under two different widgets writing to two different draft
+// locations (draft.attributes[key] vs draft[key]).
+const GENERIC_ATTRIBUTE_RENDER_EXCLUDE = new Set(['lastRegistrationCountry']);
+
 export default function OptimizedListingFlow() {
   const router = useRouter();
 
@@ -295,7 +303,9 @@ export default function OptimizedListingFlow() {
     return draft.category ? CATEGORIES[draft.category] || [] : [];
   }, [draft.category]);
   const categoryAttributeDefs = useMemo<AttributeFieldDef[]>(() => {
-    return getAttributeDefsFor(draft.category, draft.subcategory || null);
+    return getAttributeDefsFor(draft.category, draft.subcategory || null).filter(
+      (def) => !GENERIC_ATTRIBUTE_RENDER_EXCLUDE.has(def.key)
+    );
   }, [draft.category, draft.subcategory]);
   const availableModels = useMemo(() => {
     return draft.make ? CAR_MAKES_AND_MODELS[draft.make as keyof typeof CAR_MAKES_AND_MODELS] || [] : [];

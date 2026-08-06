@@ -51,6 +51,11 @@ export const MARKETPLACE_TAXONOMY: readonly TaxonomyCategoryContract[] = [
         type: "select",
         options: ["Nou", "Utilizat", "Avariat", "Dezmembrat"],
       },
+      {
+        key: "lastRegistrationCountry",
+        label: "Ultima țară de înmatriculare",
+        type: "text",
+      },
     ],
     subcategories: [
       {
