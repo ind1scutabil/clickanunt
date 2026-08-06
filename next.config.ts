@@ -134,7 +134,7 @@ const nextConfig: NextConfig = {
         value: [
           "default-src 'self'",
           // Script: allow self + inline (Next.js requires) + GTM + Clarity + Stripe
-          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.clarity.ms https://scripts.clarity.ms https://cdn.jsdelivr.net https://js.stripe.com",
+          "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.clarity.ms https://scripts.clarity.ms https://cdn.jsdelivr.net https://js.stripe.com https://static.cloudflareinsights.com",
           // Style: allow self + inline (styled-components/emotion require) + Google Fonts
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           // Fonts: Google Fonts + data URIs
@@ -144,7 +144,7 @@ const nextConfig: NextConfig = {
           // Connect: self + API + GA4 regional collect + Clarity + Stripe
           // GA4: https://developers.google.com/tag-platform/security/guides/csp#google_analytics_4_google_analytics
           // Clarity: https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-csp
-          "connect-src 'self' https://www.clickanunt.ro https://clickanunt.ro https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.clarity.ms https://c.bing.com https://api.stripe.com",
+          "connect-src 'self' https://www.clickanunt.ro https://clickanunt.ro https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://*.clarity.ms https://c.bing.com https://api.stripe.com https://cloudflareinsights.com https://static.cloudflareinsights.com",
           // Frame: allow Stripe iframes
           "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
           // Frame ancestors: deny embedding

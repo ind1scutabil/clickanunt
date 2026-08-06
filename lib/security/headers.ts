@@ -34,6 +34,7 @@ export function getCSPHeader(hostname?: string | null): string {
       'https://scripts.clarity.ms',
       'https://js.stripe.com', // Stripe.js
       'https://cdn.jsdelivr.net', // CDN for utilities
+      'https://static.cloudflareinsights.com', // Cloudflare Web Analytics beacon
     ],
     'style-src': [
       "'self'",
@@ -65,6 +66,8 @@ export function getCSPHeader(hostname?: string | null): string {
       'https://c.bing.com',
       'https://vitals.vercel-insights.com',
       'https://api.stripe.com', // Stripe API
+      'https://cloudflareinsights.com',
+      'https://static.cloudflareinsights.com', // Cloudflare Web Analytics beacon
     ],
     'frame-src': [
       'https://js.stripe.com', // Stripe 3DS frames
