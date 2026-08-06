@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useEffect } from "react";
+import { isClickAnuntSiteHostname } from "@/lib/cookie-consent";
 
 declare global {
   interface Window {
@@ -10,7 +11,7 @@ declare global {
 }
 
 /**
- * Microsoft Clarity — production only, opt-in via env.
+ * Microsoft Clarity — production only, opt-in via env, canonical host only.
  *
  * Mount only from `ConditionalAnalytics` after explicit analytics consent.
  * On unmount (consent withdrawn): call official `clarity('consent', false)` which
@@ -18,12 +19,19 @@ declare global {
  * is granted again. First-party `_cl*` names are also cleared from document.cookie.
  * Limitation: third-party cookies on clarity.ms / bing hosts cannot be deleted from
  * first-party JavaScript.
+ *
+ * Host check: same reasoning as GoogleAnalytics.tsx — NEXT_PUBLIC_CLARITY_ID is the
+ * same real ID in every .env.production, so a local/test production build must not
+ * be able to fire it either.
  */
 export function MicrosoftClarity() {
   const id = process.env.NEXT_PUBLIC_CLARITY_ID?.trim();
+  // MicrosoftClarity only ever mounts client-side (same ConditionalAnalytics gate
+  // as GoogleAnalytics), so window is always present here.
+  const isCanonicalHost = typeof window !== "undefined" && isClickAnuntSiteHostname(window.location.hostname);
 
   useEffect(() => {
-    if (!id || process.env.NODE_ENV !== "production") return;
+    if (!id || !isCanonicalHost || process.env.NODE_ENV !== "production") return;
     return () => {
       try {
         if (typeof window.clarity === "function") {
@@ -35,7 +43,7 @@ export function MicrosoftClarity() {
     };
   }, [id]);
 
-  if (process.env.NODE_ENV !== "production" || !id) {
+  if (process.env.NODE_ENV !== "production" || !id || !isCanonicalHost) {
     return null;
   }
 
