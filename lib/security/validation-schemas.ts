@@ -198,6 +198,77 @@ export const registerExtendedSchema = z
     }
   });
 
+/**
+ * Mobile app register payloads (apps/mobile) send email/password/name without
+ * confirmPassword or acceptTerms/acceptPrivacy checkboxes. Keep .strict() so
+ * clients cannot inject role/admin/verified/etc.
+ * Optional confirmPassword must match password when provided.
+ */
+export const mobileRegisterSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    name: nameSchema,
+    confirmPassword: z.string().optional(),
+  })
+  .strict()
+  .refine((d) => d.confirmPassword === undefined || d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export const mobileRegisterExtendedSchema = z
+  .object({
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string().optional(),
+    accountType: z.enum(['personal', 'business']),
+    name: z.string().max(100).trim(),
+    businessName: z.string().max(200).optional(),
+    businessCUI: z.string().max(32).optional(),
+    businessRegCom: z.string().max(100).optional(),
+    businessPhone: z.union([phoneSchema, z.literal('')]).optional(),
+    businessEmail: z.union([z.literal(''), emailSchema]).optional(),
+    businessLocation: z.string().max(200).optional(),
+    businessDescription: z.string().max(2000).optional(),
+    businessWebsite: z.union([z.literal(''), z.string().url('URL invalid')]).optional(),
+    businessCategory: businessCategorySchema.optional(),
+  })
+  .strict()
+  .refine((d) => d.confirmPassword === undefined || d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .superRefine((d, ctx) => {
+    if (d.accountType === 'personal') {
+      if (d.name.trim().length < 2) {
+        ctx.addIssue({ code: 'custom', message: 'Nume minimum 2 caractere', path: ['name'] });
+      }
+      return;
+    }
+    if (!d.businessName?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Numele firmei este obligatoriu', path: ['businessName'] });
+    }
+    if (!d.businessCUI?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'CUI / CIF obligatoriu', path: ['businessCUI'] });
+    }
+    if (!d.businessRegCom?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Nr. Reg. Com. obligatoriu', path: ['businessRegCom'] });
+    }
+    if (!d.businessPhone?.trim()) {
+      ctx.addIssue({ code: 'custom', message: 'Telefon firmă obligatoriu', path: ['businessPhone'] });
+    } else if (!PHONE_RE.test(d.businessPhone.trim())) {
+      ctx.addIssue({ code: 'custom', message: 'Număr telefon invalid', path: ['businessPhone'] });
+    }
+    if (d.name.trim().length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Persoană de contact: minimum 2 caractere',
+        path: ['name'],
+      });
+    }
+  });
+
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password required'),
   newPassword: passwordSchema,
