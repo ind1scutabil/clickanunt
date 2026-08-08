@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
-import { slugifyRo } from "@/lib/seo/slug";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
+import { buildListingBreadcrumbItems } from "@/lib/seo/listing-breadcrumbs";
 
 export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }) {
   if (process.env.USE_IN_MEMORY_DB === "true") {
@@ -12,9 +11,13 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
   const listing = await prisma.listing.findFirst({
     where: { id: listingId },
     select: {
+      id: true,
       title: true,
       category: true,
       city: true,
+      make: true,
+      model: true,
+      subcategory: true,
       deletedAt: true,
       status: true,
       moderationStatus: true,
@@ -26,20 +29,7 @@ export async function ListingBreadcrumbsNav({ listingId }: { listingId: string }
     return null;
   }
 
-  const crumbs: Array<{ label: string; href?: string }> = [{ label: "Acasă", href: "/" }];
-  const catSlug = primarySlugForCategoryLabel(listing.category);
-  const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
-
-  if (catSlug) {
-    crumbs.push({ label: shortCat, href: `/${catSlug}` });
-  }
-  if (catSlug && listing.city) {
-    crumbs.push({ label: listing.city, href: `/${catSlug}/${slugifyRo(listing.city)}` });
-  }
-
-  crumbs.push({
-    label: listing.title.slice(0, 72) + (listing.title.length > 72 ? "…" : ""),
-  });
+  const crumbs = buildListingBreadcrumbItems(listing);
 
   return (
     <nav

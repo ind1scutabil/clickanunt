@@ -24,6 +24,7 @@ import { isFavoriteLocal, toggleFavoriteListing } from "@/lib/favorites-client";
 import { ListingTechnicalDetails } from "@/app/components/listing/ListingTechnicalDetails";
 import { ListingPhotoGallery } from "@/app/components/listing/ListingPhotoGallery";
 import { analyticsSessionHeaders } from "@/lib/analytics-session-client";
+import { useListingViewBeacon } from "@/lib/listings/use-listing-view-beacon";
 import { formatListingCommercialOrSalaryLine } from "@/lib/format-listing-price";
 import {
   buildFacebookShareHref,
@@ -173,6 +174,11 @@ export default function ListingDetailPageClient({
   const [similarLoading, setSimilarLoading] = useState(
     !(initialListing && initialSimilarListings != null)
   );
+  /**
+   * Fires for every visit, SSR-hydrated or not. Returns the authoritative counter,
+   * or null until the server answers.
+   */
+  const viewsCount = useListingViewBeacon(id);
 
   /** Frontend-only trust chips — labels derived strictly from listing/owner fields already on the payload. */
   const trustPills = useMemo(() => {
@@ -826,7 +832,7 @@ export default function ListingDetailPageClient({
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-700/40 bg-zinc-900/60 p-2.5 text-xs shadow-sm ring-1 ring-white/[0.03] backdrop-blur-sm sm:text-sm md:p-3.5">
                 <span className="text-gray-400 font-medium flex items-center gap-2">
                   <span className="text-lg">👁️</span>
-                  <span className="text-white font-bold">{listing.views || 0}</span> vizualizări
+                  <span className="text-white font-bold">{viewsCount ?? listing.views ?? 0}</span> vizualizări
                 </span>
                 <span className="text-gray-400 font-medium flex items-center gap-2">
                   <span className="text-lg">📅</span>

@@ -188,18 +188,53 @@ describe("detail authorization matrix (unit / no DB writes)", () => {
     expect(owner.feedBoost).toBe(10);
   });
 
-  it("route returns 404 for non-indexable anonymous before view increment block", () => {
+  it("route returns 404 for non-indexable anonymous viewers", () => {
     const src = require("fs").readFileSync(
       require("path").join(process.cwd(), "app/api/listings/[id]/route.ts"),
       "utf8",
     );
     expect(src).toContain("!isOwnerOrAdmin && !isListingSeoIndexable");
     expect(src).toContain('return NextResponse.json({ error: "Not found" }, { status: 404 })');
-    expect(src).toContain("views: { increment: 1 }");
-    // The indexable gate must appear before the increment mutation in source order.
-    const gateIdx = src.indexOf("!isOwnerOrAdmin && !isListingSeoIndexable");
-    const incrementIdx = src.indexOf("views: { increment: 1 }");
-    expect(gateIdx).toBeGreaterThan(-1);
-    expect(incrementIdx).toBeGreaterThan(gateIdx);
+  });
+
+  it("GET detail is read-only — no view increment and no listing_view event", () => {
+    const src: string = require("fs").readFileSync(
+      require("path").join(process.cwd(), "app/api/listings/[id]/route.ts"),
+      "utf8",
+    );
+    const getBody = src.slice(
+      src.indexOf("export async function GET"),
+      src.indexOf("export async function PATCH"),
+    );
+    expect(getBody.length).toBeGreaterThan(0);
+    expect(getBody).not.toContain("views: { increment: 1 }");
+    expect(getBody).not.toContain("ANALYTICS_EVENT.listing_view");
+    expect(getBody).not.toContain("recordListingView");
+  });
+
+  it("the view beacon route is the only place that increments listing.views", () => {
+    const fs = require("fs");
+    const path = require("path");
+
+    const recorder: string = fs.readFileSync(
+      path.join(process.cwd(), "lib/listings/record-listing-view.ts"),
+      "utf8",
+    );
+    expect(recorder).toContain("views: { increment: 1 }");
+    // Dedupe + increment must be serialised across every PM2 instance.
+    expect(recorder).toContain("pg_advisory_xact_lock");
+
+    const beacon: string = fs.readFileSync(
+      path.join(process.cwd(), "app/api/listings/[id]/view/route.ts"),
+      "utf8",
+    );
+    expect(beacon).toContain("export const POST");
+    expect(beacon).not.toContain("export const GET");
+    expect(beacon).toContain("requireCSRF: true");
+    expect(beacon).toContain("!isOwnerOrAdmin && !isListingSeoIndexable");
+    expect(beacon).toContain("Cache-Control");
+    expect(beacon).toContain("sec-fetch-site");
+    expect(beacon).toContain("MAX_VIEW_BODY_BYTES");
+    expect(beacon).toContain("getUserFromRequest");
   });
 });

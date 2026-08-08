@@ -29,16 +29,29 @@ export default function robots(): MetadataRoute.Robots {
    */
   const technicalDisallow = ["/api/", "/api"];
 
+  /**
+   * Listing photos are served from `/api/uploads/serve` and are referenced by page HTML,
+   * og:image, JSON-LD and the image sitemap. The blanket `/api/` block made every one of
+   * them uncrawlable. Longest-match wins in the robots spec, so this single Allow opens
+   * the image route only — every other `/api/` path stays blocked.
+   */
+  const publicMediaAllow = ["/", "/api/uploads/serve"];
+
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/"],
+        allow: publicMediaAllow,
         disallow: technicalDisallow,
       },
       {
         userAgent: "Googlebot",
-        allow: ["/"],
+        allow: publicMediaAllow,
+        disallow: technicalDisallow,
+      },
+      {
+        userAgent: "Googlebot-Image",
+        allow: publicMediaAllow,
         disallow: technicalDisallow,
       },
     ],

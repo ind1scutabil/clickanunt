@@ -68,7 +68,14 @@ export function createPageMetadata(config: PageSEOConfig): Metadata {
     robots: {
       index: !noindex,
       follow: nofollow ? false : true,
-      googleBot: { index: !noindex, follow: nofollow ? false : true },
+      googleBot: {
+        index: !noindex,
+        follow: nofollow ? false : true,
+        // Listing photos are the primary SERP asset for marketplace pages.
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
     },
     alternates: { canonical },
     openGraph: {

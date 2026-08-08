@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { generateBreadcrumbStructuredData } from "@/lib/seo";
 import { absoluteUrl } from "@/lib/site-url";
-import { primarySlugForCategoryLabel } from "@/lib/seo/market-paths";
-import { slugifyRo } from "@/lib/seo/slug";
+import { buildListingBreadcrumbJsonLdItems } from "@/lib/seo/listing-breadcrumbs";
 import { isListingSeoIndexable, listingSchemaAvailabilityUrl } from "@/lib/seo/listing-seo-eligibility";
 import {
   buildClassifiedOfferPolicyFields,
@@ -123,24 +122,8 @@ export async function ListingJsonLd({ listingId }: { listingId: string }) {
     county: listing.county,
   });
 
-  const shortCat = listing.category.split(",")[0]?.trim() ?? listing.category;
-  const crumbItems: Array<{ name: string; url: string }> = [{ name: "Acasă", url: "/" }];
-  const catSlug = primarySlugForCategoryLabel(listing.category);
-  if (catSlug) {
-    crumbItems.push({ name: shortCat, url: `/${catSlug}` });
-  }
-  if (catSlug && listing.city) {
-    crumbItems.push({
-      name: listing.city,
-      url: `/${catSlug}/${slugifyRo(listing.city)}`,
-    });
-  }
-  crumbItems.push({
-    name: listing.title.slice(0, 96),
-    url: `/listings/${listing.id}`,
-  });
-
-  const crumbs = generateBreadcrumbStructuredData(crumbItems);
+  // Same trail as the visible <nav aria-label="Breadcrumb"> — never diverge.
+  const crumbs = generateBreadcrumbStructuredData(buildListingBreadcrumbJsonLdItems(listing));
   const desc = listing.description?.trim();
 
   const scripts: ReactNode[] = [

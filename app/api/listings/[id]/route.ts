@@ -12,7 +12,7 @@ import { createAuditLog } from "@/lib/audit";
 import { normalizeListingPhotosArray } from "@/lib/listing-photo-url";
 import { computeFeedBoost } from "@/lib/listing-feed-boost";
 import { applyListingPromotionExpiryIfNeeded } from "@/lib/expire-listing-promotions";
-import { resolveListingGetRequestLimits, finalizeShouldCountListingView } from "@/lib/listing-view-count";
+import { resolveListingGetBrowseLimit } from "@/lib/listing-view-count";
 import { sanitizeListingPayloadForViewer } from "@/lib/listings/public-listing-dto";
 import { isListingSeoIndexable } from "@/lib/seo/listing-seo-eligibility";
 import { validateListingPatchTaxonomy } from "@/lib/listing-patch-taxonomy";
@@ -114,28 +114,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const viewLimits = await resolveListingGetRequestLimits(request, id);
-    // Owner/admin self-views (detail, edit, promote, messages) must not inflate counters.
-    // Limitation: a direct API GET with a normal browser UA still counts — cannot safely
-    // distinguish “real page view” from raw GET without architecture change.
-    const shouldCountView = finalizeShouldCountListingView({
-      shouldCountView: viewLimits.shouldCountView,
-      isOwnerOrAdmin,
-    });
-    if (shouldCountView) {
-      await prisma.listing.update({
-        where: { id },
-        data: { views: { increment: 1 } },
-      });
-
-      void recordAnalyticsEvent({
-        eventType: ANALYTICS_EVENT.listing_view,
-        userId: viewer?.id ?? null,
-        listingId: id,
-        metadata: { source: "listing_get" },
-        request,
-      });
-    }
+    // Read-only: the page is server-rendered, so a GET here is not evidence of a page
+    // view. Counting happens only via POST /api/listings/[id]/view.
+    const viewLimits = await resolveListingGetBrowseLimit(request);
 
     const response = NextResponse.json(
       sanitizeListingPayloadForViewer(

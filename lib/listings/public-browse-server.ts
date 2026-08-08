@@ -10,6 +10,7 @@ import { seoIndexableListingWhere } from "@/lib/seo/indexable-listing-where";
 import { siteOrigin } from "@/lib/site-url";
 import type { ListingPublicDto } from "@clickanunt/api-contracts";
 import { browseListingIdsOrdered } from "@/lib/listings/catalog-listing-ids";
+import { buildRomanianTsQuery, ftsSearchListingIds } from "@/lib/listing-fts-query";
 import type { BrowsePriceCurrency } from "@/lib/listings/browse-filter-guards";
 import { BROWSE_PRICE_CURRENCIES } from "@/lib/listings/browse-filter-guards";
 
@@ -69,7 +70,41 @@ function parseBrowseCurrency(raw: string | undefined): BrowsePriceCurrency | nul
     : null;
 }
 
-/** Server-side first page for /listings SSR (no FTS — matches default catalog browse). */
+const BROWSE_OWNER_SELECT = {
+  select: {
+    id: true,
+    email: true,
+    role: true,
+    createdAt: true,
+    subscriptionTier: true,
+    trustScore: true,
+  },
+} as const;
+
+/** Hydrate ordered ids into public DTOs, preserving the ranking order. */
+async function loadListingsByIdsOrdered(
+  ids: string[],
+  origin: string
+): Promise<ListingPublicDto[]> {
+  if (ids.length === 0) return [];
+  const rows = await prisma.listing.findMany({
+    where: { id: { in: ids } },
+    include: { owner: BROWSE_OWNER_SELECT },
+  });
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+  return ordered.map((l) => ({
+    ...l,
+    photos: normalizeListingPhotosArray(l.photos, origin),
+  })) as unknown as ListingPublicDto[];
+}
+
+/**
+ * Server-side first page for /listings SSR.
+ *
+ * Free-text queries run the same Postgres FTS helpers as GET /api/listings, so the
+ * server-rendered HTML matches what the browser shows after hydration.
+ */
 export async function getPublicBrowseListingsPage(opts: {
   page?: number;
   limit?: number;
@@ -84,20 +119,49 @@ export async function getPublicBrowseListingsPage(opts: {
   const filters = opts.filters ?? {};
   const rawQ = (filters.q ?? "").trim();
 
-  if (rawQ.length >= 2) {
-    return { listings: [], total: 0, page };
-  }
-
   const sortMode = parseListingFeedSort(filtersToSortKey(filters));
   const skip = (page - 1) * limit;
   const origin = siteOrigin();
 
-  if (isPriceFeedSort(sortMode)) {
-    const currency = parseBrowseCurrency(filters.priceCurrency);
-    if (!currency) {
-      // Same contract as API: price sort without currency is invalid — empty SSR seed.
+  // Same contract as API: price sort without an explicit currency is invalid.
+  const priceSortCurrency = isPriceFeedSort(sortMode)
+    ? parseBrowseCurrency(filters.priceCurrency)
+    : null;
+  if (isPriceFeedSort(sortMode) && !priceSortCurrency) {
+    return { listings: [], total: 0, page };
+  }
+
+  if (rawQ.length >= 2) {
+    const tsQuery = buildRomanianTsQuery(rawQ);
+    if (!tsQuery) {
       return { listings: [], total: 0, page };
     }
+
+    const { ids, total } = await ftsSearchListingIds(
+      prisma,
+      tsQuery,
+      {
+        activeOnly: true,
+        publicCatalogOnly: true,
+        category: filters.category ?? null,
+        subcategory: filters.subcategory ?? null,
+        county: filters.county ?? null,
+        city: filters.city ?? null,
+        make: filters.make ?? null,
+        model: filters.model ?? null,
+        fuel: filters.fuel ?? null,
+        transmission: filters.transmission ?? null,
+        sort: sortMode,
+        sortCurrency: priceSortCurrency,
+      },
+      limit,
+      skip
+    );
+
+    return { listings: await loadListingsByIdsOrdered(ids, origin), total, page };
+  }
+
+  if (isPriceFeedSort(sortMode)) {
     const { ids, total } = await browseListingIdsOrdered(
       prisma,
       {
@@ -112,36 +176,12 @@ export async function getPublicBrowseListingsPage(opts: {
         fuel: filters.fuel ?? null,
         transmission: filters.transmission ?? null,
         sort: sortMode,
-        sortCurrency: currency,
+        sortCurrency: priceSortCurrency,
       },
       limit,
       skip
     );
-    const rows =
-      ids.length === 0
-        ? []
-        : await prisma.listing.findMany({
-            where: { id: { in: ids } },
-            include: {
-              owner: {
-                select: {
-                  id: true,
-                  email: true,
-                  role: true,
-                  createdAt: true,
-                  subscriptionTier: true,
-                  trustScore: true,
-                },
-              },
-            },
-          });
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
-    const listings = ordered.map((l) => ({
-      ...l,
-      photos: normalizeListingPhotosArray(l.photos, origin),
-    })) as unknown as ListingPublicDto[];
-    return { listings, total, page };
+    return { listings: await loadListingsByIdsOrdered(ids, origin), total, page };
   }
 
   const where = applyBrowseFilters(publicBrowseListingWhere(), filters);

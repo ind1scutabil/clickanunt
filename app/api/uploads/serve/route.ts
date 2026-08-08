@@ -45,10 +45,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid key' }, { status: 400 });
     }
 
-    const root = path.join(process.cwd(), 'public', 'uploads');
-    const filePath = path.join(root, key);
+    const root = path.resolve(process.cwd(), 'public', 'uploads');
+    const filePath = path.resolve(root, key);
+    // Defense in depth beyond isSafeKey(`..`): resolved path must stay under uploads root.
+    if (filePath !== root && !filePath.startsWith(root + path.sep)) {
+      return NextResponse.json({ error: 'Invalid key' }, { status: 400 });
+    }
 
-    if (!fs.existsSync(filePath)) {
+    // No directory listing — only exact files. Keys are opaque; listing status is enforced
+    // by who publishes the URL (public HTML / image sitemap use indexable listings only).
+    let st: fs.Stats;
+    try {
+      st = await fs.promises.stat(filePath);
+    } catch {
+      return new NextResponse('Not found', {
+        status: 404,
+        headers: serveResponseHeaders(404),
+      });
+    }
+    if (!st.isFile()) {
       return new NextResponse('Not found', {
         status: 404,
         headers: serveResponseHeaders(404),

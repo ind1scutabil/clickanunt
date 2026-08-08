@@ -241,6 +241,14 @@ function pushRow(rows: ListingSpecRow[], label: string, value: unknown): void {
   rows.push({ label, value: formatScalar(value) });
 }
 
+/** Calendar years must stay unformatted (no thousands separator). */
+function pushYearRow(rows: ListingSpecRow[], label: string, value: unknown): void {
+  if (!hasValue(value)) {
+    return;
+  }
+  rows.push({ label, value: String(value).trim() });
+}
+
 function pushAttrRow(rows: ListingSpecRow[], label: string, keys: string[], attrs: Record<string, unknown>): void {
   const value = attrFirst(attrs, keys);
   if (value) {
@@ -353,7 +361,8 @@ function appendAutoSpecs(rows: ListingSpecRow[], listing: ListingSpecSource, att
     rows.push({ label: 'Stare', value: formatConditionDisplay(conditionRaw) });
   }
   markAttrKeysUsed(usedKeys, ['condition', 'stare']);
-  pushRow(rows, 'An fabricație', listing.year);
+  // Years are not quantities — toLocaleString('ro-RO') would render 2009 as "2.009".
+  pushYearRow(rows, 'An fabricație', listing.year);
   pushAttrRow(rows, 'Prima înmatriculare', [
     'firstRegistration',
     'first_registration',

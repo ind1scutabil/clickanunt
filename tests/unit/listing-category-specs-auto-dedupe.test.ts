@@ -68,6 +68,8 @@ describe("auto listing spec rows — RO labels, no EN duplicates", () => {
     expect(byLabel["Caroserie"]).toBe("Berlina");
     expect(byLabel["Putere"]).toBe("120");
     expect(byLabel["Capacitate cilindrică"]).toBe("1.590");
+    // Years are calendar labels, not quantities — never "2.017".
+    expect(byLabel["An fabricație"]).toBe("2017");
     expect(byLabel["Accidente"]).toBe("Nu");
     expect(byLabel["Chei"]).toBe("2");
   });
