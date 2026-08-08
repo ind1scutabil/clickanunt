@@ -223,6 +223,9 @@ describe("detail authorization matrix (unit / no DB writes)", () => {
     expect(recorder).toContain("views: { increment: 1 }");
     // Dedupe + increment must be serialised across every PM2 instance.
     expect(recorder).toContain("pg_advisory_xact_lock");
+    expect(recorder).toContain("hashtextextended");
+    expect(recorder).toContain("missing_session");
+    expect(recorder).not.toContain("listing:view:iphash:");
 
     const beacon: string = fs.readFileSync(
       path.join(process.cwd(), "app/api/listings/[id]/view/route.ts"),

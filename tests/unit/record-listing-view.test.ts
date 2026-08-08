@@ -25,13 +25,18 @@ const db = {
   trace: [] as string[],
   /** Serialises transactions the way pg_advisory_xact_lock does per key. */
   locks: new Map<string, Promise<void>>(),
+  /** When true, analyticsEvent.create throws to exercise rollback. */
+  failEventCreate: false,
 };
 
-function makeTxClient() {
+function makeTxClient(snapshot: { views: Map<string, number>; events: FakeEvent[] }) {
   return {
     $executeRaw: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       db.trace.push(`lock:${String(values[0])}`);
-      expect(strings.join("")).toContain("pg_advisory_xact_lock");
+      const sql = strings.join("");
+      expect(sql).toContain("pg_advisory_xact_lock");
+      expect(sql).toContain("hashtextextended");
+      expect(sql).not.toContain("hashtext(");
       return 1;
     },
     analyticsEvent: {
@@ -39,7 +44,7 @@ function makeTxClient() {
         db.trace.push("dedupe-check");
         const since: Date = where.createdAt.gte;
         return (
-          db.events.find(
+          snapshot.events.find(
             (e) =>
               e.eventType === where.eventType &&
               e.sessionId === where.sessionId &&
@@ -50,14 +55,17 @@ function makeTxClient() {
       },
       create: async ({ data }: any) => {
         db.trace.push("event-create");
+        if (db.failEventCreate) {
+          throw new Error("analyticsEvent.create failed");
+        }
         const row: FakeEvent = {
-          id: `evt-${db.events.length + 1}`,
+          id: `evt-${snapshot.events.length + 1}`,
           eventType: data.eventType,
           sessionId: data.sessionId ?? null,
           listingId: data.listingId ?? null,
           createdAt: new Date(),
         };
-        db.events.push(row);
+        snapshot.events.push(row);
         return row;
       },
     },
@@ -66,13 +74,13 @@ function makeTxClient() {
     },
     listing: {
       findUnique: async ({ where }: any) => {
-        const v = db.views.get(where.id);
+        const v = snapshot.views.get(where.id);
         return v === undefined ? null : { views: v };
       },
       update: async ({ where }: any) => {
         db.trace.push("increment");
-        const next = (db.views.get(where.id) ?? 0) + 1;
-        db.views.set(where.id, next);
+        const next = (snapshot.views.get(where.id) ?? 0) + 1;
+        snapshot.views.set(where.id, next);
         return { views: next };
       },
     },
@@ -86,6 +94,7 @@ const prismaMock = {
       return v === undefined ? null : { views: v };
     },
     update: async ({ where }: any) => {
+      // Outside a transaction this must never run for view counting.
       const next = (db.views.get(where.id) ?? 0) + 1;
       db.views.set(where.id, next);
       return { views: next };
@@ -94,7 +103,7 @@ const prismaMock = {
   /**
    * Interactive transaction. The advisory lock in the real implementation serialises
    * same-key transactions, so the fake serialises every transaction too — a callback
-   * only starts once the previous one committed.
+   * only starts once the previous one committed. On throw, mutations are discarded.
    */
   $transaction: async (cb: (tx: any) => Promise<unknown>) => {
     const previous = db.locks.get("global") ?? Promise.resolve();
@@ -107,8 +116,20 @@ const prismaMock = {
       previous.then(() => current),
     );
     await previous;
+    const snapshot = {
+      views: new Map(db.views),
+      events: db.events.map((e) => ({ ...e })),
+    };
     try {
-      return await cb(makeTxClient());
+      const result = await cb(makeTxClient(snapshot));
+      db.views.clear();
+      for (const [k, v] of snapshot.views) db.views.set(k, v);
+      db.events.length = 0;
+      db.events.push(...snapshot.events);
+      return result;
+    } catch (err) {
+      // Rollback: discard snapshot mutations.
+      throw err;
     } finally {
       release();
     }
@@ -131,24 +152,37 @@ jest.mock("@/lib/rateLimit", () => ({
 }));
 
 import { recordListingView } from "@/lib/listings/record-listing-view";
+import * as recorderSource from "fs";
+import * as path from "path";
 
 const LISTING = "11111111-2222-3333-4444-555555555555";
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-function req(opts?: { sessionId?: string; ua?: string }): NextRequest {
+function req(opts?: { sessionId?: string; ua?: string; bodySessionId?: string }): NextRequest {
   const headers = new Headers();
   headers.set("user-agent", opts?.ua ?? BROWSER_UA);
   if (opts?.sessionId) headers.set("x-analytics-session-id", opts.sessionId);
-  return new Request(`http://localhost/api/listings/${LISTING}/view`, {
-    method: "POST",
-    headers,
-  }) as NextRequest;
+  const init: RequestInit = { method: "POST", headers };
+  if (opts?.bodySessionId) {
+    headers.set("Content-Type", "application/json");
+    init.body = JSON.stringify({ sessionId: opts.bodySessionId });
+  }
+  return new Request(`http://localhost/api/listings/${LISTING}/view`, init) as NextRequest;
 }
 
-function record(opts: { sessionId?: string; ua?: string; isOwnerOrAdmin?: boolean }) {
+function record(opts: {
+  sessionId?: string;
+  ua?: string;
+  isOwnerOrAdmin?: boolean;
+  bodySessionId?: string;
+}) {
   return recordListingView({
-    request: req({ sessionId: opts.sessionId, ua: opts.ua }),
+    request: req({
+      sessionId: opts.sessionId,
+      ua: opts.ua,
+      bodySessionId: opts.bodySessionId,
+    }),
     listingId: LISTING,
     viewerId: null,
     isOwnerOrAdmin: opts.isOwnerOrAdmin ?? false,
@@ -162,6 +196,7 @@ describe("recordListingView", () => {
     db.events.length = 0;
     db.trace.length = 0;
     db.locks.clear();
+    db.failEventCreate = false;
     resolveRateLimit.mockReset();
     resolveRateLimit.mockResolvedValue({
       allowed: true,
@@ -185,7 +220,17 @@ describe("recordListingView", () => {
     await record({ sessionId: "sess-a" });
     expect(db.trace[0]).toBe(`lock:listing_view:${LISTING}:sess-a`);
     expect(db.trace.indexOf("dedupe-check")).toBeGreaterThan(0);
-    expect(db.trace.indexOf("increment")).toBeGreaterThan(db.trace.indexOf("dedupe-check"));
+    expect(db.trace.indexOf("event-create")).toBeGreaterThan(db.trace.indexOf("dedupe-check"));
+    expect(db.trace.indexOf("increment")).toBeGreaterThan(db.trace.indexOf("event-create"));
+  });
+
+  it("uses hashtextextended for a full bigint advisory lock key", () => {
+    const src = recorderSource.readFileSync(
+      path.join(process.cwd(), "lib/listings/record-listing-view.ts"),
+      "utf8",
+    );
+    expect(src).toContain("hashtextextended(${lockKey}, 0)");
+    expect(src).not.toMatch(/hashtext\(\$\{lockKey\}\)::bigint/);
   });
 
   it("deduplicates a refresh in the same session and reports the current value", async () => {
@@ -240,6 +285,33 @@ describe("recordListingView", () => {
     expect(db.events.filter((e) => e.eventType === "listing_view")).toHaveLength(20);
   });
 
+  it("20 concurrent requests without a session id increment exactly +0", async () => {
+    const results = await Promise.all(Array.from({ length: 20 }, () => record({})));
+
+    expect(results.every((r) => r.counted === false)).toBe(true);
+    expect(results.every((r) => r.reason === "missing_session")).toBe(true);
+    expect(results.every((r) => r.views === 0)).toBe(true);
+    expect(db.views.get(LISTING)).toBe(0);
+    expect(db.events).toHaveLength(0);
+  });
+
+  it("does not accept a session id from the JSON body", async () => {
+    const res = await record({ bodySessionId: "body-sess-should-be-ignored" });
+    expect(res).toEqual({ counted: false, views: 0, reason: "missing_session" });
+    expect(db.views.get(LISTING)).toBe(0);
+    expect(db.events).toHaveLength(0);
+  });
+
+  it("never uses an IP-only increment path", () => {
+    const src = recorderSource.readFileSync(
+      path.join(process.cwd(), "lib/listings/record-listing-view.ts"),
+      "utf8",
+    );
+    expect(src).not.toContain("listing:view:iphash:");
+    expect(src).not.toContain("listing:view:nosession:");
+    expect(src).toContain('reason: "missing_session"');
+  });
+
   it("repeat inside the dedupe window adds +0; a new session adds +1", async () => {
     const first = await record({ sessionId: "window-a" });
     const repeat = await record({ sessionId: "window-a" });
@@ -285,10 +357,17 @@ describe("recordListingView", () => {
     expect(res).toEqual({ counted: false, views: 0, reason: "not_found" });
   });
 
-  it("falls back to a per-IP dedupe window when no session id is sent", async () => {
-    const res = await record({});
-    expect(res.counted).toBe(true);
-    const keys = resolveRateLimit.mock.calls.map((c) => String(c[0]));
-    expect(keys.some((k) => k.startsWith("listing:view:iphash:"))).toBe(true);
+  it("rolls back the counter when analyticsEvent.create fails", async () => {
+    db.failEventCreate = true;
+    await expect(record({ sessionId: "sess-fail" })).rejects.toThrow(
+      "analyticsEvent.create failed",
+    );
+    expect(db.views.get(LISTING)).toBe(0);
+    expect(db.events).toHaveLength(0);
+
+    db.failEventCreate = false;
+    const ok = await record({ sessionId: "sess-ok" });
+    expect(ok).toEqual({ counted: true, views: 1 });
+    expect(db.events).toHaveLength(1);
   });
 });

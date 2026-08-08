@@ -7,6 +7,9 @@
  * Increment + `listing_view` analytics row are written in one transaction guarded by a
  * Postgres advisory lock, so dedupe holds across every PM2 instance (fork or cluster)
  * and two concurrent requests for the same session cannot both count.
+ *
+ * A validated `x-analytics-session-id` is required. Without it we never increment — there
+ * is no IP-only fallback that could overcount or leave views without an analytics row.
  */
 
 import type { NextRequest } from "next/server";
@@ -29,7 +32,8 @@ export type ListingViewSkipReason =
   | "automation"
   | "rate_limited"
   | "duplicate"
-  | "not_found";
+  | "not_found"
+  | "missing_session";
 
 export type ListingViewResult = {
   /** True only when listing.views was incremented by this request. */
@@ -53,6 +57,9 @@ async function currentViews(listingId: string): Promise<number | null> {
  * pg_advisory_xact_lock serialises concurrent requests sharing the same dedupe key;
  * the existing `listing_view` row inside the window is what makes the claim persistent
  * and visible to every process.
+ *
+ * Lock key uses hashtextextended(text, 0) → bigint (Postgres ≥ 11), not the 32-bit
+ * hashtext cast that collapses the key space.
  */
 async function claimAndIncrement(opts: {
   listingId: string;
@@ -65,7 +72,7 @@ async function claimAndIncrement(opts: {
   const lockKey = `listing_view:${opts.listingId}:${opts.sessionId}`;
 
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
 
     const duplicate = await tx.analyticsEvent.findFirst({
       where: {
@@ -85,12 +92,6 @@ async function claimAndIncrement(opts: {
       return { counted: false, views: row?.views ?? 0, reason: "duplicate" as const };
     }
 
-    const updated = await tx.listing.update({
-      where: { id: opts.listingId },
-      data: { views: { increment: 1 } },
-      select: { views: true },
-    });
-
     // analytics_events.sessionId is a FK to analytics_sessions — the row must exist first.
     await tx.analyticsSession.upsert({
       where: { id: opts.sessionId },
@@ -106,6 +107,7 @@ async function claimAndIncrement(opts: {
       },
     });
 
+    // Event before increment so a create failure rolls back without a bare +1.
     await tx.analyticsEvent.create({
       data: {
         eventType: ANALYTICS_EVENT.listing_view,
@@ -114,6 +116,12 @@ async function claimAndIncrement(opts: {
         listingId: opts.listingId,
         metadata: (opts.metadata ?? undefined) as never,
       },
+    });
+
+    const updated = await tx.listing.update({
+      where: { id: opts.listingId },
+      data: { views: { increment: 1 } },
+      select: { views: true },
     });
 
     return { counted: true, views: updated.views };
@@ -152,36 +160,19 @@ export async function recordListingView(opts: {
     return { counted: false, views, reason: "rate_limited" };
   }
 
+  // Session id only from the validated analytics header context — never from a JSON body.
   const ctx = buildAnalyticsContext(opts.request);
   const metadata = analyticsContextMetadata(opts.request, { source: "listing_view_beacon" });
 
-  if (ctx.sessionId) {
-    return claimAndIncrement({
-      listingId: opts.listingId,
-      sessionId: ctx.sessionId,
-      viewerId: opts.viewerId,
-      metadata,
-      ipHash: ctx.ipHash,
-    });
+  if (!ctx.sessionId) {
+    return { counted: false, views, reason: "missing_session" };
   }
 
-  // No session id (non-browser client). Fall back to a per-IP dedupe window; this is the
-  // only path that is not backed by the advisory lock, so keep the window identical.
-  const fallbackKey = ctx.ipHash
-    ? `listing:view:iphash:${ctx.ipHash}:${opts.listingId}`
-    : `listing:view:nosession:${opts.listingId}`;
-  const slot = await resolveRateLimit(fallbackKey, {
-    windowMs: LISTING_VIEW_DEDUPE_WINDOW_MS,
-    maxRequests: 1,
+  return claimAndIncrement({
+    listingId: opts.listingId,
+    sessionId: ctx.sessionId,
+    viewerId: opts.viewerId,
+    metadata,
+    ipHash: ctx.ipHash,
   });
-  if (!slot.allowed) {
-    return { counted: false, views, reason: "duplicate" };
-  }
-
-  const updated = await prisma.listing.update({
-    where: { id: opts.listingId },
-    data: { views: { increment: 1 } },
-    select: { views: true },
-  });
-  return { counted: true, views: updated.views };
 }
