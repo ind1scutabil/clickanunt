@@ -47,8 +47,18 @@ describe("site-jsonld (Organization / WebSite / SearchAction)", () => {
     expect(isParseable(org)).toBe(true);
     expect(org["@context"]).toBe("https://schema.org");
     expect(org["@type"]).toBe("Organization");
+    expect(org["@id"]).toBe("https://www.clickanunt.ro/#organization");
     expect(org.name).toBe("ClickAnunț");
+    expect(org.alternateName).toBe("ClickAnunt");
+    expect(org.url).toBe("https://www.clickanunt.ro/");
+    const logo = org.logo as Record<string, unknown>;
+    expect(logo["@type"]).toBe("ImageObject");
+    expect(logo.url).toBe("https://www.clickanunt.ro/brand/clickanunt-logo.png");
+    expect(logo.contentUrl).toBe("https://www.clickanunt.ro/brand/clickanunt-logo.png");
+    expect(logo.width).toBe(1254);
+    expect(logo.height).toBe(1254);
     const serialized = JSON.stringify(org);
+    expect(serialized).not.toMatch(/\/images\/logo\.png/);
     expect(serialized).not.toMatch(/aggregateRating/i);
     expect(serialized).not.toMatch(/ratingValue/i);
     expect(serialized).not.toMatch(/reviewCount/i);

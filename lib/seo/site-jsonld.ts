@@ -66,13 +66,22 @@ export function buildOrganizationJsonLd() {
   const showLegal = isCompanyLegalDetailsPublic();
   const companyPhone = publicCompanyPhoneForSchema();
   const sameAs = getVerifiedBrandSameAsUrls();
+  const logoUrl = `${siteUrl}/brand/clickanunt-logo.png`;
 
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
+    '@id': `${siteUrl}/#organization`,
     name: 'ClickAnunț',
-    url: siteUrl,
-    logo: `${siteUrl}/images/logo.png`,
+    alternateName: 'ClickAnunt',
+    url: `${siteUrl}/`,
+    logo: {
+      '@type': 'ImageObject',
+      url: logoUrl,
+      contentUrl: logoUrl,
+      width: 1254,
+      height: 1254,
+    },
     description: 'Platforma de anunțuri gratuite din România',
     contactPoint: {
       '@type': 'ContactPoint',

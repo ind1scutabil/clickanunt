@@ -24,6 +24,38 @@ export const metadata: Metadata = {
   publisher: "ClickAnunț",
   robots: stagingRobotsMetadata(),
   metadataBase: new URL(siteOrigin()),
+  icons: {
+    icon: [
+      {
+        url: "/brand/clickanunt-favicon-96.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
+      {
+        url: "/favicon.ico",
+        type: "image/x-icon",
+        sizes: "48x48",
+      },
+      {
+        url: "/brand/clickanunt-icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      {
+        url: "/brand/clickanunt-icon-512.png",
+        type: "image/png",
+        sizes: "512x512",
+      },
+    ],
+    apple: [
+      {
+        url: "/brand/apple-touch-icon-180.png",
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
+  },
+  manifest: "/manifest.webmanifest",
   openGraph: {
     type: 'website',
     locale: 'ro_RO',

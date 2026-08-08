@@ -212,7 +212,7 @@ export function generateLocalBusinessStructuredData() {
     '@type': 'LocalBusiness',
     '@id': siteUrl,
     name: 'ClickAnunț',
-    image: `${siteUrl}/images/logo.png`,
+    image: `${siteUrl}/brand/clickanunt-logo.png`,
     url: siteUrl,
     ...(showLegal
       ? {
