@@ -82,7 +82,9 @@ describe("brand favicon and logo assets", () => {
     const org = buildOrganizationJsonLd();
     expect(org["@type"]).toBe("Organization");
     expect(org["@id"]).toBe("https://www.clickanunt.ro/#organization");
-    expect(org.alternateName).toBe("ClickAnunt");
+    expect(org.alternateName).toEqual(
+      expect.arrayContaining(["ClickAnunt", "clickanunt", "clickanunt.ro"]),
+    );
     expect(org.url).toBe("https://www.clickanunt.ro/");
     const logo = org.logo as { "@type": string; width: number; height: number; url: string };
     expect(logo["@type"]).toBe("ImageObject");

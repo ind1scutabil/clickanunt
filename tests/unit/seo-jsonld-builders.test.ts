@@ -49,7 +49,10 @@ describe("site-jsonld (Organization / WebSite / SearchAction)", () => {
     expect(org["@type"]).toBe("Organization");
     expect(org["@id"]).toBe("https://www.clickanunt.ro/#organization");
     expect(org.name).toBe("ClickAnunț");
-    expect(org.alternateName).toBe("ClickAnunt");
+    expect(org.alternateName).toEqual(
+      expect.arrayContaining(["ClickAnunt", "clickanunt", "clickanunt.ro"]),
+    );
+    expect(org.description).toMatch(/clickanunt\.ro/i);
     expect(org.url).toBe("https://www.clickanunt.ro/");
     const logo = org.logo as Record<string, unknown>;
     expect(logo["@type"]).toBe("ImageObject");
@@ -79,7 +82,12 @@ describe("site-jsonld (Organization / WebSite / SearchAction)", () => {
     expect(isParseable(site)).toBe(true);
     expect(site["@context"]).toBe("https://schema.org");
     expect(site["@type"]).toBe("WebSite");
+    expect(site["@id"]).toBe("https://www.clickanunt.ro/#website");
     expect(site.url).toBe("https://www.clickanunt.ro");
+    expect(site.publisher).toEqual({ "@id": "https://www.clickanunt.ro/#organization" });
+    expect(site.alternateName).toEqual(
+      expect.arrayContaining(["ClickAnunt", "clickanunt", "clickanunt.ro"]),
+    );
     expect(site.potentialAction["@type"]).toBe("SearchAction");
     // Nested action must not carry its own @context (single top-level context).
     expect((site.potentialAction as Record<string, unknown>)["@context"]).toBeUndefined();

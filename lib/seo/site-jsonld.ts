@@ -23,10 +23,22 @@ export interface SearchActionJsonLd {
 export interface WebSiteJsonLd {
   '@context': 'https://schema.org';
   '@type': 'WebSite';
+  '@id': string;
   name: string;
+  alternateName: string[];
   url: string;
+  publisher: { '@id': string };
   potentialAction: SearchActionJsonLd;
 }
+
+/** ASCII / domain aliases people (and Google) type for the brand — no invented entities. */
+export const BRAND_ALTERNATE_NAMES = [
+  'ClickAnunt',
+  'clickanunt',
+  'ClickAnunț.ro',
+  'ClickAnunt.ro',
+  'clickanunt.ro',
+] as const;
 
 function publicCompanyPhoneForSchema(): string | undefined {
   const raw = process.env.NEXT_PUBLIC_COMPANY_PHONE?.trim();
@@ -46,13 +58,17 @@ export function buildSearchActionJsonLd(): SearchActionJsonLd {
   };
 }
 
-/** WebSite entity with the on-site SearchAction. */
+/** WebSite entity with the on-site SearchAction, linked to Organization. */
 export function buildWebSiteJsonLd(): WebSiteJsonLd {
+  const siteUrl = siteOrigin();
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
+    '@id': `${siteUrl}/#website`,
     name: 'ClickAnunț',
-    url: siteOrigin(),
+    alternateName: [...BRAND_ALTERNATE_NAMES],
+    url: siteUrl,
+    publisher: { '@id': `${siteUrl}/#organization` },
     potentialAction: buildSearchActionJsonLd(),
   };
 }
@@ -73,7 +89,7 @@ export function buildOrganizationJsonLd() {
     '@type': 'Organization',
     '@id': `${siteUrl}/#organization`,
     name: 'ClickAnunț',
-    alternateName: 'ClickAnunt',
+    alternateName: [...BRAND_ALTERNATE_NAMES],
     url: `${siteUrl}/`,
     logo: {
       '@type': 'ImageObject',
@@ -82,7 +98,8 @@ export function buildOrganizationJsonLd() {
       width: 1254,
       height: 1254,
     },
-    description: 'Platforma de anunțuri gratuite din România',
+    description:
+      'ClickAnunț (clickanunt.ro) este platforma de anunțuri gratuite din România — auto, imobiliare, electronice, locuri de muncă și servicii.',
     contactPoint: {
       '@type': 'ContactPoint',
       ...(showLegal && companyPhone ? { telephone: companyPhone } : {}),

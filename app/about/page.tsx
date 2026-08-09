@@ -4,7 +4,8 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Despre ClickAnunț — platformă de anunțuri gratuite",
-  description: "Despre ClickAnunț: platformă gratuită de anunțuri pentru România — conectăm cumpărători și vânzători într-un mediu sigur.",
+  description:
+    "Despre ClickAnunț (clickanunt.ro): marketplace românesc de anunțuri gratuite — auto, imobiliare, electronice, joburi și servicii.",
   alternates: { canonical: "/about" },
 };
 
@@ -22,8 +23,8 @@ export default function AboutPage() {
             Despre <span className="text-primary-400">ClickAnunț</span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg leading-relaxed text-[var(--text-secondary)] md:text-xl">
-            Platformă de anunțuri gratuite pentru România — conectăm cumpărători și vânzători într-un mediu
-            clar și protejat.
+            ClickAnunț (www.clickanunt.ro) este marketplace-ul românesc de anunțuri gratuite — conectăm
+            cumpărători și vânzători într-un mediu clar și protejat.
           </p>
         </header>
 
@@ -31,8 +32,9 @@ export default function AboutPage() {
           <h2 className="mb-6 text-2xl font-bold tracking-tight text-white md:text-3xl">Misiunea noastră</h2>
           <div className="max-w-3xl space-y-5 text-base leading-relaxed text-[var(--text-secondary)] md:text-lg">
             <p>
-              Am creat ClickAnunț pentru a oferi românilor o platformă modernă, rapidă și accesibilă unde pot
-              vinde și cumpăra orice — de la mașini și locuințe la electronice și hobby-uri.
+              ClickAnunț — scris și fără diacritice ca <strong>clickanunt</strong> / clickanunt.ro — este
+              platforma noastră de anunțuri, nu un nume incomplet și nu un alt site de clasificate. Am creat-o
+              ca românii să poată vinde și cumpăra modern: mașini, locuințe, electronice, joburi și servicii.
             </p>
             <p>
               Punem accent pe transparență și siguranță: anunțurile trec prin verificări, iar utilizatorii au
