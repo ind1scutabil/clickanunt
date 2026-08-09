@@ -197,6 +197,24 @@ describe("detail authorization matrix (unit / no DB writes)", () => {
     expect(src).toContain('return NextResponse.json({ error: "Not found" }, { status: 404 })');
   });
 
+  it("HTML detail page uses canRenderListingDetailHtml + notFound for anonymous soft-404", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const pageSrc: string = fs.readFileSync(
+      path.join(process.cwd(), "app/listings/[id]/page.tsx"),
+      "utf8",
+    );
+    expect(pageSrc).toContain("canRenderListingDetailHtml");
+    expect(pageSrc).toContain("notFound()");
+    const gateSrc: string = fs.readFileSync(
+      path.join(process.cwd(), "lib/listings/listing-detail-html-access.ts"),
+      "utf8",
+    );
+    expect(gateSrc).toContain("isListingSeoIndexable");
+    expect(gateSrc).toContain("LISTINGS_UPDATE_ANY");
+    expect(gateSrc).toContain("MODERATION_APPROVE_REJECT");
+  });
+
   it("GET detail is read-only — no view increment and no listing_view event", () => {
     const src: string = require("fs").readFileSync(
       require("path").join(process.cwd(), "app/api/listings/[id]/route.ts"),

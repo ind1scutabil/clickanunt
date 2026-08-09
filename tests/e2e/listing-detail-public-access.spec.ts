@@ -76,10 +76,11 @@ test.describe("Listing detail public authorization (read-only)", () => {
         expect(res.text).not.toMatch(/prisma|ownerUserId|contactPhone/i);
         expect(JSON.stringify(res.json)).not.toContain(row.title);
 
-        await page.goto(`/listings/${row.id}`, { waitUntil: "domcontentloaded" });
+        const htmlRes = await page.goto(`/listings/${row.id}`, { waitUntil: "domcontentloaded" });
+        expect(htmlRes?.status(), `${row.id} HTML status`).toBe(404);
         const html = await page.content();
         const pageTitle = await page.title();
-        expect(pageTitle).toMatch(/indisponibil|Anunț/i);
+        expect(pageTitle).toMatch(/nu a fost găsită|404|Anunț/i);
         expect(html).not.toContain(row.title);
         expect(html).not.toMatch(/application\/ld\+json[^>]*>[\s\S]*"@type"\s*:\s*"Product"/i);
       }

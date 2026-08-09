@@ -1,6 +1,8 @@
+import { notFound } from 'next/navigation';
 import ListingDetailPageClient from '@/app/listings/[id]/ListingDetailPageClient';
 import ApexToWwwRedirect from '@/app/components/ApexToWwwRedirect';
 import { ListingTechnicalDetailsServer } from '@/app/components/listing/ListingTechnicalDetailsServer';
+import { canRenderListingDetailHtml } from '@/lib/listings/listing-detail-html-access';
 import {
   getPublicListingDetailForSsr,
   getSimilarListingsForSsr,
@@ -18,6 +20,12 @@ export default async function ListingDetailPage({ params, searchParams }: PagePr
   const layoutDebug = sp.layout_debug === '1';
 
   const initialListing = await getPublicListingDetailForSsr(id);
+  // Anonymous non-indexable / missing → real HTTP 404 (same gate as GET /api/listings/[id]).
+  // Owner/admin of a non-public listing still get the HTML shell (client loads via API).
+  if (!initialListing && !(await canRenderListingDetailHtml(id))) {
+    notFound();
+  }
+
   const initialSimilar =
     initialListing && typeof initialListing.category === 'string'
       ? await getSimilarListingsForSsr({
