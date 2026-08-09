@@ -117,6 +117,12 @@ describe("robots + sitemap contracts", () => {
     expect(src).toContain("/sitemap-images-:chunk.xml");
   });
 
+  it("next redirects map retired /images/logo.png onto brand logo", () => {
+    const src = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    expect(src).toContain('/images/logo.png');
+    expect(src).toContain("/brand/clickanunt-logo.png");
+  });
+
   it("static sitemap avoids fake daily lastmod by default", () => {
     const src = readFileSync(path.join(process.cwd(), "app/sitemap.ts"), "utf8");
     expect(src).toContain("SEO_STATIC_LASTMOD");

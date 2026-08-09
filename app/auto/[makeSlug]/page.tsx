@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import MarketCategoryCityPage, {
   generateMetadata as generateCityHubMetadata,
 } from '@/app/[categorySlug]/[citySlug]/page';
@@ -8,6 +8,7 @@ import {
   classifyAutoFirstSegment,
   resolveAutoMakeFromSlug,
   buildAutoMakeHubPath,
+  isAutoTaxonomySubcategorySlug,
 } from '@/lib/seo/auto-hub-resolve';
 import {
   getAutoHubListingCount,
@@ -42,6 +43,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   const make = resolveAutoMakeFromSlug(makeSlug);
   if (!make) {
+    if (isAutoTaxonomySubcategorySlug(makeSlug)) {
+      permanentRedirect('/auto');
+    }
     return buildAutoHubMetadata({
       make: makeSlug,
       count: 0,
@@ -64,7 +68,13 @@ export default async function AutoMakeOrCityPage({ params, searchParams }: Props
   }
 
   const make = resolveAutoMakeFromSlug(makeSlug);
-  if (!make) notFound();
+  if (!make) {
+    // Legacy taxonomy subcategory URLs under /auto/* are not make hubs.
+    if (isAutoTaxonomySubcategorySlug(makeSlug)) {
+      permanentRedirect('/auto');
+    }
+    notFound();
+  }
 
   const count = await getAutoHubListingCount({ make });
   if (count <= 0) notFound();

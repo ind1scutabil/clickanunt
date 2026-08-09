@@ -77,6 +77,12 @@ const nextConfig: NextConfig = {
         destination: "/:categorySlug",
         permanent: true,
       },
+      // Retired Organization logo path (was 404); keep a permanent map to the brand asset.
+      {
+        source: "/images/logo.png",
+        destination: "/brand/clickanunt-logo.png",
+        permanent: true,
+      },
     ];
   },
 

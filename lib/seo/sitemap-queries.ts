@@ -5,6 +5,7 @@ import { seoIndexableListingWhere } from '@/lib/seo/indexable-listing-where';
 import { primarySlugForCategoryLabel } from '@/lib/seo/market-paths';
 import { siteOriginForSeoFeeds } from '@/lib/seo/site-url-guard';
 import { MIN_INDEXABLE_HUB_LISTINGS } from '@/lib/seo/hub-index-policy';
+import { shouldEmitCategorySubcategorySitemapPath } from '@/lib/seo/category-sitemap-policy';
 import { iterateAllSubcategorySlugs } from '@/lib/taxonomy';
 
 const AUTO_LABEL = 'Auto, moto și ambarcațiuni';
@@ -89,6 +90,7 @@ export async function buildCategorySitemapEntries(): Promise<SitemapEntry[]> {
     const key = `${row.category}::${row.subcategory}`;
     const mapped = subLabelToSlug.get(key);
     if (!mapped) continue;
+    if (!shouldEmitCategorySubcategorySitemapPath(mapped)) continue;
     out.push({
       url: `${base}/${mapped.categorySlug}/${mapped.subcategorySlug}`,
       lastModified: row._max.updatedAt ?? now,

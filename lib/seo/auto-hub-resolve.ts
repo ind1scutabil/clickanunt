@@ -1,6 +1,7 @@
 import { CAR_MAKES_AND_MODELS } from '@/lib/carData';
 import { resolveCityLabelFromSlug } from '@/lib/seo/market-paths';
 import { slugifyRo } from '@/lib/seo/slug';
+import { iterateAllSubcategorySlugs } from '@/lib/taxonomy';
 
 export const AUTO_CATEGORY_LABEL = 'Auto, moto și ambarcațiuni';
 
@@ -85,6 +86,19 @@ export function classifyAutoFirstSegment(segmentSlug: string): AutoFirstSegmentK
   if (resolveAutoCityFromSlug(slug)) return 'city';
   if (resolveAutoMakeFromSlug(slug)) return 'make';
   return 'unknown';
+}
+
+/**
+ * True when the segment is an Auto taxonomy subcategory (e.g. `autoturisme`)
+ * and is neither a known city nor make. Those URLs historically 404 under
+ * `/auto/[makeSlug]`; callers should permanent-redirect to `/auto`.
+ */
+export function isAutoTaxonomySubcategorySlug(segmentSlug: string): boolean {
+  const slug = segmentSlug.toLowerCase();
+  if (classifyAutoFirstSegment(slug) !== 'unknown') return false;
+  return iterateAllSubcategorySlugs().some(
+    (entry) => entry.categorySlug === 'auto' && entry.subcategorySlug === slug,
+  );
 }
 
 export function buildAutoMakeHubPath(make: string): string {
