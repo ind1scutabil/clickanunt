@@ -1,7 +1,7 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { favoritesApi, getLastDataSource, listingsApi } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -13,12 +13,19 @@ import { normalizeListingPhotosArray } from '../utils/listingPhotos';
 import type { Listing } from '../types';
 import { listingOwnerId } from '../types';
 
-type Props = {
-  listingId: string;
-};
+/** Public DTO: hasContactPhone; owner DTO: contactPhone — union-safe, no invented fields. */
+function listingShowsPhoneCta(item: Listing): boolean {
+  if ('hasContactPhone' in item && item.hasContactPhone === true) return true;
+  if ('contactPhone' in item && typeof item.contactPhone === 'string' && item.contactPhone.length > 0) {
+    return true;
+  }
+  return false;
+}
 
-export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
+export function ListingDetailsScreen(): React.JSX.Element {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ListingDetails'>>();
+  const listingId = route.params.listingId;
   const { user } = useAuth();
   const [item, setItem] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +36,15 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
   const [phoneBusy, setPhoneBusy] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const carouselWidth = Dimensions.get('window').width - 24;
+
+  // Reveal is session-local — intentional parity with web: public listing DTO does not persist revealed phone (hasContactPhone only; number via contact-phone endpoint).
+  useEffect(() => {
+    setRevealedPhone(null);
+    setPhoneError(null);
+    setPhotoIndex(0);
+  }, [listingId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -39,8 +55,10 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
       const data = await listingsApi.getById(listingId);
       setItem(data);
       setOfflineMode(getLastDataSource(`listing.${listingId}`) === 'cache');
-    } catch {
-      setError('Nu am putut încărca detaliile anunțului.');
+    } catch (e) {
+      // Always clear loading in finally so network failures never stick on spinner.
+      setError(e instanceof Error ? e.message : 'Nu am putut încărca detaliile anunțului.');
+      setItem(null);
     } finally {
       setLoading(false);
     }
@@ -124,17 +142,38 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.carousel}>
-        {photos.map((photo, idx) => (
-          <ListingPhotoImage
-            key={`${idx}-${photo}`}
-            photo={photo}
-            variant="medium"
-            style={styles.carouselImage}
-            resizeMode="cover"
-          />
-        ))}
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={styles.carousel}
+        onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const x = e.nativeEvent.contentOffset.x;
+          const next = Math.round(x / Math.max(1, carouselWidth));
+          setPhotoIndex(next);
+        }}
+      >
+        {photos.length === 0 ? (
+          <View style={[styles.carouselImage, styles.carouselEmpty]}>
+            <Text style={styles.carouselEmptyText}>Fără imagine</Text>
+          </View>
+        ) : (
+          photos.map((photo, idx) => (
+            <ListingPhotoImage
+              key={`${idx}-${photo}`}
+              photo={photo}
+              variant="medium"
+              style={[styles.carouselImage, { width: carouselWidth }]}
+              resizeMode="cover"
+            />
+          ))
+        )}
       </ScrollView>
+      {photos.length > 0 ? (
+        <Text style={styles.photoIndex} accessibilityLabel="gallery-index">
+          {Math.min(photoIndex + 1, photos.length)} / {photos.length}
+        </Text>
+      ) : null}
 
       <View style={styles.card}>
         {offlineMode ? <Text style={styles.offlineHint}>Afișăm ultimele date salvate.</Text> : null}
@@ -212,10 +251,10 @@ export function ListingDetailsScreen({ listingId }: Props): React.JSX.Element {
           <Text style={styles.specLabel}>Telefon</Text>
           <Text style={styles.specValue}>
             {revealedPhone ||
-              (item.hasContactPhone || item.contactPhone ? 'Ascuns — apasă Afișează' : '—')}
+              (listingShowsPhoneCta(item) ? 'Ascuns — apasă Afișează' : '—')}
           </Text>
         </View>
-        {(item.hasContactPhone || !!item.contactPhone) && !revealedPhone && !inactiveListing ? (
+        {listingShowsPhoneCta(item) && !revealedPhone && !inactiveListing ? (
           <Pressable
             accessibilityRole="button"
             style={styles.messageCta}
@@ -298,11 +337,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: { color: '#fff', fontWeight: '700' },
-  carousel: { height: 280 },
+  carousel: { height: 280, marginHorizontal: 12 },
   carouselImage: {
-    width: 360,
     height: 280,
     backgroundColor: THEME.colors.surfaceAlt,
+  },
+  carouselEmpty: {
+    width: Dimensions.get('window').width - 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carouselEmptyText: { color: THEME.colors.textMuted, fontWeight: '600' },
+  photoIndex: {
+    textAlign: 'center',
+    color: THEME.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
   },
   card: {
     marginTop: 12,

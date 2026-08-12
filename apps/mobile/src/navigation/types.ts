@@ -7,7 +7,15 @@ export type RootStackParamList = {
   ListingDetails: { listingId: string };
   ListingCreate: undefined;
   ListingEdit: { listingId: string };
+  MyListings: undefined;
+  AccountSettings: undefined;
   Conversation: { userId: string; conversationId?: string; listingId?: string; title?: string };
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
+  RegisterBusiness: undefined;
 };
 
 export type MainTabParamList = {

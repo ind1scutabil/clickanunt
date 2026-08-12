@@ -169,8 +169,12 @@ describe("API integration (server required)", () => {
     });
     expect([200, 201, 400, 409, 429]).toContain(res.status);
     if (res.ok) {
-      const data = (await res.json()) as { email?: string; accessToken?: string };
-      expect(data.email || data.accessToken).toBeTruthy();
+      const data = (await res.json()) as {
+        email?: string;
+        accessToken?: string;
+        user?: { email?: string };
+      };
+      expect(data.email || data.accessToken || data.user?.email).toBeTruthy();
     }
   });
 });

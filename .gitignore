@@ -24,6 +24,10 @@ tests/e2e/.auth/
 # next.js
 /out/
 
+# Expo local state (machine-specific)
+.expo/
+apps/mobile/.expo/
+
 # load test artifacts (Phase 3C)
 scripts/load/results/
 
@@ -110,3 +114,10 @@ next-env.d.ts
 # Hero asset backups (local only; not part of runtime bundle)
 /public/images/hero/*backup*
 /public/images/hero/*-backup-*
+.env.mobile-parity
+
+# Generated development APKs from mobile parity audits (large binaries; keep local only)
+docs/audits/faza21/*.apk
+docs/audits/faza21/**/*.apk
+apps/mobile/**/*.apk
+

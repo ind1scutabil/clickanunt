@@ -15,18 +15,22 @@ export function MessagesScreen({ onOpenConversation }: Props): React.JSX.Element
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<Conversation[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
+    setError(null);
     try {
       setItems(await messagesApi.conversations());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nu am putut încărca mesajele.');
     } finally {
       setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useLiveSync(load, { intervalMs: 7000 });
@@ -35,13 +39,22 @@ export function MessagesScreen({ onOpenConversation }: Props): React.JSX.Element
     <View style={styles.container}>
       <View style={[styles.headerBlock, { paddingTop: Math.max(8, insets.top + 4) }]}>
         <Text style={styles.headerTitle}>Mesaje</Text>
-        <Text style={styles.headerSubtitle}>Actualizare automată la 7 secunde</Text>
+        <Text style={styles.headerSubtitle}>Conversații din contul ClickAnunț</Text>
       </View>
+
+      {error ? (
+        <View style={styles.errorRow}>
+          <Text style={styles.error}>{error}</Text>
+          <Pressable onPress={() => void load()}>
+            <Text style={styles.retry}>Reîncearcă</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
           <Pressable
@@ -71,7 +84,7 @@ export function MessagesScreen({ onOpenConversation }: Props): React.JSX.Element
             {item.listingTitle ? <Text style={styles.listingChip}>Anunț: {item.listingTitle}</Text> : null}
           </Pressable>
         )}
-        ListEmptyComponent={!refreshing ? <Text style={styles.empty}>Nu ai conversații.</Text> : null}
+        ListEmptyComponent={!refreshing && !error ? <Text style={styles.empty}>Nu ai conversații.</Text> : null}
       />
     </View>
   );
@@ -82,7 +95,17 @@ const styles = StyleSheet.create({
   headerBlock: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
   headerSubtitle: { color: THEME.colors.accent, fontSize: 12, marginTop: 2, fontWeight: '600' },
-  content: { padding: 12, gap: 10 },
+  errorRow: {
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  error: { flex: 1, color: THEME.colors.error },
+  retry: { color: THEME.colors.accent, fontWeight: '700' },
+  content: { padding: 12, gap: 10, paddingBottom: 100 },
   card: {
     backgroundColor: THEME.colors.surface,
     borderRadius: THEME.radius.md,

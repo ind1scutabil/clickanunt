@@ -217,6 +217,26 @@ export const mobileRegisterSchema = z
     path: ['confirmPassword'],
   });
 
+/**
+ * Optional body for POST /api/auth/logout — web uses cookies only;
+ * mobile may send its SecureStore refresh token for server-side revoke.
+ */
+export const logoutBodySchema = z
+  .object({
+    refreshToken: z.string().min(20).max(4096).optional(),
+  })
+  .strict();
+
+/**
+ * DELETE /api/notifications/push-token — remove this user's device token only.
+ * Body requires expoPushToken; CSRF + auth required on the route.
+ */
+export const pushTokenDeleteSchema = z
+  .object({
+    expoPushToken: z.string().min(10).max(2000),
+  })
+  .strict();
+
 export const mobileRegisterExtendedSchema = z
   .object({
     email: emailSchema,

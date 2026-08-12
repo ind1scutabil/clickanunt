@@ -16,14 +16,16 @@ function getPublicBaseUrl(request: NextRequest): string {
   const forwardedProto = request.headers.get('x-forwarded-proto');
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
 
-  // Local dev thường rulează pe HTTP, iar lipsa header-ului `x-forwarded-proto`
-  // face ca acest endpoint să construiască greșit URL-uri cu `https://localhost:...`,
-  // rezultând `ERR_CONNECTION_REFUSED` la încărcarea pozelor.
-  const protoFromHost =
-    host &&
-    /^(localhost|127\.0\.0\.1|0\.0\.0\.0|46\.225\.69\.155)(:\d+)?$/i.test(host.trim())
-      ? 'http'
-      : 'https';
+  // Local/dev HTTP hosts. Android emulator loopback (10.0.2.2) is accepted only
+  // outside production so a spoofed Host cannot force http:// URLs in prod.
+  const hostTrimmed = host?.trim() ?? '';
+  const isClassicLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|46\.225\.69\.155)(:\d+)?$/i.test(
+    hostTrimmed
+  );
+  const isEmulatorLoopback =
+    process.env.NODE_ENV !== 'production' &&
+    /^(10\.0\.2\.2)(:\d+)?$/i.test(hostTrimmed);
+  const protoFromHost = host && (isClassicLocal || isEmulatorLoopback) ? 'http' : 'https';
 
   const proto = forwardedProto?.split(',')[0]?.trim() || protoFromHost;
   if (host) return `${proto}://${host}`;
@@ -48,7 +50,8 @@ function normalizePublicUrl(url: string, request: NextRequest): string {
       h === '127.0.0.1' ||
       h === '0.0.0.0' ||
       h === '::1' ||
-      h === '46.225.69.155';
+      h === '46.225.69.155' ||
+      (process.env.NODE_ENV !== 'production' && h === '10.0.2.2');
 
     const parsedHostname = parsed.hostname.toLowerCase();
     const baseHostname = base.hostname.toLowerCase();

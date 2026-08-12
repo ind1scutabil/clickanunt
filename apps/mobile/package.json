@@ -10,8 +10,11 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "preflight": "npm run typecheck",
-    "build:ios:prod": "eas build --platform ios --profile production",
-    "submit:ios:prod": "eas submit --platform ios --profile production"
+    "build:ios:prod": "npx --yes eas-cli@18.0.5 build --platform ios --profile production",
+    "submit:ios:prod": "npx --yes eas-cli@18.0.5 submit --platform ios --profile production",
+    "build:android:prod": "npx --yes eas-cli@18.0.5 build --platform android --profile production",
+    "submit:android:prod": "npx --yes eas-cli@18.0.5 submit --platform android --profile production",
+    "build:android:preview": "npx --yes eas-cli@18.0.5 build --platform android --profile preview"
   },
   "dependencies": {
     "@clickanunt/api-contracts": "file:../../packages/api-contracts",
@@ -33,6 +36,7 @@
     "expo-secure-store": "~14.0.1",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",
+    "react-dom": "18.3.1",
     "react-native": "0.76.9",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-safe-area-context": "4.12.0",
@@ -42,7 +46,6 @@
   },
   "devDependencies": {
     "@types/react": "~18.3.12",
-    "eas-cli": "^18.0.5",
     "typescript": "~5.6.3"
   }
 }

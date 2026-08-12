@@ -123,7 +123,7 @@ export function AttributeFields({ defs, values, onChange, errors }: Props): Reac
 
 const styles = StyleSheet.create({
   wrap: { gap: 10, marginTop: 4 },
-  heading: { color: THEME.colors.text, fontSize: 14, fontWeight: '700' },
+  heading: { color: THEME.colors.textPrimary, fontSize: 14, fontWeight: '700' },
   row: { gap: 6 },
   label: { color: THEME.colors.textMuted, fontSize: 12, fontWeight: '600' },
   input: {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: THEME.colors.text,
+    color: THEME.colors.textPrimary,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.primary,
     backgroundColor: 'rgba(249, 115, 22, 0.12)',
   },
-  chipText: { color: THEME.colors.text, fontSize: 12 },
+  chipText: { color: THEME.colors.textPrimary, fontSize: 12 },
   chipTextActive: { color: THEME.colors.primary, fontWeight: '700' },
   error: { color: '#fecaca', fontSize: 11 },
 });

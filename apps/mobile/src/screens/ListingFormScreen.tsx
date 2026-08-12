@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,6 +36,17 @@ import {
   type SalaryPeriodValue,
 } from '@clickanunt/api-contracts';
 import { AttributeFields } from '../components/AttributeFields';
+import { OptionSelect } from '../components/OptionSelect';
+import {
+  AUTO_CATEGORY_LABEL,
+  assertAutoMakeModelPair,
+  CAR_MAKES_AND_MODELS,
+  CITIES_BY_COUNTY,
+  isCityInCounty,
+  isKnownCounty,
+  POPULAR_MAKES,
+  ROMANIAN_COUNTIES,
+} from '../constants/locationMakeOptions';
 
 type Props = {
   mode: 'create' | 'edit';
@@ -70,6 +82,7 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -115,6 +128,9 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     setMake(data.make || '');
     setModel(data.model || '');
     setYear(data.year != null ? String(data.year) : '');
+    setContactPhone(
+      'contactPhone' in data && typeof data.contactPhone === 'string' ? data.contactPhone : ''
+    );
     setPhotoUrls(normalizeListingPhotosArray(data.photos));
     const attrs =
       data.attributes && typeof data.attributes === 'object' && !Array.isArray(data.attributes)
@@ -185,7 +201,15 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     return [...merged].sort((a, b) => a.localeCompare(b, 'ro'));
   }, [apiCategories, category]);
 
-  const isAutoCategory = category === 'Auto, moto și ambarcațiuni';
+  const isAutoCategory = category === AUTO_CATEGORY_LABEL;
+  const modelsForMake = useMemo(
+    () => (make && CAR_MAKES_AND_MODELS[make] ? CAR_MAKES_AND_MODELS[make] : []),
+    [make]
+  );
+  const citiesForCounty = useMemo(
+    () => (county && CITIES_BY_COUNTY[county] ? CITIES_BY_COUNTY[county] : []),
+    [county]
+  );
   const isJobs = isJobsCategoryLabel(category);
   const priceSemantics = getMarketplacePriceFieldCopy(category || null);
   const allowedTypes = useMemo(
@@ -202,9 +226,12 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       !category.trim() ||
       !contractCategoryRequiresSubcategory(category) ||
       subcategory.trim().length > 0;
+    // Create requires ≥1 photo (listingCreateSchema). Edit uses listingEditSchema.partial()
+    // so legacy rows without photos remain editable without forcing a new upload.
+    const photosOk = mode === 'edit' || photoUrls.length >= 1;
     const base =
       title.trim().length >= 5 &&
-      photoUrls.length >= 1 &&
+      photosOk &&
       category.trim().length > 0 &&
       subOk &&
       county.trim().length > 0 &&
@@ -219,6 +246,7 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     if (priceTypeRequiresAmount(priceType)) return Number(priceAmount) > 0;
     return true;
   }, [
+    mode,
     photoUrls,
     priceAmount,
     priceType,
@@ -234,11 +262,27 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
     allowedTypes,
   ]);
 
+  const resolveReadableImageUri = async (uri: string): Promise<string> => {
+    // Android photo picker often returns content:// — FileSystem.readAsStringAsync
+    // needs a real file path. Copy into cache first (same upload pipeline afterward).
+    if (uri.startsWith('file://')) {
+      return uri;
+    }
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) {
+      throw new Error('CACHE_UNAVAILABLE');
+    }
+    const dest = `${cacheDir}ca-upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  };
+
   const uploadAsset = async (uri: string, type: 'image' | 'video') => {
     if (type === 'video') {
       throw new Error('VIDEO_NOT_SUPPORTED');
     }
-    const base64 = await FileSystem.readAsStringAsync(uri, {
+    const readableUri = await resolveReadableImageUri(uri);
+    const base64 = await FileSystem.readAsStringAsync(readableUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
     const uploadedUrl = await uploadsApi.uploadBase64({
@@ -250,10 +294,15 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   };
 
   const pickFromLibrary = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permisiune necesară', 'Permite accesul la galerie pentru upload.');
-      return;
+    // Android 13+ system Photo Picker does not need READ_MEDIA_IMAGES.
+    // Do not force a storage permission the OS picker does not require.
+    // iOS still needs the photo-library prompt.
+    if (Platform.OS === 'ios') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permisiune necesară', 'Permite accesul la galerie pentru upload.');
+        return;
+      }
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -290,8 +339,13 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
         }
         await uploadAsset(asset.uri, 'image');
       }
-    } catch {
-      Alert.alert('Upload eșuat', 'Nu am putut urca toate fișierele selectate.');
+    } catch (err: unknown) {
+      const detail = err instanceof Error ? err.message : 'necunoscut';
+      trackError('listing_photo_upload_failed', err, { detail }).catch(() => {});
+      Alert.alert(
+        'Upload eșuat',
+        `Nu am putut urca toate fișierele selectate (${detail}). Reîncearcă după ce acorzi acces la galerie.`
+      );
     } finally {
       setIsUploading(false);
     }
@@ -351,6 +405,25 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
       Alert.alert('Locație incompletă', 'Completează județul și orașul.');
       return;
     }
+    if (!isKnownCounty(county.trim())) {
+      Alert.alert('Locație invalidă', 'Județ invalid');
+      return;
+    }
+    if (!isCityInCounty(county.trim(), city.trim())) {
+      Alert.alert('Locație invalidă', 'Orașul nu aparține județului selectat');
+      return;
+    }
+    if (isAutoCategory) {
+      const makeCheck = assertAutoMakeModelPair({
+        category,
+        make: make.trim() || null,
+        model: model.trim() || null,
+      });
+      if (!makeCheck.ok) {
+        Alert.alert('Marcă / model', makeCheck.message);
+        return;
+      }
+    }
     if (contractCategoryRequiresSubcategory(category) && !subcategory.trim()) {
       Alert.alert('Subcategorie', 'Selectează o subcategorie.');
       return;
@@ -358,14 +431,15 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
 
     addBreadcrumb('submit_listing_form', 'listing');
 
-    const payload: ListingPayload = {
+    const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
       category: category.trim(),
       subcategory: subcategory.trim() || null,
       city: city.trim(),
       county: county.trim(),
-      photos: photoUrls,
+      // create: always send photos (schema min 1). edit: omit when empty so partial schema keeps legacy rows.
+      ...(mode === 'create' || photoUrls.length > 0 ? { photos: photoUrls } : {}),
       ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
       ...(isAutoCategory
         ? {
@@ -374,7 +448,8 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
             year: year ? Number(year) : undefined,
           }
         : {}),
-    };
+      ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : mode === 'edit' ? { contactPhone: null } : {}),
+    } as ListingPayload;
 
     if (isJobs) {
       payload.priceType = null;
@@ -461,7 +536,11 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.heading}>{mode === 'create' ? 'Publică anunț' : 'Editează anunț'}</Text>
 
       {apiCategories.length > 0 ? (
@@ -488,7 +567,7 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
             setCategory(next);
             setSubcategory('');
             setAttributes({});
-            if (next !== 'Auto, moto și ambarcațiuni') {
+            if (next !== AUTO_CATEGORY_LABEL) {
               setMake('');
               setModel('');
               setYear('');
@@ -622,15 +701,63 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
           ) : null}
         </View>
       )}
-      <TextInput style={styles.input} placeholder="Județ *" placeholderTextColor={THEME.colors.textMuted} value={county} onChangeText={setCounty} />
-      <TextInput style={styles.input} placeholder="Oraș *" placeholderTextColor={THEME.colors.textMuted} value={city} onChangeText={setCity} />
+      <OptionSelect
+        label="Județ *"
+        value={county}
+        options={[...ROMANIAN_COUNTIES]}
+        placeholder="Selectează județul"
+        onChange={(next) => {
+          setCounty(next);
+          setCity('');
+        }}
+      />
+      <OptionSelect
+        label="Oraș / localitate *"
+        value={city}
+        options={citiesForCounty}
+        placeholder={county ? 'Selectează localitatea' : 'Alege mai întâi județul'}
+        disabled={!county}
+        onChange={setCity}
+      />
       {isAutoCategory ? (
         <>
-          <TextInput style={styles.input} placeholder="Marcă" placeholderTextColor={THEME.colors.textMuted} value={make} onChangeText={setMake} />
-          <TextInput style={styles.input} placeholder="Model" placeholderTextColor={THEME.colors.textMuted} value={model} onChangeText={setModel} />
-          <TextInput style={styles.input} placeholder="An" placeholderTextColor={THEME.colors.textMuted} keyboardType="numeric" value={year} onChangeText={setYear} />
+          <OptionSelect
+            label="Marcă"
+            value={make}
+            options={[...POPULAR_MAKES]}
+            placeholder="Selectează marca"
+            onChange={(next) => {
+              setMake(next);
+              setModel('');
+            }}
+          />
+          <OptionSelect
+            label="Model"
+            value={model}
+            options={modelsForMake}
+            placeholder={make ? 'Selectează modelul' : 'Alege mai întâi marca'}
+            disabled={!make}
+            onChange={setModel}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="An"
+            placeholderTextColor={THEME.colors.textMuted}
+            keyboardType="numeric"
+            value={year}
+            onChangeText={setYear}
+          />
         </>
       ) : null}
+
+      <TextInput
+        style={styles.input}
+        placeholder="Telefon contact (opțional)"
+        placeholderTextColor={THEME.colors.textMuted}
+        keyboardType="phone-pad"
+        value={contactPhone}
+        onChangeText={setContactPhone}
+      />
 
       <View style={styles.uploadActions}>
         <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
@@ -654,16 +781,32 @@ export function ListingFormScreen({ mode, listingId, onSuccess }: Props): React.
         ))}
       </View>
 
-      <Pressable style={[styles.button, !canSubmit && styles.buttonDisabled]} disabled={!canSubmit || isSaving} onPress={submit}>
+      <Pressable
+        style={[styles.button, !canSubmit && styles.buttonDisabled]}
+        disabled={!canSubmit || isSaving}
+        onPress={submit}
+        accessibilityRole="button"
+        accessibilityLabel={mode === 'create' ? 'Publică anunț' : 'Salvează anunț'}
+        accessibilityState={{ disabled: !canSubmit || isSaving }}
+      >
         <Text style={styles.buttonText}>{isSaving ? 'Se salvează...' : mode === 'create' ? 'Publică' : 'Salvează'}</Text>
       </Pressable>
+      {!canSubmit ? (
+        <Text style={styles.metaHint}>
+          {mode === 'create' && photoUrls.length < 1
+            ? 'Adaugă cel puțin o fotografie pentru a publica.'
+            : contractCategoryRequiresSubcategory(category) && !subcategory.trim()
+              ? 'Selectează o subcategorie.'
+              : 'Completează titlul, categoria, județul și localitatea.'}
+        </Text>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
-  content: { padding: 16, gap: 10, paddingBottom: 40 },
+  content: { padding: 16, gap: 10, paddingBottom: 80 },
   centered: {
     flex: 1,
     justifyContent: 'center',

@@ -29,8 +29,18 @@ function cleanExpiredEntries(): void {
   });
 }
 
-// Curăță automat la fiecare 5 minute
-setInterval(cleanExpiredEntries, 5 * 60 * 1000);
+// Curăță automat la fiecare 5 minute.
+// unref so this background timer does not keep the Node process alive
+// (Jest unit tests import this module and would otherwise hang after PASS).
+const rateLimitCleanupInterval = setInterval(cleanExpiredEntries, 5 * 60 * 1000);
+if (typeof rateLimitCleanupInterval.unref === 'function') {
+  rateLimitCleanupInterval.unref();
+}
+
+/** Clear the module cleanup timer (tests / graceful shutdown). */
+export function stopRateLimitCleanup(): void {
+  clearInterval(rateLimitCleanupInterval);
+}
 
 export interface RateLimitConfig {
   windowMs: number; // Fereastra de timp în ms

@@ -3,11 +3,15 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 
 import {
   authApi,
+  clearAllMobileCaches,
   clearStoredAuthTokens,
+  notificationsApi,
   persistAuthTokens,
   refreshSession,
   setAccessToken,
+  setSessionInvalidListener,
 } from '../api/client';
+import type { MobileRegisterExtendedPayload } from './register-extended-payload';
 import { registerDeviceForPushNotifications } from '../notifications/push';
 import { addBreadcrumb, trackError, trackEvent } from '../telemetry';
 import type { User } from '../types';
@@ -18,6 +22,8 @@ type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (payload: { name: string; email: string; password: string }) => Promise<void>;
+  registerExtended: (payload: MobileRegisterExtendedPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   verifyEmailToken: (token: string) => Promise<{ success: boolean; message?: string }>;
@@ -71,6 +77,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   }, []);
 
   useEffect(() => {
+    setSessionInvalidListener(() => {
+      setUser(null);
+      addBreadcrumb('session_invalidated', 'auth');
+    });
+    return () => setSessionInvalidListener(null);
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       return;
     }
@@ -99,13 +113,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
           throw error;
         }
       },
+      register: async (payload) => {
+        addBreadcrumb('register_attempt', 'auth');
+        try {
+          const result = await authApi.register(payload);
+          if (!result.accessToken || !result.refreshToken) {
+            throw new Error('Răspuns înregistrare incomplet');
+          }
+          await persistAuthTokens(result.accessToken, result.refreshToken);
+          setUser(result.user);
+          await trackEvent('register_success', { userId: result.user.id });
+        } catch (error) {
+          await trackError('register_fail', error, { email: payload.email });
+          throw error;
+        }
+      },
+      registerExtended: async (payload) => {
+        addBreadcrumb('register_extended_attempt', 'auth');
+        try {
+          const result = await authApi.registerExtended(payload);
+          if (!result.accessToken || !result.refreshToken) {
+            throw new Error('Răspuns înregistrare incomplet');
+          }
+          await persistAuthTokens(result.accessToken, result.refreshToken);
+          setUser(result.user);
+          await trackEvent('register_extended_success', {
+            userId: result.user.id,
+            accountType: payload.accountType,
+          });
+        } catch (error) {
+          await trackError('register_extended_fail', error, { email: payload.email });
+          throw error;
+        }
+      },
       logout: async () => {
+        try {
+          await notificationsApi.deactivatePushToken();
+        } catch {
+          /* best-effort before token clear */
+        }
         try {
           await authApi.logout();
         } catch {
           // offline / network — local clear still required
         }
         await clearStoredAuthTokens();
+        await clearAllMobileCaches();
         setUser(null);
         addBreadcrumb('logout', 'auth');
       },

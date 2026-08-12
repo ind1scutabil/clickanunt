@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.primary,
     backgroundColor: 'rgba(249, 115, 22, 0.12)',
   },
-  chipText: { color: THEME.colors.text, fontSize: 12 },
+  chipText: { color: THEME.colors.textPrimary, fontSize: 12 },
   chipTextActive: { color: THEME.colors.primary, fontWeight: '700' },
   hint: { color: THEME.colors.textMuted, fontSize: 11, marginTop: 4 },
 });

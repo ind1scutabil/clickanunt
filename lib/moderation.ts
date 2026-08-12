@@ -6,11 +6,21 @@
 
 import OpenAI from 'openai';
 
-// Inițializare client OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+/**
+ * Lazy OpenAI client — do not construct at module load (crashes when
+ * OPENAI_API_KEY is unset). Call sites that need moderation already
+ * no-op when the key is missing.
+ */
+let openaiClient: OpenAI | null = null;
 
+function getOpenAI(): OpenAI | null {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return null;
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: key });
+  }
+  return openaiClient;
+}
 // Tipuri pentru rezultate moderare
 export interface ModerationResult {
   flagged: boolean;
@@ -67,6 +77,10 @@ export async function moderateText(text: string): Promise<ModerationResult> {
     }
 
     // Apel OpenAI Moderation API
+    const openai = getOpenAI();
+    if (!openai) {
+      return createSafeResult();
+    }
     const response = await openai.moderations.create({
       input: text,
     });
@@ -113,6 +127,14 @@ export async function moderateImage(imageUrl: string): Promise<ImageModerationRe
     }
 
     // Prompt pentru moderare imagini
+    const openai = getOpenAI();
+    if (!openai) {
+      return {
+        flagged: false,
+        issues: [],
+        confidence: 0,
+      };
+    }
     const response = await openai.chat.completions.create({
       model: 'gpt-4o', // gpt-4o suportă vision
       messages: [

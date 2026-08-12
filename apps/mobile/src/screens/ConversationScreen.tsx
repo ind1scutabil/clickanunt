@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { messagesApi } from '../api/client';
+import { safeNetworkErrorMessage } from '../api/safeApiError';
 import { THEME } from '../theme';
 import type { MessageItem } from '../types';
 
@@ -26,20 +27,26 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
   const [content, setContent] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
       setError(null);
       const thread = await messagesApi.thread(userId, { conversationId, listingId });
       setMessages(thread);
-    } catch {
-      setError('Nu am putut încărca conversația.');
+    } catch (e) {
+      setError(safeNetworkErrorMessage(e) || 'Nu am putut încărca conversația.');
+    } finally {
+      setLoading(false);
     }
   }, [conversationId, listingId, userId]);
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 5000);
+    setLoading(true);
+    void load();
+    const interval = setInterval(() => {
+      void load();
+    }, 5000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -53,10 +60,12 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
     setError(null);
     try {
       await messagesApi.send(userId, { content: text, conversationId, listingId });
+      // Clear draft only after confirmed success — never on offline/4xx/5xx.
       setContent('');
       await load();
-    } catch {
-      setError('Mesajul nu a putut fi trimis.');
+    } catch (e) {
+      // Keep `content` so the user can retry without retyping; never report success.
+      setError(safeNetworkErrorMessage(e) || 'Mesajul nu a putut fi trimis.');
     } finally {
       setSending(false);
     }
@@ -73,7 +82,18 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={80}
     >
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorRow}>
+          <Text style={styles.error}>{error}</Text>
+          <Pressable onPress={() => void load()} accessibilityRole="button">
+            <Text style={styles.retry}>Reîncearcă</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {loading && messages.length === 0 && !error ? (
+        <Text style={styles.loadingHint}>Se încarcă…</Text>
+      ) : null}
 
       <FlatList
         data={sortedMessages}
@@ -87,6 +107,9 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
             </View>
           );
         }}
+        ListEmptyComponent={
+          !loading && !error ? <Text style={styles.empty}>Niciun mesaj încă.</Text> : null
+        }
       />
 
       <View style={styles.inputRow}>
@@ -96,9 +119,14 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
           placeholder="Scrie un mesaj..."
           style={styles.input}
           multiline
+          editable={!sending}
         />
-        <Pressable style={styles.sendButton} onPress={submit}>
-          <Text style={styles.sendButtonText}>{sending ? '...' : 'Trimite'}</Text>
+        <Pressable
+          style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+          onPress={() => void submit()}
+          disabled={sending || !content.trim()}
+        >
+          <Text style={styles.sendButtonText}>{sending ? '…' : 'Trimite'}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -107,7 +135,18 @@ export function ConversationScreen({ currentUserId, userId, conversationId, list
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
-  error: { color: THEME.colors.error, paddingHorizontal: 12, paddingTop: 8 },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  error: { flex: 1, color: THEME.colors.error },
+  retry: { color: THEME.colors.accent, fontWeight: '700' },
+  loadingHint: { color: THEME.colors.textMuted, padding: 12 },
+  empty: { textAlign: 'center', marginTop: 24, color: THEME.colors.textMuted },
   listContent: { padding: 12, gap: 8 },
   bubble: {
     maxWidth: '80%',
@@ -155,5 +194,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  sendButtonDisabled: { opacity: 0.6 },
   sendButtonText: { color: '#FFFFFF', fontWeight: '700' },
 });

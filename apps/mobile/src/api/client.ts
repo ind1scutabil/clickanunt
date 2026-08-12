@@ -19,9 +19,26 @@ import type {
   NotificationItem,
   User,
 } from '../types';
+import {
+  listingsBrowseQueryString,
+  mergeListingsByIdUnique,
+  parseListingsHasMore,
+  type ListingsFeedParams,
+} from './listingsBrowseQuery';
+import { createRefreshSingleFlight } from './refreshSingleFlight';
+import { safeApiErrorMessage, safeNetworkErrorMessage } from './safeApiError';
+import type { MobileRegisterExtendedPayload } from '../auth/register-extended-payload';
+
+export {
+  listingsBrowseQueryString,
+  mergeListingsByIdUnique,
+  parseListingsHasMore,
+  type ListingsFeedParams,
+};
 
 const ACCESS_TOKEN_KEY = 'clickanunt.accessToken';
 const REFRESH_TOKEN_KEY = 'clickanunt.refreshToken';
+const LAST_PUSH_TOKEN_KEY = 'clickanunt.lastExpoPushToken';
 
 let accessToken: string | null = null;
 let csrfToken: string | null = null;
@@ -72,6 +89,57 @@ const invalidateFavoritesCache = async (): Promise<void> => {
     /* ignore */
   }
 };
+
+/** Drop all mobile.cache.* keys (logout / cross-user safety). */
+export async function clearAllMobileCaches(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const mine = keys.filter((k) => k.startsWith('mobile.cache.'));
+    if (mine.length) {
+      await AsyncStorage.multiRemove(mine);
+    }
+  } catch {
+    /* ignore */
+  }
+  sourceByKey.clear();
+}
+
+type SessionInvalidListener = () => void;
+let sessionInvalidListener: SessionInvalidListener | null = null;
+
+/** AuthContext registers this so hard 401 (after failed refresh) returns to login. */
+export function setSessionInvalidListener(listener: SessionInvalidListener | null): void {
+  sessionInvalidListener = listener;
+}
+
+function notifySessionInvalid(): void {
+  try {
+    sessionInvalidListener?.();
+  } catch {
+    /* ignore */
+  }
+}
+
+async function invalidateListingBrowseAndDetailCaches(listingId?: string): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const browse = keys.filter((k) => k.startsWith('mobile.cache.listings.browse.'));
+    const toRemove = [...browse];
+    if (listingId) {
+      toRemove.push(cacheKey(`listing.${listingId}`));
+    }
+    if (toRemove.length) {
+      await AsyncStorage.multiRemove(toRemove);
+    }
+  } catch {
+    /* ignore */
+  }
+  for (const k of [...sourceByKey.keys()]) {
+    if (k.startsWith('listings.browse.') || (listingId && k === `listing.${listingId}`)) {
+      sourceByKey.delete(k);
+    }
+  }
+}
 
 const fetchWithCache = async <T>(key: string, fetcher: () => Promise<T>): Promise<T> => {
   if (!getFlag('enterprise_cache_offline')) {
@@ -132,61 +200,51 @@ export async function clearStoredAuthTokens(): Promise<void> {
   }
 }
 
-let refreshInFlight: Promise<boolean> | null = null;
-
-async function tryMobileRefresh(): Promise<boolean> {
-  if (refreshInFlight) {
-    return refreshInFlight;
+const tryMobileRefresh = createRefreshSingleFlight(async () => {
+  const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  if (!rt) {
+    return { ok: false as const };
   }
-  refreshInFlight = (async () => {
-    try {
-      const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-      if (!rt) {
-        return false;
-      }
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-request-id': getRequestId(),
-        },
-        body: JSON.stringify({ refreshToken: rt }),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      let body: { accessToken?: string; refreshToken?: string; error?: string } = {};
-      try {
-        body = (await response.json()) as typeof body;
-      } catch {
-        body = {};
-      }
-      if (!response.ok || !body.accessToken) {
-        return false;
-      }
-      // Persist rotated refresh when present; if SecureStore write fails, clear both.
-      try {
-        setAccessToken(body.accessToken);
-        await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
-        if (typeof body.refreshToken === 'string' && body.refreshToken.length > 0) {
-          await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, body.refreshToken);
-        }
-        return true;
-      } catch {
-        await clearStoredAuthTokens();
-        return false;
-      }
-    } catch {
-      return false;
-    }
-  })();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    return await refreshInFlight;
+    const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-request-id': getRequestId(),
+      },
+      body: JSON.stringify({ refreshToken: rt }),
+      signal: controller.signal,
+    });
+    let body: { accessToken?: string; refreshToken?: string; error?: string } = {};
+    try {
+      body = (await response.json()) as typeof body;
+    } catch {
+      body = {};
+    }
+    if (!response.ok || !body.accessToken) {
+      return { ok: false as const };
+    }
+    try {
+      setAccessToken(body.accessToken);
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, body.accessToken);
+      if (typeof body.refreshToken === 'string' && body.refreshToken.length > 0) {
+        await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, body.refreshToken);
+      }
+      return {
+        ok: true as const,
+        accessToken: body.accessToken,
+        refreshToken: body.refreshToken,
+      };
+    } catch {
+      await clearStoredAuthTokens();
+      return { ok: false as const };
+    }
   } finally {
-    refreshInFlight = null;
+    clearTimeout(timer);
   }
-}
+});
 
 /** Exported for bootstrap retry when access JWT expired but refresh is valid. */
 export async function refreshSession(): Promise<boolean> {
@@ -277,17 +335,33 @@ const request = async <T>(path: string, options?: RequestOptions): Promise<T> =>
             return request<T>(path, { ...options, skipAuthRefresh: true });
           }
           await clearStoredAuthTokens();
+          notifySessionInvalid();
         }
 
-        const error = new Error(
-          payload?.message || payload?.error || `HTTP ${response.status}`
-        );
+        const error = new Error(safeApiErrorMessage(payload, response.status));
+        (error as Error & { status?: number }).status = response.status;
+
+        if (response.status === 429) {
+          const retryAfterRaw = response.headers.get('retry-after');
+          const retryAfterSec = retryAfterRaw ? Number(retryAfterRaw) : NaN;
+          if (Number.isFinite(retryAfterSec) && retryAfterSec > 0) {
+            (error as Error & { retryAfterMs?: number }).retryAfterMs = Math.min(
+              retryAfterSec * 1000,
+              60_000
+            );
+          }
+        }
+
         const canRetry = attempt < maxRetries && shouldRetry(response.status, method);
         if (!canRetry) {
           throw error;
         }
 
-        const backoffMs = 250 * Math.pow(2, attempt);
+        const retryAfterMs = (error as Error & { retryAfterMs?: number }).retryAfterMs;
+        const backoffMs =
+          typeof retryAfterMs === 'number' && retryAfterMs > 0
+            ? retryAfterMs
+            : 250 * Math.pow(2, attempt);
         await sleep(backoffMs);
         attempt += 1;
         continue;
@@ -299,7 +373,8 @@ const request = async <T>(path: string, options?: RequestOptions): Promise<T> =>
       const canRetry = attempt < maxRetries && shouldRetry(null, method);
       if (!canRetry) {
         await trackError('api_request_failed', error, { method, path, attempt });
-        throw error;
+        // Preserve HTTP copy from safeApiErrorMessage; remap fetch/abort to Romanian.
+        throw new Error(safeNetworkErrorMessage(error));
       }
 
       const backoffMs = 250 * Math.pow(2, attempt);
@@ -310,34 +385,8 @@ const request = async <T>(path: string, options?: RequestOptions): Promise<T> =>
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Request failed');
+  throw new Error(safeNetworkErrorMessage(lastError));
 };
-
-export type ListingsFeedParams = {
-  page?: number;
-  limit?: number;
-  status?: string;
-  /** Exact category string from GET /api/categories (DB). */
-  category?: string;
-  /** Min 2 chars — same FTS pipeline as web `GET /api/listings?q=` */
-  q?: string;
-  sort?: 'newest' | 'priceAsc' | 'priceDesc' | 'featured';
-};
-
-export function listingsBrowseQueryString(params: ListingsFeedParams = {}): string {
-  const sp = new URLSearchParams();
-  sp.set('status', params.status ?? 'active');
-  sp.set('limit', String(params.limit ?? 24));
-  sp.set('page', String(params.page ?? 1));
-  sp.set('sort', params.sort ?? 'newest');
-  if (params.category) {
-    sp.set('category', params.category);
-  }
-  if (params.q && params.q.trim().length >= 2) {
-    sp.set('q', params.q.trim());
-  }
-  return sp.toString();
-}
 
 export const authApi = {
   async login(email: string, password: string): Promise<{ user: User } & AuthTokens> {
@@ -366,7 +415,7 @@ export const authApi = {
         );
       }
       if (!response.ok) {
-        throw new Error(data?.error || `HTTP ${response.status}`);
+        throw new Error(safeApiErrorMessage(data, response.status));
       }
       if (!data.user || !data.accessToken || !data.refreshToken) {
         throw new Error('Răspuns autentificare incomplet');
@@ -380,6 +429,127 @@ export const authApi = {
       clearTimeout(timer);
     }
   },
+
+  /**
+   * Personal register — POST /api/auth/mobile-register (Bearer tokens, no CSRF).
+   * Same fields as mobileRegisterSchema: name, email, password.
+   */
+  async register(payload: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<{ user: User } & AuthTokens> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': getRequestId(),
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = (await response.json()) as {
+        user?: User;
+        accessToken?: string;
+        refreshToken?: string;
+        error?: string;
+        message?: string;
+      };
+      if (!response.ok) {
+        throw new Error(safeApiErrorMessage(data, response.status));
+      }
+      if (!data.user || !data.accessToken || !data.refreshToken) {
+        throw new Error('Răspuns înregistrare incomplet');
+      }
+      return {
+        user: data.user,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  /**
+   * Business (or extended) register — POST /api/auth/mobile-register-extended.
+   * Body must match mobileRegisterExtendedSchema.
+   */
+  async registerExtended(
+    payload: MobileRegisterExtendedPayload
+  ): Promise<{ user: User } & AuthTokens> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetch(`${MOBILE_CONFIG.siteUrl}/api/auth/mobile-register-extended`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': getRequestId(),
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      const data = (await response.json()) as {
+        user?: User;
+        accessToken?: string;
+        refreshToken?: string;
+        error?: string;
+        message?: string;
+      };
+      if (!response.ok) {
+        throw new Error(safeApiErrorMessage(data, response.status));
+      }
+      if (!data.user || !data.accessToken || !data.refreshToken) {
+        throw new Error('Răspuns înregistrare incomplet');
+      }
+      return {
+        user: data.user,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  },
+
+  async changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword?: string;
+  }): Promise<{ success?: boolean; message?: string }> {
+    const token = await ensureCsrfToken();
+    return request('/api/auth/change-password', {
+      method: 'POST',
+      body: payload,
+      headers: { 'x-csrf-token': token },
+    });
+  },
+
+  async changeEmail(payload: {
+    newEmail: string;
+    currentPassword: string;
+  }): Promise<{ success?: boolean; message?: string }> {
+    const token = await ensureCsrfToken();
+    return request('/api/auth/change-email', {
+      method: 'POST',
+      body: payload,
+      headers: { 'x-csrf-token': token },
+    });
+  },
+
+  async logoutAll(payload: { currentPassword: string }): Promise<{ success?: boolean; message?: string }> {
+    const token = await ensureCsrfToken();
+    return request('/api/auth/logout-all', {
+      method: 'POST',
+      body: payload,
+      headers: { 'x-csrf-token': token },
+    });
+  },
+
   async me(): Promise<User> {
     const data = await request<Record<string, unknown>>('/api/users/me');
     return (data as { user?: User }).user ?? (data as User);
@@ -400,26 +570,76 @@ export const authApi = {
     });
   },
 
-  /** Best-effort server logout (Bearer + CSRF). Local SecureStore clear is caller's job. */
+  /**
+   * Server logout: CSRF + optional mobile refreshToken revoke (cookie path unchanged for web).
+   */
   async logout(): Promise<void> {
     try {
-      await request('/api/auth/logout', { method: 'POST', body: '{}' });
+      const token = await ensureCsrfToken();
+      const rt = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      await request('/api/auth/logout', {
+        method: 'POST',
+        body: rt ? { refreshToken: rt } : {},
+        headers: { 'x-csrf-token': token },
+      });
     } catch {
       // offline / 401 — still proceed with local clear
     }
   },
 };
 
+export type ListingsBrowsePage = {
+  listings: Listing[];
+  hasMore: boolean;
+  page: number;
+  total?: number;
+};
+
 export const listingsApi = {
   /**
    * Same pipeline as web ListingsView: GET /api/listings (FTS when `q` is set).
+   * Returns pagination meta (`hasMore` / `page` / `total`) from the real API envelope.
+   * Page 1 may be cached for offline; later pages always hit the network.
    */
-  async browseFeed(params: ListingsFeedParams = {}): Promise<Listing[]> {
+  async browsePage(params: ListingsFeedParams = {}): Promise<ListingsBrowsePage> {
+    const page = params.page ?? 1;
     const qs = listingsBrowseQueryString(params);
-    return fetchWithCache(`listings.browse.${qs}`, async () => {
-      const data = await request<{ data?: Listing[]; listings?: Listing[] }>(`/api/listings?${qs}`);
-      return data.listings ?? data.data ?? [];
-    });
+    const fetchPage = async (): Promise<ListingsBrowsePage> => {
+      const data = await request<{
+        data?: Listing[];
+        listings?: Listing[];
+        hasMore?: boolean;
+        page?: number;
+        total?: number;
+        pagination?: { hasMore?: boolean; page?: number; total?: number; pages?: number; limit?: number };
+      }>(`/api/listings?${qs}`);
+      const listings = data.listings ?? data.data ?? [];
+      const hasMore = parseListingsHasMore(data);
+      const pageNum =
+        typeof data.page === 'number'
+          ? data.page
+          : typeof data.pagination?.page === 'number'
+            ? data.pagination.page
+            : page;
+      const total =
+        typeof data.total === 'number'
+          ? data.total
+          : typeof data.pagination?.total === 'number'
+            ? data.pagination.total
+            : undefined;
+      return { listings, hasMore, page: pageNum, total };
+    };
+    if (page === 1) {
+      return fetchWithCache(`listings.browse.${qs}`, fetchPage);
+    }
+    const result = await fetchPage();
+    sourceByKey.set(`listings.browse.${qs}`, 'network');
+    return result;
+  },
+
+  async browseFeed(params: ListingsFeedParams = {}): Promise<Listing[]> {
+    const page = await listingsApi.browsePage(params);
+    return page.listings;
   },
 
   async getById(id: string): Promise<Listing> {
@@ -458,7 +678,9 @@ export const listingsApi = {
       body: payload,
       headers: { 'x-csrf-token': token },
     });
-    return (data as { listing?: OwnerAdminListingDto }).listing ?? (data as OwnerAdminListingDto);
+    const listing = (data as { listing?: OwnerAdminListingDto }).listing ?? (data as OwnerAdminListingDto);
+    await invalidateListingBrowseAndDetailCaches(listing.id);
+    return listing;
   },
   async update(id: string, payload: Partial<ListingPayload>): Promise<OwnerAdminListingDto> {
     const token = await ensureCsrfToken();
@@ -467,6 +689,7 @@ export const listingsApi = {
       body: payload,
       headers: { 'x-csrf-token': token },
     });
+    await invalidateListingBrowseAndDetailCaches(id);
     return data;
   },
 };
@@ -510,7 +733,14 @@ export const favoritesApi = {
 
 export const messagesApi = {
   async conversations(): Promise<Conversation[]> {
-    const arr = await request<ConversationListItemDto[]>('/api/messages/conversations');
+    const data = await request<ConversationListItemDto[] | { conversations?: ConversationListItemDto[] }>(
+      '/api/messages/conversations'
+    );
+    const arr = Array.isArray(data)
+      ? data
+      : Array.isArray((data as { conversations?: ConversationListItemDto[] })?.conversations)
+        ? (data as { conversations: ConversationListItemDto[] }).conversations
+        : [];
     return arr.map((item) => ({
       id: item.id,
       participantId: item.otherParticipant?.id,
@@ -580,6 +810,90 @@ export const notificationsApi = {
         expoPushToken: payload.expoPushToken,
         platform: payload.platform,
       },
+      headers: { 'x-csrf-token': token },
+    });
+    try {
+      await SecureStore.setItemAsync(LAST_PUSH_TOKEN_KEY, payload.expoPushToken);
+    } catch {
+      /* ignore */
+    }
+  },
+
+  /** Best-effort DELETE of the last registered Expo push token for this user. */
+  async deactivatePushToken(expoPushToken?: string): Promise<void> {
+    let tokenValue = expoPushToken?.trim() || '';
+    if (!tokenValue) {
+      try {
+        tokenValue = (await SecureStore.getItemAsync(LAST_PUSH_TOKEN_KEY)) || '';
+      } catch {
+        tokenValue = '';
+      }
+    }
+    if (!tokenValue) return;
+    try {
+      const csrf = await ensureCsrfToken();
+      await request('/api/notifications/push-token', {
+        method: 'DELETE',
+        body: { expoPushToken: tokenValue },
+        headers: { 'x-csrf-token': csrf },
+      });
+    } catch {
+      /* best-effort — logout must still clear local auth */
+    } finally {
+      try {
+        await SecureStore.deleteItemAsync(LAST_PUSH_TOKEN_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  },
+};
+
+export type UserProfilePatch = {
+  name?: string;
+  phone?: string;
+  location?: string;
+};
+
+export type NotificationPreferencesPatch = {
+  email?: boolean;
+  sms?: boolean;
+  push?: boolean;
+  newMessages?: boolean;
+  priceAlerts?: boolean;
+  newsletter?: boolean;
+};
+
+export const usersApi = {
+  async getMe(): Promise<User & { location?: string; notificationPreferences?: NotificationPreferencesPatch }> {
+    return request('/api/users/me');
+  },
+
+  async patchMe(payload: UserProfilePatch): Promise<{ user?: User; location?: string }> {
+    const token = await ensureCsrfToken();
+    return request('/api/users/me', {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'x-csrf-token': token },
+    });
+  },
+
+  async patchNotificationPreferences(
+    payload: NotificationPreferencesPatch
+  ): Promise<{ notifications?: NotificationPreferencesPatch }> {
+    const token = await ensureCsrfToken();
+    return request('/api/users/me/notification-preferences', {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'x-csrf-token': token },
+    });
+  },
+
+  async deactivate(confirmText: string): Promise<{ success?: boolean; message?: string }> {
+    const token = await ensureCsrfToken();
+    return request('/api/users/me/deactivate', {
+      method: 'POST',
+      body: { confirmText },
       headers: { 'x-csrf-token': token },
     });
   },

@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type LinkingOptions } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as ExpoLinking from 'expo-linking';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useAuth } from '../auth/AuthContext';
 import { MOBILE_CONFIG } from '../config';
+import { navigationRef } from '../navigation/navigationRef';
+import type { AuthStackParamList, RootStackParamList } from '../navigation/types';
+import { AccountSettingsScreen } from '../screens/AccountSettingsScreen';
 import { ConversationScreen } from '../screens/ConversationScreen';
 import { FavoritesScreen } from '../screens/FavoritesScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -14,11 +18,14 @@ import { ListingDetailsScreen } from '../screens/ListingDetailsScreen';
 import { ListingFormScreen } from '../screens/ListingFormScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { MessagesScreen } from '../screens/MessagesScreen';
+import { MyListingsScreen } from '../screens/MyListingsScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { RegisterBusinessScreen } from '../screens/RegisterBusinessScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
 import { THEME } from '../theme';
-import type { RootStackParamList } from '../navigation/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const Tabs = createBottomTabNavigator();
 
 const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -27,6 +34,28 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   Mesaje: 'chatbubbles',
   Notificări: 'notifications',
   Cont: 'person',
+};
+
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [
+    ExpoLinking.createURL('/'),
+    'clickanunt://',
+    'https://www.clickanunt.ro',
+    'https://clickanunt.ro',
+  ],
+  config: {
+    screens: {
+      ListingDetails: {
+        path: 'listings/:listingId',
+        parse: {
+          listingId: (id: string) => id,
+        },
+      },
+      MainTabs: {
+        path: '',
+      },
+    },
+  },
 };
 
 function TabIcon({ name, focused, color }: { name: keyof typeof Ionicons.glyphMap; focused: boolean; color: string }) {
@@ -55,7 +84,7 @@ function openSitePath(path: string): void {
   void Linking.openURL(`${base}${p}`);
 }
 
-function AccountTab(): React.JSX.Element {
+function AccountTab({ navigation }: { navigation: any }): React.JSX.Element {
   const { user, logout, resendVerification } = useAuth();
   const roleNorm = (user?.role ?? '').trim().toLowerCase();
   const isAdmin = roleNorm === 'admin' || roleNorm === 'owner';
@@ -80,9 +109,14 @@ function AccountTab(): React.JSX.Element {
     openSitePath(path);
   }, []);
 
-  const menuRow = (icon: keyof typeof Ionicons.glyphMap, label: string, path: string) => (
+  const menuRow = (
+    icon: keyof typeof Ionicons.glyphMap,
+    label: string,
+    onPress: () => void,
+    openExternal = false
+  ) => (
     <Pressable
-      onPress={() => openSite(path)}
+      onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -111,7 +145,7 @@ function AccountTab(): React.JSX.Element {
         <Ionicons name={icon} size={20} color={THEME.colors.accent} />
       </View>
       <Text style={{ flex: 1, color: THEME.colors.textPrimary, fontSize: 15, fontWeight: '600' }}>{label}</Text>
-      <Ionicons name="open-outline" size={18} color={THEME.colors.textMuted} />
+      <Ionicons name={openExternal ? 'open-outline' : 'chevron-forward'} size={18} color={THEME.colors.textMuted} />
     </Pressable>
   );
 
@@ -145,7 +179,7 @@ function AccountTab(): React.JSX.Element {
       >
         <Text style={{ color: THEME.colors.textPrimary, fontSize: 26, fontWeight: '800', marginBottom: 4 }}>Cont</Text>
         <Text style={{ color: THEME.colors.textMuted, fontSize: 12, marginBottom: 16 }}>
-          Aceleași rute ca pe site — se deschid în browser.
+          Contul tău pe ClickAnunț — aceleași date ca pe website.
         </Text>
 
         {user && user.emailVerified === false ? (
@@ -230,12 +264,27 @@ function AccountTab(): React.JSX.Element {
         </View>
 
         <Text style={{ color: THEME.colors.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.2, marginBottom: 8 }}>
-          CONT (SITE)
+          CONT
         </Text>
-        {menuRow('home-outline', 'Pagina principală', '/')}
-        {menuRow('person-circle-outline', 'Contul meu', '/dashboard')}
-        {menuRow('document-text-outline', 'Anunțurile mele', '/dashboard/listings')}
-        {menuRow('settings-outline', 'Setări', '/dashboard/settings')}
+        {menuRow('document-text-outline', 'Anunțurile mele', () => navigation.navigate('MyListings'))}
+        {menuRow('add-circle-outline', 'Publică anunț', () => navigation.navigate('ListingCreate'))}
+        {menuRow('person-circle-outline', 'Contul meu (site)', () => openSite('/dashboard'), true)}
+        {menuRow('settings-outline', 'Setări cont', () => navigation.navigate('AccountSettings'))}
+
+        <Text
+          style={{
+            color: THEME.colors.textMuted,
+            fontSize: 10,
+            fontWeight: '700',
+            letterSpacing: 1.2,
+            marginTop: 12,
+            marginBottom: 8,
+          }}
+        >
+          LEGAL (SITE)
+        </Text>
+        {menuRow('shield-outline', 'Confidențialitate', () => openSite('/privacy'), true)}
+        {menuRow('reader-outline', 'Termeni și condiții', () => openSite('/terms'), true)}
 
         {isAdmin ? (
           <>
@@ -322,6 +371,7 @@ function MainTabs({ navigation }: { navigation: any }): React.JSX.Element {
           <HomeScreen
             onOpenListing={(listingId) => navigation.navigate('ListingDetails', { listingId })}
             onOpenCreateListing={() => navigation.navigate('ListingCreate')}
+            onContactSeller={(params) => navigation.navigate('Conversation', params)}
           />
         )}
       </Tabs.Screen>
@@ -334,7 +384,9 @@ function MainTabs({ navigation }: { navigation: any }): React.JSX.Element {
         )}
       </Tabs.Screen>
       <Tabs.Screen name="Notificări" component={NotificationsScreen} />
-      <Tabs.Screen name="Cont" component={AccountTab} />
+      <Tabs.Screen name="Cont">
+        {() => <AccountTab navigation={navigation} />}
+      </Tabs.Screen>
     </Tabs.Navigator>
   );
 }
@@ -352,6 +404,8 @@ export function AppNavigator(): React.JSX.Element {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
+      linking={user ? linking : undefined}
       theme={{
         dark: true,
         colors: {
@@ -371,14 +425,35 @@ export function AppNavigator(): React.JSX.Element {
       }}
     >
       {!user ? (
-        <Stack.Navigator id="auth-stack"
+        <AuthStack.Navigator
+          id="auth-stack"
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: THEME.colors.background },
           }}
         >
-          <Stack.Screen name="MainTabs" component={LoginScreen as any} />
-        </Stack.Navigator>
+          <AuthStack.Screen name="Login">
+            {({ navigation }) => (
+              <LoginScreen onGoToRegister={() => navigation.navigate('Register')} />
+            )}
+          </AuthStack.Screen>
+          <AuthStack.Screen name="Register">
+            {({ navigation }) => (
+              <RegisterScreen
+                onGoToLogin={() => navigation.navigate('Login')}
+                onGoToBusinessRegister={() => navigation.navigate('RegisterBusiness')}
+              />
+            )}
+          </AuthStack.Screen>
+          <AuthStack.Screen name="RegisterBusiness">
+            {({ navigation }) => (
+              <RegisterBusinessScreen
+                onGoToLogin={() => navigation.navigate('Login')}
+                onGoToPersonalRegister={() => navigation.navigate('Register')}
+              />
+            )}
+          </AuthStack.Screen>
+        </AuthStack.Navigator>
       ) : (
         <Stack.Navigator id="app-stack"
           screenOptions={{
@@ -394,7 +469,7 @@ export function AppNavigator(): React.JSX.Element {
           <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
           <Stack.Screen
             name="ListingDetails"
-            component={ListingDetailsScreen as any}
+            component={ListingDetailsScreen}
             options={{ title: 'Detalii anunț' }}
           />
           <Stack.Screen name="ListingCreate" options={{ title: 'Publică anunț' }}>
@@ -409,6 +484,12 @@ export function AppNavigator(): React.JSX.Element {
               />
             )}
           </Stack.Screen>
+          <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: 'Anunțurile mele' }} />
+          <Stack.Screen
+            name="AccountSettings"
+            component={AccountSettingsScreen}
+            options={{ title: 'Setări cont' }}
+          />
           <Stack.Screen name="Conversation" options={({ route }) => ({ title: route.params.title || 'Conversație' })}>
             {({ route }) => (
               <ConversationScreen

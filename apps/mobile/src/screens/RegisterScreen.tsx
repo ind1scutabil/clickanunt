@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -11,54 +11,57 @@ import {
 
 import { useAuth } from '../auth/AuthContext';
 import { MOBILE_CONFIG } from '../config';
+import { useLocalE2eFormSeed } from '../dev/localE2e';
 import { THEME } from '../theme';
+
+type Props = {
+  onGoToLogin: () => void;
+  onGoToBusinessRegister?: () => void;
+};
 
 function openSitePath(path: string): void {
   const p = path.startsWith('/') ? path : `/${path}`;
   void Linking.openURL(`${MOBILE_CONFIG.siteUrl}${p}`);
 }
 
-function isLocalApiOrigin(url: string): boolean {
-  try {
-    const host = new URL(url).hostname;
-    return host === '10.0.2.2' || host === 'localhost' || host === '127.0.0.1';
-  } catch {
-    return false;
-  }
-}
-
-type Props = {
-  onGoToRegister?: () => void;
-};
-
-export function LoginScreen({ onGoToRegister }: Props): React.JSX.Element {
-  const { login } = useAuth();
+/**
+ * Native personal register → POST /api/auth/mobile-register
+ * (name, email, password — same as mobileRegisterSchema).
+ */
+export function RegisterScreen({ onGoToLogin, onGoToBusinessRegister }: Props): React.JSX.Element {
+  const { register } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Local/emulator only: seed React state so adb/uiautomator can tap Conectare.
-  // Never active against production origin; stripped from release (__DEV__ false).
-  useEffect(() => {
-    if (!__DEV__ || !isLocalApiOrigin(MOBILE_CONFIG.siteUrl)) {
-      return;
-    }
-    if (process.env.EXPO_PUBLIC_E2E_LOGIN !== '1') {
-      return;
-    }
-    setEmail(process.env.EXPO_PUBLIC_E2E_EMAIL || 'alice@example.com');
-    setPassword(process.env.EXPO_PUBLIC_E2E_PASSWORD || 'alice123');
-  }, []);
+  useLocalE2eFormSeed('EXPO_PUBLIC_E2E_REGISTER', () => {
+    const stamp = String(Date.now()).slice(-6);
+    setName(process.env.EXPO_PUBLIC_E2E_REG_NAME || 'Parity User');
+    setEmail(process.env.EXPO_PUBLIC_E2E_REG_EMAIL || `parity${stamp}@example.com`);
+    const pw = process.env.EXPO_PUBLIC_E2E_REG_PASSWORD || 'Password123!';
+    setPassword(pw);
+    setConfirmPassword(pw);
+  });
 
   const submit = async () => {
     setError(null);
+    if (password !== confirmPassword) {
+      setError('Parolele nu coincid.');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : null;
-      setError(message || 'Autentificare eșuată. Verifică datele introduse.');
+      setError(message || 'Înregistrare eșuată. Verifică datele.');
     } finally {
       setIsSubmitting(false);
     }
@@ -68,29 +71,28 @@ export function LoginScreen({ onGoToRegister }: Props): React.JSX.Element {
     <View style={styles.container}>
       <View style={styles.brandHeader}>
         <Text style={styles.title}>ClickAnunț</Text>
-        <Text style={styles.subtitle}>Anunțuri gratuite în România</Text>
+        <Text style={styles.subtitle}>Creează cont</Text>
       </View>
 
       <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Conectare în cont</Text>
-        {__DEV__ && isLocalApiOrigin(MOBILE_CONFIG.siteUrl) ? (
-          <Text style={styles.devHint} accessibilityLabel="api-origin">
-            API: {MOBILE_CONFIG.siteUrl}
-          </Text>
-        ) : null}
-
+        <TextInput
+          style={styles.input}
+          placeholder="Nume"
+          placeholderTextColor={THEME.colors.textMuted}
+          value={name}
+          onChangeText={setName}
+          testID="register-name"
+        />
         <TextInput
           style={styles.input}
           placeholder="Email"
           placeholderTextColor={THEME.colors.textMuted}
           autoCapitalize="none"
           keyboardType="email-address"
-          autoCorrect={false}
           value={email}
           onChangeText={setEmail}
-          testID="login-email"
+          testID="register-email"
         />
-
         <TextInput
           style={styles.input}
           placeholder="Parolă"
@@ -98,37 +100,42 @@ export function LoginScreen({ onGoToRegister }: Props): React.JSX.Element {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          testID="login-password"
+          testID="register-password"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Confirmă parola"
+          placeholderTextColor={THEME.colors.textMuted}
+          secureTextEntry
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          testID="register-confirm"
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable
           style={styles.button}
-          onPress={submit}
+          onPress={() => void submit()}
           disabled={isSubmitting}
-          testID="login-submit"
           accessibilityRole="button"
-          accessibilityLabel="Conectare"
-        >
-          {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Conectare</Text>}
+          accessibilityLabel="Creează cont"
+          testID="register-submit"
+        >          {isSubmitting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Creează cont</Text>
+          )}
         </Pressable>
 
-        <Pressable
-          onPress={() => {
-            if (onGoToRegister) {
-              onGoToRegister();
-              return;
-            }
-            openSitePath('/auth/register');
-          }}
-          accessibilityRole="button"
-        >
-          <Text style={styles.link}>Creează cont</Text>
-        </Pressable>
+        {onGoToBusinessRegister ? (
+          <Pressable onPress={onGoToBusinessRegister} accessibilityRole="button">
+            <Text style={styles.link}>Cont firmă</Text>
+          </Pressable>
+        ) : null}
 
-        <Pressable onPress={() => openSitePath('/auth/forgot-password')} accessibilityRole="link">
-          <Text style={styles.linkMuted}>Ai uitat parola?</Text>
+        <Pressable onPress={onGoToLogin} accessibilityRole="button">
+          <Text style={styles.link}>Ai deja cont? Conectare</Text>
         </Pressable>
       </View>
 
@@ -153,9 +160,7 @@ const styles = StyleSheet.create({
     gap: 14,
     backgroundColor: THEME.colors.background,
   },
-  brandHeader: {
-    gap: 4,
-  },
+  brandHeader: { gap: 4 },
   title: {
     fontSize: 34,
     fontWeight: '800',
@@ -174,16 +179,6 @@ const styles = StyleSheet.create({
     gap: 10,
     ...THEME.shadow.card,
   },
-  formTitle: {
-    color: THEME.colors.textPrimary,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  devHint: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
-  },
   input: {
     height: 46,
     borderRadius: THEME.radius.sm,
@@ -193,9 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.surfaceAlt,
     color: THEME.colors.textPrimary,
   },
-  error: {
-    color: THEME.colors.error,
-  },
+  error: { color: THEME.colors.error },
   button: {
     marginTop: 6,
     height: 46,
@@ -204,23 +197,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: THEME.colors.primaryStrong,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
+  buttonText: { color: '#FFFFFF', fontWeight: '700' },
   link: {
     marginTop: 4,
     textAlign: 'center',
     color: THEME.colors.accent,
     fontWeight: '600',
     fontSize: 13,
-  },
-  linkMuted: {
-    marginTop: 2,
-    textAlign: 'center',
-    color: THEME.colors.textMuted,
-    fontWeight: '600',
-    fontSize: 12,
   },
   legalRow: {
     flexDirection: 'row',
@@ -234,8 +217,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  legalSep: {
-    color: THEME.colors.textMuted,
-    fontSize: 12,
-  },
+  legalSep: { color: THEME.colors.textMuted, fontSize: 12 },
 });

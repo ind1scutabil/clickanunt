@@ -16,49 +16,88 @@ const formatRelativeDate = (iso: string): string => {
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `${diffH} h`;
   const diffD = Math.floor(diffH / 24);
-  return `${diffD} z`; 
+  return `${diffD} z`;
 };
 
 export function NotificationsScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [markAllBusy, setMarkAllBusy] = useState(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
+    setError(null);
     try {
       setItems(await notificationsApi.list());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Nu am putut încărca notificările.');
     } finally {
       setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useLiveSync(load, { intervalMs: 10000 });
 
+  const unreadCount = items.filter((n) => !n.isRead).length;
+
   return (
     <View style={styles.container}>
       <View style={[styles.headerBlock, { paddingTop: Math.max(8, insets.top + 4) }]}>
-        <Text style={styles.headerTitle}>Notificări</Text>
-        <Text style={styles.headerSubtitle}>Actualizare automată la 10 secunde</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Notificări</Text>
+            <Text style={styles.headerSubtitle}>Aceleași notificări ca pe website</Text>
+          </View>
+          {unreadCount > 0 ? (
+            <Pressable
+              style={styles.markAllBtn}
+              disabled={markAllBusy}
+              onPress={() => {
+                void (async () => {
+                  setMarkAllBusy(true);
+                  try {
+                    await notificationsApi.markAllRead();
+                    setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'Nu am putut marca notificările.');
+                  } finally {
+                    setMarkAllBusy(false);
+                  }
+                })();
+              }}
+            >
+              <Text style={styles.markAllText}>{markAllBusy ? '…' : 'Marchează citite'}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+
+      {error ? (
+        <View style={styles.errorRow}>
+          <Text style={styles.error}>{error}</Text>
+          <Pressable onPress={() => void load()}>
+            <Text style={styles.retry}>Reîncearcă</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} />}
         contentContainerStyle={styles.content}
         renderItem={({ item }) => (
           <Pressable
             style={[styles.card, !item.isRead && styles.unreadCard]}
             onPress={() => {
               if (item.isRead) return;
-              setItems((prev) =>
-                prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
-              );
+              setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
               void notificationsApi.markRead(item.id).catch(() => {
                 void load();
               });
@@ -74,7 +113,7 @@ export function NotificationsScreen(): React.JSX.Element {
             <Text style={styles.dateText}>{formatRelativeDate(item.createdAt)}</Text>
           </Pressable>
         )}
-        ListEmptyComponent={!refreshing ? <Text style={styles.empty}>Nu ai notificări.</Text> : null}
+        ListEmptyComponent={!refreshing && !error ? <Text style={styles.empty}>Nu ai notificări.</Text> : null}
       />
     </View>
   );
@@ -83,9 +122,30 @@ export function NotificationsScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
   headerBlock: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
   headerSubtitle: { color: THEME.colors.accent, fontSize: 12, marginTop: 2, fontWeight: '600' },
-  content: { padding: 12, gap: 10 },
+  markAllBtn: {
+    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: THEME.radius.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    backgroundColor: THEME.colors.surface,
+  },
+  markAllText: { color: THEME.colors.accent, fontWeight: '700', fontSize: 12 },
+  errorRow: {
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  error: { flex: 1, color: THEME.colors.error },
+  retry: { color: THEME.colors.accent, fontWeight: '700' },
+  content: { padding: 12, gap: 10, paddingBottom: 100 },
   card: {
     backgroundColor: THEME.colors.surface,
     borderRadius: THEME.radius.md,
