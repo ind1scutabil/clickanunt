@@ -37,11 +37,12 @@ const TAB_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 const linking: LinkingOptions<RootStackParamList> = {
+  // HTTPS App Links are verified only for www (canonical). Apex redirects to www
+  // and must not be declared in android.intentFilters autoVerify hosts.
   prefixes: [
     ExpoLinking.createURL('/'),
     'clickanunt://',
     'https://www.clickanunt.ro',
-    'https://clickanunt.ro',
   ],
   config: {
     screens: {

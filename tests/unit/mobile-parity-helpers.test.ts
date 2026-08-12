@@ -88,6 +88,14 @@ describe("extractListingIdFromDeepLink", () => {
     ).toBe("listingid99");
   });
 
+  it("parses https www listing UUID path", () => {
+    expect(
+      extractListingIdFromDeepLink(
+        "https://www.clickanunt.ro/listings/f7ad0849-7ae0-44a6-a43f-45082327ccd2"
+      )
+    ).toBe("f7ad0849-7ae0-44a6-a43f-45082327ccd2");
+  });
+
   it("parses Expo Go /--/listings/:id path", () => {
     expect(
       extractListingIdFromDeepLink(
@@ -98,6 +106,7 @@ describe("extractListingIdFromDeepLink", () => {
 
   it("returns null for unrelated URLs", () => {
     expect(extractListingIdFromDeepLink("https://www.clickanunt.ro/privacy")).toBeNull();
+    expect(extractListingIdFromDeepLink("https://www.clickanunt.ro/auto")).toBeNull();
   });
 });
 

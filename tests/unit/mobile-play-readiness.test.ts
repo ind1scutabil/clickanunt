@@ -1,13 +1,20 @@
 /** @jest-environment node */
 /**
  * Locks Android/Expo Play-readiness facts that must stay 1:1 with the live site brand.
- * Does not invent FCM, assetlinks fingerprints, or store screenshots.
+ * Does not invent FCM or store screenshots. App Links fingerprints must match Play Console.
  */
 import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
 const MOBILE = path.join(ROOT, "apps/mobile");
+
+/** Play App Signing SHA-256 from Play Console (not upload key). */
+const PLAY_APP_SIGNING_FINGERPRINTS = [
+  "B4:F5:EA:F7:B6:24:FE:C0:BC:E6:1C:A8:C9:8C:00:66:B0:2E:7A:5E:EB:23:35:02:9E:22:E0:12:50:8B:35:87",
+  "F5:5A:93:FC:A9:C0:53:BF:EC:0C:E2:D3:BF:1E:4A:83:2E:13:B4:5E:DE:41:8B:07:3F:A6:2F:EF:2D:61:3C:78",
+  "CD:B3:DC:6C:22:FF:C7:2F:0C:79:07:92:8F:53:00:CD:A3:6C:50:82:98:61:18:C2:39:00:70:00:ED:AE:A1:A6",
+] as const;
 
 function readJson(rel: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(path.join(MOBILE, rel), "utf8")) as Record<string, unknown>;
@@ -40,7 +47,7 @@ describe("mobile Play readiness (no invented store/FCM secrets)", () => {
     const android = app.android as Record<string, unknown>;
     const extra = app.extra as Record<string, unknown>;
     expect(android.package).toBe("ro.clickanunt.mobile");
-    expect(android.versionCode).toBe(3);
+    expect(android.versionCode).toBe(4);
     expect(extra.siteUrl).toBe("https://www.clickanunt.ro");
   });
 
@@ -104,16 +111,60 @@ describe("mobile Play readiness (no invented store/FCM secrets)", () => {
     expect(buildProps![1].android.compileSdkVersion).toBe(35);
   });
 
-  it("declares listing custom-scheme intentFilter without inventing assetlinks", () => {
+  it("enables HTTPS App Links for www listings path and keeps custom scheme", () => {
     const app = readJson("app.json").expo as Record<string, unknown>;
     const android = app.android as Record<string, unknown>;
     const filters = android.intentFilters as Array<Record<string, unknown>>;
     expect(Array.isArray(filters)).toBe(true);
-    expect(filters.some((f) => f.autoVerify === false)).toBe(true);
-    expect(fs.existsSync(path.join(ROOT, "public/.well-known/assetlinks.json"))).toBe(false);
-  });
 
-  it("does not ship a fake assetlinks.json without signing fingerprints", () => {
-    expect(fs.existsSync(path.join(ROOT, "public/.well-known/assetlinks.json"))).toBe(false);
+    const httpsFilter = filters.find((f) => {
+      const data = f.data as Array<Record<string, string>> | undefined;
+      return data?.some((d) => d.scheme === "https" && d.host === "www.clickanunt.ro");
+    });
+    expect(httpsFilter).toBeDefined();
+    expect(httpsFilter!.autoVerify).toBe(true);
+    const httpsData = (httpsFilter!.data as Array<Record<string, string>>)[0];
+    expect(httpsData.pathPrefix).toBe("/listings");
+
+    // Apex must not be autoVerify-declared (301 to www is insufficient for DAL).
+    for (const f of filters) {
+      const data = (f.data as Array<Record<string, string>> | undefined) ?? [];
+      expect(data.some((d) => d.host === "clickanunt.ro")).toBe(false);
+    }
+
+    const custom = filters.find((f) => {
+      const data = f.data as Array<Record<string, string>> | undefined;
+      return data?.some((d) => d.scheme === "clickanunt" && d.host === "listings");
+    });
+    expect(custom).toBeDefined();
+  });
+});
+
+describe("Digital Asset Links (assetlinks.json)", () => {
+  const assetlinksPath = path.join(ROOT, "public/.well-known/assetlinks.json");
+
+  it("publishes package, relation, and Play App Signing fingerprints only", () => {
+    expect(fs.existsSync(assetlinksPath)).toBe(true);
+    const statements = JSON.parse(fs.readFileSync(assetlinksPath, "utf8")) as Array<{
+      relation: string[];
+      target: {
+        namespace: string;
+        package_name: string;
+        sha256_cert_fingerprints: string[];
+      };
+    }>;
+    expect(statements).toHaveLength(1);
+    const stmt = statements[0];
+    expect(stmt.relation).toEqual(["delegate_permission/common.handle_all_urls"]);
+    expect(stmt.target.namespace).toBe("android_app");
+    expect(stmt.target.package_name).toBe("ro.clickanunt.mobile");
+    expect(stmt.target.sha256_cert_fingerprints).toEqual([...PLAY_APP_SIGNING_FINGERPRINTS]);
+    // No comments / extra keys
+    expect(Object.keys(stmt).sort()).toEqual(["relation", "target"]);
+    expect(Object.keys(stmt.target).sort()).toEqual([
+      "namespace",
+      "package_name",
+      "sha256_cert_fingerprints",
+    ]);
   });
 });

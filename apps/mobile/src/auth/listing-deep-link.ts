@@ -1,6 +1,6 @@
 /**
- * Deep-link helpers for listing detail (custom scheme + https paths).
- * Does not invent assetlinks fingerprints — HTTPS App Links stay undocumented until signed.
+ * Deep-link helpers for listing detail (custom scheme + https /listings/:id).
+ * Website App Links claim only https://www.clickanunt.ro/listings/* (see app.json).
  */
 export function extractListingIdFromDeepLink(url: string): string | null {
   try {

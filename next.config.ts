@@ -224,6 +224,20 @@ const nextConfig: NextConfig = {
         ]
       },
       {
+        // Android App Links — Digital Asset Links must be JSON without HTML fallback.
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json; charset=utf-8',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=300, must-revalidate',
+          },
+        ],
+      },
+      {
         // API routes with CORS for Safari (OPTIONS preflight handled in app/api/cors)
         // Public listing images are served at /api/uploads/serve — excluded here so
         // app/api/uploads/serve/route.ts owns Cache-Control (immutable 200, no-store 404).

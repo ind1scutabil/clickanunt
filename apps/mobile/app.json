@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "ro.clickanunt.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111111"
@@ -47,7 +47,21 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "autoVerify": false,
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.clickanunt.ro",
+              "pathPrefix": "/listings"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
           "data": [
             {
               "scheme": "clickanunt",

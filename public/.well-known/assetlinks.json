@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ro.clickanunt.mobile",
+      "sha256_cert_fingerprints": [
+        "B4:F5:EA:F7:B6:24:FE:C0:BC:E6:1C:A8:C9:8C:00:66:B0:2E:7A:5E:EB:23:35:02:9E:22:E0:12:50:8B:35:87",
+        "F5:5A:93:FC:A9:C0:53:BF:EC:0C:E2:D3:BF:1E:4A:83:2E:13:B4:5E:DE:41:8B:07:3F:A6:2F:EF:2D:61:3C:78",
+        "CD:B3:DC:6C:22:FF:C7:2F:0C:79:07:92:8F:53:00:CD:A3:6C:50:82:98:61:18:C2:39:00:70:00:ED:AE:A1:A6"
+      ]
+    }
+  }
+]
