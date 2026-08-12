@@ -27,6 +27,7 @@ tests/e2e/.auth/
 # Expo local state (machine-specific)
 .expo/
 apps/mobile/.expo/
+apps/mobile/android/
 
 # load test artifacts (Phase 3C)
 scripts/load/results/

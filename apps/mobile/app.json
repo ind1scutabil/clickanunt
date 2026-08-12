@@ -28,7 +28,7 @@
     },
     "android": {
       "package": "ro.clickanunt.mobile",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111111"
@@ -71,7 +71,17 @@
     "plugins": [
       "expo-asset",
       "expo-notifications",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ]
     ],
     "owner": "ind1scutabil"
   }

@@ -40,7 +40,7 @@ describe("mobile Play readiness (no invented store/FCM secrets)", () => {
     const android = app.android as Record<string, unknown>;
     const extra = app.extra as Record<string, unknown>;
     expect(android.package).toBe("ro.clickanunt.mobile");
-    expect(android.versionCode).toBe(1);
+    expect(android.versionCode).toBe(3);
     expect(extra.siteUrl).toBe("https://www.clickanunt.ro");
   });
 
@@ -91,6 +91,17 @@ describe("mobile Play readiness (no invented store/FCM secrets)", () => {
     expect(nav).toContain("'/terms'");
     expect(nav).toContain("RegisterScreen");
     expect(nav).toContain("MyListingsScreen");
+  });
+
+  it("targets Android API 35 via expo-build-properties (Google Play requirement)", () => {
+    const app = readJson("app.json").expo as Record<string, unknown>;
+    const plugins = app.plugins as unknown[];
+    const buildProps = plugins.find(
+      (p) => Array.isArray(p) && p[0] === "expo-build-properties"
+    ) as [string, { android: Record<string, number | string> }] | undefined;
+    expect(buildProps).toBeDefined();
+    expect(buildProps![1].android.targetSdkVersion).toBe(35);
+    expect(buildProps![1].android.compileSdkVersion).toBe(35);
   });
 
   it("declares listing custom-scheme intentFilter without inventing assetlinks", () => {
